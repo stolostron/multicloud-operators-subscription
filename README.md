@@ -1,2 +1,2 @@
-# multicloud-operators-subscription
-CRD and controller for Subscription (Channel Subscription model) for Multicloud Application.
+# multicloud-operators-deployable
+Multicloud application management with a deployable CRD.
