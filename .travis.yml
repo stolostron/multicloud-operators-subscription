@@ -1,0 +1,44 @@
+sudo: required
+language: go
+go_import_path: github.com/IBM/multicloud-operators-placementrule
+
+env:
+  HADOLINT: "/usr/local/bin/hadolint"
+
+dist: xenial
+
+go:
+  - "1.13"
+
+install:
+  # Download hadolint binary and set it as executable
+  - sudo curl -sL -o ${HADOLINT} "https://github.com/hadolint/hadolint/releases/download/v1.16.0/hadolint-$(uname -s)-$(uname -m)"
+    && sudo chmod 777 ${HADOLINT}
+  # install yamllint
+  - sudo pip install yamllint
+  # install golangci-lint
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+  # install prototool
+  - go get github.com/uber/prototool/cmd/prototool@dev
+
+# define stages
+stages:
+  - lint
+  - test
+
+jobs:
+  include:
+    - stage: lint
+      name: Lint all before other jobs
+      script:
+        - make lint
+
+    - stage: test
+      name: Test Linux only
+      os: linux
+      script:
+      - wget https://github.com/kubernetes-sigs/kubebuilder/releases/download/v1.0.8/kubebuilder_1.0.8_linux_amd64.tar.gz
+      - tar -zxvf  kubebuilder_1.0.8_linux_amd64.tar.gz
+      - sudo mv kubebuilder_1.0.8_linux_amd64 /usr/local/kubebuilder
+      - make test
+

@@ -1,0 +1,7 @@
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: example-subscription
+spec:
+  # Add fields here
+  size: 3
