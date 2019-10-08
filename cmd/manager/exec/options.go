@@ -12,30 +12,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package exec
 
 import (
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"github.com/spf13/pflag"
-
-	"k8s.io/apiserver/pkg/util/flag"
-	"k8s.io/apiserver/pkg/util/logs"
-
-	"github.com/IBM/multicloud-operators-subscription/cmd/manager/exec"
+	pflag "github.com/spf13/pflag"
 )
 
-func main() {
-	exec.ProcessFlags()
+// PlacementRuleCMDOptions for command line flag parsing
+type PlacementRuleCMDOptions struct {
+	MetricsAddr string
+}
 
-	flag.InitFlags()
-	logs.InitLogs()
+var options = PlacementRuleCMDOptions{
+	MetricsAddr: "",
+}
 
-	defer logs.FlushLogs()
-
-	pflag.Parse()
-
-	exec.RunManager()
+// ProcessFlags parses command line parameters into options
+func ProcessFlags() {
+	flag := pflag.CommandLine
+	// add flags
+	flag.StringVar(
+		&options.MetricsAddr,
+		"metrics-addr",
+		options.MetricsAddr,
+		"The address the metric endpoint binds to.",
+	)
 }

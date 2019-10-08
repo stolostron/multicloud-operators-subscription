@@ -2,13 +2,15 @@ module github.com/IBM/multicloud-operators-subscription
 
 require (
 	github.com/IBM/multicloud-operators-deployable v0.0.0-20191004163656-68106a8afdfc
-	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191003174149-8a43376c12cd
+	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191008174057-c9a4d98e0b6a
 	github.com/go-openapi/spec v0.19.0
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-sdk v0.10.1-0.20191004014855-dc713e4d7890
-	github.com/spf13/pflag v1.0.3
+	github.com/prometheus/common v0.4.0
+	github.com/spf13/pflag v1.0.5
 	k8s.io/api v0.0.0-20190612125737-db0771252981
 	k8s.io/apimachinery v0.0.0-20190612125636-6a5db36e93ad
+	k8s.io/apiserver v0.0.0-20181213151703-3ccfe8365421
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
 	k8s.io/klog v0.3.1
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
