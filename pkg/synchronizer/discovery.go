@@ -90,6 +90,7 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	gk := schema.GroupKind{Group: valid.Group, Kind: valid.Kind}
 
 	klog.V(10).Info("gk: ", gk, "valid:", valid)
+
 	if _, ok := internalIgnoredGroupKind[gk]; ok {
 		return nil
 	}
@@ -109,6 +110,7 @@ func (sync *KubeSynchronizer) discoverResources() error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -126,11 +128,13 @@ func (sync *KubeSynchronizer) discoverResources() error {
 	klog.V(10).Info("Discovered resources: ", filteredResources)
 
 	valid := make(map[schema.GroupVersionKind]bool)
+
 	for _, rl := range filteredResources {
 		sync.validateAPIResourceList(rl, valid)
 	}
 
 	klog.V(10).Info("valid resources remain:", valid)
+
 	for k := range sync.KubeResources {
 		if _, ok := valid[k]; !ok {
 			delete(sync.KubeResources, k)
@@ -144,6 +148,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -153,6 +158,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			klog.V(10).Info("Skipping ", rl.GroupVersion, " with error:", err)
 			continue
 		}
+
 		gvk := schema.GroupVersionKind{
 			Kind:    res.Kind,
 			Group:   gv.Group,
@@ -182,12 +188,12 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 		if resmap.GroupVersionResource.Empty() {
 			// kind added by registration, complete it with informer
 			// create new dynamic factor if this is first new api found
-
 			gvr := schema.GroupVersionResource{
 				Group:    gv.Group,
 				Version:  gv.Version,
 				Resource: res.Name,
 			}
+
 			resmap.GroupVersionResource = gvr
 			resmap.Namespaced = res.Namespaced
 			sync.KubeResources[gvk] = resmap

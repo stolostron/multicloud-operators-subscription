@@ -20,7 +20,9 @@ import (
 
 // PlacementRuleCMDOptions for command line flag parsing
 type PlacementRuleCMDOptions struct {
-	MetricsAddr string
+	MetricsAddr      string
+	ClusterName      string
+	ClusterNamespace string
 }
 
 var options = PlacementRuleCMDOptions{
@@ -36,5 +38,19 @@ func ProcessFlags() {
 		"metrics-addr",
 		options.MetricsAddr,
 		"The address the metric endpoint binds to.",
+	)
+
+	flag.StringVar(
+		&options.ClusterName,
+		"cluster-name",
+		options.ClusterName,
+		"Name of this endpoint.",
+	)
+
+	flag.StringVar(
+		&options.ClusterNamespace,
+		"cluster-namespace",
+		options.ClusterNamespace,
+		"Cluster Namespace of this endpoint in hub.",
 	)
 }

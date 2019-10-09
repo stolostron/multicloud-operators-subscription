@@ -31,6 +31,7 @@ func TestUtils(t *testing.T) {
 	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
 	c = mgr.GetClient()
 
 	//start manager mgr

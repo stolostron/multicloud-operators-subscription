@@ -85,12 +85,16 @@ func SetInClusterPackageStatus(substatus *appv1alpha1.SubscriptionStatus, pkgnam
 	}
 
 	var err error
+
 	pkgstatus.LastUpdateTime = metav1.Now()
+
 	if status != nil {
 		if pkgstatus.ResourceStatus == nil {
 			pkgstatus.ResourceStatus = &runtime.RawExtension{}
 		}
+
 		pkgstatus.ResourceStatus.Raw, err = json.Marshal(status)
+
 		if err != nil {
 			glog.Info("Failed to mashall status for ", status, " with err:", err)
 		}
@@ -120,11 +124,14 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 
 	sub := &appv1alpha1.Subscription{}
 	subkey := GetHostSubscriptionFromObject(tplunit)
+
 	if subkey == nil {
 		glog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
 		return nil
 	}
+
 	err := statusClient.Get(context.TODO(), *subkey, sub)
+
 	if err != nil {
 		// for all errors including not found return
 		glog.Info("Failed to get subscription object ", *subkey, " to set status, error:", err)
@@ -136,6 +143,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
 		glog.Info(errmsg)
 		err = errors.New(errmsg)
+
 		return err
 	}
 
@@ -150,12 +158,14 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	if err != nil {
 		glog.Error("Failed to update status of deployable ", err)
 	}
+
 	return err
 }
 
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages
 func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1alpha1.Subscription, pkgMap map[string]bool) error {
 	var err error
+
 	updated := false
 
 	if sub.Status.Statuses == nil {
@@ -179,6 +189,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 	for k := range clst.SubscriptionPackageStatus {
 		if _, ok := pkgMap[k]; !ok {
 			updated = true
+
 			delete(clst.SubscriptionPackageStatus, k)
 		} else {
 			pkgst := clst.SubscriptionPackageStatus[k]
@@ -209,6 +220,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 			glog.Error("Failed to update status of deployable ", err)
 		}
 	}
+
 	return err
 }
 

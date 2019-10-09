@@ -15,11 +15,9 @@
 package utils
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 
-	jsonpatch "github.com/cameront/go-jsonpatch"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -28,60 +26,12 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
-// GenerateOverrides compare 2 deployable and generate array for overrides
-func GenerateOverrides(src, dst *appv1alpha1.Deployable) []appv1alpha1.ClusterOverride {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	var covs []appv1alpha1.ClusterOverride
-
-	klog.V(10).Info("Start Generating patch. Src Template:", string(src.Spec.Template.Raw), " dst:", string(dst.Spec.Template.Raw))
-
-	srcobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(src.Spec.Template)
-	if err != nil {
-		klog.Info("Failed to decode src template ", string(src.Spec.Template.Raw))
-	}
-
-	dstobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(dst.Spec.Template)
-	if err != nil {
-		klog.Info("Failed to decode dst template ", string(dst.Spec.Template.Raw))
-	}
-
-	patch, err := jsonpatch.MakePatch(srcobj, dstobj)
-	if err != nil {
-		klog.Info("Error in generating patch for", string(src.Spec.Template.Raw), " with error:", err)
-		return covs
-	}
-
-	for _, p := range patch.Operations {
-		ovmap := make(map[string]interface{})
-		pathstr := p.Path
-		if pathstr[0] == '/' {
-			pathstr = pathstr[1:]
-		}
-		pathstr = strings.ReplaceAll(pathstr, "/", ".")
-		ovmap["path"] = pathstr
-		ovmap["value"] = p.Value
-		patchb, err := json.Marshal(ovmap)
-		if err != nil {
-			klog.Info("Error in mashaing patch for", ovmap, " with error:", err)
-			continue
-		}
-		covs = append(covs, appv1alpha1.ClusterOverride{RawExtension: runtime.RawExtension{Raw: patchb}})
-	}
-	klog.V(10).Info("Got clusteroverrides ", covs)
-
-	return covs
-}
-
 // PrepareOverrides returns the overridemap for given deployable instance
 func PrepareOverrides(cluster types.NamespacedName, instance *appv1alpha1.Deployable) ([]appv1alpha1.ClusterOverride, error) {
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -108,10 +58,12 @@ func OverrideTemplate(template *unstructured.Unstructured, overrides []appv1alph
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
 	ovt := template.DeepCopy()
+
 	if template == nil || overrides == nil {
 		klog.V(10).Info("No Instance or no override for template")
 		return ovt, nil
@@ -120,15 +72,20 @@ func OverrideTemplate(template *unstructured.Unstructured, overrides []appv1alph
 	for _, override := range overrides {
 		ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&override)
 		klog.V(10).Info("From Instance Converter", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
+
 		if err != nil {
 			return nil, errors.New("can not parse override")
 		}
+
 		path, ok := ovuobj["path"].(string)
+
 		if !ok {
 			return nil, errors.New("can not convert path of override")
 		}
+
 		fields := strings.Split(path, ".")
 		err = unstructured.SetNestedField(ovt.Object, ovuobj["value"], fields...)
+
 		if err != nil {
 			klog.Error("Failed to set nested field for overriding template with error:", err)
 		}

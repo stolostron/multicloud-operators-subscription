@@ -16,6 +16,7 @@ package synchronizer
 
 import (
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +32,7 @@ func TestSync(t *testing.T) {
 	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
 	c = mgr.GetClient()
 
 	sync, err := CreateSynchronizer(cfg, cfg, nil, 10, nil)
@@ -39,6 +41,8 @@ func TestSync(t *testing.T) {
 	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	time.Sleep(1 * time.Second)
 
 	defer func() {
 		close(stopMgr)

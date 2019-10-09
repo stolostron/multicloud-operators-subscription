@@ -35,10 +35,11 @@ var cfg *rest.Config
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crds"),
+			filepath.Join("..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "hack", "test"),
 		},
 	}
+
 	apis.AddToScheme(scheme.Scheme)
 
 	var err error
@@ -47,6 +48,7 @@ func TestMain(m *testing.M) {
 	}
 
 	code := m.Run()
+
 	t.Stop()
 	os.Exit(code)
 }
@@ -56,9 +58,11 @@ func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}
 	stop := make(chan struct{})
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
+
 	go func() {
 		defer wg.Done()
 		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
 	}()
+
 	return stop, wg
 }

@@ -32,13 +32,16 @@ type Validator struct {
 // CleanupByHost returns initialized validator struct
 func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) {
 	var err error
+
 	for _, resmap := range sync.KubeResources {
 		for _, tplunit := range resmap.TemplateMap {
 			tplhost := sync.Extension.GetHostFromObject(tplunit)
 			tpldpl := utils.GetHostDeployableFromObject(tplunit)
+
 			if tplhost != nil && tplhost.String() == host.String() {
 				klog.V(10).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, syncsource)
+
 				if err != nil {
 					klog.Error("Failed to deregister template for cleanup by host with error: ", err)
 				}
@@ -59,14 +62,18 @@ func (sync *KubeSynchronizer) CreateValiadtor(syncsource string) *Validator {
 // ApplyValiadtor use validator to check resources in synchronizer
 func (sync *KubeSynchronizer) ApplyValiadtor(v *Validator) {
 	var err error
+
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			if v.Store[resgvk] == nil || !v.Store[resgvk][reskey] {
 				// will ignore non-syncsource templates
 				tplhost := sync.Extension.GetHostFromObject(tplunit)
 				tpldpl := utils.GetHostDeployableFromObject(tplunit)
+
 				klog.V(10).Infof("Start DeRegister, with resgvk: %v, reskey: %s", resgvk, reskey)
+
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, v.syncsource)
+
 				if err != nil {
 					klog.Error("Failed to deregister template for applying validator with error: ", err)
 				}

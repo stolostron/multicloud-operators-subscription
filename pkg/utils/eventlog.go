@@ -46,6 +46,7 @@ func GetFnName() string {
 	if ok {
 		fnName = regexStripFnPreamble.ReplaceAllString(runtime.FuncForPC(pc).Name(), "$1")
 	}
+
 	return fnName
 }
 

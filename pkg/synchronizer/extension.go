@@ -87,6 +87,7 @@ func (se *SubscriptionExtension) SetHostToObject(obj metav1.Object, host types.N
 	if objanno == nil {
 		objanno = make(map[string]string)
 	}
+
 	objanno[appv1alpha1.AnnotationHosting] = host.String()
 	obj.SetAnnotations(objanno)
 

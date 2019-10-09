@@ -84,10 +84,13 @@ func CreateSynchronizer(config, statusConfig *rest.Config, syncid *types.Namespa
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
 	dynamicClient := dynamic.NewForConfigOrDie(config)
 	statusClient, err := client.New(statusConfig, client.Options{})
+
 	if err != nil {
 		klog.Error("Failed to initialize client to update deployable status. err: ", err)
 		return nil, err
@@ -115,10 +118,13 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
 	sync.signal = s
 	err := sync.discoverResources()
+
 	if err != nil {
 		return err
 	}
@@ -133,6 +139,7 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	}, time.Duration(sync.Interval)*time.Second, sync.signal)
 
 	<-sync.signal
+
 	return nil
 }
 
@@ -141,12 +148,15 @@ func (sync *KubeSynchronizer) StartOnce(s <-chan struct{}, interval int64) error
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
 	time.Sleep(time.Duration(interval) * time.Second)
+
 	sync.signal = s
 	err := sync.houseKeeping()
+
 	if err != nil {
 		klog.Error("Housekeeping once with error", err)
 	}
@@ -159,17 +169,23 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
 	err := sync.validateDeployables()
+
 	if err != nil {
 		return err
 	}
+
 	crdUpdated := false
 	// make sure the template map and the actual resource are aligned
 	for gvk, res := range sync.KubeResources {
 		var err error
+
 		klog.V(10).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
+
 		if res.GroupVersionResource.Empty() {
 			klog.Warning("Resource gvk ", gvk, " is not discovered from server yet")
 			continue
@@ -177,12 +193,16 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 
 		if res.ServerUpdated {
 			err = sync.checkServerObjects(res)
+
 			if res.GroupVersionResource.Resource == crdresource {
 				klog.V(5).Info("CRD Updated! let's discover it!")
+
 				crdUpdated = true
 			}
+
 			res.ServerUpdated = false
 		}
+
 		if err != nil {
 			klog.Warning("Error in checking server objects of gvk:", gvk, "error:", err, " skipping")
 			continue
@@ -208,6 +228,7 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -215,6 +236,7 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 	if sync.SynchronizerID == nil || sync.SynchronizerID.String() != (client.ObjectKey{}).String() {
 		klog.V(10).Info("Managed cluster controller does not need to validate deployables, even it sits on hub")
 		klog.V(5).Info("Exit 167", nil)
+
 		return nil
 	}
 
@@ -235,6 +257,7 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 	for k, v := range deployableMap {
 		done := false
 		obj := v.DeepCopy()
+
 		for !done {
 			annotations := obj.GetAnnotations()
 			if annotations == nil {
@@ -247,18 +270,24 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 				// reached level 1, stays
 				break
 			}
+
 			ok := false
 			obj, ok = deployableMap[host.String()]
+
 			if !ok {
 				// parent is gone, delete the deployable from map and from kube
 				klog.V(5).Infof("parent is gone, delete the deployable from map and from kube: host: %#v, k: %#v, v: %#v ", host, k, v)
 				delete(deployableMap, k)
+
 				deletepolicy := metav1.DeletePropagationBackground
+
 				err = sync.DynamicClient.Resource(deployableResource).Namespace(v.GetNamespace()).Delete(
 					v.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
+
 				if err != nil {
 					klog.Error("Failed to delete orphan deployable with error:", err)
 				}
+
 				done = true
 			}
 		}
@@ -266,6 +295,7 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 
 	// leave the actual resource deletion to later stage of house keeping
 	klog.V(5).Info("Exit 212", nil)
+
 	return nil
 }
 
@@ -273,8 +303,10 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
 	klog.V(10).Info("Checking Server object:", res.GroupVersionResource)
 
 	objlist, err := sync.DynamicClient.Resource(res.GroupVersionResource).List(metav1.ListOptions{})
@@ -291,6 +323,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 
 		host := sync.Extension.GetHostFromObject(&obj)
 		dpl := utils.GetHostDeployableFromObject(&obj)
+
 		if dpl == nil {
 			continue
 		}
@@ -298,6 +331,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 		reskey := sync.generateResourceMapKey(*host, *dpl)
 
 		tplunit, ok := res.TemplateMap[reskey]
+
 		if res.Namespaced {
 			dl = sync.DynamicClient.Resource(res.GroupVersionResource).Namespace(obj.GetNamespace())
 		} else {
@@ -306,6 +340,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 
 		if !ok {
 			klog.V(10).Infof("Deleting host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
+
 			deletepolicy := metav1.DeletePropagationBackground
 			err = dl.Delete(obj.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 		} else {
@@ -313,17 +348,21 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 			klog.V(10).Info("Found for ", dpl, ", tplunit:", tplunit, "Doing obj ", obj.GetNamespace(), "/", obj.GetName(), " with status:", status)
 			delete(obj.Object, "status")
 			err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, status)
+
 			if err != nil {
 				klog.Error("Failed to update host status with error:", err)
 			}
+
 			if tplunit.Updated {
 				continue
 			}
+
 			if !reflect.DeepEqual(obj, tplunit.Unstructured.Object) {
 				newobj := tplunit.Unstructured.DeepCopy()
 				newobj.SetResourceVersion(obj.GetResourceVersion())
 				_, err = dl.Update(newobj, metav1.UpdateOptions{})
 				klog.V(10).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
+
 				if err == nil {
 					tplunit.Updated = true
 				}
@@ -340,11 +379,88 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 	return nil
 }
 
+func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) {
+	klog.V(10).Info("Apply - Creating New Resource ", tplunit)
+	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
+
+	// Auto Create Namespace if not exist
+	if err != nil && errors.IsNotFound(err) {
+		ns := &corev1.Namespace{}
+		ns.Name = tplunit.GetNamespace()
+		nsus := &unstructured.Unstructured{}
+		nsus.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
+
+		if err == nil {
+			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
+				Version:  "v1",
+				Resource: "namespaces",
+			}).Create(nsus, metav1.CreateOptions{})
+
+			if err == nil {
+				// try again
+				obj, err = ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
+			}
+		}
+	}
+
+	if err == nil {
+		tplunit.Updated = true
+	} else {
+		tplunit.Updated = false
+	}
+
+	if obj != nil {
+		err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
+	} else {
+		err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, nil)
+	}
+
+	if err != nil {
+		klog.Error("Failed to update host status with error: ", err)
+	}
+}
+
+func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface, obj *unstructured.Unstructured, tplunit *TemplateUnit) {
+	var err error
+
+	tplown := sync.Extension.GetHostFromObject(tplunit)
+	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
+		errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
+		klog.Info(errmsg)
+
+		tplunit.Updated = false
+
+		err = sync.Extension.UpdateHostStatus(sync.StatusClient, errors.NewBadRequest(errmsg), tplunit.Unstructured, nil)
+
+		if err != nil {
+			klog.Error("Failed to update host status for existing resource with error:", err)
+		}
+
+		return
+	}
+
+	newobj := tplunit.Unstructured.DeepCopy()
+	newobj.SetResourceVersion(obj.GetResourceVersion())
+	_, err = ri.Update(newobj, metav1.UpdateOptions{})
+	klog.V(10).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
+
+	if err == nil {
+		tplunit.Updated = true
+	}
+
+	sterr := sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
+
+	if sterr != nil {
+		klog.Error("Failed to update host status with error:", err)
+	}
+}
+
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	for k, tplunit := range res.TemplateMap {
 		klog.V(10).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.Updated)
 
 		var ri dynamic.ResourceInterface
+
 		if res.Namespaced {
 			klog.V(10).Info("Namespaced ri for ", res.GroupVersionResource)
 			ri = sync.DynamicClient.Resource(res.GroupVersionResource).Namespace(tplunit.GetNamespace())
@@ -352,74 +468,20 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 			klog.V(10).Info("Clusterscpoped ri for ", res.GroupVersionResource)
 			ri = sync.DynamicClient.Resource(res.GroupVersionResource)
 		}
+
 		obj, err := ri.Get(tplunit.GetName(), metav1.GetOptions{})
+
 		if err != nil {
 			if errors.IsNotFound(err) {
-				klog.V(10).Info("Apply - Creating New Resource ", tplunit)
-				obj, err = ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
-
-				// Auto Create Namespace
-				if err != nil && errors.IsNotFound(err) {
-					ns := &corev1.Namespace{}
-					ns.Name = tplunit.GetNamespace()
-					nsus := &unstructured.Unstructured{}
-					nsus.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
-					if err == nil {
-						_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
-							Version:  "v1",
-							Resource: "namespaces",
-						}).Create(nsus, metav1.CreateOptions{})
-
-						if err == nil {
-							// try again
-							obj, err = ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
-						}
-					}
-				}
-
-				if err == nil {
-					tplunit.Updated = true
-				} else {
-					tplunit.Updated = false
-				}
-				if obj != nil {
-					err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
-				} else {
-					err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, nil)
-				}
-				if err != nil {
-					klog.Error("Failed to update host status with error: ", err)
-				}
+				sync.createNewResourceByTemplateUnit(ri, tplunit)
 			}
 		} else if !tplunit.Updated {
-			tplown := sync.Extension.GetHostFromObject(tplunit)
-			if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
-				errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
-				klog.V(5).Info(errmsg)
-				tplunit.Updated = false
-				err = sync.Extension.UpdateHostStatus(sync.StatusClient, errors.NewBadRequest(errmsg), tplunit.Unstructured, nil)
-				if err != nil {
-					klog.Error("Failed to update host status for existing resource with error:", err)
-				}
-				continue
-			}
-
-			newobj := tplunit.Unstructured.DeepCopy()
-			newobj.SetResourceVersion(obj.GetResourceVersion())
-			_, err = ri.Update(newobj, metav1.UpdateOptions{})
-			klog.V(10).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
-			if err == nil {
-				tplunit.Updated = true
-			}
-			sterr := sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
-			if sterr != nil {
-				klog.Error("Failed to update host status with error:", err)
-			}
+			sync.updateResourceByTemplateUnit(ri, obj, tplunit)
 			// don't process the err of status update. leave it to next round house keeping
 		}
 		// leave the sync the check routine, not this one
 		if err != nil {
-			continue
+			return
 		}
 
 		klog.V(10).Info("Applied Kind Template ", tplunit.Unstructured, " error:", err)
@@ -431,10 +493,12 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 	// check resource template map for deployables
 	klog.V(10).Info("Deleting template ", dpl, "for syncid", dpl)
+
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil
 		if len(resmap.TemplateMap) > 0 {
@@ -448,8 +512,10 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			if tplunit != nil {
 				klog.V(10).Infof("Delete - skipping tplunit with other source, resmap source: %v, source: %v", tplunit.Source, source)
 			}
+
 			continue
 		}
+
 		delete(resmap.TemplateMap, reskey)
 
 		klog.V(10).Info("Deleted template ", dpl, "in resource", resmap.GroupVersionResource)
@@ -467,12 +533,16 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
 					klog.V(10).Info("Deleting ", tplunit.Unstructured)
+
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
+
 					if err != nil {
 						klog.Error("Failed to delete tplunit in kubernetes, with error:", err)
 					}
+
 					sterr := sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, nil)
+
 					if sterr != nil {
 						klog.Error("Failed to update host status, with error:", err)
 					}
@@ -480,6 +550,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -489,9 +560,12 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
 	template := &unstructured.Unstructured{}
+
 	if instance.Spec.Template == nil {
 		klog.Warning("Processing local deployable without template:", instance)
 		return nil
@@ -499,10 +573,12 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	err := json.Unmarshal(instance.Spec.Template.Raw, template)
 	klog.V(10).Info("Processing Local with template:", template, ", syncid: ", sync.SynchronizerID, ", host: ", host)
+
 	if err != nil {
 		klog.Error("Failed to unmashal template with error: ", err, " with ", string(instance.Spec.Template.Raw))
 		return err
 	}
+
 	if template.GetKind() == "" {
 		return errors.NewBadRequest("Failed to update template with empty kind. gvk:" + template.GetObjectKind().GroupVersionKind().String())
 	}
@@ -517,19 +593,24 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	if tpllbls == nil {
 		tpllbls = make(map[string]string)
 	}
+
 	for k, v := range instance.GetLabels() {
 		tpllbls[k] = v
 	}
+
 	template.SetLabels(tpllbls)
 
 	tplgvk := template.GetObjectKind().GroupVersionKind()
 	validgvk := sync.GetValidatedGVK(tplgvk)
+
 	if validgvk == nil {
 		return errors.NewBadRequest("GroupVersionKind of Template is not supported. " + tplgvk.String())
 	}
+
 	template.SetGroupVersionKind(*validgvk)
 
 	resmap, ok := sync.KubeResources[*validgvk]
+
 	if !ok {
 		// register new kind
 		resmap = &ResourceMap{
@@ -555,10 +636,13 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	if len(instance.GetObjectMeta().GetFinalizers()) > 0 {
 		// Deployable in being deleted, de-register template and return
 		klog.V(10).Info("Deployable has finalizers, ready to delete object", instance)
+
 		err = sync.DeRegisterTemplate(host, dpl, source)
+
 		if err != nil {
 			klog.Error("Failed to deregister template when there are finalizer(s) with error: ", err)
 		}
+
 		return nil
 	}
 
@@ -572,13 +656,17 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	if !utils.IsLocalDeployable(instance) {
 		klog.V(10).Info("Deployable is not (no longer) local, ready to delete object", instance)
+
 		err = sync.DeRegisterTemplate(host, dpl, source)
+
 		if err != nil {
 			klog.Error("Failed to deregister template when the deployable is not local, with error:", err)
 		}
+
 		instance.Status.ResourceStatus = nil
 		instance.Status.Message = ""
 		instance.Status.Reason = ""
+
 		return nil
 	}
 
@@ -587,6 +675,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	if err != nil {
 		klog.Error("Failed to set host to object with error:", err)
 	}
+
 	tplanno := template.GetAnnotations()
 	tplanno[appv1alpha1.AnnotationHosting] = instance.GetNamespace() + "/" + instance.GetName()
 	template.SetAnnotations(tplanno)
@@ -598,7 +687,9 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 			klog.Error("Failed to prepare override for instance: ", instance)
 			return err
 		}
+
 		template, err = utils.OverrideTemplate(template, ovmap)
+
 		if err != nil {
 			klog.Error("Failed to apply override for instance: ", instance)
 			return err
@@ -612,6 +703,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		klog.V(10).Info("Skipping.. template in registry is the same ", existingTemplateUnit)
 		return nil
 	}
+
 	templateUnit := &TemplateUnit{
 		Updated:      false,
 		Unstructured: template.DeepCopy(),
@@ -621,6 +713,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
 
 	klog.V(10).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
+
 	return nil
 }
 
