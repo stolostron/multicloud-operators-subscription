@@ -98,7 +98,7 @@ test:
 # build section
 ############################################################
 
-build: test
+build: 
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 
 ############################################################
@@ -114,6 +114,8 @@ endif
 build-push-images: $(CONFIG_DOCKER_TARGET)
 	@docker build . -f Dockerfile -t $(REGISTRY)/$(IMG):$(VERSION)
 	@docker push $(REGISTRY)/$(IMG):$(VERSION)
+	@docker tag $(REGISTRY)/$(IMG):$(VERSION) $(REGISTRY)/$(IMG)
+	@docker push $(REGISTRY)/$(IMG)
 
 ############################################################
 # clean section
