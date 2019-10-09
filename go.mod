@@ -4,10 +4,12 @@ require (
 	github.com/IBM/multicloud-operators-deployable v0.0.0-20191004163656-68106a8afdfc
 	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191008174057-c9a4d98e0b6a
 	github.com/go-openapi/spec v0.19.0
+	github.com/onsi/gomega v1.7.0
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-sdk v0.10.1-0.20191004014855-dc713e4d7890
 	github.com/prometheus/common v0.4.0
 	github.com/spf13/pflag v1.0.5
+	golang.org/x/net v0.0.0-20190923162816-aa69164e4478
 	k8s.io/api v0.0.0-20190612125737-db0771252981
 	k8s.io/apimachinery v0.0.0-20190612125636-6a5db36e93ad
 	k8s.io/apiserver v0.0.0-20181213151703-3ccfe8365421
