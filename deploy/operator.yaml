@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicloud-operators-subscription
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -15,10 +16,9 @@ spec:
       serviceAccountName: multicloud-operators-subscription
       containers:
         - name: multicloud-operators-subscription
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: quay.io/multicloudlab/multicloud-operators-subscription
           command:
-          - multicloud-operators-subscription
+          - /multicloud-operators-subscription
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -31,3 +31,10 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "multicloud-operators-subscription"
+          resources:
+              requests:
+                cpu: 5m
+                memory: 5Mi
+              limits:
+                cpu: 10m
+                memory: 10Mi

@@ -23,11 +23,11 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 
-	"github.com/golang/glog"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -96,13 +96,13 @@ func SetInClusterPackageStatus(substatus *appv1alpha1.SubscriptionStatus, pkgnam
 		pkgstatus.ResourceStatus.Raw, err = json.Marshal(status)
 
 		if err != nil {
-			glog.Info("Failed to mashall status for ", status, " with err:", err)
+			klog.Info("Failed to mashall status for ", status, " with err:", err)
 		}
 	} else {
 		pkgstatus.ResourceStatus = nil
 	}
 
-	glog.V(10).Info("Set package status: ", pkgstatus)
+	klog.V(10).Info("Set package status: ", pkgstatus)
 
 	clst.SubscriptionPackageStatus[pkgname] = pkgstatus
 	substatus.Statuses["/"] = clst
@@ -116,7 +116,7 @@ func SetInClusterPackageStatus(substatus *appv1alpha1.SubscriptionStatus, pkgnam
 // - nil:  success
 // - others: failed, with error message in reason
 func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}) error {
-	glog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
+	klog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
 
 	if tplunit == nil {
 		return nil
@@ -126,7 +126,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	subkey := GetHostSubscriptionFromObject(tplunit)
 
 	if subkey == nil {
-		glog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
+		klog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
 		return nil
 	}
 
@@ -134,14 +134,14 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 
 	if err != nil {
 		// for all errors including not found return
-		glog.Info("Failed to get subscription object ", *subkey, " to set status, error:", err)
+		klog.Info("Failed to get subscription object ", *subkey, " to set status, error:", err)
 		return err
 	}
 
 	dplkey := GetHostDeployableFromObject(tplunit)
 	if dplkey == nil {
 		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
-		glog.Info(errmsg)
+		klog.Info(errmsg)
 		err = errors.New(errmsg)
 
 		return err
@@ -149,14 +149,14 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 
 	err = SetInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
 	if err != nil {
-		glog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
+		klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
 		return err
 	}
 
 	err = statusClient.Status().Update(context.TODO(), sub)
 	// want to print out the error log before leave
 	if err != nil {
-		glog.Error("Failed to update status of deployable ", err)
+		klog.Error("Failed to update status of deployable ", err)
 	}
 
 	return err
@@ -179,7 +179,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 		updated = true
 	}
 
-	glog.V(10).Info("valiating subscription status:", pkgMap, sub.Status, clst)
+	klog.V(10).Info("valiating subscription status:", pkgMap, sub.Status, clst)
 
 	if clst.SubscriptionPackageStatus == nil {
 		clst.SubscriptionPackageStatus = make(map[string]*appv1alpha1.SubscriptionUnitStatus)
@@ -206,18 +206,18 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 		clst.SubscriptionPackageStatus[k] = pkgst
 	}
 
-	glog.V(10).Info("Done checking ", updated, pkgMap, sub.Status, clst)
+	klog.V(10).Info("Done checking ", updated, pkgMap, sub.Status, clst)
 
 	if updated {
 		sub.Status.Statuses["/"] = clst
 
-		glog.V(10).Info("Updating", sub.Status, sub.Status.Statuses["/"])
+		klog.V(10).Info("Updating", sub.Status, sub.Status.Statuses["/"])
 
 		sub.Status.LastUpdateTime = metav1.Now()
 		err = statusClient.Status().Update(context.TODO(), sub)
 		// want to print out the error log before leave
 		if err != nil {
-			glog.Error("Failed to update status of deployable ", err)
+			klog.Error("Failed to update status of deployable ", err)
 		}
 	}
 
