@@ -20,26 +20,27 @@ import (
 	"os"
 	"runtime"
 
-	"k8s.io/client-go/rest"
-
-	"github.com/prometheus/common/log"
-
-	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
-	"github.com/IBM/multicloud-operators-subscription/pkg/controller"
-
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	"github.com/prometheus/common/log"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
-	"k8s.io/klog"
+	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
+	"github.com/IBM/multicloud-operators-subscription/pkg/controller"
+	"github.com/IBM/multicloud-operators-subscription/pkg/subscriber"
+	"github.com/IBM/multicloud-operators-subscription/pkg/synchronizer"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -90,6 +91,23 @@ func RunManager() {
 		os.Exit(1)
 	}
 
+	// generate id for with cluster information
+	var id = &types.NamespacedName{
+		Name:      options.ClusterName,
+		Namespace: options.ClusterNamespace,
+	}
+
+	// generate config to hub cluster
+	hubconfig := mgr.GetConfig()
+	if options.HubConfigFilePathName != "" {
+		hubconfig, err = clientcmd.BuildConfigFromFlags("", options.HubConfigFilePathName)
+
+		if err != nil {
+			klog.Error("Failed to build config to hub cluster with the pathname provided ", options.HubConfigFilePathName, " err:", err)
+			os.Exit(1)
+		}
+	}
+
 	klog.Info("Registering Components.")
 
 	// Setup Scheme for all resources
@@ -98,8 +116,20 @@ func RunManager() {
 		os.Exit(1)
 	}
 
+	// Setup Synchronizer
+	if err := synchronizer.AddToManager(mgr, hubconfig, id, options.SyncInterval); err != nil {
+		klog.Error("Failed to initialize synchronizer with error:", err)
+		os.Exit(1)
+	}
+
+	// Setup Subscribers
+	if err := subscriber.AddToManager(mgr, options.SyncInterval); err != nil {
+		klog.Error("Failed to initialize synchronizer with error:", err)
+		os.Exit(1)
+	}
+
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}

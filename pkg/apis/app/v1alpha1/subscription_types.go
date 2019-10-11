@@ -16,11 +16,14 @@ package v1alpha1
 
 import (
 	operatorv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 
+	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	placementv1alpha1 "github.com/IBM/multicloud-operators-placementrule/pkg/apis/app/v1alpha1"
+	plrv1alpha1 "github.com/IBM/multicloud-operators-placementrule/pkg/apis/app/v1alpha1"
 )
 
 var (
@@ -75,7 +78,7 @@ type SubscriptionSpec struct {
 	// To provide flexibility to override package in channel with local input
 	PackageOverrides []*Overrides `json:"packageOverrides,omitempty"`
 	// For hub use only, to specify which clusters to go to
-	Placement *placementv1alpha1.Placement `json:"placement,omitempty"`
+	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
 	// for hub use only to specify the overrides when apply to clusters
 	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
 }
@@ -172,11 +175,17 @@ type SubscriptionList struct {
 	Items           []Subscription `json:"items"`
 }
 
-// Subscriber defines the interface for various channels
+type SubsriberItem struct {
+	Subscription          Subscription
+	SubscriptionConfigMap *corev1.ConfigMap
+	Channel               chnv1alpha1.Channel
+	ChannelSecret         *corev1.Secret
+	ChannelConfigMap      *corev1.ConfigMap
+}
+
 type Subscriber interface {
-	ReStart() error
-	Stop() error
-	Update(*Subscription) error
+	SubscriberItem(*SubsriberItem) error
+	UnsubscribeItem(types.NamespacedName) error
 }
 
 func init() {

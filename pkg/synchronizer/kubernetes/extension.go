@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package synchronizer
+package kubernetes
 
 import (
 	"errors"
@@ -46,7 +46,7 @@ type Extension interface {
 }
 
 var (
-	defaultExtension = SubscriptionExtension{
+	defaultExtension = &SubscriptionExtension{
 		IngoredGroupKindMap: map[schema.GroupKind]bool{
 			dplgk: true,
 		},

@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package subscription
+package namespace
 
 import (
 	"testing"
-	"time"
 
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
@@ -25,24 +24,26 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 var c client.Client
 
-var subscription = &appv1alpha1.Subscription{
-	ObjectMeta: metav1.ObjectMeta{
+var (
+	sharedkey = types.NamespacedName{
 		Name:      "foo",
 		Namespace: "default",
-	},
-	Spec: appv1alpha1.SubscriptionSpec{},
-}
+	}
 
-var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
-
-const timeout = time.Second * 5
+	subscription = &appv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: appv1alpha1.SubscriptionSpec{},
+	}
+)
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -54,10 +55,6 @@ func TestReconcile(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
-
-	recFn, requests := SetupTestReconcile(newReconciler(mgr, mgr.GetClient()))
-
-	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -78,6 +75,4 @@ func TestReconcile(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), instance)
-
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 }

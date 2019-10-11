@@ -15,7 +15,11 @@
 package subscription
 
 import (
+	"context"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -25,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
 )
 
 /**
@@ -34,13 +39,23 @@ import (
 
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+func Add(mgr manager.Manager, hubconfig *rest.Config) error {
+	hubclient, err := client.New(hubconfig, client.Options{})
+	if err != nil {
+		klog.Error("Failed to generate client to hub cluster with error:", err)
+		return err
+	}
+
+	return add(mgr, newReconciler(mgr, hubclient))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileSubscription{client: mgr.GetClient(), scheme: mgr.GetScheme()}
+func newReconciler(mgr manager.Manager, hubclient client.Client) reconcile.Reconciler {
+	return &ReconcileSubscription{
+		Client:    mgr.GetClient(),
+		scheme:    mgr.GetScheme(),
+		hubclient: hubclient,
+	}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -67,14 +82,28 @@ var _ reconcile.Reconciler = &ReconcileSubscription{}
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client.Client
+	hubclient client.Client
+	scheme    *runtime.Scheme
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.Info("Reconciling: ", request.NamespacedName)
+
+	instance := &appv1alpha1.Subscription{}
+	err := r.Get(context.TODO(), request.NamespacedName, instance)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Object not found, delete existing subscriberitem if any
+			_ = nssub.GetDefaultSubscriber().UnsubscribeItem(request.NamespacedName)
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		return reconcile.Result{}, err
+	}
 
 	return reconcile.Result{}, nil
 }

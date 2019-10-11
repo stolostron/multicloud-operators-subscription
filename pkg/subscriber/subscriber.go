@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package subscriber
 
 import (
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, *rest.Config) error
+var AddToManagerFuncs []func(manager.Manager, int) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config) error {
+func AddToManager(m manager.Manager, syncinterval int) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m, cfg); err != nil {
+		if err := f(m, syncinterval); err != nil {
 			return err
 		}
 	}
