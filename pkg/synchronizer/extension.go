@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
@@ -101,11 +102,6 @@ func (se *SubscriptionExtension) IsObjectOwnedBySynchronizer(obj metav1.Object, 
 		return false
 	}
 
-	if syncid != nil {
-		// subscription does not introduce id yet.
-		return false
-	}
-
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
 		_, ok := objanno[dplv1alpha1.AnnotationManagedCluster]
@@ -121,6 +117,7 @@ func (se *SubscriptionExtension) IsObjectOwnedByHost(obj metav1.Object, host typ
 	owned := se.IsObjectOwnedBySynchronizer(obj, syncid)
 
 	if !owned {
+		klog.V(5).Info("Resource", obj, " is not owned by ", syncid)
 		return owned
 	}
 

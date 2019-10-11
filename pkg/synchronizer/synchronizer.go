@@ -493,7 +493,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 		delete(resmap.TemplateMap, reskey)
 
-		klog.V(10).Info("Deleted template ", dpl, "in resource", resmap.GroupVersionResource)
+		klog.V(5).Info("Deleted template ", dpl, "in resource map", resmap.GroupVersionResource)
 
 		if !resmap.GroupVersionResource.Empty() {
 			var dl dynamic.ResourceInterface
@@ -507,7 +507,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			tgtobj, err := dl.Get(tplunit.GetName(), metav1.GetOptions{})
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
-					klog.V(10).Info("Deleting ", tplunit.Unstructured)
+					klog.V(5).Info("Resource is owned by", host, "Deleting ", tplunit.Unstructured)
 
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
@@ -524,6 +524,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 				}
 			}
 		}
+
+		klog.V(5).Info("Deleted resource ", dpl, "in k8s")
 	}
 
 	return nil

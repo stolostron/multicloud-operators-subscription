@@ -21,6 +21,7 @@ import (
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -105,7 +106,7 @@ func TestSyncStart(t *testing.T) {
 	time.Sleep(5 * time.Second)
 }
 
-func TestSyncRegister(t *testing.T) {
+func TestRegisterDeRegister(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -142,13 +143,19 @@ func TestSyncRegister(t *testing.T) {
 
 	time.Sleep(10 * time.Second)
 
-	g.Expect(sync.StatusClient.Get(context.TODO(), sharedkey, sub)).NotTo(gomega.HaveOccurred())
-
 	result := &corev1.ConfigMap{}
+
 	g.Expect(c.Get(context.TODO(), sharedkey, result)).NotTo(gomega.HaveOccurred())
 
 	if result.Name != workloadconfigmap.Name || result.Namespace != workloadconfigmap.Namespace {
 		t.Error("Got wrong configmap workload: ", workloadconfigmap)
 	}
 
+	g.Expect(sync.DeRegisterTemplate(sharedkey, sharedkey, source)).NotTo(gomega.HaveOccurred())
+
+	if len(tplmap) != 0 {
+		t.Error("Failed to deregister template from map:", tplmap)
+	}
+
+	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, result))).To(gomega.BeTrue())
 }
