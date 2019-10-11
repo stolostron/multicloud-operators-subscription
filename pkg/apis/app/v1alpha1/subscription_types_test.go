@@ -19,27 +19,65 @@ import (
 
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestStorageSubscription(t *testing.T) {
-	key := types.NamespacedName{
+var (
+	key = types.NamespacedName{
 		Name:      "foo",
 		Namespace: "default",
 	}
-	created := &Subscription{
+
+	payload = &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "foo",
-			Namespace: "default",
-		}}
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		},
+	}
+
+	pov = PackageOverride{
+		RawExtension: runtime.RawExtension{
+			Object: payload,
+		},
+	}
+
+	pkgovr = &Overrides{
+		PackageName:      "p1",
+		PackageOverrides: []PackageOverride{pov},
+	}
+
+	sub = &Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      key.Name,
+			Namespace: key.Namespace,
+		},
+		Spec: SubscriptionSpec{
+			PackageFilter: &PackageFilter{
+				Version: "1.0.0",
+			},
+			PackageOverrides: []*Overrides{
+				pkgovr,
+			},
+		},
+	}
+)
+
+func TestStorageSubscription(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Create
 	fetched := &Subscription{}
 
+	created := sub.DeepCopy()
 	g.Expect(c.Create(context.TODO(), created)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), key, fetched)).NotTo(gomega.HaveOccurred())
+
+	// cleanup object of rawextension for comparison
+	created.Spec.PackageOverrides[0].PackageOverrides[0].RawExtension.Object = nil
+
 	g.Expect(fetched).To(gomega.Equal(created))
 
 	// Test Updating the Labels
