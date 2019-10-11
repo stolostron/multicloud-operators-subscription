@@ -35,7 +35,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -71,9 +71,9 @@ type KubeSynchronizer struct {
 
 var (
 	deployableResource = schema.GroupVersionResource{
-		Group:    appv1alpha1.SchemeGroupVersion.Group,
+		Group:    dplv1alpha1.SchemeGroupVersion.Group,
 		Resource: "deployables",
-		Version:  appv1alpha1.SchemeGroupVersion.Version,
+		Version:  dplv1alpha1.SchemeGroupVersion.Version,
 	}
 
 	crdresource = "customresourcedefinitions"
@@ -143,27 +143,6 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	return nil
 }
 
-//StartOnce - Start the discovery and start caches only once for automation test usage.
-func (sync *KubeSynchronizer) StartOnce(s <-chan struct{}, interval int64) error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	time.Sleep(time.Duration(interval) * time.Second)
-
-	sync.signal = s
-	err := sync.houseKeeping()
-
-	if err != nil {
-		klog.Error("Housekeeping once with error", err)
-	}
-
-	return nil
-}
-
 //HouseKeeping - Apply resources defined in sync.KubeResources
 func (sync *KubeSynchronizer) houseKeeping() error {
 	if klog.V(utils.QuiteLogLel) {
@@ -174,8 +153,8 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 	}
 
 	err := sync.validateDeployables()
-
 	if err != nil {
+		klog.Error("Failed to validate deployables with err:", err)
 		return err
 	}
 
@@ -185,11 +164,6 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 		var err error
 
 		klog.V(10).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
-
-		if res.GroupVersionResource.Empty() {
-			klog.Warning("Resource gvk ", gvk, " is not discovered from server yet")
-			continue
-		}
 
 		if res.ServerUpdated {
 			err = sync.checkServerObjects(res)
@@ -204,7 +178,7 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 		}
 
 		if err != nil {
-			klog.Warning("Error in checking server objects of gvk:", gvk, "error:", err, " skipping")
+			klog.Error("Error in checking server objects of gvk:", gvk, "error:", err, " skipping")
 			continue
 		}
 
@@ -481,7 +455,8 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 		}
 		// leave the sync the check routine, not this one
 		if err != nil {
-			return
+			klog.Info("Failed to apply kind template", tplunit.Unstructured, "with error", err)
+			continue
 		}
 
 		klog.V(10).Info("Applied Kind Template ", tplunit.Unstructured, " error:", err)
@@ -518,7 +493,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 		delete(resmap.TemplateMap, reskey)
 
-		klog.V(10).Info("Deleted template ", dpl, "in resource", resmap.GroupVersionResource)
+		klog.V(5).Info("Deleted template ", dpl, "in resource map", resmap.GroupVersionResource)
 
 		if !resmap.GroupVersionResource.Empty() {
 			var dl dynamic.ResourceInterface
@@ -532,7 +507,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			tgtobj, err := dl.Get(tplunit.GetName(), metav1.GetOptions{})
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
-					klog.V(10).Info("Deleting ", tplunit.Unstructured)
+					klog.V(5).Info("Resource is owned by", host, "Deleting ", tplunit.Unstructured)
 
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
@@ -549,13 +524,15 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 				}
 			}
 		}
+
+		klog.V(5).Info("Deleted resource ", dpl, "in k8s")
 	}
 
 	return nil
 }
 
 // RegisterTemplate applies the resource in spec.template to given kube
-func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instance *appv1alpha1.Deployable, source string) error {
+func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instance *dplv1alpha1.Deployable, source string) error {
 	// Parse the resource in template
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
@@ -564,6 +541,8 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
+	var err error
+
 	template := &unstructured.Unstructured{}
 
 	if instance.Spec.Template == nil {
@@ -571,8 +550,12 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		return nil
 	}
 
-	err := json.Unmarshal(instance.Spec.Template.Raw, template)
-	klog.V(10).Info("Processing Local with template:", template, ", syncid: ", sync.SynchronizerID, ", host: ", host)
+	if instance.Spec.Template.Object != nil {
+		template.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(instance.Spec.Template.Object.DeepCopyObject())
+	} else {
+		err = json.Unmarshal(instance.Spec.Template.Raw, template)
+		klog.V(10).Info("Processing Local with template:", template, ", syncid: ", sync.SynchronizerID, ", host: ", host)
+	}
 
 	if err != nil {
 		klog.Error("Failed to unmashal template with error: ", err, " with ", string(instance.Spec.Template.Raw))
@@ -677,7 +660,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	}
 
 	tplanno := template.GetAnnotations()
-	tplanno[appv1alpha1.AnnotationHosting] = instance.GetNamespace() + "/" + instance.GetName()
+	tplanno[dplv1alpha1.AnnotationHosting] = instance.GetNamespace() + "/" + instance.GetName()
 	template.SetAnnotations(tplanno)
 
 	// apply override in template
@@ -700,7 +683,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	// skip no-op to template
 
 	if existingTemplateUnit != nil && reflect.DeepEqual(existingTemplateUnit.Unstructured, template) {
-		klog.V(10).Info("Skipping.. template in registry is the same ", existingTemplateUnit)
+		klog.V(5).Info("Skipping.. template in registry is the same ", existingTemplateUnit)
 		return nil
 	}
 
@@ -712,7 +695,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	resmap.TemplateMap[reskey] = templateUnit
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
 
-	klog.V(10).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
+	klog.V(5).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
 
 	return nil
 }
