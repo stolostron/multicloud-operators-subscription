@@ -147,4 +147,4 @@ fi
 ######################################################
 
 # Upload to codecov.io in post submit only for visualization
-bash <(curl -s https://codecov.io/bash) -t 7f8624ff-b9ff-474e-999c-77052d1e52e5 -f "${REPORT_PATH}/coverage.cov"
+bash <(curl -s https://codecov.io/bash) -t "$(CODECOV_REPOTOKEN)" -f "${REPORT_PATH}/coverage.cov"
