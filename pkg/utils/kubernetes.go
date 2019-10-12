@@ -17,12 +17,14 @@ package utils
 import (
 	"io/ioutil"
 	"reflect"
+	"strings"
 
 	"github.com/ghodss/yaml"
 	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 )
@@ -83,4 +85,23 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 	}
 
 	return err
+}
+
+func NamespacedNameFormat(str string) types.NamespacedName {
+	nn := types.NamespacedName{}
+
+	if str != "" {
+		strs := strings.Split(str, "/")
+		if len(strs) != 2 {
+			errmsg := "Illegal string, want namespace/name, but get " + str
+			klog.Error(errmsg)
+
+			return nn
+		}
+
+		nn.Name = strs[1]
+		nn.Namespace = strs[0]
+	}
+
+	return nn
 }

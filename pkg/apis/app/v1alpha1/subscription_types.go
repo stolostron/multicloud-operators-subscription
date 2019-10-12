@@ -43,7 +43,8 @@ type PackageFilter struct {
 	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
 	Annotations   map[string]string     `json:"annotations,omitempty"`
 	// +kubebuilder:validation:Pattern=([0-9]+)((\.[0-9]+)(\.[0-9]+)|(\.[0-9]+)?(\.[xX]))$
-	Version string `json:"version,omitempty"`
+	Version   string                       `json:"version,omitempty"`
+	FilterRef *corev1.LocalObjectReference `json:"filterRef,omitempty"`
 }
 
 // PackageOverride describes rules for override
@@ -176,9 +177,9 @@ type SubscriptionList struct {
 }
 
 type SubsriberItem struct {
-	Subscription          Subscription
+	Subscription          *Subscription
 	SubscriptionConfigMap *corev1.ConfigMap
-	Channel               chnv1alpha1.Channel
+	Channel               *chnv1alpha1.Channel
 	ChannelSecret         *corev1.Secret
 	ChannelConfigMap      *corev1.ConfigMap
 }

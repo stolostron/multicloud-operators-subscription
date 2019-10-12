@@ -21,7 +21,6 @@ import (
 	"golang.org/x/net/context"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -30,20 +29,13 @@ import (
 
 var c client.Client
 
-var (
-	sharedkey = types.NamespacedName{
+var subscription = &appv1alpha1.Subscription{
+	ObjectMeta: metav1.ObjectMeta{
 		Name:      "foo",
 		Namespace: "default",
-	}
-
-	subscription = &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sharedkey.Name,
-			Namespace: sharedkey.Namespace,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{},
-	}
-)
+	},
+	Spec: appv1alpha1.SubscriptionSpec{},
+}
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
