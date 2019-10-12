@@ -130,7 +130,7 @@ func (r *ReconcileSubscription) doReconcile(request reconcile.Request, instance 
 		return err
 	}
 
-	if instance.Spec.PackageFilter.FilterRef != nil {
+	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
 		subitem.SubscriptionConfigMap = &v1.ConfigMap{}
 		subcfgkey := types.NamespacedName{
 			Name:      instance.Spec.PackageFilter.FilterRef.Name,
@@ -165,7 +165,7 @@ func (r *ReconcileSubscription) doReconcile(request reconcile.Request, instance 
 			Namespace: subitem.Channel.Namespace,
 		}
 
-		err = r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelSecret)
+		err = r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap)
 		if err != nil {
 			klog.Error("Failed to get configmap of channel, error: ", err)
 			return err

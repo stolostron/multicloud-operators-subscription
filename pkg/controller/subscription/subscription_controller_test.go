@@ -110,7 +110,6 @@ const timeout = time.Second * 2
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	instance := subscription.DeepCopy()
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -131,7 +130,16 @@ func TestReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	chn := channel.DeepCopy()
+	chn.Spec.SecretRef = nil
+	chn.Spec.ConfigMapRef = nil
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chn)
+
 	// Create the Subscription object and expect the Reconcile and Deployment to be created
+	instance := subscription.DeepCopy()
+	instance.Spec.PackageFilter = nil
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), instance)
@@ -139,7 +147,7 @@ func TestReconcile(t *testing.T) {
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 }
 
-func TestDoReconcile(t *testing.T) {
+func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	instance := subscription.DeepCopy()
 
@@ -172,6 +180,7 @@ func TestDoReconcile(t *testing.T) {
 
 	defer c.Delete(context.TODO(), chn)
 
+	time.Sleep(1 * time.Second)
 	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
 
 	// has sub filter, no chn sec
@@ -180,6 +189,7 @@ func TestDoReconcile(t *testing.T) {
 
 	defer c.Delete(context.TODO(), sf)
 
+	time.Sleep(1 * time.Second)
 	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
 
 	// has chn sec, no chn cfg
@@ -188,6 +198,7 @@ func TestDoReconcile(t *testing.T) {
 
 	defer c.Delete(context.TODO(), chsc)
 
+	time.Sleep(1 * time.Second)
 	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
 
 	// success
@@ -196,8 +207,10 @@ func TestDoReconcile(t *testing.T) {
 
 	defer c.Delete(context.TODO(), chcf)
 
+	time.Sleep(1 * time.Second)
 	g.Expect(rec.doReconcile(expectedRequest, instance)).NotTo(gomega.HaveOccurred())
 
+	// switch type
 	chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
 	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
