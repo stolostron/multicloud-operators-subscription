@@ -6,6 +6,7 @@ require (
 	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191003174149-8a43376c12cd
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/onsi/gomega v1.7.0
 	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-sdk v0.10.1-0.20191004014855-dc713e4d7890
