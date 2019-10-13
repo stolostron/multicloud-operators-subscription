@@ -19,34 +19,97 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	operatorv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"golang.org/x/net/context"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 var c client.Client
 
-var subscription = &appv1alpha1.Subscription{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "default",
-	},
-	Spec: appv1alpha1.SubscriptionSpec{},
-}
+var (
+	chnkey = types.NamespacedName{
+		Name:      "test-chn",
+		Namespace: "test-chn-namespace",
+	}
 
-var expectedRequest = reconcile.Request{NamespacedName: types.NamespacedName{Name: "foo", Namespace: "default"}}
+	chnRef = &corev1.ObjectReference{
+		Name: chnkey.Name,
+	}
 
-const timeout = time.Second * 5
+	channel = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkey.Name,
+			Namespace: chnkey.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:         chnv1alpha1.ChannelTypeNamespace,
+			ConfigMapRef: chnRef,
+			SecretRef:    chnRef,
+		},
+	}
+
+	chnsec = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkey.Name,
+			Namespace: chnkey.Namespace,
+		},
+	}
+
+	chncfg = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkey.Name,
+			Namespace: chnkey.Namespace,
+		},
+	}
+)
+
+var (
+	subkey = types.NamespacedName{
+		Name:      "test-sub",
+		Namespace: "test-sub-namespace",
+	}
+
+	subRef = &corev1.LocalObjectReference{
+		Name: subkey.Name,
+	}
+
+	subcfg = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      subkey.Name,
+			Namespace: subkey.Namespace,
+		},
+	}
+
+	subscription = &appv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      subkey.Name,
+			Namespace: subkey.Namespace,
+		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			SubscriptionSpec: operatorv1alpha1.SubscriptionSpec{
+				Channel: chnkey.String(),
+			},
+			PackageFilter: &appv1alpha1.PackageFilter{
+				FilterRef: subRef,
+			},
+		},
+	}
+)
+
+var expectedRequest = reconcile.Request{NamespacedName: subkey}
+
+const timeout = time.Second * 2
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	instance := subscription.DeepCopy()
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -55,7 +118,8 @@ func TestReconcile(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	recFn, requests := SetupTestReconcile(newReconciler(mgr))
+	rec := newReconciler(mgr, mgr.GetClient())
+	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
@@ -66,18 +130,89 @@ func TestReconcile(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	// Create the Subscription object and expect the Reconcile and Deployment to be created
-	err = c.Create(context.TODO(), instance)
-	// The instance object may not be a valid object because it might be missing some required fields.
-	// Please modify the instance object by adding required fields and then remove the following if statement.
-	if apierrors.IsInvalid(err) {
-		t.Logf("failed to create object, got an invalid object error: %v", err)
-		return
-	}
+	chn := channel.DeepCopy()
+	chn.Spec.SecretRef = nil
+	chn.Spec.ConfigMapRef = nil
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), chn)
+
+	// Create the Subscription object and expect the Reconcile and Deployment to be created
+	instance := subscription.DeepCopy()
+	instance.Spec.PackageFilter = nil
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), instance)
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+}
+
+func TestDoReconcileIncludingErrorPaths(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	instance := subscription.DeepCopy()
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	rec := newReconciler(mgr, mgr.GetClient()).(*ReconcileSubscription)
+
+	// no channel
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), instance)
+
+	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+
+	// no sub filter ref
+	chn := channel.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chn)
+
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+
+	// has sub filter, no chn sec
+	sf := subcfg.DeepCopy()
+	g.Expect(c.Create(context.TODO(), sf)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), sf)
+
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+
+	// has chn sec, no chn cfg
+	chsc := chnsec.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chsc)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chsc)
+
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+
+	// success
+	chcf := chncfg.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chcf)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chcf)
+
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(expectedRequest, instance)).NotTo(gomega.HaveOccurred())
+
+	// switch type
+	chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
+	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
+	g.Expect(rec.doReconcile(expectedRequest, instance)).NotTo(gomega.HaveOccurred())
 }

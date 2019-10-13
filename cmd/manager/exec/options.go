@@ -20,13 +20,16 @@ import (
 
 // PlacementRuleCMDOptions for command line flag parsing
 type PlacementRuleCMDOptions struct {
-	MetricsAddr      string
-	ClusterName      string
-	ClusterNamespace string
+	MetricsAddr           string
+	ClusterName           string
+	ClusterNamespace      string
+	HubConfigFilePathName string
+	SyncInterval          int
 }
 
 var options = PlacementRuleCMDOptions{
-	MetricsAddr: "",
+	MetricsAddr:  "",
+	SyncInterval: 60,
 }
 
 // ProcessFlags parses command line parameters into options
@@ -41,6 +44,13 @@ func ProcessFlags() {
 	)
 
 	flag.StringVar(
+		&options.HubConfigFilePathName,
+		"hub-cluster-configfile",
+		options.HubConfigFilePathName,
+		"Configuration file pathname to hub kubernetes cluster",
+	)
+
+	flag.StringVar(
 		&options.ClusterName,
 		"cluster-name",
 		options.ClusterName,
@@ -52,5 +62,12 @@ func ProcessFlags() {
 		"cluster-namespace",
 		options.ClusterNamespace,
 		"Cluster Namespace of this endpoint in hub.",
+	)
+
+	flag.IntVar(
+		&options.SyncInterval,
+		"sync-interval",
+		options.SyncInterval,
+		"The interval of housekeeping in seconds.",
 	)
 }
