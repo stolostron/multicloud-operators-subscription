@@ -51,16 +51,30 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 		return err
 	}
 
-	return add(mgr, newReconciler(mgr, hubclient))
+	subs := make(map[string]appv1alpha1.Subscriber)
+
+	if nssub.GetDefaultSubscriber() == nil {
+		errmsg := "default namespace subscriber is not initialized"
+		klog.Error(errmsg)
+
+		return errors.NewServiceUnavailable(errmsg)
+	}
+
+	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
+
+	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, hubclient client.Client) reconcile.Reconciler {
-	return &ReconcileSubscription{
-		Client:    mgr.GetClient(),
-		scheme:    mgr.GetScheme(),
-		hubclient: hubclient,
+func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber) reconcile.Reconciler {
+	rec := &ReconcileSubscription{
+		Client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		hubclient:   hubclient,
+		subscribers: subscribers,
 	}
+
+	return rec
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -88,8 +102,9 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	hubclient client.Client
-	scheme    *runtime.Scheme
+	hubclient   client.Client
+	scheme      *runtime.Scheme
+	subscribers map[string]appv1alpha1.Subscriber
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -103,19 +118,22 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Object not found, delete existing subscriberitem if any
-			_ = nssub.GetDefaultSubscriber().UnsubscribeItem(request.NamespacedName)
+			for _, sub := range r.subscribers {
+				_ = sub.UnsubscribeItem(request.NamespacedName)
+			}
+
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
 
-	_ = r.doReconcile(request, instance)
+	_ = r.doReconcile(instance)
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileSubscription) doReconcile(request reconcile.Request, instance *appv1alpha1.Subscription) error {
+func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
 	var err error
 
 	subitem := &appv1alpha1.SubsriberItem{}
@@ -172,20 +190,22 @@ func (r *ReconcileSubscription) doReconcile(request reconcile.Request, instance 
 		}
 	}
 
-	switch strings.ToLower(string(subitem.Channel.Spec.Type)) {
-	case chnv1alpha1.ChannelTypeNamespace:
-		err = nssub.GetDefaultSubscriber().SubscriberItem(subitem)
-		if err != nil {
-			klog.Error("Failed to subscribe namespace channel, got error: ", err)
+	subtype := strings.ToLower(string(subitem.Channel.Spec.Type))
+
+	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
+	for k, sub := range r.subscribers {
+		action := "subscribe"
+
+		if k == subtype {
+			err = sub.SubscribeItem(subitem)
+		} else {
+			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
+			action = "unsubscribe"
 		}
-	case chnv1alpha1.ChannelTypeObjectBucket:
-		klog.Info("Subscribing ObjectBucket Channel", subitem.Channel)
 
-		_ = nssub.GetDefaultSubscriber().UnsubscribeItem(request.NamespacedName)
-	case chnv1alpha1.ChannelTypeHelmRepo:
-		klog.Info("Subscribing HelmRepo Channel", subitem.Channel)
-
-		_ = nssub.GetDefaultSubscriber().UnsubscribeItem(request.NamespacedName)
+		if err != nil {
+			klog.Error("Failed to ", action, " with subscriber ", k, " error:", err)
+		}
 	}
 
 	return nil

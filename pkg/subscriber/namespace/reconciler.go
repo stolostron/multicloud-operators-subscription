@@ -15,36 +15,20 @@
 package namespace
 
 import (
-	stdlog "log"
-	"os"
-	"path/filepath"
-	"testing"
-
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
-
-	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
+	"github.com/docker/docker/client"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-var cfg *rest.Config
+// ReconcileSubscription reconciles a Subscription object
+type ReconcileDeployable struct {
+	// This client, initialized using mgr.Client() above, is a split client
+	// that reads objects from the cache and writes to the apiserver
+	client.Client
+}
 
-func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "crds"),
-		},
-	}
+func (r *ReconcileDeployable) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+	klog.Info("Reconciling: ", request.NamespacedName)
 
-	apis.AddToScheme(scheme.Scheme)
-
-	var err error
-	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
-	}
-
-	code := m.Run()
-
-	t.Stop()
-	os.Exit(code)
+	return reconcile.Result{}, nil
 }

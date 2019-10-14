@@ -15,39 +15,143 @@
 package namespace
 
 import (
+	"reflect"
+
+	"errors"
+
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+
+	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
-type itemmap map[types.NamespacedName]appv1alpha1.SubsriberItem
-
-type namespaceSubscriber struct {
-	itemmap
+type SubscriberItem struct {
+	appv1alpha1.SubsriberItem
+	cache      cache.Cache
+	controller controller.Controller
 }
 
-var defaultSubscriber = &namespaceSubscriber{}
+type itemmap map[types.NamespacedName]*SubscriberItem
+
+type Subscriber struct {
+	itemmap
+	// hub cluster
+	config *rest.Config
+	scheme *runtime.Scheme
+	// endpoint cluster
+	manager      manager.Manager
+	synchronizer *kubesynchronizer.KubeSynchronizer
+}
+
+var defaultSubscriber *Subscriber
+
+var (
+	defaultSubscription = &appv1alpha1.Subscription{}
+	defaultChannel      = &chnv1alpha1.Channel{}
+	defaultitem         = &appv1alpha1.SubsriberItem{
+		Subscription: defaultSubscription,
+		Channel:      defaultChannel,
+	}
+)
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
-func Add(mgr manager.Manager, syncinterval int) error {
-	// No polling, so no runnable function to add for Namespace subscriber
-	return nil
-}
+func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+	// No polling, use cache. Add default one for cluster namespace
+	defaultSubscriber = CreateNamespaceSubsriber(hubconfig, mgr.GetScheme(), mgr, kubesynchronizer.GetDefaultSynchronizer())
+	if defaultSubscriber == nil {
+		errmsg := "failed to create default namespace subscriber"
 
-func (ns *namespaceSubscriber) SubscriberItem(item *appv1alpha1.SubsriberItem) error {
-	if ns.itemmap == nil {
-		ns.itemmap = make(map[types.NamespacedName]appv1alpha1.SubsriberItem)
+		return errors.New(errmsg)
+	}
+
+	err := defaultSubscriber.SubscribeNamespaceItem(defaultitem, true)
+
+	if err != nil {
+		klog.Error("Failed to initialize default channel to cluster namespace")
+		return err
 	}
 
 	return nil
 }
 
-func (ns *namespaceSubscriber) UnsubscribeItem(key types.NamespacedName) error {
+func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubsriberItem, isExclusive bool) error {
+	var err error
+
+	if ns.itemmap == nil {
+		ns.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+	}
+
+	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
+
+	nssubitem, ok := ns.itemmap[itemkey]
+
+	if !ok {
+		nssubitem = &SubscriberItem{}
+		nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Namespace})
+
+		if err != nil {
+			klog.Error("Failed to create cache for Namespace subscriber item with error: ", err)
+			return err
+		}
+
+		nssubitem.controller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: &ReconcileDeployable{}})
+		if err != nil {
+			klog.Error("Failed to create controller for Namespace subscriber item with error: ", err)
+			return err
+		}
+
+		subitem.DeepCopyInto(&nssubitem.SubsriberItem)
+		ns.itemmap[itemkey] = nssubitem
+	} else if !reflect.DeepEqual(nssubitem.SubsriberItem, subitem) {
+		subitem.DeepCopyInto(&nssubitem.SubsriberItem)
+		ns.itemmap[itemkey] = nssubitem
+	}
+
+	return nil
+}
+
+// SubscribeItem subscribes a subscriber item with namespace channel
+func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubsriberItem) error {
+	return ns.SubscribeNamespaceItem(subitem, false)
+}
+
+// SubscribeItem unsubscribes a namespace subscriber item
+func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	return nil
 }
 
 // GetSubscriberItemMap - returns the item map for all
 func GetDefaultSubscriber() appv1alpha1.Subscriber {
+	if defaultSubscriber == nil {
+		return nil
+	}
+
 	return defaultSubscriber
+}
+
+// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+func CreateNamespaceSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) *Subscriber {
+	if config == nil || kubesync == nil {
+		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
+		return nil
+	}
+
+	nssubscriber := &Subscriber{
+		config:       config,
+		scheme:       scheme,
+		manager:      mgr,
+		synchronizer: kubesync,
+	}
+
+	nssubscriber.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+
+	return nssubscriber
 }

@@ -15,16 +15,18 @@
 package subscriber
 
 import (
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, int) error
+var AddToManagerFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, int) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, syncinterval int) error {
+func AddToManager(m manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m, syncinterval); err != nil {
+		if err := f(m, hubconfig, syncid, syncinterval); err != nil {
 			return err
 		}
 	}

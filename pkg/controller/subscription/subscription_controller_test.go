@@ -118,7 +118,7 @@ func TestReconcile(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	rec := newReconciler(mgr, mgr.GetClient())
+	rec := newReconciler(mgr, mgr.GetClient(), nil)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
@@ -165,14 +165,14 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	rec := newReconciler(mgr, mgr.GetClient()).(*ReconcileSubscription)
+	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
 	// no channel
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), instance)
 
-	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
 	// no sub filter ref
 	chn := channel.DeepCopy()
@@ -181,7 +181,7 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	defer c.Delete(context.TODO(), chn)
 
 	time.Sleep(1 * time.Second)
-	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
 	// has sub filter, no chn sec
 	sf := subcfg.DeepCopy()
@@ -190,7 +190,7 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	defer c.Delete(context.TODO(), sf)
 
 	time.Sleep(1 * time.Second)
-	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
 	// has chn sec, no chn cfg
 	chsc := chnsec.DeepCopy()
@@ -199,7 +199,7 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	defer c.Delete(context.TODO(), chsc)
 
 	time.Sleep(1 * time.Second)
-	g.Expect(rec.doReconcile(expectedRequest, instance)).To(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
 	// success
 	chcf := chncfg.DeepCopy()
@@ -208,11 +208,11 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	defer c.Delete(context.TODO(), chcf)
 
 	time.Sleep(1 * time.Second)
-	g.Expect(rec.doReconcile(expectedRequest, instance)).NotTo(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 
 	// switch type
 	chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
 	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
-	g.Expect(rec.doReconcile(expectedRequest, instance)).NotTo(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 }
