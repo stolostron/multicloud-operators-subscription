@@ -131,4 +131,4 @@ build-push-images: $(CONFIG_DOCKER_TARGET)
 clean:
 	rm -f build/_output/bin/$(IMG)
 
-.PHONY: all build check lint test images
+.PHONY: all build check lint test coverage images
