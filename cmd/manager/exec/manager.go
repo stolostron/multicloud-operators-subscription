@@ -91,7 +91,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	// generate id for with cluster information
+	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
 		Name:      options.ClusterName,
 		Namespace: options.ClusterNamespace,
@@ -123,7 +123,7 @@ func RunManager() {
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, options.SyncInterval); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, id, options.SyncInterval); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 		os.Exit(1)
 	}

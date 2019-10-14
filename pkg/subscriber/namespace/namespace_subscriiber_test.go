@@ -18,28 +18,22 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	"golang.org/x/net/context"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 var c client.Client
 
-var subscription = &appv1alpha1.Subscription{
-	ObjectMeta: metav1.ObjectMeta{
-		Name:      "foo",
-		Namespace: "default",
-	},
-	Spec: appv1alpha1.SubscriptionSpec{},
+var id = types.NamespacedName{
+	Name:      "endpoint",
+	Namespace: "enpoint-ns",
 }
 
-func TestReconcile(t *testing.T) {
+func TestSubscriber(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
-	instance := subscription.DeepCopy()
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -47,24 +41,12 @@ func TestReconcile(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	// Create the Subscription object and expect the Reconcile and Deployment to be created
-	err = c.Create(context.TODO(), instance)
-	// The instance object may not be a valid object because it might be missing some required fields.
-	// Please modify the instance object by adding required fields and then remove the following if statement.
-	if apierrors.IsInvalid(err) {
-		t.Logf("failed to create object, got an invalid object error: %v", err)
-		return
-	}
-
+	sync, err := kubesynchronizer.CreateSynchronizer(cfg, cfg, &id, 10, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	defer c.Delete(context.TODO(), instance)
+	sub := CreateNamespaceSubsriber(cfg, mgr.GetScheme(), mgr, sync)
+
+	sub.SubscribeItem(defaultitem)
+
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }

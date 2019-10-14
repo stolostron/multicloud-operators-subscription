@@ -176,6 +176,8 @@ type SubscriptionList struct {
 	Items           []Subscription `json:"items"`
 }
 
+// +k8s:deepcopy-gen:nonpointer-interfaces=true
+// SubsriberItem defines subscriber item to share subscribers with different channel types
 type SubsriberItem struct {
 	Subscription          *Subscription
 	SubscriptionConfigMap *corev1.ConfigMap
@@ -184,8 +186,9 @@ type SubsriberItem struct {
 	ChannelConfigMap      *corev1.ConfigMap
 }
 
+// Subsriber defines common interface of different channel types
 type Subscriber interface {
-	SubscriberItem(*SubsriberItem) error
+	SubscribeItem(*SubsriberItem) error
 	UnsubscribeItem(types.NamespacedName) error
 }
 
