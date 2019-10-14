@@ -71,13 +71,6 @@ func IsLocalDeployable(instance *appv1alpha1.Deployable) bool {
 
 // GetClusterFromResourceObject return nil if no host is found
 func GetClusterFromResourceObject(obj metav1.Object) *types.NamespacedName {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
 	if obj == nil {
 		return nil
 	}
@@ -105,13 +98,6 @@ func GetClusterFromResourceObject(obj metav1.Object) *types.NamespacedName {
 
 // GetHostDeployableFromObject return nil if no host is found
 func GetHostDeployableFromObject(obj metav1.Object) *types.NamespacedName {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
 	if obj == nil {
 		return nil
 	}
@@ -141,13 +127,6 @@ func GetHostDeployableFromObject(obj metav1.Object) *types.NamespacedName {
 // - nil:  success
 // - others: failed, with error message in reason
 func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}) error {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
 	dpl := &appv1alpha1.Deployable{}
 	host := GetHostDeployableFromObject(tplunit)
 
