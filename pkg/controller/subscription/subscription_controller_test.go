@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	operatorv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -94,9 +93,7 @@ var (
 			Namespace: subkey.Namespace,
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
-			SubscriptionSpec: operatorv1alpha1.SubscriptionSpec{
-				Channel: chnkey.String(),
-			},
+			Channel: chnkey.String(),
 			PackageFilter: &appv1alpha1.PackageFilter{
 				FilterRef: subRef,
 			},

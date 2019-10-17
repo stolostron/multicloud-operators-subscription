@@ -217,7 +217,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 		err = statusClient.Status().Update(context.TODO(), sub)
 		// want to print out the error log before leave
 		if err != nil {
-			klog.Error("Failed to update status of deployable ", err)
+			klog.Error("Failed to update status of subscription ", err)
 		}
 	}
 
@@ -251,4 +251,37 @@ func prepareOverrides(pkgName string, instance *appv1alpha1.Subscription) []dplv
 	}
 
 	return overrides
+}
+
+func FiltePackageOut(filter *appv1alpha1.PackageFilter, dpl *dplv1alpha1.Deployable) bool {
+	if filter == nil {
+		return false
+	}
+
+	klog.V(10).Info("checking annotations package filter: ", filter)
+
+	matched := true
+
+	if filter.Annotations != nil {
+		dplanno := dpl.GetAnnotations()
+		if dplanno == nil {
+			dplanno = make(map[string]string)
+		}
+
+		for k, v := range filter.Annotations {
+			if dplanno[k] != v {
+				klog.V(10).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, dplanno)
+
+				matched = false
+
+				break
+			}
+		}
+
+		if !matched {
+			return true
+		}
+	}
+
+	return !matched
 }

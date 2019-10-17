@@ -39,9 +39,8 @@ spec:
           properties:
             channel:
               type: string
-            installPlanApproval:
-              type: string
             name:
+              description: To specify 1 package in channel
               type: string
             overrides:
               description: for hub use only to specify the overrides when apply to
@@ -66,6 +65,8 @@ spec:
                 annotations:
                   additionalProperties:
                     type: string
+                  type: object
+                filterRef:
                   type: object
                 labelSelector:
                   type: object
@@ -100,21 +101,15 @@ spec:
                     properties:
                       name:
                         type: string
+                    required:
+                    - name
                     type: object
                   type: array
                 placementRef:
                   type: object
               type: object
-            source:
-              type: string
-            sourceNamespace:
-              type: string
-            startingCSV:
-              type: string
           required:
-          - source
-          - sourceNamespace
-          - name
+          - channel
           type: object
         status:
           properties:

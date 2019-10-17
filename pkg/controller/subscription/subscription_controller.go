@@ -110,7 +110,7 @@ type ReconcileSubscription struct {
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("Reconciling: ", request.NamespacedName)
+	klog.Info("Reconciling subscription: ", request.NamespacedName)
 
 	instance := &appv1alpha1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)

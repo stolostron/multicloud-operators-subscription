@@ -15,7 +15,6 @@
 package v1alpha1
 
 import (
-	operatorv1alpha1 "github.com/operator-framework/operator-lifecycle-manager/pkg/api/apis/operators/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -61,19 +60,9 @@ type Overrides struct {
 
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// leverage and enhance subscription spec from operator lifecycle framework
-	// mapping of the fields:
-	// 	CatalogSourceNamespace		- For Namespace Channel only, namespace in hub, if specified ignore CatalogSource and Channel
-	// 	CatalogSource				- For Helmrepo Channel only, url to helm repo, if specified, ignore Channel
-	// 	Package						- Optional, to filter package by names
-	// 	Channel						- Channel NamespacedName (in hub)
-	// 	StartingCSV					- N/A
-	// 	InstallPlanApproval			- N/A
-	operatorv1alpha1.SubscriptionSpec `json:",inline"`
-
+	Channel string `json:"channel"`
+	// To specify 1 package in channel
+	Package string `json:"name,omitempty"`
 	// To specify more than 1 package in channel
 	PackageFilter *PackageFilter `json:"packageFilter,omitempty"`
 	// To provide flexibility to override package in channel with local input

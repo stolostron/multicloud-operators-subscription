@@ -31,12 +31,14 @@ import (
 
 // SubscriptionExtension provides default extension settings
 type SubscriptionExtension struct {
+	localClient         client.Client
+	remoteClient        client.Client
 	IngoredGroupKindMap map[schema.GroupKind]bool
 }
 
 // Extension defines the extension features of synchronizer
 type Extension interface {
-	UpdateHostStatus(client.Client, error, *unstructured.Unstructured, interface{}) error
+	UpdateHostStatus(error, *unstructured.Unstructured, interface{}) error
 	GetHostFromObject(metav1.Object) *types.NamespacedName
 	SetSynchronizerToObject(metav1.Object, *types.NamespacedName) error
 	SetHostToObject(metav1.Object, types.NamespacedName, *types.NamespacedName) error
@@ -53,9 +55,14 @@ var (
 	}
 )
 
-// UpdateHostStatus defines update host status function for deployable
-func (se *SubscriptionExtension) UpdateHostStatus(statusClient client.Client, actionerr error, tplunit *unstructured.Unstructured, status interface{}) error {
-	return utils.UpdateSubscriptionStatus(statusClient, actionerr, tplunit, status)
+// UpdateHostSubscriptionStatus defines update host status function for deployable
+func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unstructured.Unstructured, status interface{}) error {
+	host := se.GetHostFromObject(tplunit)
+	if host == nil || host.String() == "/" {
+		return utils.UpdateDeployableStatus(se.remoteClient, actionerr, tplunit, status)
+	}
+
+	return utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status)
 }
 
 // GetHostFromObject defines update host status function for deployable

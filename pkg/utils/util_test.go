@@ -15,9 +15,11 @@
 package utils
 
 import (
+	"context"
 	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -81,11 +83,20 @@ func TestEventlog(t *testing.T) {
 	rec, err := NewEventRecorder(cfg, mgr.GetScheme())
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	obj := &corev1.ConfigMap{}
+	obj := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), obj)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), obj)
 
 	rec.RecordEvent(obj, "testreason", "testmsg", nil)
-
 	rec.RecordEvent(obj, "testreason", "testmsg", errors.New("testeventerr"))
+
+	time.Sleep(1 * time.Second)
 }
 
 var (

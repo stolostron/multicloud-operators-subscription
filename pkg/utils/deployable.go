@@ -25,7 +25,7 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -41,7 +41,7 @@ func IsResourceOwnedByCluster(obj metav1.Object, cluster types.NamespacedName) b
 		return false
 	}
 
-	if annotations[appv1alpha1.AnnotationManagedCluster] == cluster.String() {
+	if annotations[dplv1alpha1.AnnotationManagedCluster] == cluster.String() {
 		return true
 	}
 
@@ -49,7 +49,7 @@ func IsResourceOwnedByCluster(obj metav1.Object, cluster types.NamespacedName) b
 }
 
 // IsLocalDeployable checks if the deployable meant to be deployed
-func IsLocalDeployable(instance *appv1alpha1.Deployable) bool {
+func IsLocalDeployable(instance *dplv1alpha1.Deployable) bool {
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -62,7 +62,7 @@ func IsLocalDeployable(instance *appv1alpha1.Deployable) bool {
 	}
 
 	annotations := instance.GetAnnotations()
-	if annotations == nil || annotations[appv1alpha1.AnnotationLocal] != "true" {
+	if annotations == nil || annotations[dplv1alpha1.AnnotationLocal] != "true" {
 		return false
 	}
 
@@ -80,7 +80,7 @@ func GetClusterFromResourceObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	clstr := annotations[appv1alpha1.AnnotationManagedCluster]
+	clstr := annotations[dplv1alpha1.AnnotationManagedCluster]
 
 	if clstr == "" {
 		return nil
@@ -107,7 +107,7 @@ func GetHostDeployableFromObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	hosttr := annotations[appv1alpha1.AnnotationHosting]
+	hosttr := annotations[dplv1alpha1.AnnotationHosting]
 
 	if hosttr == "" {
 		return nil
@@ -127,7 +127,7 @@ func GetHostDeployableFromObject(obj metav1.Object) *types.NamespacedName {
 // - nil:  success
 // - others: failed, with error message in reason
 func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}) error {
-	dpl := &appv1alpha1.Deployable{}
+	dpl := &dplv1alpha1.Deployable{}
 	host := GetHostDeployableFromObject(tplunit)
 
 	if host == nil {
@@ -145,10 +145,10 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	dpl.Status.PropagatedStatus = nil
 	if templateerr == nil {
-		dpl.Status.Phase = appv1alpha1.DeployableDeployed
+		dpl.Status.Phase = dplv1alpha1.DeployableDeployed
 		dpl.Status.Reason = ""
 	} else {
-		dpl.Status.Phase = appv1alpha1.DeployableFailed
+		dpl.Status.Phase = dplv1alpha1.DeployableFailed
 		dpl.Status.Reason = templateerr.Error()
 	}
 
@@ -164,7 +164,8 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		}
 	}
 
-	dpl.Status.LastUpdateTime = metav1.Now()
+	now := metav1.Now()
+	dpl.Status.LastUpdateTime = &now
 	err = statusClient.Status().Update(context.Background(), dpl)
 	// want to print out the error log before leave
 	if err != nil {

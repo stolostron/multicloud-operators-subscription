@@ -43,8 +43,9 @@ import (
 // TemplateUnit defines the basic unit of Template and whether it should be updated or not
 type TemplateUnit struct {
 	*unstructured.Unstructured
-	Source  string
-	Updated bool
+	Source          string
+	ResourceUpdated bool
+	StatusUpdated   bool
 }
 
 // ResourceMap is a registry for all resources
@@ -58,7 +59,8 @@ type ResourceMap struct {
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {
 	Interval        int
-	StatusClient    client.Client
+	LocalClient     client.Client
+	RemoteClient    client.Client
 	DiscoveryClient discovery.DiscoveryInterface
 	DynamicClient   dynamic.Interface
 	KubeResources   map[schema.GroupVersionKind]*ResourceMap
@@ -101,7 +103,7 @@ func GetDefaultSynchronizer() *KubeSynchronizer {
 }
 
 // CreateSynchronizer createa an instance of synchrizer with give api-server config
-func CreateSynchronizer(config, statusConfig *rest.Config, syncid *types.NamespacedName, interval int, ext Extension) (*KubeSynchronizer, error) {
+func CreateSynchronizer(config, remoteConfig *rest.Config, syncid *types.NamespacedName, interval int, ext Extension) (*KubeSynchronizer, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -109,26 +111,48 @@ func CreateSynchronizer(config, statusConfig *rest.Config, syncid *types.Namespa
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	dynamicClient := dynamic.NewForConfigOrDie(config)
-	statusClient, err := client.New(statusConfig, client.Options{})
+	var err error
 
-	if err != nil {
-		klog.Error("Failed to initialize client to update deployable status. err: ", err)
-		return nil, err
-	}
+	dynamicClient := dynamic.NewForConfigOrDie(config)
 
 	s := &KubeSynchronizer{
 		Interval:        interval,
 		SynchronizerID:  syncid,
 		DiscoveryClient: discovery.NewDiscoveryClientForConfigOrDie(config),
-		StatusClient:    statusClient,
 		DynamicClient:   dynamicClient,
 		KubeResources:   make(map[schema.GroupVersionKind]*ResourceMap),
 		Extension:       ext,
 	}
 
+	s.LocalClient, err = client.New(remoteConfig, client.Options{})
+
+	if err != nil {
+		klog.Error("Failed to initialize client to update local status. err: ", err)
+		return nil, err
+	}
+
+	s.RemoteClient = s.LocalClient
+	if remoteConfig != nil {
+		s.RemoteClient, err = client.New(remoteConfig, client.Options{})
+
+		if err != nil {
+			klog.Error("Failed to initialize client to update remote status. err: ", err)
+			return nil, err
+		}
+	}
+
+	defaultExtension.localClient = s.LocalClient
+	defaultExtension.remoteClient = s.RemoteClient
+
 	if ext == nil {
 		s.Extension = defaultExtension
+	}
+
+	err = s.discoverResources()
+
+	if err != nil {
+		klog.Error("Failed to discover resources with error", err)
+		return nil, err
 	}
 
 	return s, nil
@@ -144,16 +168,11 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	}
 
 	sync.signal = s
-	err := sync.discoverResources()
-
-	if err != nil {
-		return err
-	}
 
 	sync.dynamicFactory.Start(s)
 
 	go wait.Until(func() {
-		err = sync.houseKeeping()
+		err := sync.houseKeeping()
 		if err != nil {
 			klog.Error("Housekeeping with error", err)
 		}
@@ -288,21 +307,11 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 		}
 	}
 
-	// leave the actual resource deletion to later stage of house keeping
-	klog.V(5).Info("Exit 212", nil)
-
 	return nil
 }
 
 func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	klog.V(10).Info("Checking Server object:", res.GroupVersionResource)
+	klog.V(5).Info("Checking Server object:", res.GroupVersionResource)
 
 	objlist, err := sync.DynamicClient.Resource(res.GroupVersionResource).List(metav1.ListOptions{})
 	if err != nil {
@@ -342,13 +351,14 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 			status := obj.Object["status"]
 			klog.V(10).Info("Found for ", dpl, ", tplunit:", tplunit, "Doing obj ", obj.GetNamespace(), "/", obj.GetName(), " with status:", status)
 			delete(obj.Object, "status")
-			err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, status)
+
+			err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, status)
 
 			if err != nil {
 				klog.Error("Failed to update host status with error:", err)
 			}
 
-			if tplunit.Updated {
+			if tplunit.ResourceUpdated {
 				continue
 			}
 
@@ -359,14 +369,14 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 				klog.V(10).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 				if err == nil {
-					tplunit.Updated = true
+					tplunit.ResourceUpdated = true
 				}
 			}
 			// don't process the err of status update. leave it to next round house keeping
 			if err != nil {
 				return err
 			}
-			klog.V(10).Info("Updated template ", tplunit.Unstructured.GetName(), ":", tplunit.Updated)
+			klog.V(10).Info("Updated template ", tplunit.Unstructured.GetName(), ":", tplunit.ResourceUpdated)
 			res.TemplateMap[reskey] = tplunit
 		}
 	}
@@ -374,7 +384,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 	return nil
 }
 
-func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) {
+func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) error {
 	klog.V(10).Info("Apply - Creating New Resource ", tplunit)
 	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
 
@@ -398,24 +408,30 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 		}
 	}
 
-	if err == nil {
-		tplunit.Updated = true
-	} else {
-		tplunit.Updated = false
+	if err != nil {
+		tplunit.ResourceUpdated = false
+
+		klog.Error("Failed to apply resource with error: ", err)
+
+		return err
 	}
 
+	tplunit.ResourceUpdated = true
+
 	if obj != nil {
-		err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
+		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"])
 	} else {
-		err = sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, nil)
+		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil)
 	}
 
 	if err != nil {
 		klog.Error("Failed to update host status with error: ", err)
 	}
+
+	return err
 }
 
-func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface, obj *unstructured.Unstructured, tplunit *TemplateUnit) {
+func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface, obj *unstructured.Unstructured, tplunit *TemplateUnit) error {
 	var err error
 
 	tplown := sync.Extension.GetHostFromObject(tplunit)
@@ -423,15 +439,15 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
 		klog.Info(errmsg)
 
-		tplunit.Updated = false
+		tplunit.ResourceUpdated = false
 
-		err = sync.Extension.UpdateHostStatus(sync.StatusClient, errors.NewBadRequest(errmsg), tplunit.Unstructured, nil)
+		err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil)
 
 		if err != nil {
 			klog.Error("Failed to update host status for existing resource with error:", err)
 		}
 
-		return
+		return err
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
@@ -440,19 +456,21 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	klog.V(10).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 	if err == nil {
-		tplunit.Updated = true
+		tplunit.ResourceUpdated = true
 	}
 
-	sterr := sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, obj.Object["status"])
+	sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"])
 
 	if sterr != nil {
 		klog.Error("Failed to update host status with error:", err)
 	}
+
+	return nil
 }
 
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	for k, tplunit := range res.TemplateMap {
-		klog.V(10).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.Updated)
+		klog.V(10).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 		var ri dynamic.ResourceInterface
 
@@ -468,15 +486,17 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 
 		if err != nil {
 			if errors.IsNotFound(err) {
-				sync.createNewResourceByTemplateUnit(ri, tplunit)
+				// ignore the error
+				_ = sync.createNewResourceByTemplateUnit(ri, tplunit)
+				err = nil
 			}
-		} else if !tplunit.Updated {
-			sync.updateResourceByTemplateUnit(ri, obj, tplunit)
+		} else if !tplunit.ResourceUpdated {
+			err = sync.updateResourceByTemplateUnit(ri, obj, tplunit)
 			// don't process the err of status update. leave it to next round house keeping
 		}
 		// leave the sync the check routine, not this one
 		if err != nil {
-			klog.Info("Failed to apply kind template", tplunit.Unstructured, "with error", err)
+			klog.Info("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
 			continue
 		}
 
@@ -537,7 +557,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 						klog.Error("Failed to delete tplunit in kubernetes, with error:", err)
 					}
 
-					sterr := sync.Extension.UpdateHostStatus(sync.StatusClient, err, tplunit.Unstructured, nil)
+					sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil)
 
 					if sterr != nil {
 						klog.Error("Failed to update host status, with error:", err)
@@ -709,9 +729,10 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	}
 
 	templateUnit := &TemplateUnit{
-		Updated:      false,
-		Unstructured: template.DeepCopy(),
-		Source:       source,
+		ResourceUpdated: false,
+		StatusUpdated:   false,
+		Unstructured:    template.DeepCopy(),
+		Source:          source,
 	}
 	resmap.TemplateMap[reskey] = templateUnit
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap

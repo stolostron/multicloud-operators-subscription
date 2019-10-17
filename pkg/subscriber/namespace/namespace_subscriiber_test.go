@@ -15,22 +15,61 @@
 package namespace
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
 var c client.Client
 
 var id = types.NamespacedName{
 	Name:      "endpoint",
-	Namespace: "enpoint-ns",
+	Namespace: "default",
 }
+
+var (
+	workloadkey = types.NamespacedName{
+		Name:      "testworkload",
+		Namespace: "default",
+	}
+
+	workloadconfigmap = corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workloadkey.Name,
+			Namespace: workloadkey.Namespace,
+		},
+	}
+
+	chdpl = &dplv1alpha1.Deployable{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployable",
+			APIVersion: "app.ibm.com/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "chdpl",
+			Namespace: id.Namespace,
+		},
+		Spec: dplv1alpha1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: &workloadconfigmap,
+			},
+		},
+	}
+)
 
 func TestSubscriber(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -40,13 +79,25 @@ func TestSubscriber(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
 	c = mgr.GetClient()
-	sync, err := kubesynchronizer.CreateSynchronizer(cfg, cfg, &id, 10, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	dpl := chdpl.DeepCopy()
 
-	sub := CreateNamespaceSubsriber(cfg, mgr.GetScheme(), mgr, sync)
+	g.Expect(c.Create(context.TODO(), dpl)).NotTo(gomega.HaveOccurred())
 
-	sub.SubscribeItem(defaultitem)
+	cfgmap := &corev1.ConfigMap{}
 
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
+
+	g.Expect(c.Get(context.TODO(), workloadkey, cfgmap)).NotTo(gomega.HaveOccurred())
+
+	// clean up
+	c.Delete(context.TODO(), dpl)
 }
