@@ -18,8 +18,9 @@ import (
 	"context"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -136,6 +137,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		instance.Status.Phase = appv1alpha1.SubscriptionFailed
 		instance.Status.Reason = err.Error()
 	}
+	instance.Status.LastUpdateTime = metav1.Now()
 
 	err = r.Status().Update(context.TODO(), instance)
 
@@ -162,7 +164,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
-		subitem.SubscriptionConfigMap = &v1.ConfigMap{}
+		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
 		subcfgkey := types.NamespacedName{
 			Name:      instance.Spec.PackageFilter.FilterRef.Name,
 			Namespace: instance.Namespace,
@@ -176,7 +178,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if subitem.Channel.Spec.SecretRef != nil {
-		subitem.ChannelSecret = &v1.Secret{}
+		subitem.ChannelSecret = &corev1.Secret{}
 		chnseckey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.SecretRef.Name,
 			Namespace: subitem.Channel.Namespace,
@@ -190,7 +192,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if subitem.Channel.Spec.ConfigMapRef != nil {
-		subitem.ChannelConfigMap = &v1.ConfigMap{}
+		subitem.ChannelConfigMap = &corev1.ConfigMap{}
 		chncfgkey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.ConfigMapRef.Name,
 			Namespace: subitem.Channel.Namespace,
