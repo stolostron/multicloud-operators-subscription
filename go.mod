@@ -2,18 +2,12 @@ module github.com/IBM/multicloud-operators-subscription
 
 require (
 	github.com/IBM/multicloud-operators-channel v0.0.0-20191010153458-f54fb85e6d50
-	github.com/IBM/multicloud-operators-deployable v0.0.0-20191004163656-68106a8afdfc
-	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191003174149-8a43376c12cd
-	github.com/Microsoft/go-winio v0.4.14 // indirect
-	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
-	github.com/docker/docker v0.0.0-20180612054059-a9fbbdc8dd87
-	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
+	github.com/IBM/multicloud-operators-deployable v0.0.0-20191010023957-4b35dbee0342
+	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191008174057-c9a4d98e0b6a
+	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/onsi/gomega v1.7.0
-	github.com/opencontainers/image-spec v1.0.1 // indirect
-	github.com/operator-framework/operator-lifecycle-manager v0.0.0-20190128024246-5eb7ae5bdb7a
 	github.com/operator-framework/operator-sdk v0.10.1-0.20191004014855-dc713e4d7890
 	github.com/prometheus/common v0.4.0
 	github.com/spf13/pflag v1.0.5

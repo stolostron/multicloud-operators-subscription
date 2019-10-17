@@ -108,7 +108,7 @@ func RunManager() {
 		}
 	}
 
-	klog.Info("Registering Components.")
+	klog.Info("Registering Components for id ", id)
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {

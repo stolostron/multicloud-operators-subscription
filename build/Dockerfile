@@ -1,4 +1,4 @@
-FROM scratch
+FROM registry.access.redhat.com/ubi7/ubi-minimal:7.7-98
 
 ENV OPERATOR=/usr/local/bin/multicloud-operators-subscription \
     USER_UID=1001 \

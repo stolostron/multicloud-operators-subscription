@@ -18,8 +18,9 @@ import (
 	"context"
 	"strings"
 
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -86,7 +87,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -110,13 +111,14 @@ type ReconcileSubscription struct {
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("Reconciling: ", request.NamespacedName)
+	klog.Info("Reconciling subscription: ", request.NamespacedName)
 
 	instance := &appv1alpha1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
+			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
 				_ = sub.UnsubscribeItem(request.NamespacedName)
@@ -128,7 +130,20 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	_ = r.doReconcile(instance)
+	err = r.doReconcile(instance)
+
+	instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
+	if err != nil {
+		instance.Status.Phase = appv1alpha1.SubscriptionFailed
+		instance.Status.Reason = err.Error()
+	}
+	instance.Status.LastUpdateTime = metav1.Now()
+
+	err = r.Status().Update(context.TODO(), instance)
+
+	if err != nil {
+		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err)
+	}
 
 	return reconcile.Result{}, nil
 }
@@ -149,7 +164,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
-		subitem.SubscriptionConfigMap = &v1.ConfigMap{}
+		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
 		subcfgkey := types.NamespacedName{
 			Name:      instance.Spec.PackageFilter.FilterRef.Name,
 			Namespace: instance.Namespace,
@@ -163,7 +178,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if subitem.Channel.Spec.SecretRef != nil {
-		subitem.ChannelSecret = &v1.Secret{}
+		subitem.ChannelSecret = &corev1.Secret{}
 		chnseckey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.SecretRef.Name,
 			Namespace: subitem.Channel.Namespace,
@@ -177,7 +192,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	if subitem.Channel.Spec.ConfigMapRef != nil {
-		subitem.ChannelConfigMap = &v1.ConfigMap{}
+		subitem.ChannelConfigMap = &corev1.ConfigMap{}
 		chncfgkey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.ConfigMapRef.Name,
 			Namespace: subitem.Channel.Namespace,

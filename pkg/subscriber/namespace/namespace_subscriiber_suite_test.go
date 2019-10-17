@@ -17,12 +17,16 @@ package namespace
 import (
 	stdlog "log"
 	"os"
-	"path/filepath"
+	"sync"
 	"testing"
 
+	"path/filepath"
+
+	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
 )
@@ -33,6 +37,7 @@ func TestMain(m *testing.M) {
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "hack", "test"),
 		},
 	}
 
@@ -47,4 +52,18 @@ func TestMain(m *testing.M) {
 
 	t.Stop()
 	os.Exit(code)
+}
+
+// StartTestManager adds recFn
+func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
+	stop := make(chan struct{})
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+
+	go func() {
+		defer wg.Done()
+		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+	}()
+
+	return stop, wg
 }

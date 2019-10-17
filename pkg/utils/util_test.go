@@ -15,16 +15,22 @@
 package utils
 
 import (
+	"context"
+	"errors"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
-var c client.Client
-
-func TestUtils(t *testing.T) {
+func TestKubernetes(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -45,4 +51,107 @@ func TestUtils(t *testing.T) {
 	//Test:  create testfoo crd
 	err = CheckAndInstallCRD(cfg, "../../deploy/crds/app_v1alpha1_subscription_crd.yaml")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestNamespacedNameFormat(t *testing.T) {
+	n := "tname"
+	ns := "tnamespace"
+	nsn := types.NamespacedName{
+		Name:      n,
+		Namespace: ns,
+	}
+
+	fnsn := NamespacedNameFormat(nsn.String())
+	if !reflect.DeepEqual(nsn, fnsn) {
+		t.Errorf("Format NamespacedName string failed.\n\tExpect:%v\n\tResult:%v", nsn, fnsn)
+	}
+
+	fnsn = NamespacedNameFormat("incorrect format")
+	if !reflect.DeepEqual(types.NamespacedName{}, fnsn) {
+		t.Errorf("Format NamespacedName string failed.\n\tExpect:%v\n\tResult:%v", types.NamespacedName{}, fnsn)
+	}
+}
+
+func TestEventlog(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	rec, err := NewEventRecorder(cfg, mgr.GetScheme())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	obj := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), obj)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), obj)
+
+	rec.RecordEvent(obj, "testreason", "testmsg", nil)
+	rec.RecordEvent(obj, "testreason", "testmsg", errors.New("testeventerr"))
+
+	time.Sleep(1 * time.Second)
+}
+
+var (
+	dpln       = "test-dpl"
+	dplns      = "test-dpl-ns"
+	hostdplkey = types.NamespacedName{
+		Name:      dpln,
+		Namespace: dplns,
+	}
+
+	subn       = "test-sub"
+	subns      = "test-sub-ns"
+	hostsubkey = types.NamespacedName{
+		Name:      subn,
+		Namespace: subns,
+	}
+
+	cln       = "test-cluster"
+	clns      = "test-cluster-ns"
+	hostclkey = types.NamespacedName{
+		Name:      cln,
+		Namespace: clns,
+	}
+
+	cmn    = "test-configmap"
+	cmns   = "test-configmap-ns"
+	cfgmap = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cmn,
+			Namespace: cmns,
+			Annotations: map[string]string{
+				dplv1alpha1.AnnotationHosting:        hostdplkey.String(),
+				dplv1alpha1.AnnotationSubscription:   hostsubkey.String(),
+				dplv1alpha1.AnnotationManagedCluster: hostclkey.String(),
+			},
+		},
+	}
+)
+
+func TestAnnotations(t *testing.T) {
+	cl := GetClusterFromResourceObject(cfgmap)
+
+	if !reflect.DeepEqual(*cl, hostclkey) {
+		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostclkey, cl)
+	}
+
+	dplkey := GetHostDeployableFromObject(cfgmap)
+
+	if !reflect.DeepEqual(*dplkey, hostdplkey) {
+		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostdplkey, *dplkey)
+	}
+
+	subkey := GetHostSubscriptionFromObject(cfgmap)
+
+	if !reflect.DeepEqual(*subkey, hostsubkey) {
+		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostsubkey, *subkey)
+	}
 }
