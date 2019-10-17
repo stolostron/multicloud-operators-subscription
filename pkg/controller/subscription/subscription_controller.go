@@ -86,7 +86,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -117,6 +117,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	if err != nil {
 		if errors.IsNotFound(err) {
+			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
 				_ = sub.UnsubscribeItem(request.NamespacedName)
@@ -128,7 +129,19 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	_ = r.doReconcile(instance)
+	err = r.doReconcile(instance)
+
+	instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
+	if err != nil {
+		instance.Status.Phase = appv1alpha1.SubscriptionFailed
+		instance.Status.Reason = err.Error()
+	}
+
+	err = r.Status().Update(context.TODO(), instance)
+
+	if err != nil {
+		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err)
+	}
 
 	return reconcile.Result{}, nil
 }

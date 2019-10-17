@@ -100,12 +100,14 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		return errors.New(errmsg)
 	}
 
-	defaultitem.Channel.Spec.PathName = syncid.Namespace
-	err = defaultSubscriber.SubscribeNamespaceItem(defaultitem, true)
+	if syncid.String() != "/" {
+		defaultitem.Channel.Spec.PathName = syncid.Namespace
+		err = defaultSubscriber.SubscribeNamespaceItem(defaultitem, true)
 
-	if err != nil {
-		klog.Error("Failed to initialize default channel to cluster namespace")
-		return err
+		if err != nil {
+			klog.Error("Failed to initialize default channel to cluster namespace")
+			return err
+		}
 	}
 
 	return nil
@@ -206,6 +208,8 @@ func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		close(nssubitem.stopch)
 	}
+
+	ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 
 	return nil
 }

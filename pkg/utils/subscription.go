@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
@@ -29,7 +30,46 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+// SubscriptionPredicateFunctions filters status update
+var SubscriptionPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		subOld := e.ObjectOld.(*appv1alpha1.Subscription)
+		subNew := e.ObjectNew.(*appv1alpha1.Subscription)
+
+		// need to process delete with finalizers
+		if len(subNew.GetFinalizers()) > 0 {
+			return true
+		}
+
+		// we care label change, pass it down
+		if !reflect.DeepEqual(subOld.GetLabels(), subNew.GetLabels()) {
+			return true
+		}
+
+		// we care annotation change. pass it down
+		if !reflect.DeepEqual(subOld.GetAnnotations(), subNew.GetAnnotations()) {
+			return true
+		}
+
+		// we care spec for sure
+		if !reflect.DeepEqual(subOld.Spec, subNew.Spec) {
+			return true
+		}
+
+		// do we care phase change?
+		if subNew.Status.Phase == "" || subNew.Status.Phase != subOld.Status.Phase {
+			klog.V(5).Info("We care phase..", subNew.Status.Phase, " vs ", subOld.Status.Phase)
+			return true
+		}
+
+		klog.V(5).Info("Something we don't care changed")
+		return false
+	},
+}
 
 // GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
 func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
