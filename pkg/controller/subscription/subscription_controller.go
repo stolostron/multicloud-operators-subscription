@@ -34,6 +34,7 @@ import (
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	hrsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
@@ -62,6 +63,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	}
 
 	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
+	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
@@ -137,6 +139,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		instance.Status.Phase = appv1alpha1.SubscriptionFailed
 		instance.Status.Reason = err.Error()
 	}
+
 	instance.Status.LastUpdateTime = metav1.Now()
 
 	err = r.Status().Update(context.TODO(), instance)
@@ -151,7 +154,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
 	var err error
 
-	subitem := &appv1alpha1.SubsriberItem{}
+	subitem := &appv1alpha1.SubscriberItem{}
 	subitem.Subscription = instance
 
 	subitem.Channel = &chnv1alpha1.Channel{}

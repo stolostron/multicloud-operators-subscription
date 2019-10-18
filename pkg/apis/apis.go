@@ -18,8 +18,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 
-	chnapp "github.com/IBM/multicloud-operators-channel/pkg/apis"
-	dplapp "github.com/IBM/multicloud-operators-deployable/pkg/apis"
+	chnapis "github.com/IBM/multicloud-operators-channel/pkg/apis"
+	dplapis "github.com/IBM/multicloud-operators-deployable/pkg/apis"
+	releaseapis "github.com/IBM/multicloud-operators-subscription-release/pkg/apis"
 )
 
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
@@ -27,13 +28,19 @@ var AddToSchemes runtime.SchemeBuilder
 
 // AddToScheme adds all Resources to the Scheme
 func AddToScheme(s *runtime.Scheme) error {
-	err := chnapp.AddToSchemes.AddToScheme(s)
+	err := chnapis.AddToSchemes.AddToScheme(s)
 	if err != nil {
 		klog.Error("Failed to add channel to scheme ")
 		return err
 	}
 
-	err = dplapp.AddToSchemes.AddToScheme(s)
+	err = releaseapis.AddToSchemes.AddToScheme(s)
+	if err != nil {
+		klog.Error("Failed to add channel to scheme ")
+		return err
+	}
+
+	err = dplapis.AddToSchemes.AddToScheme(s)
 	if err != nil {
 		klog.Error("Failed to add deployable to scheme ")
 		return err

@@ -4,6 +4,7 @@ require (
 	github.com/IBM/multicloud-operators-channel v0.0.0-20191010153458-f54fb85e6d50
 	github.com/IBM/multicloud-operators-deployable v0.0.0-20191010023957-4b35dbee0342
 	github.com/IBM/multicloud-operators-placementrule v0.0.0-20191008174057-c9a4d98e0b6a
+	github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191015202259-62d844a07129
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
@@ -17,6 +18,7 @@ require (
 	k8s.io/apimachinery v0.0.0-20190612125636-6a5db36e93ad
 	k8s.io/apiserver v0.0.0-20181213151703-3ccfe8365421
 	k8s.io/client-go v11.0.1-0.20190409021438-1a26190bd76a+incompatible
+	k8s.io/helm v2.13.1+incompatible
 	k8s.io/klog v0.3.1
 	k8s.io/kube-openapi v0.0.0-20190603182131-db7b694dc208
 	sigs.k8s.io/controller-runtime v0.1.12
