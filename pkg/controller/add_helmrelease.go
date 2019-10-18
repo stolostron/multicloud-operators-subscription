@@ -15,10 +15,10 @@
 package controller
 
 import (
-	"github.com/IBM/multicloud-operators-subscription/pkg/controller/subscription"
+	"github.com/IBM/multicloud-operators-subscription-release/pkg/controller/helmrelease"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerMCMFuncs = append(AddToManagerMCMFuncs, subscription.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, helmrelease.Add)
 }

@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package subscriber
 
 import (
-	"github.com/IBM/multicloud-operators-subscription/pkg/controller/subscription"
+	"github.com/IBM/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerMCMFuncs = append(AddToManagerMCMFuncs, subscription.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, helmrepo.Add)
 }

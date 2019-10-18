@@ -39,7 +39,7 @@ import (
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
-	appv1alpha1.SubsriberItem
+	appv1alpha1.SubscriberItem
 	cache         cache.Cache
 	controller    controller.Controller
 	clusterscoped bool
@@ -64,7 +64,7 @@ var defaultSubscriber *Subscriber
 var (
 	defaultSubscription = &appv1alpha1.Subscription{}
 	defaultChannel      = &chnv1alpha1.Channel{}
-	defaultitem         = &appv1alpha1.SubsriberItem{
+	defaultitem         = &appv1alpha1.SubscriberItem{
 		Subscription: defaultSubscription,
 		Channel:      defaultChannel,
 	}
@@ -114,7 +114,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 }
 
 // SubscribeNamespaceItem adds namespace subscribe item to subscriber
-func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubsriberItem, clusterScoped bool) error {
+func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem, clusterScoped bool) error {
 	var err error
 
 	if ns.itemmap == nil {
@@ -186,10 +186,10 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubsriberItem,
 			}
 		}()
 
-		subitem.DeepCopyInto(&nssubitem.SubsriberItem)
+		subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 		ns.itemmap[itemkey] = nssubitem
-	} else if !reflect.DeepEqual(nssubitem.SubsriberItem, subitem) {
-		subitem.DeepCopyInto(&nssubitem.SubsriberItem)
+	} else if !reflect.DeepEqual(nssubitem.SubscriberItem, subitem) {
+		subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 		ns.itemmap[itemkey] = nssubitem
 	}
 
@@ -197,7 +197,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubsriberItem,
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel
-func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubsriberItem) error {
+func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	return ns.SubscribeNamespaceItem(subitem, false)
 }
 
@@ -210,6 +210,8 @@ func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	}
 
 	ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
+
+	delete(ns.itemmap, key)
 
 	return nil
 }
