@@ -59,6 +59,7 @@ var (
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
+			Package: "nginx-ingress",
 		},
 	}
 	subitem = &appv1alpha1.SubscriberItem{

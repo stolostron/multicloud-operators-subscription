@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -103,7 +104,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 		return
 	}
 
-	klog.Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
+	klog.V(4).Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
 
 	if hash != hrsi.hash {
 		err = hrsi.processSubscription()
@@ -116,7 +117,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 func (hrsi *SubscriberItem) processSubscription() error {
 	repoURL := hrsi.Channel.Spec.PathName
-	klog.Error("Proecssing HelmRepo:", repoURL)
+	klog.V(5).Info("Proecssing HelmRepo:", repoURL)
 
 	httpClient, err := hrsi.getHelmRepoClient()
 	if err != nil {
@@ -205,7 +206,7 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 		}
 	}
 
-	klog.Error(req)
+	klog.V(5).Info(req)
 	resp, err := client.Do(req)
 
 	if err != nil {
@@ -213,7 +214,7 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 		return nil, "", err
 	}
 
-	klog.V(2).Info("Get succeeded: ", cleanRepoURL)
+	klog.V(5).Info("Get succeeded: ", cleanRepoURL)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -463,7 +464,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 	//Loop on all packages selected by the subscription
 	for packageName, chartVersions := range indexFile.Entries {
-		klog.Infof("chart: %s\n%v", packageName, chartVersions)
+		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		//Compose release name
 		helmReleaseNewName := packageName + "-" + hrsi.Subscription.Name + "-" + hrsi.Subscription.Namespace
@@ -482,6 +483,20 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
 			types.NamespacedName{Name: helmReleaseNewName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
 
+		for i := range chartVersions[0].URLs {
+			parsedURL, err := url.Parse(chartVersions[0].URLs[i])
+
+			if err != nil {
+				klog.Error("Failed to parse url with error:", err)
+				return err
+			}
+
+			if parsedURL.Scheme == "local" {
+				//make sure there is one and only one slash
+				repoURL = strings.TrimSuffix(repoURL, "/") + "/"
+				chartVersions[0].URLs[i] = strings.Replace(chartVersions[0].URLs[i], "local://", repoURL, -1)
+			}
+		}
 		//Check if Update or Create
 		if err != nil {
 			if errors.IsNotFound(err) {
@@ -506,7 +521,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 						Source: &releasev1alpha1.Source{
 							SourceType: releasev1alpha1.HelmRepoSourceType,
 							HelmRepo: &releasev1alpha1.HelmRepo{
-								Urls: []string{repoURL},
+								Urls: chartVersions[0].URLs,
 							},
 						},
 						ConfigMapRef: hrsi.Channel.Spec.ConfigMapRef,
@@ -522,16 +537,15 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			}
 		} else {
 			// set kind and apiversion, coz it is not in the resource get from k8s
-
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
-			klog.Infof("Update helmRelease spec %s", helmRelease.Name)
+			klog.V(2).Infof("Update helmRelease spec %s", helmRelease.Name)
 			releaseName := helmRelease.Spec.ReleaseName
 			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.HelmRepoSourceType,
 					HelmRepo: &releasev1alpha1.HelmRepo{
-						Urls: []string{repoURL},
+						Urls: chartVersions[0].URLs,
 					},
 				},
 				ConfigMapRef: hrsi.Channel.Spec.ConfigMapRef,
