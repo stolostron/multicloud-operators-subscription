@@ -17,6 +17,7 @@ package subscription
 import (
 	"context"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -132,23 +133,45 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	err = r.doReconcile(instance)
+	pl := instance.Spec.Placement
+	if pl != nil && pl.Local != nil && *pl.Local {
+		err = r.doReconcile(instance)
 
-	instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
-	if err != nil {
-		instance.Status.Phase = appv1alpha1.SubscriptionFailed
-		instance.Status.Reason = err.Error()
+		instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
+		if err != nil {
+			instance.Status.Phase = appv1alpha1.SubscriptionFailed
+			instance.Status.Reason = err.Error()
+		}
+	} else {
+		// no longer local
+		for _, sub := range r.subscribers {
+			_ = sub.UnsubscribeItem(request.NamespacedName)
+		}
+
+		if instance.Status.Phase == appv1alpha1.SubscriptionFailed || instance.Status.Phase == appv1alpha1.SubscriptionSubscribed {
+			instance.Status.Phase = ""
+			instance.Status.Message = ""
+			instance.Status.Reason = ""
+		}
+
+		if instance.Status.Statuses != nil {
+			delete(instance.Status.Statuses, types.NamespacedName{}.String())
+		}
 	}
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
 	err = r.Status().Update(context.TODO(), instance)
 
+	result := reconcile.Result{}
+
 	if err != nil {
-		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err)
+		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
+
+		result.RequeueAfter = 1 * time.Second
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
