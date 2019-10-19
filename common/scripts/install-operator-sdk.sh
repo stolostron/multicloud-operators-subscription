@@ -15,16 +15,10 @@
 # limitations under the License.
 
 echo ">>> Installing Operator SDK"
-echo ">>> >>> Downloading source code"
-GO111MODULE=off go get -d -v github.com/operator-framework/operator-sdk
 
-cd "$GOPATH"/src/github.com/operator-framework/operator-sdk || exit
-
-echo ">>> >>> Checking out version 0.10.0"
-git checkout v0.10.0
-
-echo ">>> >>> Running make tidy"
-make tidy
-
-echo ">>> >>> Running make install"
-make install
+# Use version 0.10.0
+RELEASE_VERSION=v0.10.0
+# Download binary
+curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
+# Install binary
+chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu && sudo mkdir -p /usr/local/bin/ && sudo cp operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk && rm operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
