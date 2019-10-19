@@ -113,8 +113,8 @@ install-operator-sdk:
 # build section
 ############################################################
 
-build: install-operator-sdk
-	@operator-sdk build $(REGISTRY)/$(IMG):$(VERSION)
+build:
+	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 
 ############################################################
 # images section
@@ -126,7 +126,8 @@ ifeq ($(BUILD_LOCALLY),0)
     export CONFIG_DOCKER_TARGET = config-docker
 endif
 
-build-push-images: $(CONFIG_DOCKER_TARGET)
+build-push-images: install-operator-sdk $(CONFIG_DOCKER_TARGET)
+	@operator-sdk build $(REGISTRY)/$(IMG):$(VERSION)
 	@docker tag $(REGISTRY)/$(IMG):$(VERSION) $(REGISTRY)/$(IMG)
 	@docker push $(REGISTRY)/$(IMG):$(VERSION)
 	@docker push $(REGISTRY)/$(IMG)
