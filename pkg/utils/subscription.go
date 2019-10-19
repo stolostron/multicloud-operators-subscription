@@ -257,7 +257,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 		err = statusClient.Status().Update(context.TODO(), sub)
 		// want to print out the error log before leave
 		if err != nil {
-			klog.Error("Failed to update status of subscription ", err)
+			klog.V(1).Info("Failed to update status of subscription in subscriber loop", err)
 		}
 	}
 

@@ -12,6 +12,18 @@ metadata:
 spec:
     type: HelmRepo
     pathname: https://kubernetes-charts.storage.googleapis.com/
+    configRef: 
+      name: skip-cert-verify
+      apiVersion: v1
+      kind: ConfigMap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skip-cert-verify
+  namespace: dev
+data:
+  insecureSkipVerify: "true"
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: Subscription
@@ -20,3 +32,5 @@ metadata:
 spec:
   channel: dev/dev-helmrepo
   name: nginx-ingress
+  placement:
+    local: false

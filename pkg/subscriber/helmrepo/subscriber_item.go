@@ -608,11 +608,13 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	if utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.LocalClient, hrsi.Subscription, pkgMap) != nil {
 		err = hrsi.synchronizer.LocalClient.Get(context.TODO(), hostkey, hrsi.Subscription)
 		if err != nil {
-			klog.Error("Failed to update subscription resource with error:", err)
+			klog.Error("Failed to get and subscription resource with error:", err)
 		}
+
+		err = utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.LocalClient, hrsi.Subscription, pkgMap)
 	}
 
-	return nil
+	return err
 }
 
 func getReleaseName(base string) string {

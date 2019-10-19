@@ -101,12 +101,19 @@ test:
 coverage:
 	@common/scripts/codecov.sh
 
+############################################################
+# install operator sdk section
+############################################################
+
+install-operator-sdk: 
+	@operator-sdk version ; if [ $$? -ne 0 ]; then ./common/scripts/install-operator-sdk.sh; fi
+
 
 ############################################################
 # build section
 ############################################################
 
-build: 
+build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 
 ############################################################
@@ -120,7 +127,7 @@ ifeq ($(BUILD_LOCALLY),0)
 endif
 
 build-push-images: $(CONFIG_DOCKER_TARGET)
-	@docker build . -f Dockerfile -t $(REGISTRY)/$(IMG):$(VERSION)
+	@operator-sdk build $(REGISTRY)/$(IMG):$(VERSION)
 	@docker tag $(REGISTRY)/$(IMG):$(VERSION) $(REGISTRY)/$(IMG)
 	@docker push $(REGISTRY)/$(IMG):$(VERSION)
 	@docker push $(REGISTRY)/$(IMG)

@@ -31,13 +31,39 @@ Placement Rules for Multicloud Applications.
 
 Subsribes resources from Channels and apply them to kubernetes
 
-## QuickStart
+## Quick Start
 
 ------
 
-### Standalone Endpoint
+- Clone the subscription operator repository
 
-### MultiCloud Environment
+```shell
+mkdir -p "$GOPATH"/src/github.com/IBM
+cd "$GOPATH"/src/github.com/IBM
+git clone https://github.com/IBM/multicloud-operators-subscription.git
+cd "$GOPATH"/src/github.com/IBM/multicloud-operators-subscription
+```
+
+- Setup environment and deploy subscrition operator
+
+```shell
+kubectl apply -f ./deploy/crds
+kubectl apply -f ./deploy
+```
+
+- Create a Channel and Subscription
+
+```shell
+kubectl apply -f ./examples/helmrepo-channel
+```
+
+- Subscribe!
+
+```shell
+kubectl patch subscriptions.app.ibm.com simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value":"true"}]'
+```
+
+Check the [Getting Started](docs/getting_started) doc for more details
 
 ### Trouble shooting
 

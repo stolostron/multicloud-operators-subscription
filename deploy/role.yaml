@@ -9,7 +9,3 @@ rules:
   - '*'
   verbs:
   - '*'
-- nonResourceURLs:
-  - '*'
-  verbs:
-  - '*'
