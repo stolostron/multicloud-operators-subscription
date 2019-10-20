@@ -11,7 +11,7 @@ metadata:
   namespace: dev
 spec:
     type: HelmRepo
-    pathname: https://kubernetes-charts.storage.googleapis.com/
+    pathname: http://kubernetes-charts.storage.googleapis.com/
     configRef: 
       name: skip-cert-verify
       apiVersion: v1
@@ -34,3 +34,10 @@ spec:
   name: nginx-ingress
   placement:
     local: false
+  packageOverrides:
+  - packageName: nginx-ingress
+    packageOverrides:
+    - path: spec.values
+      value: |
+        defaultBackend:
+          replicaCount: 3

@@ -18,7 +18,8 @@ spec:
         - name: multicloud-operators-subscription
           image: quay.io/multicloudlab/multicloud-operators-subscription
           command:
-          - /multicloud-operators-subscription
+          - /usr/local/bin/multicloud-operators-subscription
+          - --sync-interval=10
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -33,8 +34,8 @@ spec:
               value: "multicloud-operators-subscription"
           resources:
               requests:
-                cpu: 5m
-                memory: 5Mi
-              limits:
-                cpu: 10m
+                cpu: 100m
                 memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi

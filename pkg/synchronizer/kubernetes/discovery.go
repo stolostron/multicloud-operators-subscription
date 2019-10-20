@@ -145,13 +145,6 @@ func (sync *KubeSynchronizer) discoverResources() error {
 }
 
 func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList, valid map[schema.GroupVersionKind]bool) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
 	for _, res := range rl.APIResources {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {

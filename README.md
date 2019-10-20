@@ -33,6 +33,8 @@ Subsribes resources from Channels and apply them to kubernetes
 
 ------
 
+### Subscribe a helm chart
+
 - Clone the subscription operator repository
 
 ```shell
@@ -58,12 +60,77 @@ kubectl apply -f ./examples/helmrepo-channel
 - Subscribe!
 
 ```shell
-kubectl patch subscriptions.app.ibm.com simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value":"true"}]'
+kubectl patch subscriptions.app.ibm.com simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+```
+
+Find the nginx pods deployed to current namespace, and the number of backend pods is overrided to 3
+
+```shell
+% kubectl get pods -l app=nginx-ingress
+NAME                                                              READY     STATUS    RESTARTS   AGE
+ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-controller-68tf55x   1/1       Running   0          26s
+ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backe95wfk   1/1       Running   0          26s
+ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backen85m6   1/1       Running   0          26s
+ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backew5p2n   1/1       Running   0          26s
 ```
 
 Check the [Getting Started](docs/getting_started) doc for more details
 
 ### Trouble shooting
+
+- Check operator availability
+
+```shell
+% kubectl get deploy,pods
+NAME                                                READY     UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/multicloud-operators-subscription   1/1       1            1           99m
+
+NAME                                                     READY     STATUS    RESTARTS   AGE
+pod/multicloud-operators-subscription-557c676479-dh2fg   1/1       Running   0          24s
+```
+
+- Check Subscription and its status
+
+```shell
+% kubectl describe subscriptions simple
+Name:         simple
+Namespace:    default
+Labels:       <none>
+Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"app.ibm.com/v1alpha1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"channel":"dev/d...
+API Version:  app.ibm.com/v1alpha1
+Kind:         Subscription
+Metadata:
+  Creation Timestamp:  2019-10-20T00:43:54Z
+  Generation:          14
+  Resource Version:    39456
+  Self Link:           /apis/app.ibm.com/v1alpha1/namespaces/default/subscriptions/simple
+  UID:                 2abed0ce-78e0-42e9-bc25-39737bc50220
+Spec:
+  Channel:  dev/dev-helmrepo
+  Name:     nginx-ingress
+  Package Overrides:
+    Package Name:  nginx-ingress
+    Package Overrides:
+      Path:   spec.values
+      Value:  controller:
+  replicaCount: 3
+
+  Placement:
+    Local:  true
+Status:
+  Last Update Time:  2019-10-20T02:46:25Z
+  Phase:             Subscribed
+  Statuses:
+    /:
+      Packages:
+        Dev - Helmrepo - Nginx - Ingress - 1 . 24 . 3:
+          Last Update Time:  2019-10-20T02:46:25Z
+          Phase:             Subscribed
+          Resource Status:
+            Last Update:  2019-10-20T02:46:13Z
+            Phase:        Success
+Events:                   <none>
+```
 
 Please refer to [Trouble shooting documentation](docs/trouble_shooting.md) for further info.
 

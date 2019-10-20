@@ -117,7 +117,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 func (hrsi *SubscriberItem) processSubscription() error {
 	repoURL := hrsi.Channel.Spec.PathName
-	klog.V(5).Info("Proecssing HelmRepo:", repoURL)
+	klog.V(4).Info("Proecssing HelmRepo:", repoURL)
 
 	httpClient, err := hrsi.getHelmRepoClient()
 	if err != nil {
@@ -162,7 +162,7 @@ func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
 
 	if hrsi.ChannelConfigMap != nil {
 		helmRepoConfigData := hrsi.ChannelConfigMap.Data
-		klog.V(10).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
+		klog.V(5).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
 
 		if helmRepoConfigData["insecureSkipVerify"] != "" {
 			b, err := strconv.ParseBool(helmRepoConfigData["insecureSkipVerify"])
@@ -173,10 +173,10 @@ func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
 
 			transport.TLSClientConfig.InsecureSkipVerify = b
 		} else {
-			klog.V(10).Info("helmRepoConfigData[\"insecureSkipVerify\"] is empty")
+			klog.V(5).Info("helmRepoConfigData[\"insecureSkipVerify\"] is empty")
 		}
 	} else {
-		klog.V(10).Info("s.HelmRepoConfig is nil")
+		klog.V(5).Info("s.HelmRepoConfig is nil")
 	}
 
 	client.Transport = transport
@@ -303,6 +303,8 @@ func (hrsi *SubscriberItem) removeNoMatchingName(indexFile *repo.IndexFile) erro
 		}
 	}
 
+	klog.V(5).Info("After name matching:", indexFile)
+
 	return nil
 }
 
@@ -331,6 +333,8 @@ func (hrsi *SubscriberItem) filterOnVersion(indexFile *repo.IndexFile) {
 			delete(indexFile.Entries, k)
 		}
 	}
+
+	klog.V(5).Info("After version matching:", indexFile)
 }
 
 //checkDigest Checks if the digest matches
@@ -344,6 +348,8 @@ func (hrsi *SubscriberItem) checkDigest(chartVersion *repo.ChartVersion) bool {
 			}
 		}
 	}
+
+	klog.V(5).Info("Digest check passed for:", chartVersion)
 
 	return true
 }
@@ -376,6 +382,8 @@ func (hrsi *SubscriberItem) checkTillerVersion(chartVersion *repo.ChartVersion) 
 		}
 	}
 
+	klog.V(5).Info("Tiller check passed for:", chartVersion)
+
 	return true
 }
 
@@ -403,6 +411,8 @@ func (hrsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
 			}
 		}
 	}
+
+	klog.V(5).Info("Version check passed for:", chartVersion)
 
 	return true
 }
@@ -499,7 +509,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		//Check if Update or Create
 		if err != nil {
 			if errors.IsNotFound(err) {
-				klog.Infof("Create helmRelease %s", helmReleaseNewName)
+				klog.V(2).Infof("Create helmRelease %s", helmReleaseNewName)
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
