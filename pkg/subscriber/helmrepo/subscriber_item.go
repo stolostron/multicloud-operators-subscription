@@ -267,9 +267,8 @@ func hashKey(b []byte) string {
 
 //filterCharts filters the indexFile by name, tillerVersion, version, digest
 func (hrsi *SubscriberItem) filterCharts(indexFile *repo.IndexFile) error {
-	var err error
 	//Removes all entries from the indexFile with non matching name
-	err = hrsi.removeNoMatchingName(indexFile)
+	err := hrsi.removeNoMatchingName(indexFile)
 	if err != nil {
 		klog.Error(err)
 		return err
