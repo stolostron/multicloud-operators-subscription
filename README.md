@@ -13,9 +13,8 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Overview](#overview)
-- [QuickStart](#quickstart)
-    - [Standalone Endpoint](#standalone-endpoint)
-    - [MultiCloud Environment](#multicloud-environment)
+- [Quick Start](#quick-start)
+    - [Subscribe a helm chart](#subscribe-a-helm-chart)
     - [Trouble shooting](#trouble-shooting)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
 - [References](#references)

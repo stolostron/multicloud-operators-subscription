@@ -75,7 +75,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
-	klog.Info("Setting up default namespace subscriber on ", syncid)
+	klog.Info("Setting up namespace subscriber")
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
@@ -108,6 +108,8 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 			klog.Error("Failed to initialize default channel to cluster namespace")
 			return err
 		}
+
+		klog.Info("Default namespace subscriber with id:", syncid)
 	}
 
 	return nil
