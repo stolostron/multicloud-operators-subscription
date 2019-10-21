@@ -14,11 +14,11 @@
 
 - [Overview](#overview)
 - [Quick Start](#quick-start)
-  - [Subscribe a helm chart](#subscribe-a-helm-chart)
-  - [Trouble shooting](#trouble-shooting)
+    - [Subscribe a helm chart](#subscribe-a-helm-chart)
+    - [Trouble shooting](#trouble-shooting)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
 - [References](#references)
-  - [multicloud-operators repositories](#multicloud-operators-repositories)
+    - [multicloud-operators repositories](#multicloud-operators-repositories)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
