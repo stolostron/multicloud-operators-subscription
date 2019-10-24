@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: dev-github
+  namespace: dev
+spec:
+    type: GitHub
+    pathname: https://github.com/rokej/testgit.git
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: github-subscription
+spec:
+  channel: dev/dev-github
+  name: nginx-ingress
+  placement:
+    local: false
+  packageFilter:
+    labelSelector:
+      matchLabels:
+        environment: Dev
+    filterRef:
+      name: gitconfigmap
+      kind: ConfigMap
+      apiVersion: v1
+  packageOverrides:
+  - packageName: nginx-ingress
+    packageOverrides:
+    - path: spec.values
+      value: |
+        defaultBackend:
+          replicaCount: 3
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitconfigmap
+data:
+  githubSelector: |
+    path: files/resources #optional, default ALL
+    branch: master #optional, default master
+    commitid: db6df425e51db0ae14722c6e986b698585cdeb47 #optional
