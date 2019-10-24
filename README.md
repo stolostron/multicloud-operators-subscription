@@ -46,8 +46,7 @@ cd "$GOPATH"/src/github.com/IBM/multicloud-operators-subscription
 - Setup environment and deploy subscrition operator
 
 ```shell
-kubectl apply -f ./deploy/crds
-kubectl apply -f ./deploy
+kubectl apply -f ./deploy/standalone
 ```
 
 - Create a Channel and Subscription
