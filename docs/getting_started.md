@@ -2,11 +2,8 @@
 
 ## Prerequisite
 
-- git
-- go version v1.13+.
-- operatorsdk version v0.10.0
-- kubebuilder version v1.0.8
-- Linting Tools: hadolint, shellcheck, yamllint, helm, golangci-lint, autopep8, mdl, awesome_bot, sass-lint, tslint, prototool, goimports
+- Kubernetes v1.13+. Use following [link](https://kubernetes.io/docs/setup/#learning-environment) to find an environment or setup one.
+- kubectl v1.11+ Use following [link](https://kubernetes.io/docs/tasks/tools/install-kubectl/) to download
 
 ## Build subscription
 

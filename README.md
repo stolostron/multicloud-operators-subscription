@@ -26,7 +26,7 @@
 
 ------
 
-Subsribes resources from Channels and apply them to kubernetes
+Subscribes resources from Channels and apply them to kubernetes
 
 ## Quick Start
 
@@ -43,11 +43,10 @@ git clone https://github.com/IBM/multicloud-operators-subscription.git
 cd "$GOPATH"/src/github.com/IBM/multicloud-operators-subscription
 ```
 
-- Setup environment and deploy subscrition operator
+- Setup environment and deploy subscription operator
 
 ```shell
-kubectl apply -f ./deploy/crds
-kubectl apply -f ./deploy
+kubectl apply -f ./deploy/standalone
 ```
 
 - Create a Channel and Subscription
@@ -137,13 +136,11 @@ Please refer to [Trouble shooting documentation](docs/trouble_shooting.md) for f
 
 ------
 
-Check the [DEVELOPMENT Doc][docs/development.md] for how to build and make changes.
+Check the [DEVELOPMENT Doc](docs/development.md) for how to build and make changes.
 
 Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
 
-You can reach the maintainers of this project at:
-
-- [#xxx on Slack] (link to maintainer in slack)
+You can reach the maintainers of this by raising issues. Slack communication is coming soon
 
 ## References
 
