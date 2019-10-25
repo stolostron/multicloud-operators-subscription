@@ -44,7 +44,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
-	klog.V(2).Info("Setting up default github subscriber on ", syncid)
+	klog.V(5).Info("Setting up default github subscriber on ", syncid)
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
@@ -79,7 +79,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	klog.V(2).Info("GITHUB SubscribeItem itemKey = ", itemkey)
 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
@@ -95,7 +94,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghs.itemmap[itemkey] = ghssubitem
 
 	ghssubitem.Start()
-	klog.V(2).Info("GITHUB SubscribeItem Started.")
 
 	return nil
 }

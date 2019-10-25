@@ -77,7 +77,7 @@ type kubeResource struct {
 func (ghsi *SubscriberItem) Start() {
 	// do nothing if already started
 	if ghsi.stopch != nil {
-		klog.V(10).Info("GITHUB SubscriberItem already started: ", ghsi.Subscription.Name)
+		klog.V(10).Info("SubscriberItem already started: ", ghsi.Subscription.Name)
 		return
 	}
 
@@ -90,7 +90,7 @@ func (ghsi *SubscriberItem) Start() {
 
 // Stop unsubscribes a subscriber item with namespace channel
 func (ghsi *SubscriberItem) Stop() {
-	klog.V(10).Info("GITHUB Stopping SubscriberItem ", ghsi.Subscription.Name)
+	klog.V(10).Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
 }
 
@@ -103,7 +103,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 	}
 
 	if commitID != ghsi.commitID {
-		klog.V(10).Info("The commit ID is different. Process the cloned repo")
+		klog.V(5).Info("The commit ID is different. Process the cloned repo")
 
 		index, rscDirs, err := ghsi.sortClonedGitRepo()
 		if err != nil {
@@ -121,7 +121,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 
 		ghsi.commitID = commitID
 	} else {
-		klog.V(10).Info("The commit ID is same as before. Skip processing the cloned repo")
+		klog.V(5).Info("The commit ID is same as before. Skip processing the cloned repo")
 	}
 }
 
@@ -139,12 +139,12 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 		}
 
 		for _, f := range files {
-			klog.V(10).Info("scanning  ", dir, f.Name())
+			klog.V(5).Info("scanning  ", dir, f.Name())
 			// If YAML or YML,
 			if f.Mode().IsRegular() {
 				if strings.EqualFold(filepath.Ext(f.Name()), ".yml") || strings.EqualFold(filepath.Ext(f.Name()), ".yaml") {
 					// check it it is Kubernetes resource
-					klog.V(10).Info("scanning file ", f.Name())
+					klog.V(5).Info("scanning file ", f.Name())
 					file, _ := ioutil.ReadFile(filepath.Join(dir, f.Name()))
 					t := kubeResource{}
 					err = yaml.Unmarshal(file, &t)
@@ -154,9 +154,9 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 					}
 
 					if t.APIVersion == "" || t.Kind == "" {
-						klog.V(10).Info("Not a Kubernetes resource")
+						klog.V(5).Info("Not a Kubernetes resource")
 					} else {
-						klog.V(10).Info("Applying Kubernetes resource of kind ", t.Kind)
+						klog.V(5).Info("Applying Kubernetes resource of kind ", t.Kind)
 
 						dpltosync, validgvk, err := ghsi.subscribeResource(file, pkgMap)
 						if err != nil {
@@ -164,14 +164,14 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 							continue
 						}
 
-						klog.V(10).Info("Ready to register template:", hostkey, dpltosync, syncsource)
+						klog.V(5).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
 						err = ghsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
 						if err != nil {
 							err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 
 							if err != nil {
-								klog.V(10).Info("error in setting in cluster package status :", err)
+								klog.V(5).Info("error in setting in cluster package status :", err)
 							}
 
 							pkgMap[dpltosync.GetName()] = true
@@ -187,7 +187,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 
 						pkgMap[dplkey.Name] = true
 
-						klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
+						klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 					}
 				}
 			}
@@ -259,7 +259,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	pkgMap := make(map[string]bool)
 
 	for packageName, chartVersions := range indexFile.Entries {
-		klog.V(10).Infof("chart: %s\n%v", packageName, chartVersions)
+		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		//Compose release name
 		helmReleaseNewName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
@@ -271,7 +271,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		//Check if Update or Create
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				klog.V(10).Infof("Create helmRelease %s", helmReleaseNewName)
+				klog.V(5).Infof("Create helmRelease %s", helmReleaseNewName)
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
@@ -311,7 +311,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			// set kind and apiversion, coz it is not in the resource get from k8s
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
-			klog.V(10).Infof("Update helmRelease spec %s", helmRelease.Name)
+			klog.V(5).Infof("Update helmRelease spec %s", helmRelease.Name)
 			releaseName := helmRelease.Spec.ReleaseName
 			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
 				Source: &releasev1alpha1.Source{
@@ -449,7 +449,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
-	klog.V(10).Info("Cloning ", ghsi.Channel.Spec.PathName, " into ", repoRoot)
+	klog.V(5).Info("Cloning ", ghsi.Channel.Spec.PathName, " into ", repoRoot)
 	r, err := git.PlainClone(repoRoot, false, options)
 
 	if err != nil {
@@ -484,9 +484,6 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 		if err != nil {
 			klog.Error("Failed to get filterRef configmap, error: ", err)
 		}
-
-		klog.V(10).Info("ghsi.SubscriberItem.SubscriptionConfigMap.Data[path]", ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
-		klog.V(10).Info("ghsi.SubscriberItem.SubscriptionConfigMap.Data[pathsss]", ghsi.SubscriberItem.SubscriptionConfigMap.Data["pathsss"])
 	}
 
 	// In the cloned git repo root, find all helm chart directories
@@ -504,7 +501,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 		resourcePath = filepath.Join(repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
 
-	klog.V(10).Info("Git repo resource root directory: ", resourcePath)
+	klog.V(5).Info("Git repo resource root directory: ", resourcePath)
 
 	err := filepath.Walk(resourcePath,
 		func(path string, info os.FileInfo, err error) error {
@@ -532,14 +529,6 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 		return nil, nil, err
 	}
 
-	for resourceDir := range resourceDirs {
-		klog.V(10).Info("resourceDir = ", resourceDir)
-	}
-
-	for chartDir := range chartDirs {
-		klog.V(10).Info("chartDir = ", chartDir)
-	}
-
 	// Build a helm repo index file
 	indexFile := repo.NewIndexFile()
 
@@ -547,14 +536,8 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 		chartFolderName := filepath.Base(chartDir)
 		chartParentDir := strings.Split(chartDir, chartFolderName)[0]
 
-		klog.V(10).Info("chartFolderName = ", chartFolderName)
-		klog.V(10).Info("chartParentDir = ", chartParentDir)
-		klog.V(10).Info("chartRoot = ", resourcePath)
-
 		// Get the relative parent directory from the git repo root
 		chartBaseDir := strings.SplitAfter(chartParentDir, repoRoot+"/")[1]
-
-		klog.V(10).Info("chartBaseDir = ", chartBaseDir)
 
 		chartMetadata, err := chartutil.LoadChartfile(chartDir + "Chart.yaml")
 
