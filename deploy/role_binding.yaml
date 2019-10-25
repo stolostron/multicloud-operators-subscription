@@ -1,12 +1,12 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: multicloud-operators-subscription
+  name: multicloud-operators
 subjects:
 - kind: ServiceAccount
-  name: multicloud-operators-subscription
+  name: multicloud-operators
   namespace: default
 roleRef:
   kind: Role
-  name: multicloud-operators-subscription
+  name: multicloud-operators
   apiGroup: rbac.authorization.k8s.io
