@@ -491,8 +491,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 	// In the cloned git repo root, also find all non-helm-chart directories
 	resourceDirs := make(map[string]string)
 
-	var currentChartDir string
-	currentChartDir = "NONE"
+	currentChartDir := "NONE"
 
 	repoRoot := filepath.Join(os.TempDir(), ghsi.Channel.Namespace, ghsi.Channel.Name)
 	resourcePath := repoRoot
