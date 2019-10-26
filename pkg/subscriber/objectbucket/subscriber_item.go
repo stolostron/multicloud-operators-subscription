@@ -262,7 +262,7 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
 		}
 
 		if !utils.LabelChecker(obsi.Subscription.Spec.PackageFilter.LabelSelector, template.GetLabels()) {
-			errmsg := "Failed to pass label check to deployable " + dpl.Name + " with error: " + err.Error()
+			errmsg := "Failed to pass label check to deployable " + dpl.Name
 			klog.V(3).Info(errmsg)
 
 			return nil, nil, errors.New(errmsg)
