@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmrepo
+package objectbucket
 
 import (
 	"testing"
@@ -36,7 +36,6 @@ var id = types.NamespacedName{
 }
 
 var (
-	repourl   = "https://kubernetes-charts.storage.googleapis.com/"
 	sharedkey = types.NamespacedName{
 		Name:      "test",
 		Namespace: "default",
@@ -46,10 +45,7 @@ var (
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 		},
-		Spec: chnv1alpha1.ChannelSpec{
-			Type:     chnv1alpha1.ChannelTypeHelmRepo,
-			PathName: repourl,
-		},
+		Spec: chnv1alpha1.ChannelSpec{},
 	}
 	helmsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +54,6 @@ var (
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
-			Package: "nginx-ingress",
 		},
 	}
 	subitem = &appv1alpha1.SubscriberItem{
@@ -67,7 +62,7 @@ var (
 	}
 )
 
-func TestHelmSubscriber(t *testing.T) {
+func TestObjectSubscriber(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
