@@ -249,7 +249,6 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 	// Only validate deployables for deployable synchronizer on hub (SynchronizerID = "/")
 	if sync.SynchronizerID == nil || sync.SynchronizerID.String() != (client.ObjectKey{}).String() {
 		klog.V(10).Info("Managed cluster controller does not need to validate deployables, even it sits on hub")
-		klog.V(5).Info("Exit 167", nil)
 
 		return nil
 	}

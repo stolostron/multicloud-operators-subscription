@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package namespace
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-
-	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
+	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,35 +35,41 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// list resource
-//ListSecrets list all the secret resouces at the suscribed channel
-func ListSecrets(sub *appv1alpha1.Subscription, kubeclient client.Client) *v1.SecretList {
+//SubscriptionInfo defined a info collection for query secret resource
+type SubscriptionInfo struct {
+	SubItem *SubscriberItem
+	Clt     client.Client
+	Schema  *runtime.Scheme
+	Kvalid  *kubesynchronizer.Validator
+	DplSync *kubesynchronizer.KubeSynchronizer
+	HostKey types.NamespacedName
+	PkgMap  *map[string]bool
+}
 
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
+//ListSecrets list all the secret resouces at the suscribed channel
+func ListSecrets(subitem *SubscriberItem, kubeclient client.Client) (*v1.SecretList, error) {
+
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
+	sub := subitem.Subscription
 	klog.V(10).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
 
 	secretList := &v1.SecretList{}
 
-	targetChNamespace := ""
-
-	if sub.Spec.CatalogSourceNamespace != "" {
-		targetChNamespace = sub.Spec.CatalogSourceNamespace
-	} else if sub.Spec.Channel != "" {
-		strs := strings.Split(sub.Spec.Channel, "/")
-		if len(strs) == 2 {
-			targetChNamespace = strs[0]
-		} else {
-			targetChNamespace = "default"
-		}
+	targetChNamespace := subitem.Channel.Spec.PathName
+	if targetChNamespace == "" {
+		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
+		klog.Error(errmsg)
+		return nil, errors.New(errmsg)
 	}
 
 	listOptions := &client.ListOptions{Namespace: targetChNamespace}
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		clSelector, err := ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
+		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
 		if err != nil {
 			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
 		}
@@ -75,15 +80,15 @@ func ListSecrets(sub *appv1alpha1.Subscription, kubeclient client.Client) *v1.Se
 
 	if err != nil {
 		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
+		return nil, err
 	}
-	return secretList
+	return secretList, nil
 }
 
-// put the resource into template
-
+//PackageSecert put the secret to the deployable template
 func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
@@ -117,11 +122,10 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 
 }
 
-// process template, such as annotation check
-
+//ApplyFilters will apply the subscription level filters to the secret
 func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, bool) {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
@@ -154,6 +158,7 @@ func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, b
 	return secret, true
 }
 
+//CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
 func CleanUpObject(s v1.Secret) v1.Secret {
 
 	s.SetResourceVersion("")
@@ -172,11 +177,11 @@ func CleanUpObject(s v1.Secret) v1.Secret {
 
 }
 
-// need to use the light version of the do subscription to refactor this function
-func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.SubscriptionInfo) {
+//RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
+func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo SubscriptionInfo) {
 
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
@@ -203,9 +208,9 @@ func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.Subscr
 			continue
 		}
 
-		template, err = OverrideResourceBySubscription(template, dpl.GetName(), subscription)
+		template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), subscription)
 		if err != nil {
-			err = SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), err, nil)
+			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), err, nil)
 			if err != nil {
 				klog.Info("error in overriding for package: ", err)
 			}
@@ -228,7 +233,7 @@ func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.Subscr
 
 		if validgvk == nil {
 			gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
-			err = SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
+			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
 			if err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
@@ -256,7 +261,7 @@ func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.Subscr
 
 		err = kubesync.RegisterTemplate(subInfo.HostKey, dpltosync, syncsource)
 		if err != nil {
-			err = SetInClusterPackageStatus(&(subscription.Status), dpltosync.GetName(), err, nil)
+			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpltosync.GetName(), err, nil)
 			if err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
@@ -281,15 +286,16 @@ func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.Subscr
 // 2. package the secret
 // 3. call to the deployable controller to handle the packaged secret
 
-func DeploySecretFromSubscribedNamespace(subInfo nssub.SubscriptionInfo) {
-	if klog.V(QuiteLogLel) {
-		fnName := GetFnName()
+//DeploySecretFromSubscribedNamespace handle the main logic to deploy the secret coming from the channel namespace
+func DeploySecretFromSubscribedNamespace(subInfo SubscriptionInfo) {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	sl := ListSecrets(subInfo.SubItem.Subscription, subInfo.Clt)
-	if len(sl.Items) == 0 {
+	sl, err := ListSecrets(subInfo.SubItem, subInfo.Clt)
+	if err != nil {
 		return
 	}
 
