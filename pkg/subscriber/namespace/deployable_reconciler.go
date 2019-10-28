@@ -31,7 +31,7 @@ import (
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -48,8 +48,8 @@ type SubscriptionInfo struct {
 	SubItem *SubscriberItem
 	Clt     client.Client
 	Schema  *runtime.Scheme
-	Kvalid  *kubernetes.Validator
-	DplSync *kubernetes.KubeSynchronizer
+	Kvalid  *kubesynchronizer.Validator
+	DplSync *kubesynchronizer.KubeSynchronizer
 	HostKey types.NamespacedName
 	PkgMap  *map[string]bool
 }
@@ -178,7 +178,7 @@ func (r *DeployableReconciler) doSubscription() error {
 		DplSync: r.subscriber.synchronizer,
 		PkgMap:  &pkgMap,
 	}
-	utils.DeploySecretFromSubscribedNamespace(sh)
+	secretflow.DeploySecretFromSubscribedNamespace(sh)
 	r.subscriber.synchronizer.ApplyValiadtor(kvalid)
 
 	return retryerr

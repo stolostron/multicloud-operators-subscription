@@ -172,7 +172,6 @@ func CleanUpObject(s v1.Secret) v1.Secret {
 
 }
 
-
 // need to use the light version of the do subscription to refactor this function
 func RegisterToResourceMap(dpls []*dplv1alpha1.Deployable, subInfo *nssub.SubscriptionInfo) {
 
