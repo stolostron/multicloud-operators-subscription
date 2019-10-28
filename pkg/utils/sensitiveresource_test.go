@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	dplv1alpha1 "github.ibm.com/IBMMulticloudPlatform/deployable/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"	
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
