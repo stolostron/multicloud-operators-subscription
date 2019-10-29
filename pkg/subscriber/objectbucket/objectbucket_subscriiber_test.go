@@ -20,11 +20,13 @@ import (
 
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
@@ -85,4 +87,18 @@ func TestObjectSubscriber(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
+}
+
+func TestDoSubscribeDeployable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	obsi := &SubscriberItem{}
+	dpl := &dplv1alpha1.Deployable{}
+
+	_, _, err := obsi.doSubscribeDeployable(dpl, nil, nil)
+	g.Expect(err).To(gomega.HaveOccurred())
+
+	dpl.Spec.Template = &runtime.RawExtension{}
+	dpl.Spec.Template.Raw = []byte{65, 65, 65}
+	_, _, err = obsi.doSubscribeDeployable(dpl, nil, nil)
+	g.Expect(err).To(gomega.HaveOccurred())
 }
