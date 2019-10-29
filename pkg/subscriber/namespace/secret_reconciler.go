@@ -48,8 +48,11 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
+
+	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
 	sl, err := s.ListSecrets()
 	if err != nil {
@@ -59,7 +62,6 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	var dpls []*dplv1alpha1.Deployable
 	//apply the subscription package filter to the correct annotated secret
 	for _, srt := range sl.Items {
-
 		if !isSecretAnnoatedAsDeployable(srt) {
 			continue
 		}
@@ -70,19 +72,17 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
-	if len(dpls) > 0 {
-		s.RegisterToResourceMap(dpls)
-	}
+	s.RegisterToResourceMap(dpls)
 
 	return reconcile.Result{}, nil
 }
 
 //ListSecrets list all the secret resouces at the suscribed channel
 func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
-
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -104,15 +104,18 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 	if targetChNamespace == "" {
 		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
 		klog.Error(errmsg)
+
 		return nil, errors.New(errmsg)
 	}
 
 	listOptions := &client.ListOptions{Namespace: targetChNamespace}
+
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
 		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
 		if err != nil {
 			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
 		}
+
 		listOptions.LabelSelector = clSelector
 	}
 
@@ -122,6 +125,7 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
 		return nil, err
 	}
+
 	return secretList, nil
 }
 
@@ -130,6 +134,7 @@ func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -140,9 +145,11 @@ func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
 
 	sRaw, err := json.Marshal(s)
 	dpl.Spec.Template.Raw = sRaw
+
 	if err != nil {
 		klog.Error("Failed to unmashall ", s.GetNamespace(), "/", s.GetName(), " err:", err)
 	}
+
 	klog.V(10).Infof("Retived Dpl: %v", dpl)
 
 	return dpl
@@ -158,8 +165,8 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 	if _, ok := secretsAnno[appv1alpha1.AnnotationDeployables]; !ok {
 		return false
 	}
-	return true
 
+	return true
 }
 
 //ApplyFilters will apply the subscription level filters to the secret
@@ -167,6 +174,7 @@ func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, b
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
@@ -179,8 +187,10 @@ func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, b
 			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", secret.GetName())
 			return secret, false
 		}
+
 		subAnno := sub.GetAnnotations()
 		klog.V(10).Info("checking annotations filter:", subAnno)
+
 		if subAnno != nil {
 			secretsAnno := secret.GetAnnotations()
 			for k, v := range subAnno {
@@ -191,20 +201,18 @@ func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, b
 			}
 		}
 	}
-	// TODO need to figure out the version filter for this one
-	// if !utils.IsDeployableInVersionSet(versionMap, dpl) {
-	// continue
-	// }
+
 	return secret, true
 }
 
 //CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
 func CleanUpObject(s v1.Secret) v1.Secret {
-
 	s.SetResourceVersion("")
+
 	t := types.UID("")
+
 	s.SetUID(t)
-	// s.SetCreationTimestamp()
+
 	s.SetSelfLink("")
 
 	gvk := schema.GroupVersionKind{
@@ -214,21 +222,17 @@ func CleanUpObject(s v1.Secret) v1.Secret {
 	s.SetGroupVersionKind(gvk)
 
 	return s
-
 }
 
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
 func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
-
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
+
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	if len(dpls) == 0 {
-		return
-	}
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
@@ -239,6 +243,7 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 	for _, dpl := range dpls {
 		template := &unstructured.Unstructured{}
+
 		if dpl.Spec.Template == nil {
 			klog.Warning("Processing local deployable without template:", dpl)
 			continue
@@ -256,7 +261,9 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			if err != nil {
 				klog.Info("error in overriding for package: ", err)
 			}
+
 			pkgMap[dpl.GetName()] = true
+
 			continue
 		}
 
@@ -275,10 +282,13 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 		if validgvk == nil {
 			gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
 			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
+
 			if err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
+
 			pkgMap[dpl.GetName()] = true
+
 			continue
 		}
 
@@ -288,25 +298,31 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 		dpltosync := dpl.DeepCopy()
 		dpltosync.Spec.Template.Raw, err = json.Marshal(template)
+
 		if err != nil {
 			klog.Warning("Mashaling template, got error:", err)
 			continue
 		}
 
 		annotations := dpltosync.GetAnnotations()
+
 		if annotations == nil {
 			annotations = make(map[string]string)
 		}
+
 		annotations[dplv1alpha1.AnnotationLocal] = "true"
 		dpltosync.SetAnnotations(annotations)
 
 		err = kubesync.RegisterTemplate(hostkey, dpltosync, syncsource)
+
 		if err != nil {
 			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpltosync.GetName(), err, nil)
 			if err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
+
 			pkgMap[dpltosync.GetName()] = true
+
 			continue
 		}
 
@@ -314,12 +330,15 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			Name:      dpltosync.Name,
 			Namespace: dpltosync.Namespace,
 		}
+
 		kvalid.AddValidResource(*validgvk, hostkey, dplkey)
+
 		pkgMap[dplkey.Name] = true
+
 		klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
-	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
 
+	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
 }
 
 // func DeploySecretFromSubReference(kvalid *kubesync.Validator, pkgMap *map[string]bool, sh *SecretHandler, hostkey types.NamespacedName, subType string) {
