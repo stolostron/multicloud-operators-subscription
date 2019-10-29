@@ -9,6 +9,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
+	github.com/jstemmer/go-junit-report v0.9.1 // indirect
 	github.com/onsi/gomega v1.4.3
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/prometheus/common v0.2.0
