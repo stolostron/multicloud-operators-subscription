@@ -63,7 +63,7 @@ metadata:
   namespace: ibmcharts
 spec:
     type: GitHub
-    pathname: https://github.enterprise.com/some/repo.git
+    pathname: https://github.com/IBM/charts.git
     secretRef:
       name: my-github-secret
 ```
