@@ -54,7 +54,6 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
-
 	sl, err := s.ListSecrets()
 	if err != nil {
 		return reconcile.Result{}, err
@@ -74,7 +73,6 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	s.RegisterToResourceMap(dpls)
-
 
 	return reconcile.Result{}, nil
 }
@@ -151,6 +149,7 @@ func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
 	if err != nil {
 		klog.Error("Failed to unmashall ", s.GetNamespace(), "/", s.GetName(), " err:", err)
 	}
+
 	klog.V(10).Infof("Retived Dpl: %v", dpl)
 
 	return dpl
@@ -214,7 +213,6 @@ func CleanUpObject(s v1.Secret) v1.Secret {
 
 	s.SetUID(t)
 
-
 	s.SetSelfLink("")
 
 	gvk := schema.GroupVersionKind{
@@ -234,7 +232,6 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
-
 
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
@@ -291,7 +288,6 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			}
 
 			pkgMap[dpl.GetName()] = true
-
 
 			continue
 		}
