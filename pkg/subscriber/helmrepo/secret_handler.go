@@ -12,72 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package namespace
+package helmrepo
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-//SecretRecondiler defined a info collection for query secret resource
-type SecretRecondiler struct {
-	Subscriber *Subscriber
-	Clt        client.Client
-	Schema     *runtime.Scheme
-	Itemkey    types.NamespacedName
-}
+// where to get channel info
 
-//Reconcile handle the main logic to deploy the secret coming from the channel namespace
-func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
-
-	sl, err := s.ListSecrets()
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	var dpls []*dplv1alpha1.Deployable
-	//apply the subscription package filter to the correct annotated secret
-	for _, srt := range sl.Items {
-		if !isSecretAnnoatedAsDeployable(srt) {
-			continue
-		}
-
-		srt, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, utils.PackageSecert(srt))
-		}
-	}
-
-	s.RegisterToResourceMap(dpls)
-
-	return reconcile.Result{}, nil
-}
+// regist the secret to the synchronizer
 
 //ListSecrets list all the secret resouces at the suscribed channel
-func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
+func (s *SubscriberItem) ListAndRegistSecrets() (*v1.SecretList, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -85,61 +40,9 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	subitem, ok := s.Subscriber.itemmap[s.Itemkey]
-	if !ok {
-		errmsg := "Failed to locate subscription item " + s.Itemkey.String() + " in existing map"
-
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	sub := subitem.Subscription
-	klog.V(10).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
-
-	secretList := &v1.SecretList{}
-
-	targetChNamespace := subitem.Channel.Spec.PathName
-	if targetChNamespace == "" {
-		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	listOptions := &client.ListOptions{Namespace: targetChNamespace}
-
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
-		}
-
-		listOptions.LabelSelector = clSelector
-	}
-
-	err := s.Clt.List(context.TODO(), listOptions, secretList)
-
-	if err != nil {
-		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
-		return nil, err
-	}
+	chSrt := s.ChannelSecret
 
 	return secretList, nil
-}
-
-func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
-	secretsAnno := srt.GetAnnotations()
-
-	if secretsAnno == nil {
-		return false
-	}
-
-	if _, ok := secretsAnno[appv1alpha1.AnnotationDeployables]; !ok {
-		return false
-	}
-
-	return true
 }
 
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
