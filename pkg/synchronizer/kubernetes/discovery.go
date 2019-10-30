@@ -118,7 +118,7 @@ func (sync *KubeSynchronizer) discoverResources() error {
 	}
 
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)
-	klog.V(10).Info("Discovered resources: ", filteredResources)
+	klog.V(5).Info("Discovered resources: ", filteredResources)
 
 	valid := make(map[schema.GroupVersionKind]bool)
 
@@ -126,7 +126,7 @@ func (sync *KubeSynchronizer) discoverResources() error {
 		sync.validateAPIResourceList(rl, valid)
 	}
 
-	klog.V(10).Info("valid resources remain:", valid)
+	klog.V(5).Info("valid resources remain:", valid)
 
 	for k := range sync.KubeResources {
 		if _, ok := valid[k]; !ok {

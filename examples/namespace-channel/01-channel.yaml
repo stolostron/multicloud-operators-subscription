@@ -43,7 +43,7 @@ apiVersion: app.ibm.com/v1alpha1
 kind: Deployable
 metadata:
   annotations:
-    app.ibm.com/is-local-deployable: "true"
+    app.ibm.com/is-local-deployable: "false"
   name: sample-crd
   namespace: dev
 spec:
@@ -58,13 +58,13 @@ spec:
       names:
         kind: Foo
         plural: foos
-    scope: Namespaced
+      scope: Namespaced
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: Deployable
 metadata:
   annotations:
-    app.ibm.com/is-local-deployable: "true"
+    app.ibm.com/is-local-deployable: "false"
   labels:
     pass-to-resource: "from-hosting-deployable"
   name: sample-cr-foo
@@ -74,4 +74,4 @@ spec:
     apiVersion: samplecontroller.k8s.io/v1alpha1
     kind: Foo
     metadata:
-      namespace: default
+      name: sample-foo

@@ -16,4 +16,4 @@ spec:
   channel: dev/dev
   name: sample-crd
   placement:
-    local: true
+    local: false

@@ -43,7 +43,7 @@ type DeployableReconciler struct {
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
+	klog.V(1).Info("Deployable Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
 
 	result := reconcile.Result{}
 	err := r.doSubscription()
