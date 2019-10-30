@@ -18,12 +18,13 @@ import (
 	"encoding/json"
 	"errors"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
+	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
 //ListAndRegistSecrets is used to list and manage the referred secert for a subscription
