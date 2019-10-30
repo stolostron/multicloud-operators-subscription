@@ -97,6 +97,7 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 	sub := subitem.Subscription
 	klog.V(10).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
 
+
 	secretList := &v1.SecretList{}
 
 	targetChNamespace := subitem.Channel.Spec.PathName
@@ -129,6 +130,13 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 }
 
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
 	secretsAnno := srt.GetAnnotations()
 
 	if secretsAnno == nil {
