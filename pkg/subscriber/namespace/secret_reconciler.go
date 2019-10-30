@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,8 +65,78 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 			continue
 		}
 
-		
+		srt, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
+		if ok {
+			dpls = append(dpls, utils.PackageSecert(srt))
+		}
+
+	}
+
+	s.RegisterToResourceMap(dpls)
+
+	return reconcile.Result{}, nil
+}
+
+//ListSecrets list all the secret resouces at the suscribed channel
+func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
+	subitem, ok := s.Subscriber.itemmap[s.Itemkey]
+	if !ok {
+		errmsg := "Failed to locate subscription item " + s.Itemkey.String() + " in existing map"
+
+		klog.Error(errmsg)
+
+		return nil, errors.New(errmsg)
+	}
+
+	sub := subitem.Subscription
+	klog.V(5).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
+
+	secretList := &v1.SecretList{}
+
+	targetChNamespace := subitem.Channel.Spec.PathName
+	if targetChNamespace == "" {
+		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
+		klog.Error(errmsg)
+
+		return nil, errors.New(errmsg)
+	}
+
+	listOptions := &client.ListOptions{Namespace: targetChNamespace}
+
+	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
+		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
+		if err != nil {
+			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
+		}
+
+		listOptions.LabelSelector = clSelector
+	}
+
+	err := s.Clt.List(context.TODO(), listOptions, secretList)
+
+	if err != nil {
+		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
+		return nil, err
+	}
+
+	return secretList, nil
+}
+
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
 	secretsAnno := srt.GetAnnotations()
 
 	if secretsAnno == nil {
@@ -197,4 +266,3 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
 }
-
