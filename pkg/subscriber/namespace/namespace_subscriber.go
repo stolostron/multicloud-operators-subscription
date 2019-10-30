@@ -19,6 +19,7 @@ import (
 
 	"errors"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -171,6 +172,39 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 			klog.Error("Failed to watch deployable with error: ", err)
 			return err
 		}
+
+		// adding secret reconciler
+
+		secretreconciler := &SecretRecondiler{
+			Clt:        hubclient,
+			Subscriber: ns,
+			Itemkey:    itemkey,
+			Schema:     ns.scheme,
+		}
+		nssubitem.controller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
+
+		if err != nil {
+			klog.Error("Failed to create controller for Namespace subscriber item with error: ", err)
+			return err
+		}
+
+		sifm, err := nssubitem.cache.GetInformer(&v1.Secret{})
+
+		if err != nil {
+			klog.Error("Failed to get informer from cache with error: ", err)
+			return err
+		}
+
+		ssrc := &source.Informer{Informer: sifm}
+
+		err = nssubitem.controller.Watch(ssrc, &handler.EnqueueRequestForObject{})
+
+		if err != nil {
+			klog.Error("Failed to watch deployable with error: ", err)
+			return err
+		}
+
+		//
 
 		nssubitem.stopch = make(chan struct{})
 
