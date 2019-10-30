@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	crdapis "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,6 +44,7 @@ func TestMain(m *testing.M) {
 	}
 
 	apis.AddToScheme(scheme.Scheme)
+	crdapis.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {

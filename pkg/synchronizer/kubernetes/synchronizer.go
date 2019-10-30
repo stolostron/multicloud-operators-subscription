@@ -202,7 +202,7 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 	for gvk, res := range sync.KubeResources {
 		var err error
 
-		klog.Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
+		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
 
 		if res.ServerUpdated {
 			err = sync.checkServerObjects(res)
@@ -262,7 +262,6 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 	for _, dpl := range deployablelist.Items {
 		deployableMap[(types.NamespacedName{Name: dpl.GetName(), Namespace: dpl.GetNamespace()}).String()] = dpl.DeepCopy()
 		klog.V(5).Info("validateDeployables() dpl: ", dpl.GetNamespace(), " ", dpl.GetName())
-		klog.V(10).Info("validateDeployables() whole dpl: ", dpl)
 	}
 
 	// check each deployable for parents
@@ -383,7 +382,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 }
 
 func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) error {
-	klog.V(10).Info("Apply - Creating New Resource ", tplunit)
+	klog.V(5).Info("Apply - Creating New Resource ", tplunit)
 	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
 
 	// Auto Create Namespace if not exist
@@ -468,15 +467,15 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	for k, tplunit := range res.TemplateMap {
-		klog.Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
+		klog.V(2).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 		var ri dynamic.ResourceInterface
 
 		if res.Namespaced {
-			klog.V(10).Info("Namespaced ri for ", res.GroupVersionResource)
+			klog.V(5).Info("Namespaced ri for ", res.GroupVersionResource)
 			ri = sync.DynamicClient.Resource(res.GroupVersionResource).Namespace(tplunit.GetNamespace())
 		} else {
-			klog.V(10).Info("Clusterscpoped ri for ", res.GroupVersionResource)
+			klog.V(5).Info("Clusterscpoped ri for ", res.GroupVersionResource)
 			ri = sync.DynamicClient.Resource(res.GroupVersionResource)
 		}
 
@@ -716,7 +715,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		}
 	}
 
-	klog.V(10).Info("overrided template: ", template)
+	klog.V(5).Info("overrided template: ", template)
 	// skip no-op to template
 
 	if existingTemplateUnit != nil && reflect.DeepEqual(existingTemplateUnit.Unstructured, template) {
@@ -733,7 +732,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	resmap.TemplateMap[reskey] = templateUnit
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
 
-	klog.Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
+	klog.V(1).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
 
 	return nil
 }
