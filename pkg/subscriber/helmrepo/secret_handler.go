@@ -20,19 +20,14 @@ import (
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-// where to get channel info
-
-// regist the secret to the synchronizer
-
-//ListSecrets list all the secret resouces at the suscribed channel
-func (s *SubscriberItem) ListAndRegistSecrets() (*v1.SecretList, error) {
+//ListAndRegistSecrets is used to list and manage the referred secert for a subscription
+func (hrsi *SubscriberItem) ListAndRegistSecrets() error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -40,13 +35,24 @@ func (s *SubscriberItem) ListAndRegistSecrets() (*v1.SecretList, error) {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	chSrt := s.ChannelSecret
+	chSrt := hrsi.ChannelSecret
+	//should list from the channel to see if the secret is there or not
 
-	return secretList, nil
+	if chSrt == nil {
+		emsg := "referred secert is not set up correctly or it's nil"
+		return errors.New(emsg)
+	}
+
+	cleanedSrt := utils.CleanUpObject(*chSrt)
+
+	dplSrt := utils.PackageSecert(cleanedSrt)
+	hrsi.RegisterToResourceMap(dplSrt)
+
+	return nil
 }
 
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
+func (hrsi *SubscriberItem) RegisterToResourceMap(dpl *dplv1alpha1.Deployable) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -54,110 +60,65 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
+	subscription := hrsi.Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
 	syncsource := "subscription-" + hostkey.String()
 	// subscribed k8s resource
-	kvalid := s.Subscriber.synchronizer.CreateValiadtor(syncsource)
-	pkgMap := make(map[string]bool)
+	kvalid := hrsi.synchronizer.CreateValiadtor(syncsource)
 
-	for _, dpl := range dpls {
-		template := &unstructured.Unstructured{}
+	template := &unstructured.Unstructured{}
 
-		if dpl.Spec.Template == nil {
-			klog.Warning("Processing local deployable without template:", dpl)
-			continue
-		}
-
-		err := json.Unmarshal(dpl.Spec.Template.Raw, template)
-		if err != nil {
-			klog.Warning("Processing local deployable with error template:", dpl, err)
-			continue
-		}
-
-		template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), subscription)
-		if err != nil {
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), err, nil)
-			if err != nil {
-				klog.Info("error in overriding for package: ", err)
-			}
-
-			pkgMap[dpl.GetName()] = true
-
-			continue
-		}
-
-		err = controllerutil.SetControllerReference(subscription, template, s.Schema)
-
-		if err != nil {
-			klog.Warning("Adding owner reference to template, got error:", err)
-			continue
-		}
-
-		kubesync := s.Subscriber.synchronizer
-
-		orggvk := template.GetObjectKind().GroupVersionKind()
-		validgvk := kubesync.GetValidatedGVK(orggvk)
-
-		if validgvk == nil {
-			gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
-
-			if err != nil {
-				klog.Info("error in setting in cluster package status :", err)
-			}
-
-			pkgMap[dpl.GetName()] = true
-
-			continue
-		}
-
-		if kubesync.KubeResources[*validgvk].Namespaced {
-			template.SetNamespace(subscription.Namespace)
-		}
-
-		dpltosync := dpl.DeepCopy()
-		dpltosync.Spec.Template.Raw, err = json.Marshal(template)
-
-		if err != nil {
-			klog.Warning("Mashaling template, got error:", err)
-			continue
-		}
-
-		annotations := dpltosync.GetAnnotations()
-
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-
-		annotations[dplv1alpha1.AnnotationLocal] = "true"
-		dpltosync.SetAnnotations(annotations)
-
-		err = kubesync.RegisterTemplate(hostkey, dpltosync, syncsource)
-
-		if err != nil {
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpltosync.GetName(), err, nil)
-			if err != nil {
-				klog.Info("error in setting in cluster package status :", err)
-			}
-
-			pkgMap[dpltosync.GetName()] = true
-
-			continue
-		}
-
-		dplkey := types.NamespacedName{
-			Name:      dpltosync.Name,
-			Namespace: dpltosync.Namespace,
-		}
-
-		kvalid.AddValidResource(*validgvk, hostkey, dplkey)
-
-		pkgMap[dplkey.Name] = true
-
-		klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
+	if dpl.Spec.Template == nil {
+		klog.Warning("Processing local deployable without template:", dpl)
 	}
 
-	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
+	err := json.Unmarshal(dpl.Spec.Template.Raw, template)
+	if err != nil {
+		klog.Warning("Processing local deployable with error template:", dpl, err)
+	}
+
+	err = controllerutil.SetControllerReference(subscription, template, hrsi.scheme)
+
+	if err != nil {
+		klog.Warning("Adding owner reference to template, got error:", err)
+	}
+
+	kubesync := hrsi.synchronizer
+
+	orggvk := template.GetObjectKind().GroupVersionKind()
+	validgvk := kubesync.GetValidatedGVK(orggvk)
+
+	if kubesync.KubeResources[*validgvk].Namespaced {
+		template.SetNamespace(subscription.Namespace)
+	}
+
+	dpltosync := dpl.DeepCopy()
+	dpltosync.Spec.Template.Raw, err = json.Marshal(template)
+
+	if err != nil {
+		klog.Warning("Mashaling template, got error:", err)
+	}
+
+	annotations := dpltosync.GetAnnotations()
+
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[dplv1alpha1.AnnotationLocal] = "true"
+	dpltosync.SetAnnotations(annotations)
+
+	err = kubesync.RegisterTemplate(hostkey, dpltosync, syncsource)
+
+	dplkey := types.NamespacedName{
+		Name:      dpltosync.Name,
+		Namespace: dpltosync.Namespace,
+	}
+
+	kvalid.AddValidResource(*validgvk, hostkey, dplkey)
+
+	klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
+
+	hrsi.synchronizer.ApplyValiadtor(kvalid)
 }
