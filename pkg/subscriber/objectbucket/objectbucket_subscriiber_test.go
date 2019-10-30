@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmrepo
+package objectbucket
 
 import (
 	"testing"
@@ -20,11 +20,13 @@ import (
 
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
@@ -36,7 +38,6 @@ var id = types.NamespacedName{
 }
 
 var (
-	repourl   = "https://kubernetes-charts.storage.googleapis.com/"
 	sharedkey = types.NamespacedName{
 		Name:      "test",
 		Namespace: "default",
@@ -46,10 +47,7 @@ var (
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 		},
-		Spec: chnv1alpha1.ChannelSpec{
-			Type:     chnv1alpha1.ChannelTypeHelmRepo,
-			PathName: repourl,
-		},
+		Spec: chnv1alpha1.ChannelSpec{},
 	}
 	helmsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
@@ -58,7 +56,6 @@ var (
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
-			Package: "nginx-ingress",
 		},
 	}
 	subitem = &appv1alpha1.SubscriberItem{
@@ -67,7 +64,7 @@ var (
 	}
 )
 
-func TestHelmSubscriber(t *testing.T) {
+func TestObjectSubscriber(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -90,4 +87,18 @@ func TestHelmSubscriber(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
+}
+
+func TestDoSubscribeDeployable(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	obsi := &SubscriberItem{}
+	dpl := &dplv1alpha1.Deployable{}
+
+	_, _, err := obsi.doSubscribeDeployable(dpl, nil, nil)
+	g.Expect(err).To(gomega.HaveOccurred())
+
+	dpl.Spec.Template = &runtime.RawExtension{}
+	dpl.Spec.Template.Raw = []byte{65, 65, 65}
+	_, _, err = obsi.doSubscribeDeployable(dpl, nil, nil)
+	g.Expect(err).To(gomega.HaveOccurred())
 }

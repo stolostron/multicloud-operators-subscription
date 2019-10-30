@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,24 +44,22 @@ type DeployableReconciler struct {
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
+	klog.V(1).Info("Deployable Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
 
+	result := reconcile.Result{}
 	err := r.doSubscription()
 
 	if err != nil {
+		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.Interval*5) * time.Second
+
 		klog.Error("Failed to reconcile deployable for namespace subscriber with error:", err)
 	}
 
-	return reconcile.Result{}, nil
+	return result, nil
 }
 
 func (r *DeployableReconciler) doSubscription() error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	var retryerr error
 
 	subitem, ok := r.subscriber.itemmap[r.itemkey]
 
@@ -123,7 +122,12 @@ func (r *DeployableReconciler) doSubscription() error {
 
 		dpltosync, validgvk, err := r.doSubscribeDeployable(subitem, dpl.DeepCopy(), versionMap, pkgMap)
 		if err != nil {
-			klog.Info("Skipping deployable", dpl.Name)
+			klog.V(2).Info("Skipping deployable", dpl.Name)
+
+			if dpltosync != nil {
+				retryerr = err
+			}
+
 			continue
 		}
 
@@ -156,14 +160,14 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	r.subscriber.synchronizer.ApplyValiadtor(kvalid)
 
-	return nil
+	return retryerr
 }
 
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
 		errmsg := "Name does not match, skiping:" + subitem.Subscription.Spec.Package + "|" + dpl.Name
-		klog.Info(errmsg)
+		klog.V(2).Info(errmsg)
 
 		return nil, nil, errors.New(errmsg)
 	}
@@ -236,7 +240,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 
 		pkgMap[dpl.GetName()] = true
 
-		return nil, nil, gvkerr
+		return dpl, nil, gvkerr
 	}
 
 	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {

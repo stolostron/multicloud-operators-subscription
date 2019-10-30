@@ -24,8 +24,6 @@ import (
 	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
-
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -107,25 +105,20 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 }
 
 func (sync *KubeSynchronizer) discoverResources() error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	klog.Info("Discovering cluster resources")
 
 	if sync.dynamicFactory == nil {
 		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
 	}
 
-	resources, err := sync.DiscoveryClient.ServerPreferredResources()
+	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
 	if err != nil {
 		klog.Error("Failed to discover server resources. err:", err)
 		return err
 	}
 
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)
-	klog.V(10).Info("Discovered resources: ", filteredResources)
+	klog.V(5).Info("Discovered resources: ", filteredResources)
 
 	valid := make(map[schema.GroupVersionKind]bool)
 
@@ -133,7 +126,7 @@ func (sync *KubeSynchronizer) discoverResources() error {
 		sync.validateAPIResourceList(rl, valid)
 	}
 
-	klog.V(10).Info("valid resources remain:", valid)
+	klog.V(5).Info("valid resources remain:", valid)
 
 	for k := range sync.KubeResources {
 		if _, ok := valid[k]; !ok {
@@ -211,7 +204,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 					}
 				},
 			})
-			klog.V(10).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
+			klog.V(5).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
 		}
 	}
 }
