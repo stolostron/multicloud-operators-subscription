@@ -64,8 +64,6 @@ func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, b
 
 	secret = CleanUpObject(secret)
 
-	// adding this to avoid the JSON marshall error caused by the embedded fileds, typeMeta
-
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.Package != "" && sub.Spec.Package != secret.GetName() {
 			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", secret.GetName())

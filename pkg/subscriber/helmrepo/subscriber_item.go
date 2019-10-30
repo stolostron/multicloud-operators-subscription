@@ -61,7 +61,7 @@ const (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1alpha1.SubscriberItem
-
+	scheme       *runtime.Scheme
 	hash         string
 	stopch       chan struct{}
 	syncinterval int
@@ -90,8 +90,19 @@ func (hrsi *SubscriberItem) Stop() {
 }
 
 func (hrsi *SubscriberItem) doSubscription() {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
 	//Retrieve the helm repo
 	repoURL := hrsi.Channel.Spec.PathName
+
+	err := hrsi.ListAndRegistSecrets()
+	if err != nil {
+		klog.Errorf("Failed to process referred secret due to errror: %v", err)
+	}
 
 	httpClient, err := hrsi.getHelmRepoClient()
 

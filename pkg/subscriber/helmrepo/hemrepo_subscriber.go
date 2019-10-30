@@ -32,6 +32,7 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 // Subscriber - information to run namespace subscription
 type Subscriber struct {
 	itemmap
+	scheme       *runtime.Scheme
 	manager      manager.Manager
 	synchronizer *kubesynchronizer.KubeSynchronizer
 	syncinterval int
@@ -86,6 +87,7 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		hrssubitem = &SubscriberItem{}
 		hrssubitem.syncinterval = hrs.syncinterval
 		hrssubitem.synchronizer = hrs.synchronizer
+		hrssubitem.scheme = hrs.scheme
 	}
 
 	subitem.DeepCopyInto(&hrssubitem.SubscriberItem)
@@ -117,7 +119,7 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
 
-// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+// CreateNamespaceSubsriber create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
 func CreateHelmRepoSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
 	kubesync *kubesynchronizer.KubeSynchronizer, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
@@ -128,6 +130,7 @@ func CreateHelmRepoSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr ma
 	hrsubscriber := &Subscriber{
 		manager:      mgr,
 		synchronizer: kubesync,
+		scheme:       scheme,
 	}
 
 	hrsubscriber.itemmap = make(map[types.NamespacedName]*SubscriberItem)
