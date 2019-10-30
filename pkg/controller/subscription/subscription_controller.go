@@ -35,6 +35,7 @@ import (
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	ghsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/github"
 	hrsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
@@ -65,6 +66,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 
 	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
+	subs["github"] = ghsub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
@@ -114,7 +116,7 @@ type ReconcileSubscription struct {
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("Reconciling subscription: ", request.NamespacedName)
+	klog.Info("Standalone/Endpoint Reconciling subscription: ", request.NamespacedName)
 
 	instance := &appv1alpha1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)

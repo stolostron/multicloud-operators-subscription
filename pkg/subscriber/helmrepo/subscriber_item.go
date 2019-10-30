@@ -83,7 +83,10 @@ func (hrsi *SubscriberItem) Start() {
 }
 
 func (hrsi *SubscriberItem) Stop() {
-	close(hrsi.stopch)
+	if hrsi.stopch != nil {
+		close(hrsi.stopch)
+		hrsi.stopch = nil
+	}
 }
 
 func (hrsi *SubscriberItem) doSubscription() {
