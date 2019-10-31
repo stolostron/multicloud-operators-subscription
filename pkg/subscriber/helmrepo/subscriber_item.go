@@ -99,6 +99,11 @@ func (hrsi *SubscriberItem) doSubscription() {
 	//Retrieve the helm repo
 	repoURL := hrsi.Channel.Spec.PathName
 
+	err := hrsi.ListAndRegistSecrets()
+	if err != nil {
+		klog.Errorf("Failed to process referred secret due to errror: %v", err)
+	}
+
 	httpClient, err := hrsi.getHelmRepoClient()
 
 	if err != nil {

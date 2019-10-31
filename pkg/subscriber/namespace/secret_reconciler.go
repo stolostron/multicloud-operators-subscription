@@ -55,6 +55,7 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	srt, err := s.GetSecret(request.NamespacedName)
 
+
 	var dpls []*dplv1alpha1.Deployable
 
 	// handle the NotFound case and other can't list case
@@ -68,11 +69,17 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	if srt.GetNamespace() != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
 		return reconcile.Result{}, nil
 	}
-	
-		srt, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, utils.PackageSecert(srt))
-		}
+
+	//filter out the secret by deployable annotations
+	if !isSecretAnnoatedAsDeployable(*srt) {
+		return reconcile.Result{}, nil
+	}
+
+	klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
+
+	srtNew, ok := utils.ApplyFilters(*srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
+	if ok {
+		dpls = append(dpls, utils.PackageSecert(srtNew))
 	}
 
 	s.RegisterToResourceMap(dpls)
@@ -89,6 +96,7 @@ func (s *SecretRecondiler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, e
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
+<<<<<<< HEAD
 	subitem, ok := s.Subscriber.itemmap[s.Itemkey]
 	if !ok {
 		errmsg := "Failed to locate subscription item " + s.Itemkey.String() + " in existing map"
@@ -124,6 +132,10 @@ func (s *SecretRecondiler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, e
 	}
 
 	err := s.Clt.List(context.TODO(), listOptions, secretList)
+=======
+	srt := &v1.Secret{}
+	err := s.Clt.Get(context.TODO(), srtKey, srt)
+>>>>>>> 822b47dbb35caaf444a7220bdee93ccff65397f7
 
 
 	if err != nil {
