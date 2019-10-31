@@ -132,7 +132,6 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 		nssubitem = &SubscriberItem{}
 		nssubitem.clusterscoped = clusterScoped
 		nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Namespace})
-		klog.Infof("kubesync address is %p", ns.synchronizer.SynchronizerID)
 
 		if err != nil {
 			klog.Error("Failed to create cache for Namespace subscriber item with error: ", err)

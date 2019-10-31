@@ -239,14 +239,12 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	for k, sub := range r.subscribers {
 		action := "subscribe"
 
-		klog.Infof("reconciler %v, key %v, sub %v", instance, k, sub)
 		if k == subtype {
 			err = sub.SubscribeItem(subitem)
 		} else {
 			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
 			action = "unsubscribe"
 		}
-		klog.Infof("Did: %v with subscriber %v having error %v", action, k, err)
 
 		if err != nil {
 			klog.Error("Failed to ", action, " with subscriber ", k, " error:", err)

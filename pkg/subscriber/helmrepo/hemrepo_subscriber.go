@@ -83,7 +83,6 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	hrssubitem, ok := hrs.itemmap[itemkey]
 
-	klog.Infof("kubesync address is %p", hrs.synchronizer.SynchronizerID)
 	if !ok {
 		hrssubitem = &SubscriberItem{}
 		hrssubitem.syncinterval = hrs.syncinterval

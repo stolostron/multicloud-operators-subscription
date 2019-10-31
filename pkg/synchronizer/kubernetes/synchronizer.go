@@ -203,7 +203,7 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 	for gvk, res := range sync.KubeResources {
 		var err error
 
-		// klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
+		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
 
 		if res.ServerUpdated {
 			err = sync.checkServerObjects(res)
