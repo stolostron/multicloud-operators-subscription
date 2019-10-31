@@ -18,12 +18,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -234,6 +236,30 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		rsc.SetNamespace(ghsi.Subscription.Namespace)
 	}
 
+	if ghsi.Subscription.Spec.PackageFilter != nil {
+		errMsg := ghsi.checkFilters(rsc)
+		if errMsg != "" {
+			klog.V(3).Info(errMsg)
+
+			return nil, nil, errors.New(errMsg)
+		}
+
+		rsc, err = utils.OverrideResourceBySubscription(rsc, rsc.GetName(), ghsi.Subscription)
+		if err != nil {
+			pkgMap[dpl.GetName()] = true
+			errmsg := "Failed override package " + dpl.Name + " with error: " + err.Error()
+			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), err, nil)
+
+			if err != nil {
+				errmsg += " and failed to set in cluster package status with error: " + err.Error()
+			}
+
+			klog.V(2).Info(errmsg)
+
+			return nil, nil, errors.New(errmsg)
+		}
+	}
+
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
 
@@ -251,6 +277,58 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 	dpl.SetAnnotations(annotations)
 
 	return dpl, validgvk, nil
+}
+
+func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg string) {
+	if ghsi.Subscription.Spec.Package != "" && ghsi.Subscription.Spec.Package != rsc.GetName() {
+		errMsg = "Name does not match, skiping:" + ghsi.Subscription.Spec.Package + "|" + rsc.GetName()
+
+		return errMsg
+	}
+
+	if ghsi.Subscription.Spec.Package == rsc.GetName() {
+		klog.V(5).Info("Name does matches: " + ghsi.Subscription.Spec.Package + "|" + rsc.GetName())
+	}
+
+	if !utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
+		errMsg = "Failed to pass label check on resource " + rsc.GetName()
+
+		return errMsg
+	}
+
+	if utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
+		klog.V(5).Info("Passed label check on resource " + rsc.GetName())
+	}
+
+	annotations := ghsi.Subscription.Spec.PackageFilter.Annotations
+	if annotations != nil {
+		klog.V(5).Info("checking annotations filter:", annotations)
+
+		rscanno := rsc.GetAnnotations()
+		if rscanno == nil {
+			rscanno = make(map[string]string)
+		}
+
+		matched := true
+
+		for k, v := range annotations {
+			if rscanno[k] != v {
+				klog.Info("Annotation filter does not match:", k, "|", v, "|", rscanno[k])
+
+				matched = false
+
+				break
+			}
+		}
+
+		if !matched {
+			errMsg = "Failed to pass annotation check to deployable " + rsc.GetName()
+
+			return errMsg
+		}
+	}
+
+	return ""
 }
 
 func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
@@ -549,6 +627,14 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 	}
 
 	indexFile.SortEntries()
+
+	err = ghsi.filterCharts(indexFile)
+
+	if err != nil {
+		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
+		klog.Warning(err, "Failed to filter helm charts.")
+	}
+
 	b, _ := yaml.Marshal(indexFile)
 	klog.V(10).Info("New index file ", string(b))
 
@@ -619,4 +705,138 @@ func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) e
 	}
 
 	return nil
+}
+
+//filterCharts filters the indexFile by name, tillerVersion, version, digest
+func (ghsi *SubscriberItem) filterCharts(indexFile *repo.IndexFile) error {
+	//Removes all entries from the indexFile with non matching name
+	err := ghsi.removeNoMatchingName(indexFile)
+	if err != nil {
+		klog.Error(err)
+		return err
+	}
+	//Removes non matching version, tillerVersion, digest
+	ghsi.filterOnVersion(indexFile)
+
+	if err != nil {
+		klog.Error("Failed to filter on version with error: ", err)
+	}
+
+	return err
+}
+
+//filterOnVersion filters the indexFile with the version, tillerVersion and Digest provided in the subscription
+//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
+//The tillerVersion and the digest provided in the subscription must be literals.
+func (ghsi *SubscriberItem) filterOnVersion(indexFile *repo.IndexFile) {
+	keys := make([]string, 0)
+	for k := range indexFile.Entries {
+		keys = append(keys, k)
+	}
+
+	for _, k := range keys {
+		chartVersions := indexFile.Entries[k]
+		newChartVersions := make([]*repo.ChartVersion, 0)
+
+		for index, chartVersion := range chartVersions {
+			if ghsi.checkTillerVersion(chartVersion) && ghsi.checkVersion(chartVersion) {
+				newChartVersions = append(newChartVersions, chartVersions[index])
+			}
+		}
+
+		if len(newChartVersions) > 0 {
+			indexFile.Entries[k] = newChartVersions
+		} else {
+			delete(indexFile.Entries, k)
+		}
+	}
+
+	klog.V(5).Info("After version matching:", indexFile)
+}
+
+//removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
+func (ghsi *SubscriberItem) removeNoMatchingName(indexFile *repo.IndexFile) error {
+	if ghsi.Subscription != nil {
+		if ghsi.Subscription.Spec.Package != "" {
+			keys := make([]string, 0)
+			for k := range indexFile.Entries {
+				keys = append(keys, k)
+			}
+
+			for _, k := range keys {
+				if k != ghsi.Subscription.Spec.Package {
+					delete(indexFile.Entries, k)
+				}
+			}
+		} else {
+			return fmt.Errorf("subsciption.spec.name is missing for subscription: %s/%s", ghsi.Subscription.Namespace, ghsi.Subscription.Name)
+		}
+	}
+
+	klog.V(5).Info("After name matching:", indexFile)
+
+	return nil
+}
+
+//checkTillerVersion Checks if the TillerVersion matches
+func (ghsi *SubscriberItem) checkTillerVersion(chartVersion *repo.ChartVersion) bool {
+	if ghsi.Subscription != nil {
+		if ghsi.Subscription.Spec.PackageFilter != nil {
+			if ghsi.Subscription.Spec.PackageFilter.Annotations != nil {
+				if filterTillerVersion, ok := ghsi.Subscription.Spec.PackageFilter.Annotations["tillerVersion"]; ok {
+					tillerVersion := chartVersion.GetTillerVersion()
+					if tillerVersion != "" {
+						tillerVersionVersion, err := semver.ParseRange(tillerVersion)
+						if err != nil {
+							klog.Errorf("Error while parsing tillerVersion: %s of %s Error: %s", tillerVersion, chartVersion.GetName(), err.Error())
+							return false
+						}
+
+						filterTillerVersion, err := semver.Parse(filterTillerVersion)
+
+						if err != nil {
+							klog.Error(err)
+							return false
+						}
+
+						return tillerVersionVersion(filterTillerVersion)
+					}
+				}
+			}
+		}
+	}
+
+	klog.V(5).Info("Tiller check passed for:", chartVersion)
+
+	return true
+}
+
+//checkVersion checks if the version matches
+func (ghsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
+	if ghsi.Subscription != nil {
+		if ghsi.Subscription.Spec.PackageFilter != nil {
+			if ghsi.Subscription.Spec.PackageFilter.Version != "" {
+				version := chartVersion.GetVersion()
+				versionVersion, err := semver.Parse(version)
+
+				if err != nil {
+					klog.Error(err)
+					return false
+				}
+
+				filterVersion, err := semver.ParseRange(ghsi.Subscription.Spec.PackageFilter.Version)
+
+				if err != nil {
+					klog.Error(err)
+					return false
+				}
+
+				return filterVersion(versionVersion)
+			}
+		}
+	}
+
+	klog.V(5).Info("Version check passed for:", chartVersion)
+
+	return true
 }
