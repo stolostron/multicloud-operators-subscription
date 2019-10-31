@@ -34,6 +34,7 @@ import (
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
+	plrv1alpha1 "github.com/IBM/multicloud-operators-placementrule/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	subutil "github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
@@ -288,7 +289,8 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 func (r *ReconcileSubscription) prepareDeployableForSubscription(sub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
 	// Fetch the Subscription instance
 	subep := sub.DeepCopy()
-	subep.Spec.Placement = nil
+	b := true
+	subep.Spec.Placement = &plrv1alpha1.Placement{Local: &b}
 	subep.Spec.Overrides = nil
 	subep.ResourceVersion = ""
 	subep.UID = ""
