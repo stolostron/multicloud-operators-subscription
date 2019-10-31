@@ -1,0 +1,38 @@
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: github-mongodb-subscription
+spec:
+  channel: ibmcharts/ibm-charts-github
+  name: ibm-mongodb-dev
+  placement:
+    local: false
+  packageFilter:
+    labelSelector:
+      matchLabels:
+        environment: Dev
+    filterRef:
+      name: ibm-mongodb-dev-cm
+      kind: ConfigMap
+      apiVersion: v1
+  packageOverrides:
+  - packageName: ibm-mongodb-dev
+    packageOverrides:
+    - path: spec.values
+      value: |
+        persistence:
+          enabled: false
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            cpu: 200m
+            memory: 500Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ibm-mongodb-dev-cm
+data:
+    path: stable/ibm-mongodb-dev

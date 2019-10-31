@@ -62,7 +62,7 @@ func RunManager() {
 	// Get watch namespace setting of controller
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		log.Error(err, " - Failed to get watch namespace")
 		os.Exit(1)
 	}
 	// Get a config to talk to the apiserver
@@ -108,7 +108,7 @@ func RunManager() {
 		}
 	}
 
-	klog.Info("Registering Components for id ", id)
+	klog.Info("Starting ... Registering Components for cluster: ", id)
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {

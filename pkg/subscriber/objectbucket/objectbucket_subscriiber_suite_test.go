@@ -12,20 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubernetes
+package objectbucket
 
 import (
 	stdlog "log"
 	"os"
-	"path/filepath"
 	"sync"
 	"testing"
 
+	"path/filepath"
+
 	"github.com/onsi/gomega"
-	crdapis "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -33,7 +32,6 @@ import (
 )
 
 var cfg *rest.Config
-var c client.Client
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
@@ -44,14 +42,9 @@ func TestMain(m *testing.M) {
 	}
 
 	apis.AddToScheme(scheme.Scheme)
-	crdapis.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
-	}
-
-	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		stdlog.Fatal(err)
 	}
 

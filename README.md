@@ -152,8 +152,9 @@ You can reach the maintainers of this by raising issues. Slack communication is 
 - [multicloud-operators-placementrule](https://github.com/IBM/multicloud-operators-placementrule)
 - [multicloud-operators-channel](https://github.com/IBM/multicloud-operators-channel)
 - [multicloud-operators-subscription](https://github.com/IBM/multicloud-operators-subscription)
+- [multicloud-operators-subscription-release](https://github.com/IBM/multicloud-operators-subscription-release)
 
 ------
 
-If you have any further question about xxx, please refer to
-[XXX help documentation](docs/xxx_help.md) for further information.
+If you have any further questions, please refer to
+[help documentation](docs/help.md) for further information.
