@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"runtime/debug"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -529,7 +528,6 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			continue
 		}
 		klog.Infof("host %v, dpl %v, source %v", host, dpl, source)
-		debug.PrintStack()
 		delete(resmap.TemplateMap, reskey)
 
 		klog.V(5).Info("Deleted template ", dpl, "in resource map ", resmap.GroupVersionResource)
