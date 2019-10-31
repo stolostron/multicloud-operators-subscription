@@ -54,6 +54,7 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
 	srt, err := s.GetSecret(request.NamespacedName)
+
 	var dpls []*dplv1alpha1.Deployable
 
 	// handle the NotFound case and other can't list case

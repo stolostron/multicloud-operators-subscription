@@ -526,9 +526,9 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 			continue
 		}
+
 		klog.Infof("host %v, dpl %v, source %v", host, dpl, source)
 		delete(resmap.TemplateMap, reskey)
-
 		klog.V(5).Info("Deleted template ", dpl, "in resource map ", resmap.GroupVersionResource)
 
 		if !resmap.GroupVersionResource.Empty() {
