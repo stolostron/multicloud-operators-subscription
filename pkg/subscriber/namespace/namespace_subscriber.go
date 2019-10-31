@@ -139,6 +139,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 		nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
 
 
+
 		if err != nil {
 			klog.Error("Failed to create cache for Namespace subscriber item with error: ", err)
 			return err
