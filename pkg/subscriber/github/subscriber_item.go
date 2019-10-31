@@ -718,10 +718,6 @@ func (ghsi *SubscriberItem) filterCharts(indexFile *repo.IndexFile) error {
 	//Removes non matching version, tillerVersion, digest
 	ghsi.filterOnVersion(indexFile)
 
-	if err != nil {
-		klog.Error("Failed to filter on version with error: ", err)
-	}
-
 	return err
 }
 
