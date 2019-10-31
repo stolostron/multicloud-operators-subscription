@@ -247,7 +247,6 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 
 	// Only validate deployables for deployable synchronizer on hub (SynchronizerID = "/")
 	if sync.SynchronizerID == nil || sync.SynchronizerID.String() != (client.ObjectKey{}).String() {
-
 		klog.V(5).Info("Managed cluster controller does not need to validate deployables, even it sits on hub")
 
 		return nil
@@ -527,9 +526,9 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 			continue
 		}
+
 		klog.Infof("host %v, dpl %v, source %v", host, dpl, source)
 		delete(resmap.TemplateMap, reskey)
-
 		klog.V(5).Info("Deleted template ", dpl, "in resource map ", resmap.GroupVersionResource)
 
 		if !resmap.GroupVersionResource.Empty() {
