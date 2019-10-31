@@ -62,7 +62,7 @@ func RunManager() {
 	// Get watch namespace setting of controller
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		log.Error(err, " - Failed to get watch namespace")
 		os.Exit(1)
 	}
 	// Get a config to talk to the apiserver
