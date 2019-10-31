@@ -258,11 +258,9 @@ func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 
 	if ok {
 		close(nssubitem.stopch)
+		delete(ns.itemmap, key)
+		ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 	}
-
-	ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
-
-	delete(ns.itemmap, key)
 
 	return nil
 }

@@ -107,9 +107,8 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(ghs.itemmap, key)
+		ghs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 	}
-
-	ghs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 
 	return nil
 }

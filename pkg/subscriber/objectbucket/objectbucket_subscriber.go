@@ -104,9 +104,8 @@ func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(obs.itemmap, key)
+		obs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 	}
-
-	obs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 
 	return nil
 }
