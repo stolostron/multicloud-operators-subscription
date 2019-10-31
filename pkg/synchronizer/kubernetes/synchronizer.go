@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -202,7 +203,7 @@ func (sync *KubeSynchronizer) houseKeeping() error {
 	for gvk, res := range sync.KubeResources {
 		var err error
 
-		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
+		// klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
 
 		if res.ServerUpdated {
 			err = sync.checkServerObjects(res)
@@ -508,12 +509,12 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 	// check resource template map for deployables
-	klog.V(5).Info("Deleting template ", dpl, "for syncid", dpl)
+	klog.V(5).Info("Deleting template ", dpl, "for syncid ", dpl)
 
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil
 		if len(resmap.TemplateMap) > 0 {
-			klog.V(5).Info("Checking valid resource map:", resmap.GroupVersionResource)
+			klog.V(5).Info("Checking valid resource map: ", resmap.GroupVersionResource)
 		}
 
 		reskey := sync.generateResourceMapKey(host, dpl)
@@ -526,10 +527,11 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 			continue
 		}
-
+		klog.Infof("host %v, dpl %v, source %v", host, dpl, source)
+		debug.PrintStack()
 		delete(resmap.TemplateMap, reskey)
 
-		klog.V(5).Info("Deleted template ", dpl, "in resource map", resmap.GroupVersionResource)
+		klog.V(5).Info("Deleted template ", dpl, "in resource map ", resmap.GroupVersionResource)
 
 		if !resmap.GroupVersionResource.Empty() {
 			var dl dynamic.ResourceInterface
@@ -543,7 +545,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			tgtobj, err := dl.Get(tplunit.GetName(), metav1.GetOptions{})
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
-					klog.V(5).Info("Resource is owned by", host, "Deleting ", tplunit.Unstructured)
+					klog.V(5).Info("Resource is owned by ", host, "Deleting ", tplunit.Unstructured)
 
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
