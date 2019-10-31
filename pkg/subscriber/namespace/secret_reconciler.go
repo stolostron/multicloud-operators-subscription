@@ -46,30 +46,38 @@ type SecretRecondiler struct {
 func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+		klog.Infof("Entering: %v()\n request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
 
-		defer klog.Infof("Exiting: %v()", fnName)
+		defer klog.Infof("Exiting: %v()\n request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
 	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
-	sl, err := s.ListSecrets()
+	srt, err := s.GetSecret(request.NamespacedName)
+	var dpls []*dplv1alpha1.Deployable
+
+	// handle the NotFound case and other can't list case
 	if err != nil {
-		return reconcile.Result{}, err
+		// update the synchronizer to make sure the sercet is also delete from synchronizer
+		s.RegisterToResourceMap(dpls)
+		return reconcile.Result{}, nil
 	}
 
-	var dpls []*dplv1alpha1.Deployable
-	//apply the subscription package filter to the correct annotated secret
-	for _, srt := range sl.Items {
-		if !isSecretAnnoatedAsDeployable(srt) {
-			continue
-		}
+	// only move forward if the sercet belongs to the subscription's channel
+	if srt.GetNamespace() != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
+		return reconcile.Result{}, nil
+	}
 
-		srt, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, utils.PackageSecert(srt))
-		}
+	//filter out the secret by deployable annotations
+	if !isSecretAnnoatedAsDeployable(*srt) {
+		return reconcile.Result{}, nil
+	}
 
+	klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
+
+	srtNew, ok := utils.ApplyFilters(*srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
+	if ok {
+		dpls = append(dpls, utils.PackageSecert(srtNew))
 	}
 
 	s.RegisterToResourceMap(dpls)
@@ -77,8 +85,8 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-//ListSecrets list all the secret resouces at the suscribed channel
-func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
+//GetSecret get the Secert from all the suscribed channel
+func (s *SecretRecondiler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -86,47 +94,15 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	subitem, ok := s.Subscriber.itemmap[s.Itemkey]
-	if !ok {
-		errmsg := "Failed to locate subscription item " + s.Itemkey.String() + " in existing map"
-
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	sub := subitem.Subscription
-	klog.V(5).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
-
-	secretList := &v1.SecretList{}
-
-	targetChNamespace := subitem.Channel.Spec.PathName
-	if targetChNamespace == "" {
-		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	listOptions := &client.ListOptions{Namespace: targetChNamespace}
-
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
-		}
-
-		listOptions.LabelSelector = clSelector
-	}
-
-	err := s.Clt.List(context.TODO(), listOptions, secretList)
+	srt := &v1.Secret{}
+	err := s.Clt.Get(context.TODO(), srtKey, srt)
 
 	if err != nil {
-		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
+		klog.Error("Failed to list objecrts from namespace ", srtKey.String(), " due to err:", err)
 		return nil, err
 	}
 
-	return secretList, nil
+	return srt, nil
 }
 
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {

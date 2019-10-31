@@ -39,7 +39,7 @@ func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsourc
 			tpldpl := utils.GetHostDeployableFromObject(tplunit)
 
 			if tplhost != nil && tplhost.String() == host.String() {
-				klog.V(10).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
+				klog.V(5).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, syncsource)
 
 				if err != nil {
