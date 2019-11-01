@@ -191,7 +191,6 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 			Itemkey:    itemkey,
 			Schema:     ns.scheme,
 		}
-
 		nssubitem.secretcontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
 
 		if err != nil {
