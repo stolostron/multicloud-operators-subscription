@@ -26,11 +26,14 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
@@ -48,9 +51,12 @@ func Add(mgr manager.Manager) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
+
 	rec := &ReconcileSubscription{
-		Client: mgr.GetClient(),
-		scheme: mgr.GetScheme(),
+		Client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		eventRecorder: erecorder,
 	}
 
 	return rec
@@ -70,6 +76,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// in hub, watch the deployable created by the subscription
+	err = c.Watch(&source.Kind{Type: &dplv1alpha1.Deployable{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &appv1alpha1.Subscription{},
+	}, predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			newdpl := e.ObjectNew.(*dplv1alpha1.Deployable)
+			olddpl := e.ObjectOld.(*dplv1alpha1.Deployable)
+
+			return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
+		},
+	})
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -81,7 +103,8 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	scheme *runtime.Scheme
+	scheme        *runtime.Scheme
+	eventRecorder *utils.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -151,8 +174,4 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	return result, nil
-}
-
-func (r *ReconcileSubscription) doMCMHubReconcile(instance *appv1alpha1.Subscription) error {
-	return nil
 }

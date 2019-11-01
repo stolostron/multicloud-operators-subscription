@@ -35,7 +35,6 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
 	"github.com/IBM/multicloud-operators-subscription/pkg/controller"
@@ -56,13 +55,13 @@ func printVersion() {
 	klog.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
 }
 
-func RunManager() {
+func RunManager(sig <-chan struct{}) {
 	printVersion()
 
 	// Get watch namespace setting of controller
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
-		log.Error(err, "Failed to get watch namespace")
+		log.Error(err, " - Failed to get watch namespace")
 		os.Exit(1)
 	}
 	// Get a config to talk to the apiserver
@@ -108,7 +107,7 @@ func RunManager() {
 		}
 	}
 
-	klog.Info("Registering Components for id ", id)
+	klog.Info("Starting ... Registering Components for cluster: ", id)
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
@@ -176,7 +175,7 @@ func RunManager() {
 	klog.Info("Starting the Cmd.")
 
 	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err := mgr.Start(sig); err != nil {
 		klog.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}

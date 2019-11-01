@@ -471,7 +471,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	var err error
 
 	hostkey := types.NamespacedName{Name: hrsi.Subscription.Name, Namespace: hrsi.Subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := helmreposyncsource + hostkey.String()
 	pkgMap := make(map[string]bool)
 
 	//Loop on all packages selected by the subscription
