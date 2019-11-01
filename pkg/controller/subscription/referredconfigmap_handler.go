@@ -22,6 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -179,7 +180,7 @@ func CleanUpConfigMapObject(c corev1.ConfigMap) corev1.ConfigMap {
 
 	c.SetSelfLink("")
 
-	gvk := runtime.schema.GroupVersionKind{
+	gvk := schema.GroupVersionKind{
 		Kind:    "ConfigMap",
 		Version: "v1",
 	}

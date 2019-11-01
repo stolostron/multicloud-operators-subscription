@@ -129,7 +129,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 
 func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := githubk8ssyncsource + hostkey.String()
 	kvalid := ghsi.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
 
@@ -333,7 +333,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 
 func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := githubhelmsyncsource + hostkey.String()
 	pkgMap := make(map[string]bool)
 
 	for packageName, chartVersions := range indexFile.Entries {

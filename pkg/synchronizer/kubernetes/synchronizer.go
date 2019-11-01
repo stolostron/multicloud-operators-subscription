@@ -508,7 +508,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 	// check resource template map for deployables
-	klog.V(5).Info("Deleting template ", dpl, "for syncid ", dpl)
+
+	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
 
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil
@@ -637,7 +638,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 			TemplateMap:          make(map[string]*TemplateUnit),
 			Namespaced:           true,
 		}
-		klog.V(10).Info("Adding new resource from registration. kind: ", template.GetKind(), " GroupVersionResource: ", resmap.GroupVersionResource)
+		klog.V(5).Info("Adding new resource from registration. kind: ", template.GetKind(), " GroupVersionResource: ", resmap.GroupVersionResource)
 	}
 
 	if resmap.Namespaced && template.GetNamespace() == "" {
@@ -654,7 +655,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	// Try to get template object, take error as not exist, will check again anyway.
 	if len(instance.GetObjectMeta().GetFinalizers()) > 0 {
 		// Deployable in being deleted, de-register template and return
-		klog.V(10).Info("Deployable has finalizers, ready to delete object", instance)
+		klog.V(5).Info("Deployable has finalizers, ready to delete object", instance)
 
 		err = sync.DeRegisterTemplate(host, dpl, source)
 
@@ -674,7 +675,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	}
 
 	if !utils.IsLocalDeployable(instance) {
-		klog.V(10).Info("Deployable is not (no longer) local, ready to delete object", instance)
+		klog.V(5).Info("Deployable is not (no longer) local, ready to delete object", instance)
 
 		err = sync.DeRegisterTemplate(host, dpl, source)
 
@@ -732,7 +733,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	resmap.TemplateMap[reskey] = templateUnit
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
 
-	klog.V(1).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind())
+	klog.V(2).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind(), "for source: ", source)
 
 	return nil
 }

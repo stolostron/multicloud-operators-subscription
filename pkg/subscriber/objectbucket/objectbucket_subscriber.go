@@ -39,6 +39,8 @@ type Subscriber struct {
 
 var defaultSubscriber *Subscriber
 
+var objectbucketsyncsource = "subob-"
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
@@ -79,6 +81,7 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
+	klog.V(2).Info("subscribeItem ", itemkey)
 
 	obssubitem, ok := obs.itemmap[itemkey]
 
@@ -99,12 +102,14 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 // UnsubscribeItem uobsubscribes a namespace subscriber item
 func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
+	klog.V(2).Info("UnsubscribeItem ", key)
+
 	subitem, ok := obs.itemmap[key]
 
 	if ok {
 		subitem.Stop()
 		delete(obs.itemmap, key)
-		obs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
+		obs.synchronizer.CleanupByHost(key, objectbucketsyncsource+key.String())
 	}
 
 	return nil

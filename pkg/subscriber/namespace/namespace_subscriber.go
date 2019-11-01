@@ -72,6 +72,11 @@ var (
 	}
 )
 
+var (
+	deployablesyncsource = "subnsdpl-"
+	secretsyncsource     = "subnssec-"
+)
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
@@ -127,6 +132,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
+	klog.V(2).Info("subscribeItem ", itemkey)
 
 	nssubitem, ok := ns.itemmap[itemkey]
 
@@ -137,8 +143,6 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 
 		nssubitem.clusterscoped = isClusterScoped
 		nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
-
-
 
 		if err != nil {
 			klog.Error("Failed to create cache for Namespace subscriber item with error: ", err)
@@ -207,12 +211,10 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 
 		err = nssubitem.secretcontroller.Watch(ssrc, &handler.EnqueueRequestForObject{})
 
-
 		if err != nil {
 			klog.Error("Failed to watch deployable with error: ", err)
 			return err
 		}
-
 
 		nssubitem.stopch = make(chan struct{})
 
@@ -254,12 +256,15 @@ func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 
 // UnsubscribeItem unsubscribes a namespace subscriber item
 func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
+	klog.V(2).Info("UnsubscribeItem ", key)
+
 	nssubitem, ok := ns.itemmap[key]
 
 	if ok {
 		close(nssubitem.stopch)
 		delete(ns.itemmap, key)
-		ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
+		ns.synchronizer.CleanupByHost(key, deployablesyncsource+key.String())
+		ns.synchronizer.CleanupByHost(key, secretsyncsource+key.String())
 	}
 
 	return nil

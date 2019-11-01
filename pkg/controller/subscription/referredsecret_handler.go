@@ -30,9 +30,6 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
-//SercertReferredMarker is used as a label key to filter out the secert coming from reference
-var SercertReferredMarker = "IsReferredBySub"
-
 func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secret, instance *appv1alpha1.Subscription) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
