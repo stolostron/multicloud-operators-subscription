@@ -23,6 +23,7 @@ import (
 
 	"k8s.io/apiserver/pkg/util/flag"
 	"k8s.io/apiserver/pkg/util/logs"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
 	"github.com/IBM/multicloud-operators-subscription/cmd/manager/exec"
 )
@@ -37,5 +38,5 @@ func main() {
 
 	pflag.Parse()
 
-	exec.RunManager()
+	exec.RunManager(signals.SetupSignalHandler())
 }

@@ -72,6 +72,11 @@ var (
 	}
 )
 
+var (
+	deployablesyncsource = "subnsdpl-"
+	secretsyncsource     = "subnssec-"
+)
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
@@ -127,6 +132,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
+	klog.V(2).Info("subscribeItem ", itemkey)
 
 	nssubitem, ok := ns.itemmap[itemkey]
 
@@ -250,15 +256,16 @@ func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 
 // UnsubscribeItem unsubscribes a namespace subscriber item
 func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
+	klog.V(2).Info("UnsubscribeItem ", key)
+
 	nssubitem, ok := ns.itemmap[key]
 
 	if ok {
 		close(nssubitem.stopch)
+		delete(ns.itemmap, key)
+		ns.synchronizer.CleanupByHost(key, deployablesyncsource+key.String())
+		ns.synchronizer.CleanupByHost(key, secretsyncsource+key.String())
 	}
-
-	ns.synchronizer.CleanupByHost(key, "subscription-"+key.String())
-
-	delete(ns.itemmap, key)
 
 	return nil
 }

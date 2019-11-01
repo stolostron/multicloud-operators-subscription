@@ -172,7 +172,7 @@ func (obsi *SubscriberItem) doSubscription() error {
 	}
 
 	hostkey := types.NamespacedName{Name: obsi.Subscription.Name, Namespace: obsi.Subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := objectbucketsyncsource + hostkey.String()
 	// subscribed k8s resource
 	kvalid := obsi.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
