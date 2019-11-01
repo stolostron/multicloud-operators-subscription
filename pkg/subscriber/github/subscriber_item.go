@@ -43,6 +43,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
+	gitignore "github.com/sabhiram/go-gitignore"
+
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
 	releasev1alpha1 "github.com/IBM/multicloud-operators-subscription-release/pkg/apis/app/v1alpha1"
@@ -127,11 +129,47 @@ func (ghsi *SubscriberItem) doSubscription() {
 	}
 }
 
+func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
+	repoRoot := filepath.Join(os.TempDir(), ghsi.Channel.Namespace, ghsi.Channel.Name)
+	resourcePath := repoRoot
+
+	if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+		resourcePath = filepath.Join(repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
+	}
+
+	klog.V(5).Info("Git repo resource root directory: ", resourcePath)
+
+	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
+	// of the resource root.
+	lines := []string{""}
+	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
+
+	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesIgnore")); err == nil {
+		klog.V(5).Info("Found .kubernetesIgnore in ", resourcePath)
+		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesIgnore"))
+	}
+
+	return kubeIgnore
+}
+
+func (ghsi *SubscriberItem) getRelativePath(repoRoot string, dir string, fileName string) string {
+	relativePath := filepath.Join(dir, fileName)
+	if len(strings.SplitAfter(filepath.Join(dir, fileName), repoRoot+"/")) > 1 {
+		relativePath = strings.SplitAfter(filepath.Join(dir, fileName), repoRoot+"/")[1]
+	}
+
+	return relativePath
+}
+
 func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 	syncsource := githubk8ssyncsource + hostkey.String()
 	kvalid := ghsi.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
+
+	kubeIgnore := ghsi.getKubeIgnore()
+
+	repoRoot := filepath.Join(os.TempDir(), ghsi.Channel.Namespace, ghsi.Channel.Name)
 
 	// sync kube resource deployables
 	for _, dir := range rscDirs {
@@ -141,12 +179,16 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 		}
 
 		for _, f := range files {
-			klog.V(5).Info("scanning  ", dir, f.Name())
+			relativePath := ghsi.getRelativePath(repoRoot, dir, f.Name())
+
+			klog.V(10).Info("scanning  ", relativePath)
+
 			// If YAML or YML,
-			if f.Mode().IsRegular() {
+			if f.Mode().IsRegular() && !kubeIgnore.MatchesPath(relativePath) {
 				if strings.EqualFold(filepath.Ext(f.Name()), ".yml") || strings.EqualFold(filepath.Ext(f.Name()), ".yaml") {
 					// check it it is Kubernetes resource
-					klog.V(5).Info("scanning file ", f.Name())
+					klog.V(10).Info("scanning file ", relativePath)
+
 					file, _ := ioutil.ReadFile(filepath.Join(dir, f.Name()))
 					t := kubeResource{}
 					err = yaml.Unmarshal(file, &t)
@@ -192,6 +234,8 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 						klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 					}
 				}
+			} else {
+				klog.V(2).Info("Ignoring... ", relativePath)
 			}
 		}
 	}
@@ -551,7 +595,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]string, error) {
-	if ghsi.Subscription.Spec.PackageFilter.FilterRef != nil {
+	if ghsi.Subscription.Spec.PackageFilter != nil && ghsi.Subscription.Spec.PackageFilter.FilterRef != nil {
 		ghsi.SubscriberItem.SubscriptionConfigMap = &corev1.ConfigMap{}
 		subcfgkey := types.NamespacedName{
 			Name:      ghsi.Subscription.Spec.PackageFilter.FilterRef.Name,
@@ -580,12 +624,24 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 
 	klog.V(5).Info("Git repo resource root directory: ", resourcePath)
 
+	kubeIgnore := ghsi.getKubeIgnore()
+
 	err := filepath.Walk(resourcePath,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				return err
 			}
-			if info.IsDir() {
+
+			relativePath := path
+
+			if len(strings.SplitAfter(path, repoRoot+"/")) > 1 {
+				relativePath = strings.SplitAfter(path, repoRoot+"/")[1]
+			}
+
+			// with the .kubernetesIgnore, fileter out ignorable directories.
+			// this helps build more accurate helm chart index.yaml and list of kube resource folders to process later.
+			// when it actually applies resources later, it will use the .kubernetesIgnore again to evaluate at file level.
+			if info.IsDir() && !kubeIgnore.MatchesPath(relativePath) {
 				klog.V(10).Info("Ignoring subfolders of ", currentChartDir)
 				if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
 					klog.V(10).Info("Found Chart.yaml in ", path)
@@ -598,7 +654,10 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 					klog.V(10).Info("This is not a helm chart directory. ", path)
 					resourceDirs[path+"/"] = path + "/"
 				}
+			} else {
+				klog.V(2).Info("Ignoring... ", relativePath)
 			}
+
 			return nil
 		})
 

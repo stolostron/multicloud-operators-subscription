@@ -12,6 +12,7 @@ require (
 	github.com/onsi/gomega v1.4.3
 	github.com/operator-framework/operator-sdk v0.10.0
 	github.com/prometheus/common v0.2.0
+	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.3
 	golang.org/x/net v0.0.0-20190724013045-ca1201d0de80
 	golang.org/x/tools v0.0.0-20191022174149-ab6dbf99d100 // indirect
