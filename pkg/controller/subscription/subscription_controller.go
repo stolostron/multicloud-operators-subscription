@@ -124,13 +124,14 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
-			
+
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
 				_ = sub.UnsubscribeItem(request.NamespacedName)
 			}
 
 			r.ListSubscriptionOwnedSrtAndDelete(request.NamespacedName)
+			r.ListSubscriptionOwnedCfgAndDelete(request.NamespacedName)
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -239,6 +240,13 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		err = r.ListAndDeployReferredSecrets(subitem.ChannelSecret, instance)
 		if err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
+		}
+	}
+
+	if subitem.Channel.Spec.ConfigMapRef != nil {
+		err = r.ListAndDeployReferredConfigMap(subitem.ChannelConfigMap, instance)
+		if err != nil {
+			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelConfigMap.GetName(), instance.GetName())
 		}
 	}
 
