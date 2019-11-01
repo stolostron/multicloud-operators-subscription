@@ -121,7 +121,7 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
 
-// CreateNamespaceSubsriber create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
 func CreateHelmRepoSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
 	kubesync *kubesynchronizer.KubeSynchronizer, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
