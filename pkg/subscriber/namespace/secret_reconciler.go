@@ -52,7 +52,7 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	klog.Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
+	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
 	sl, err := s.ListSecrets()
 	if err != nil {
@@ -236,7 +236,7 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := secretsyncsource + hostkey.String()
 	// subscribed k8s resource
 	kvalid := s.Subscriber.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
