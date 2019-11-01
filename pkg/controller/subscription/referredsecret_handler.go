@@ -40,12 +40,23 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 
 	// list secret within the sub ns given the secert name
 	localSrt, err := r.ListReferredSecretByName(instance, refSrt)
+	if err != nil {
+		return err
+	}
 
 	// list the used secert marked with the subscription
 	instanceKey := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
 	oldSrts, err := r.ListReferredSecret(instanceKey)
+
+	if err != nil {
+		return err
+	}
 	// if the listed secert is used by myself, and it's not the newOne, then delete it, otherwise,
 	err = r.UpdateLabelsOnOldRefSecret(instance, refSrt, oldSrts)
+
+	if err != nil {
+		return err
+	}
 
 	if localSrt == nil {
 		//delete old lalbels
@@ -76,17 +87,15 @@ func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.S
 	return localSrt, nil
 }
 
-func getLabelOfSubscription(subName string) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: map[string]string{SercertReferredMarker: "true", subName: "true"}}
-}
-
 //ListReferredSecret lists secert within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*corev1.SecretList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
 	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
+
 	if err != nil {
 		klog.Errorf("Can't parse the sercert label selector due to %v", err)
 	}
+
 	listOptions.LabelSelector = ls
 	localSrts := &corev1.SecretList{}
 	err = r.Client.List(context.TODO(), listOptions, localSrts)
@@ -98,7 +107,7 @@ func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*co
 	return localSrts, nil
 }
 
-//ListSubscriptionOwnedSrtAndDeploy check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
+//ListSubscriptionOwnedSrtAndDeploy check up if the secert was owned by the subscription
 func (r *ReconcileSubscription) UpdateLabelsOnOldRefSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret, srtList *v1.SecretList) error {
 	if len(srtList.Items) == 0 {
 		return nil
@@ -144,9 +153,15 @@ func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subsc
 	return nil
 }
 
-//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
+//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not, if not deploy one,
+//otherwise modify the owner relationship for the secret
 func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDelete(rq types.NamespacedName) error {
 	srtList, err := r.ListReferredSecret(rq)
+
+	if err != nil {
+		return err
+	}
+
 	if len(srtList.Items) == 0 {
 		return nil
 	}
@@ -162,5 +177,6 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDelete(rq types.Names
 		srt.SetLabels(ls)
 		err = r.Client.Update(context.TODO(), &srt)
 	}
+
 	return err
 }

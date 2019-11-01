@@ -130,8 +130,11 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				_ = sub.UnsubscribeItem(request.NamespacedName)
 			}
 
-			r.ListSubscriptionOwnedSrtAndDelete(request.NamespacedName)
-			r.ListSubscriptionOwnedCfgAndDelete(request.NamespacedName)
+			err := r.ListSubscriptionOwnedSrtAndDelete(request.NamespacedName)
+			klog.Errorf("Had error %v while processing the referred secert", err)
+			err = r.ListSubscriptionOwnedCfgAndDelete(request.NamespacedName)
+			klog.Errorf("Had error %v while processing the referred configmap", err)
+
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -254,7 +257,6 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
-
 		if k != subtype {
 			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
 

@@ -21,8 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -44,11 +44,23 @@ func (r *ReconcileSubscription) ListAndDeployReferredConfigMap(refCfg *corev1.Co
 	// list secret within the sub ns given the secert name
 	localCfg, err := r.ListReferredConfigMapByName(instance, refCfg)
 
+	if err != nil {
+		return err
+	}
+
 	// list the used secert marked with the subscription
 	instanceKey := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
 	oldCfgs, err := r.ListReferredConfigMap(instanceKey)
+
+	if err != nil {
+		return err
+	}
 	// if the listed secert is used by myself, and it's not the newOne, then delete it, otherwise,
 	err = r.UpdateLabelsOnOldRefConfigMap(instance, refCfg, oldCfgs)
+
+	if err != nil {
+		return err
+	}
 
 	if localCfg == nil {
 		//delete old lalbels
@@ -87,9 +99,11 @@ func getLabelOfSubscription(subName string) *metav1.LabelSelector {
 func (r *ReconcileSubscription) ListReferredConfigMap(rq types.NamespacedName) (*corev1.ConfigMapList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
 	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
+
 	if err != nil {
 		klog.Errorf("Can't parse the sercert label selector due to %v", err)
 	}
+
 	listOptions.LabelSelector = ls
 	localCfgs := &corev1.ConfigMapList{}
 	err = r.Client.List(context.TODO(), listOptions, localCfgs)
@@ -101,8 +115,9 @@ func (r *ReconcileSubscription) ListReferredConfigMap(rq types.NamespacedName) (
 	return localCfgs, nil
 }
 
-//ListSubscriptionOwnedSrtAndDeploy check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
-func (r *ReconcileSubscription) UpdateLabelsOnOldRefConfigMap(instance *appv1alpha1.Subscription, newCfg *corev1.ConfigMap, cfgLists *corev1.ConfigMapList) error {
+//UpdateLabelsOnOldRefConfigMap check up if the configmap was owned by the subscription and update the labels
+func (r *ReconcileSubscription) UpdateLabelsOnOldRefConfigMap(instance *appv1alpha1.Subscription,
+	newCfg *corev1.ConfigMap, cfgLists *corev1.ConfigMapList) error {
 	if len(cfgLists.Items) == 0 {
 		return nil
 	}
@@ -147,9 +162,10 @@ func (r *ReconcileSubscription) DeployReferredConfigMap(instance *appv1alpha1.Su
 	return nil
 }
 
-//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
+//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not,
+//if not deploy one, otherwise modify the owner relationship for the secret
 func (r *ReconcileSubscription) ListSubscriptionOwnedCfgAndDelete(rq types.NamespacedName) error {
-	cfgLists, err := r.ListReferredSecret(rq)
+	cfgLists, _ := r.ListReferredSecret(rq)
 	if len(cfgLists.Items) == 0 {
 		return nil
 	}
@@ -157,18 +173,25 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedCfgAndDelete(rq types.Names
 	//having a referenced secert, label with the subscription name
 	cfg := cfgLists.Items[0]
 
+	var err error
+
 	if len(cfg.GetLabels()) == 2 {
 		err = r.Client.Delete(context.TODO(), &cfg)
+		if err != nil {
+			klog.Errorf("Failed to delete config map, error %v", err)
+		}
 	} else {
 		ls := cfg.GetLabels()
 		delete(ls, rq.Name)
 		cfg.SetLabels(ls)
 		err = r.Client.Update(context.TODO(), &cfg)
+		if err != nil {
+			klog.Errorf("Failed to update config map, error %v", err)
+		}
 	}
+
 	return err
 }
-
-
 
 //CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
 func CleanUpConfigMapObject(c corev1.ConfigMap) corev1.ConfigMap {
