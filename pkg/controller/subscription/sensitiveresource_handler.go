@@ -22,21 +22,17 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
-//list all the referred secert, old ones
-// if reconciler is giving a new secret reference,
-//// then if the ownerReference is only to current subscription, then delete the old one and deploy the new one
-//// if there're more than one onwer, then delete the current subscription from the ownerReference, and deploy new secert
-// if reconciler is having the old secert then update the secret
+//SercertReferredMarker is used as a label key to filter out the secert coming from reference
+var SercertReferredMarker = "IsReferredBySub"
 
-//ListAndRegistSecrets is used to list and manage the referred secert for a subscription
 func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secret, instance *appv1alpha1.Subscription) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
@@ -45,33 +41,52 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	// list the seceret from the subscription namespace with label
+	// list secret within the sub ns given the secert name
+	localSrt, err := r.ListReferredSecretByName(instance, refSrt)
 
-	// if we can't find any, then deploy with label
-	localSrts, err := r.ListReferredSecret(instance)
-	if err != nil {
-		klog.Errorf("Can't list referred secrets due to error %v", err)
+	// list the used secert marked with the subscription
+	instanceKey := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
+	oldSrts, err := r.ListReferredSecret(instanceKey)
+	// if the listed secert is used by myself, and it's not the newOne, then delete it, otherwise,
+	err = r.UpdateLabelsOnOldRefSecret(instance, refSrt, oldSrts)
+
+	if localSrt == nil {
+		//delete old lalbels
+		err = r.DeployReferredSecret(instance, refSrt)
 		return err
 	}
 
-	err = r.ListSubscriptionOwnedSrtAndDeploy(instance, refSrt, localSrts)
+	// we already have the referred secert in the subscription namespace
+	lb := localSrt.GetLabels()
+	lb[instance.GetName()] = "true"
+	lb[SercertReferredMarker] = "true"
+	localSrt.SetLabels(lb)
+	err = r.Client.Update(context.TODO(), localSrt)
+
+	return err
+}
+
+//ListReferredSecret lists secert within the subscription namespace and having label <subscription.name>:"true"
+func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.Subscription, refSrt *corev1.Secret) (*corev1.Secret, error) {
+	srtKey := types.NamespacedName{Namespace: instance.GetNamespace(), Name: refSrt.GetName()}
+	localSrt := &corev1.Secret{}
+	err := r.Client.Get(context.TODO(), srtKey, localSrt)
 
 	if err != nil {
-		klog.Errorf("Can't list secret owned by %v due to error %v", instance.GetName(), err)
+		return nil, err
 	}
 
-	// set up owerreference
-
-	return nil
+	return localSrt, nil
 }
 
-func getLabelOfSubscription(instance *appv1alpha1.Subscription) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: map[string]string{instance.GetName(): "true"}}
+func getLabelOfSubscription(subName string) *metav1.LabelSelector {
+	return &metav1.LabelSelector{MatchLabels: map[string]string{SercertReferredMarker: "true", subName: "true"}}
 }
 
-func (r *ReconcileSubscription) ListReferredSecret(instance *appv1alpha1.Subscription) (*corev1.SecretList, error) {
-	listOptions := &client.ListOptions{Namespace: instance.GetNamespace()}
-	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(instance))
+//ListReferredSecret lists secert within the subscription namespace and having label <subscription.name>:"true"
+func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*corev1.SecretList, error) {
+	listOptions := &client.ListOptions{Namespace: rq.Namespace}
+	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
 	if err != nil {
 		klog.Errorf("Can't parse the sercert label selector due to %v", err)
 	}
@@ -86,54 +101,69 @@ func (r *ReconcileSubscription) ListReferredSecret(instance *appv1alpha1.Subscri
 	return localSrts, nil
 }
 
-func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDeploy(instance *appv1alpha1.Subscription, newSrt *v1.Secret, srtList *v1.SecretList) error {
+//ListSubscriptionOwnedSrtAndDeploy check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
+func (r *ReconcileSubscription) UpdateLabelsOnOldRefSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret, srtList *v1.SecretList) error {
 	if len(srtList.Items) == 0 {
-		r.DeployReferredSecret(instance, newSrt)
 		return nil
 	}
+	//having a referenced secert, label with the subscription name
+
+	var err error
 
 	for _, srt := range srtList.Items {
-		owners := srt.GetOwnerReferences()
-
-		if len(owners) == 0 { // not owned by anyone, then we should collect it
-			r.Client.Delete(context.TODO(), &srt)
-		} else if len(owners) == 1 { // need to check if it's owned by this subscription if so, then we will need to delete it otherwise do nothing
-			if srt.GetName() == newSrt.GetName() {
-				r.Client.Update(context.TODO(), &srt)
+		if srt.GetName() != newSrt.GetName() {
+			lb := srt.GetLabels()
+			if len(lb) > 2 {
+				delete(lb, instance.GetName())
+				srt.SetLabels(lb)
+				err = r.Client.Update(context.TODO(), &srt)
 			} else {
-				r.Client.Delete(context.TODO(), &srt)
-				err := r.DeployReferredSecret(instance, newSrt)
-				if err != nil {
-					return err
-				}
+				err = r.Client.Delete(context.TODO(), &srt)
 			}
-
-		} else { // owned by more than one subscription, then we need to remove the current subscription from its owner list
-			tmp := []metav1.OwnerReference{}
-			for _, owner := range owners {
-				if owner.Name != instance.GetName() {
-					tmp = append(tmp, owner)
-				}
-			}
-			srt.SetOwnerReferences(tmp)
-			r.Client.Update(context.TODO(), &srt)
 		}
 	}
-	return nil
+
+	return err
 }
 
+//DeployReferredSecret deply the referred secert to the subscription namespace, also it set up the lable and ownerReference for the secert
 func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret) error {
 	cleanSrt := utils.CleanUpObject(*newSrt)
-	srtLabel := map[string]string{instance.GetName(): "true"}
+
+	srtLabel := map[string]string{SercertReferredMarker: "true", instance.GetName(): "true"}
 	cleanSrt.SetLabels(srtLabel)
-	err := controllerutil.SetControllerReference(instance, &cleanSrt, r.scheme)
+
+	cleanSrt.SetNamespace(instance.GetNamespace())
+
+	err := r.Client.Create(context.TODO(), &cleanSrt)
 
 	if err != nil {
-		errmsg := fmt.Sprintf("Adding owner reference to secert %v, got error: %v", cleanSrt.GetName(), err.Error())
+		errmsg := fmt.Sprintf("Failed to create secert %v, got error: %v", cleanSrt.GetName(), err.Error())
 		klog.Error(errmsg)
 
 		return errors.New(errmsg)
 	}
 
 	return nil
+}
+
+//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not, if not deploy one, otherwise modify the owner relationship for the secret
+func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDelete(rq types.NamespacedName) error {
+	srtList, err := r.ListReferredSecret(rq)
+	if len(srtList.Items) == 0 {
+		return nil
+	}
+
+	//having a referenced secert, label with the subscription name
+	srt := srtList.Items[0]
+
+	if len(srt.GetLabels()) == 2 {
+		err = r.Client.Delete(context.TODO(), &srt)
+	} else {
+		ls := srt.GetLabels()
+		delete(ls, rq.Name)
+		srt.SetLabels(ls)
+		err = r.Client.Update(context.TODO(), &srt)
+	}
+	return err
 }
