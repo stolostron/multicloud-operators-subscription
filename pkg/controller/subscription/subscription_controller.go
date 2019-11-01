@@ -237,17 +237,19 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
-		action := "subscribe"
-
-		if k == subtype {
-			err = sub.SubscribeItem(subitem)
-		} else {
+		if k != subtype {
 			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
-			action = "unsubscribe"
-		}
 
+			if err != nil {
+				klog.Error("Failed to unsubscribe with subscriber ", k, " error:", err)
+			}
+		}
+	}
+
+	if sub, ok := r.subscribers[subtype]; ok {
+		err = sub.SubscribeItem(subitem)
 		if err != nil {
-			klog.Error("Failed to ", action, " with subscriber ", k, " error:", err)
+			klog.Error("Failed to subscribe with subscriber ", subtype, " error:", err)
 		}
 	}
 

@@ -39,6 +39,8 @@ type Subscriber struct {
 
 var defaultSubscriber *Subscriber
 
+var helmreposyncsource = "subhelm-"
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
@@ -79,6 +81,7 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
+	klog.V(2).Info("subscribeItem ", itemkey)
 
 	hrssubitem, ok := hrs.itemmap[itemkey]
 
@@ -100,14 +103,15 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 // UnsubscribeItem uhrsubscribes a namespace subscriber item
 func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
+	klog.V(2).Info("UnsubscribeItem ", key)
+
 	subitem, ok := hrs.itemmap[key]
 
 	if ok {
 		subitem.Stop()
 		delete(hrs.itemmap, key)
+		hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String())
 	}
-
-	hrs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 
 	return nil
 }

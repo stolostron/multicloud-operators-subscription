@@ -104,7 +104,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	}
 
 	hostkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	syncsource := "subscription-" + hostkey.String()
+	syncsource := deployablesyncsource + hostkey.String()
 	// subscribed k8s resource
 	kvalid := r.subscriber.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
@@ -122,7 +122,7 @@ func (r *DeployableReconciler) doSubscription() error {
 
 		dpltosync, validgvk, err := r.doSubscribeDeployable(subitem, dpl.DeepCopy(), versionMap, pkgMap)
 		if err != nil {
-			klog.V(2).Info("Skipping deployable", dpl.Name)
+			klog.V(3).Info("Skipping deployable", dpl.Name)
 
 			if dpltosync != nil {
 				retryerr = err
@@ -167,7 +167,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
 		errmsg := "Name does not match, skiping:" + subitem.Subscription.Spec.Package + "|" + dpl.Name
-		klog.V(2).Info(errmsg)
+		klog.V(3).Info(errmsg)
 
 		return nil, nil, errors.New(errmsg)
 	}
