@@ -32,7 +32,6 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 // Subscriber - information to run namespace subscription
 type Subscriber struct {
 	itemmap
-	scheme       *runtime.Scheme
 	manager      manager.Manager
 	synchronizer *kubesynchronizer.KubeSynchronizer
 	syncinterval int
@@ -90,7 +89,6 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		hrssubitem = &SubscriberItem{}
 		hrssubitem.syncinterval = hrs.syncinterval
 		hrssubitem.synchronizer = hrs.synchronizer
-		hrssubitem.scheme = hrs.scheme
 	}
 
 	subitem.DeepCopyInto(&hrssubitem.SubscriberItem)
@@ -112,7 +110,6 @@ func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(hrs.itemmap, key)
-		hrs.synchronizer.CleanupByHost(key, "subscription-"+key.String())
 		hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String())
 	}
 
@@ -135,7 +132,6 @@ func CreateHelmRepoSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr ma
 	hrsubscriber := &Subscriber{
 		manager:      mgr,
 		synchronizer: kubesync,
-		scheme:       scheme,
 	}
 
 	hrsubscriber.itemmap = make(map[types.NamespacedName]*SubscriberItem)

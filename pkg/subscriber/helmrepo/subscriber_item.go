@@ -61,7 +61,6 @@ const (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1alpha1.SubscriberItem
-	scheme       *runtime.Scheme
 	hash         string
 	stopch       chan struct{}
 	syncinterval int

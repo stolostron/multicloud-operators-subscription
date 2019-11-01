@@ -140,7 +140,6 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 		klog.V(1).Info("Built cache for namespace: ", subitem.Channel.Namespace)
 
 		nssubitem = &SubscriberItem{}
-
 		nssubitem.clusterscoped = isClusterScoped
 		nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
 
