@@ -16,11 +16,10 @@ package subscription
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -65,11 +64,13 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 	}
 
 	// we already have the referred secert in the subscription namespace
-	lb := localSrt.GetLabels()
-	lb[instance.GetName()] = "true"
-	lb[SercertReferredMarker] = "true"
-	localSrt.SetLabels(lb)
-	err = r.Client.Update(context.TODO(), localSrt)
+	if localSrt.GetName() != "" {
+		lb := localSrt.GetLabels()
+		lb[instance.GetName()] = "true"
+		lb[SercertReferredMarker] = "true"
+		localSrt.SetLabels(lb)
+		err = r.Client.Update(context.TODO(), localSrt)
+	}
 
 	return err
 }
@@ -79,6 +80,10 @@ func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.S
 	srtKey := types.NamespacedName{Namespace: instance.GetNamespace(), Name: refSrt.GetName()}
 	localSrt := &corev1.Secret{}
 	err := r.Client.Get(context.TODO(), srtKey, localSrt)
+
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
 
 	if err != nil {
 		return nil, err
@@ -144,10 +149,7 @@ func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subsc
 	err := r.Client.Create(context.TODO(), &cleanSrt)
 
 	if err != nil {
-		errmsg := fmt.Sprintf("Failed to create secert %v, got error: %v", cleanSrt.GetName(), err.Error())
-		klog.Error(errmsg)
-
-		return errors.New(errmsg)
+		return err
 	}
 
 	return nil

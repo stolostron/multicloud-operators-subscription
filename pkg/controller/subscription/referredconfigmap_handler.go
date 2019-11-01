@@ -16,10 +16,9 @@ package subscription
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -69,11 +68,13 @@ func (r *ReconcileSubscription) ListAndDeployReferredConfigMap(refCfg *corev1.Co
 	}
 
 	// we already have the referred secert in the subscription namespace
-	lb := localCfg.GetLabels()
-	lb[instance.GetName()] = "true"
-	lb[SercertReferredMarker] = "true"
-	localCfg.SetLabels(lb)
-	err = r.Client.Update(context.TODO(), localCfg)
+	if localCfg.GetName() != "" {
+		lb := localCfg.GetLabels()
+		lb[instance.GetName()] = "true"
+		lb[SercertReferredMarker] = "true"
+		localCfg.SetLabels(lb)
+		err = r.Client.Update(context.TODO(), localCfg)
+	}
 
 	return err
 }
@@ -83,6 +84,10 @@ func (r *ReconcileSubscription) ListReferredConfigMapByName(instance *appv1alpha
 	refKey := types.NamespacedName{Namespace: instance.GetNamespace(), Name: ref.GetName()}
 	localRef := &corev1.ConfigMap{}
 	err := r.Client.Get(context.TODO(), refKey, localRef)
+
+	if errors.IsNotFound(err) {
+		return nil, nil
+	}
 
 	if err != nil {
 		return nil, err
@@ -153,10 +158,7 @@ func (r *ReconcileSubscription) DeployReferredConfigMap(instance *appv1alpha1.Su
 	err := r.Client.Create(context.TODO(), &cleanCfg)
 
 	if err != nil {
-		errmsg := fmt.Sprintf("Failed to create secert %v, got error: %v", cleanCfg.GetName(), err.Error())
-		klog.Error(errmsg)
-
-		return errors.New(errmsg)
+		return err
 	}
 
 	return nil
@@ -165,7 +167,7 @@ func (r *ReconcileSubscription) DeployReferredConfigMap(instance *appv1alpha1.Su
 //ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not,
 //if not deploy one, otherwise modify the owner relationship for the secret
 func (r *ReconcileSubscription) ListSubscriptionOwnedCfgAndDelete(rq types.NamespacedName) error {
-	cfgLists, _ := r.ListReferredSecret(rq)
+	cfgLists, _ := r.ListReferredConfigMap(rq)
 	if len(cfgLists.Items) == 0 {
 		return nil
 	}
