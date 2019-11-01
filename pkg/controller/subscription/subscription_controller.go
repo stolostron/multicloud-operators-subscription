@@ -233,6 +233,11 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		}
 	}
 
+	// err = r.ListAndDeployReferredSecrets(subitem.ChannelSecret, instance)
+	// if err != nil {
+	// klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
+	// }
+
 	subtype := strings.ToLower(string(subitem.Channel.Spec.Type))
 
 	var sublist []appv1alpha1.Subscriber
@@ -241,20 +246,20 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	for k, sub := range r.subscribers {
 		if k == subtype {
 			sublist = append(sublist, sub)
+			sub.SubscribeItem(subitem)
 		} else {
 			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
 			if err != nil {
-				klog.Errorf("Failed to unsubscribe with subscriber %v error:", k, err)
+				klog.Errorf("Failed to unsubscribe with subscriber %v error: %v", k, err)
 			}
 		}
 	}
 
 	if len(sublist) > 0 {
 		for _, sber := range sublist {
-			err := sber.SubscriberItem(subitem)
-
+			err := sber.SubscribeItem(subitem)
 			if err != nil {
-				klog.Errorf("Failed to subscribe with subscriber %v  error: %v", k, err)
+				klog.Errorf("Failed to subscribe with subscriber %v  error: %v", sber, err)
 			}
 		}
 	}

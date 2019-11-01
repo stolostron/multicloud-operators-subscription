@@ -16,12 +16,15 @@ package subscription
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
@@ -34,7 +37,7 @@ import (
 // if reconciler is having the old secert then update the secret
 
 //ListAndRegistSecrets is used to list and manage the referred secert for a subscription
-func (r *ReconcileSubscription) ListAndRegistSecrets(refSrt *corev1.Secret, instance *appv1alpha1.Subscription) error {
+func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secret, instance *appv1alpha1.Subscription) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -48,6 +51,7 @@ func (r *ReconcileSubscription) ListAndRegistSecrets(refSrt *corev1.Secret, inst
 	localSrts, err := r.ListReferredSecret(instance)
 	if err != nil {
 		klog.Errorf("Can't list referred secrets due to error %v", err)
+		return err
 	}
 
 	err = r.ListSubscriptionOwnedSrtAndDeploy(instance, refSrt, localSrts)
@@ -61,25 +65,30 @@ func (r *ReconcileSubscription) ListAndRegistSecrets(refSrt *corev1.Secret, inst
 	return nil
 }
 
-func getLabelOfSubscription(instance *appv1alpha1.Subscription) metav1.LabelSelector {
-	return metav1.LabelSelector{MatchLabels: map[string]string{instance.GetName(): "true"}}
+func getLabelOfSubscription(instance *appv1alpha1.Subscription) *metav1.LabelSelector {
+	return &metav1.LabelSelector{MatchLabels: map[string]string{instance.GetName(): "true"}}
 }
 
 func (r *ReconcileSubscription) ListReferredSecret(instance *appv1alpha1.Subscription) (*corev1.SecretList, error) {
-
 	listOptions := &client.ListOptions{Namespace: instance.GetNamespace()}
-
-	// listOptions.LabelSelector = &SecretLabelSelector
+	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(instance))
+	if err != nil {
+		klog.Errorf("Can't parse the sercert label selector due to %v", err)
+	}
+	listOptions.LabelSelector = ls
 	localSrts := &corev1.SecretList{}
-	err := r.Client.List(context.TODO(), listOptions, localSrts)
+	err = r.Client.List(context.TODO(), listOptions, localSrts)
+
 	if err != nil {
 		return nil, err
 	}
+
 	return localSrts, nil
 }
 
 func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDeploy(instance *appv1alpha1.Subscription, newSrt *v1.Secret, srtList *v1.SecretList) error {
 	if len(srtList.Items) == 0 {
+		r.DeployReferredSecret(instance, newSrt)
 		return nil
 	}
 
@@ -89,10 +98,16 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDeploy(instance *appv
 		if len(owners) == 0 { // not owned by anyone, then we should collect it
 			r.Client.Delete(context.TODO(), &srt)
 		} else if len(owners) == 1 { // need to check if it's owned by this subscription if so, then we will need to delete it otherwise do nothing
-			if owners[0].Name == instance.GetName() {
+			if srt.GetName() == newSrt.GetName() {
+				r.Client.Update(context.TODO(), &srt)
+			} else {
 				r.Client.Delete(context.TODO(), &srt)
+				err := r.DeployReferredSecret(instance, newSrt)
+				if err != nil {
+					return err
+				}
 			}
-			r.Deploy(newSrt)
+
 		} else { // owned by more than one subscription, then we need to remove the current subscription from its owner list
 			tmp := []metav1.OwnerReference{}
 			for _, owner := range owners {
@@ -104,5 +119,21 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDeploy(instance *appv
 			r.Client.Update(context.TODO(), &srt)
 		}
 	}
+	return nil
+}
+
+func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret) error {
+	cleanSrt := utils.CleanUpObject(*newSrt)
+	srtLabel := map[string]string{instance.GetName(): "true"}
+	cleanSrt.SetLabels(srtLabel)
+	err := controllerutil.SetControllerReference(instance, &cleanSrt, r.scheme)
+
+	if err != nil {
+		errmsg := fmt.Sprintf("Adding owner reference to secert %v, got error: %v", cleanSrt.GetName(), err.Error())
+		klog.Error(errmsg)
+
+		return errors.New(errmsg)
+	}
+
 	return nil
 }
