@@ -105,114 +105,151 @@ var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
 const timeout = time.Second * 2
 
-// func TestReconcile(t *testing.T) {
-// 	g := gomega.NewGomegaWithT(t)
+func TestReconcile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-// 	// channel when it is finished.
-// 	mgr, err := manager.New(cfg, manager.Options{})
-// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-// 	c = mgr.GetClient()
+	c = mgr.GetClient()
 
-// 	rec := newReconciler(mgr, mgr.GetClient(), nil)
-// 	recFn, requests := SetupTestReconcile(rec)
+	rec := newReconciler(mgr, mgr.GetClient(), nil)
+	recFn, requests := SetupTestReconcile(rec)
 
-// 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
-// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-// 	defer func() {
-// 		close(stopMgr)
-// 		mgrStopped.Wait()
-// 	}()
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
 
-// 	chn := channel.DeepCopy()
-// 	chn.Spec.SecretRef = nil
-// 	chn.Spec.ConfigMapRef = nil
-// 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+	chn := channel.DeepCopy()
+	chn.Spec.SecretRef = nil
+	chn.Spec.ConfigMapRef = nil
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), chn)
+	defer c.Delete(context.TODO(), chn)
 
-// 	// Create the Subscription object and expect the Reconcile and Deployment to be created
-// 	instance := subscription.DeepCopy()
-// 	instance.Spec.PackageFilter = nil
-// 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+	// Create the Subscription object and expect the Reconcile and Deployment to be created
+	instance := subscription.DeepCopy()
+	instance.Spec.PackageFilter = nil
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), instance)
+	defer c.Delete(context.TODO(), instance)
 
-// 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-// }
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+}
 
-// func TestDoReconcileIncludingErrorPaths(t *testing.T) {
-// 	g := gomega.NewGomegaWithT(t)
-// 	instance := subscription.DeepCopy()
+func TestDoReconcileIncludingErrorPaths(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	instance := subscription.DeepCopy()
 
-// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-// 	// channel when it is finished.
-// 	mgr, err := manager.New(cfg, manager.Options{})
-// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-// 	c = mgr.GetClient()
+	c = mgr.GetClient()
 
-// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-// 	defer func() {
-// 		close(stopMgr)
-// 		mgrStopped.Wait()
-// 	}()
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
 
-// 	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
-// 	// no channel
-// 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+	// no channel
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), instance)
+	defer c.Delete(context.TODO(), instance)
 
-// 	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
-// 	// no sub filter ref
-// 	chn := channel.DeepCopy()
-// 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+	// no sub filter ref
+	chn := channel.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), chn)
+	defer c.Delete(context.TODO(), chn)
 
-// 	time.Sleep(1 * time.Second)
-// 	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
-// 	// has sub filter, no chn sec
-// 	sf := subcfg.DeepCopy()
-// 	g.Expect(c.Create(context.TODO(), sf)).NotTo(gomega.HaveOccurred())
+	// has sub filter, no chn sec
+	sf := subcfg.DeepCopy()
+	g.Expect(c.Create(context.TODO(), sf)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), sf)
+	defer c.Delete(context.TODO(), sf)
 
-// 	time.Sleep(1 * time.Second)
-// 	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
-// 	// has chn sec, no chn cfg
-// 	chsc := chnsec.DeepCopy()
-// 	g.Expect(c.Create(context.TODO(), chsc)).NotTo(gomega.HaveOccurred())
+	// has chn sec, no chn cfg
+	chsc := chnsec.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chsc)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), chsc)
+	defer c.Delete(context.TODO(), chsc)
 
-// 	time.Sleep(1 * time.Second)
-// 	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(instance)).To(gomega.HaveOccurred())
 
-// 	// success
-// 	chcf := chncfg.DeepCopy()
-// 	g.Expect(c.Create(context.TODO(), chcf)).NotTo(gomega.HaveOccurred())
+	// success
+	chcf := chncfg.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chcf)).NotTo(gomega.HaveOccurred())
 
-// 	defer c.Delete(context.TODO(), chcf)
+	defer c.Delete(context.TODO(), chcf)
 
-// 	time.Sleep(1 * time.Second)
-// 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 
-// 	// switch type
-// 	chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
-// 	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+	// switch type
+	chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
+	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
-// 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
-// }
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+}
+
+var (
+	chnkeyb = types.NamespacedName{
+		Name:      "test-chn-b",
+		Namespace: "test-chn-namespace",
+	}
+
+	chnRefb = &corev1.ObjectReference{
+		Name: chnkeyb.Name,
+	}
+
+	channelb = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:         chnv1alpha1.ChannelTypeNamespace,
+			ConfigMapRef: chnRefb,
+			SecretRef:    chnRefb,
+		},
+	}
+
+	chnsecb = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+	}
+
+	chncfgb = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+	}
+)
 
 func TestReferredSecert(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -234,9 +271,6 @@ func TestReferredSecert(t *testing.T) {
 
 	instance := subscription.DeepCopy()
 	instance.Spec.PackageFilter = nil
-
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
 
 	chn := channel.DeepCopy()
 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
@@ -260,25 +294,54 @@ func TestReferredSecert(t *testing.T) {
 
 	g.Expect(rec.Get(context.TODO(), srtKey, srtRef)).Should(gomega.BeNil())
 	g.Expect(srtRef.GetName()).Should(gomega.Equal(chnsec.GetName()))
+	//testing if the referred object is labeled correctly
 	iKey := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
+	GetSrtItemsLen := func(e *corev1.SecretList) int { return len(e.Items) }
+	g.Expect(rec.ListReferredSecret(iKey)).Should(gomega.WithTransform(GetSrtItemsLen, gomega.Equal(1)))
 
-	GetItemsLen := func(e *corev1.SecretList) int { return len(e.Items) }
+	cfgRef := &corev1.ConfigMap{}
+	cfgKey := types.NamespacedName{Name: chncfg.GetName(), Namespace: chncfg.GetNamespace()}
 
-	g.Expect(rec.ListReferredSecret(iKey)).Should(gomega.WithTransform(GetItemsLen, gomega.Equal(1)))
+	g.Expect(rec.Get(context.TODO(), cfgKey, cfgRef)).Should(gomega.BeNil())
+	g.Expect(cfgRef.GetName()).Should(gomega.Equal(chncfg.GetName()))
 
-	// success
-	// chcf := chncfg.DeepCopy()
-	// g.Expect(c.Create(context.TODO(), chcf)).NotTo(gomega.HaveOccurred())
+	//testing if the referred object is labeled correctly
+	iKey = types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
+	GetCfgItemsLen := func(e *corev1.ConfigMapList) int { return len(e.Items) }
+	g.Expect(rec.ListReferredConfigMap(iKey)).Should(gomega.WithTransform(GetCfgItemsLen, gomega.Equal(1)))
 
-	// defer c.Delete(context.TODO(), chcf)
+	// switch to a new channel
+	chb := channelb.DeepCopy()
+	g.Expect(c.Create(context.TODO(), chb)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), chb)
 
-	// time.Sleep(1 * time.Second)
-	// g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	srtb := chnsecb.DeepCopy()
+	g.Expect(c.Create(context.TODO(), srtb)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), srtb)
 
-	// switch type
-	// chn.Spec.Type = chnv1alpha1.ChannelTypeObjectBucket
-	// g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+	cfgb := chncfgb.DeepCopy()
+	g.Expect(c.Create(context.TODO(), cfgb)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), cfgb)
 
-	// g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	instance.Spec.Channel = chnkeyb.String()
 
+	time.Sleep(1 * time.Second)
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+
+	srtRefb := &corev1.Secret{}
+	srtKeyb := types.NamespacedName{Name: chnsecb.GetName(), Namespace: chnsecb.GetNamespace()}
+
+	g.Expect(rec.Get(context.TODO(), srtKeyb, srtRefb)).Should(gomega.BeNil())
+	g.Expect(srtRefb.GetName()).Should(gomega.Equal(chnsecb.GetName()))
+
+	g.Expect(rec.ListReferredSecret(iKey)).Should(gomega.WithTransform(GetSrtItemsLen, gomega.Equal(1)))
+
+	cfgRefb := &corev1.ConfigMap{}
+	cfgKeyb := types.NamespacedName{Name: chncfgb.GetName(), Namespace: chncfgb.GetNamespace()}
+
+	g.Expect(rec.Get(context.TODO(), cfgKeyb, cfgRefb)).Should(gomega.BeNil())
+	g.Expect(cfgRefb.GetName()).Should(gomega.Equal(chncfgb.GetName()))
+
+	//testing if the new referred object is labeled correctly
+	g.Expect(rec.ListReferredConfigMap(iKey)).Should(gomega.WithTransform(GetCfgItemsLen, gomega.Equal(1)))
 }
