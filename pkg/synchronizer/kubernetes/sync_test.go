@@ -267,3 +267,87 @@ func TestCRDRegisterDeRegister(t *testing.T) {
 
 	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, result))).To(gomega.BeTrue())
 }
+
+func TestDeleteExpired(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cfgmap := workloadconfigmap.DeepCopy()
+
+	var anno = map[string]string{
+		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+	}
+
+	cfgmap.SetAnnotations(anno)
+
+	g.Expect(c.Create(context.TODO(), cfgmap)).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(1 * time.Second)
+
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	time.Sleep(15 * time.Second)
+
+	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, cfgmap))).To(gomega.BeTrue())
+}
+
+func TestRestart(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	cfgmap := workloadconfigmap.DeepCopy()
+
+	var anno = map[string]string{
+		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+	}
+
+	cfgmap.SetAnnotations(anno)
+
+	g.Expect(c.Create(context.TODO(), cfgmap)).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(1 * time.Second)
+
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
+
+	// load template before start, pretend to be added by subscribers
+	dpl := dplinstance.DeepCopy()
+	g.Expect(sync.RegisterTemplate(sharedkey, dpl, source)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	time.Sleep(10 * time.Second)
+
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+}

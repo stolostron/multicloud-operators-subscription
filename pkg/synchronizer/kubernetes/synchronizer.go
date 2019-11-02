@@ -168,6 +168,8 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 
 	sync.signal = s
 
+	time.Sleep(time.Duration(sync.Interval) * time.Second)
+
 	sync.dynamicFactory.Start(s)
 
 	go wait.Until(func() {
