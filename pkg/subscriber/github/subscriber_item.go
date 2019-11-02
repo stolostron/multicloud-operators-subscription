@@ -81,7 +81,7 @@ type kubeResource struct {
 func (ghsi *SubscriberItem) Start() {
 	// do nothing if already started
 	if ghsi.stopch != nil {
-		klog.V(10).Info("SubscriberItem already started: ", ghsi.Subscription.Name)
+		klog.V(4).Info("SubscriberItem already started: ", ghsi.Subscription.Name)
 		return
 	}
 
@@ -94,7 +94,7 @@ func (ghsi *SubscriberItem) Start() {
 
 // Stop unsubscribes a subscriber item with namespace channel
 func (ghsi *SubscriberItem) Stop() {
-	klog.V(10).Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
+	klog.V(4).Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
 }
 
@@ -107,7 +107,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 	}
 
 	if commitID != ghsi.commitID {
-		klog.V(5).Info("The commit ID is different. Process the cloned repo")
+		klog.V(4).Info("The commit ID is different. Process the cloned repo")
 
 		index, rscDirs, err := ghsi.sortClonedGitRepo()
 		if err != nil {
@@ -125,7 +125,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 
 		ghsi.commitID = commitID
 	} else {
-		klog.V(5).Info("The commit ID is same as before. Skip processing the cloned repo")
+		klog.V(4).Info("The commit ID is same as before. Skip processing the cloned repo")
 	}
 }
 
@@ -137,7 +137,7 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 		resourcePath = filepath.Join(repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
 
-	klog.V(5).Info("Git repo resource root directory: ", resourcePath)
+	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
 
 	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
 	// of the resource root.
@@ -145,7 +145,7 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
 
 	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesIgnore")); err == nil {
-		klog.V(5).Info("Found .kubernetesIgnore in ", resourcePath)
+		klog.V(4).Info("Found .kubernetesIgnore in ", resourcePath)
 		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesIgnore"))
 	}
 
@@ -181,13 +181,13 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 		for _, f := range files {
 			relativePath := ghsi.getRelativePath(repoRoot, dir, f.Name())
 
-			klog.V(10).Info("scanning  ", relativePath)
+			klog.V(4).Info("scanning  ", relativePath)
 
 			// If YAML or YML,
 			if f.Mode().IsRegular() && !kubeIgnore.MatchesPath(relativePath) {
 				if strings.EqualFold(filepath.Ext(f.Name()), ".yml") || strings.EqualFold(filepath.Ext(f.Name()), ".yaml") {
 					// check it it is Kubernetes resource
-					klog.V(10).Info("scanning file ", relativePath)
+					klog.V(4).Info("scanning file ", relativePath)
 
 					file, _ := ioutil.ReadFile(filepath.Join(dir, f.Name()))
 					t := kubeResource{}
@@ -198,9 +198,9 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 					}
 
 					if t.APIVersion == "" || t.Kind == "" {
-						klog.V(5).Info("Not a Kubernetes resource")
+						klog.V(4).Info("Not a Kubernetes resource")
 					} else {
-						klog.V(5).Info("Applying Kubernetes resource of kind ", t.Kind)
+						klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
 
 						dpltosync, validgvk, err := ghsi.subscribeResource(file, pkgMap)
 						if err != nil {
@@ -208,14 +208,14 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 							continue
 						}
 
-						klog.V(5).Info("Ready to register template:", hostkey, dpltosync, syncsource)
+						klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
 						err = ghsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
 						if err != nil {
 							err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 
 							if err != nil {
-								klog.V(5).Info("error in setting in cluster package status :", err)
+								klog.V(4).Info("error in setting in cluster package status :", err)
 							}
 
 							pkgMap[dpltosync.GetName()] = true
@@ -231,11 +231,11 @@ func (ghsi *SubscriberItem) subscribeResources(rscDirs map[string]string) {
 
 						pkgMap[dplkey.Name] = true
 
-						klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
+						klog.V(4).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 					}
 				}
 			} else {
-				klog.V(2).Info("Ignoring... ", relativePath)
+				klog.V(3).Info("Ignoring... ", relativePath)
 			}
 		}
 	}
@@ -331,7 +331,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 	}
 
 	if ghsi.Subscription.Spec.Package == rsc.GetName() {
-		klog.V(5).Info("Name does matches: " + ghsi.Subscription.Spec.Package + "|" + rsc.GetName())
+		klog.V(4).Info("Name does matches: " + ghsi.Subscription.Spec.Package + "|" + rsc.GetName())
 	}
 
 	if !utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
@@ -341,12 +341,12 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 	}
 
 	if utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
-		klog.V(5).Info("Passed label check on resource " + rsc.GetName())
+		klog.V(4).Info("Passed label check on resource " + rsc.GetName())
 	}
 
 	annotations := ghsi.Subscription.Spec.PackageFilter.Annotations
 	if annotations != nil {
-		klog.V(5).Info("checking annotations filter:", annotations)
+		klog.V(4).Info("checking annotations filter:", annotations)
 
 		rscanno := rsc.GetAnnotations()
 		if rscanno == nil {
@@ -381,7 +381,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	pkgMap := make(map[string]bool)
 
 	for packageName, chartVersions := range indexFile.Entries {
-		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
+		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		//Compose release name
 		helmReleaseNewName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
@@ -393,7 +393,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		//Check if Update or Create
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				klog.V(5).Infof("Create helmRelease %s", helmReleaseNewName)
+				klog.V(4).Infof("Create helmRelease %s", helmReleaseNewName)
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
@@ -433,7 +433,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			// set kind and apiversion, coz it is not in the resource get from k8s
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
-			klog.V(5).Infof("Update helmRelease spec %s", helmRelease.Name)
+			klog.V(4).Infof("Update helmRelease spec %s", helmRelease.Name)
 			releaseName := helmRelease.Spec.ReleaseName
 			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
 				Source: &releasev1alpha1.Source{
@@ -571,7 +571,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
-	klog.V(5).Info("Cloning ", ghsi.Channel.Spec.PathName, " into ", repoRoot)
+	klog.V(4).Info("Cloning ", ghsi.Channel.Spec.PathName, " into ", repoRoot)
 	r, err := git.PlainClone(repoRoot, false, options)
 
 	if err != nil {
@@ -622,7 +622,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 		resourcePath = filepath.Join(repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
 
-	klog.V(5).Info("Git repo resource root directory: ", resourcePath)
+	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
 
 	kubeIgnore := ghsi.getKubeIgnore()
 
@@ -642,20 +642,20 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 			// this helps build more accurate helm chart index.yaml and list of kube resource folders to process later.
 			// when it actually applies resources later, it will use the .kubernetesIgnore again to evaluate at file level.
 			if info.IsDir() && !kubeIgnore.MatchesPath(relativePath) {
-				klog.V(10).Info("Ignoring subfolders of ", currentChartDir)
+				klog.V(4).Info("Ignoring subfolders of ", currentChartDir)
 				if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
-					klog.V(10).Info("Found Chart.yaml in ", path)
+					klog.V(4).Info("Found Chart.yaml in ", path)
 					if !strings.HasPrefix(path, currentChartDir) {
-						klog.V(10).Info("This is a helm chart folder.")
+						klog.V(4).Info("This is a helm chart folder.")
 						chartDirs[path+"/"] = path + "/"
 						currentChartDir = path + "/"
 					}
 				} else if !strings.HasPrefix(path, currentChartDir) && !strings.HasPrefix(path, repoRoot+"/.git") {
-					klog.V(10).Info("This is not a helm chart directory. ", path)
+					klog.V(4).Info("This is not a helm chart directory. ", path)
 					resourceDirs[path+"/"] = path + "/"
 				}
 			} else {
-				klog.V(2).Info("Ignoring... ", relativePath)
+				klog.V(3).Info("Ignoring... ", relativePath)
 			}
 
 			return nil
@@ -695,7 +695,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() (*repo.IndexFile, map[string]str
 	}
 
 	b, _ := yaml.Marshal(indexFile)
-	klog.V(10).Info("New index file ", string(b))
+	klog.V(4).Info("New index file ", string(b))
 
 	return indexFile, resourceDirs, nil
 }
@@ -806,7 +806,7 @@ func (ghsi *SubscriberItem) filterOnVersion(indexFile *repo.IndexFile) {
 		}
 	}
 
-	klog.V(5).Info("After version matching:", indexFile)
+	klog.V(4).Info("After version matching:", indexFile)
 }
 
 //removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
@@ -828,7 +828,7 @@ func (ghsi *SubscriberItem) removeNoMatchingName(indexFile *repo.IndexFile) erro
 		}
 	}
 
-	klog.V(5).Info("After name matching:", indexFile)
+	klog.V(4).Info("After name matching:", indexFile)
 
 	return nil
 }
@@ -861,7 +861,7 @@ func (ghsi *SubscriberItem) checkTillerVersion(chartVersion *repo.ChartVersion) 
 		}
 	}
 
-	klog.V(5).Info("Tiller check passed for:", chartVersion)
+	klog.V(4).Info("Tiller check passed for:", chartVersion)
 
 	return true
 }
@@ -891,7 +891,7 @@ func (ghsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
 		}
 	}
 
-	klog.V(5).Info("Version check passed for:", chartVersion)
+	klog.V(4).Info("Version check passed for:", chartVersion)
 
 	return true
 }
