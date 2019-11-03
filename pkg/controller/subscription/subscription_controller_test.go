@@ -101,6 +101,44 @@ var (
 	}
 )
 
+// used for referred rescource tests
+var (
+	chnkeyb = types.NamespacedName{
+		Name:      "test-chn-b",
+		Namespace: "test-chn-namespace",
+	}
+
+	chnRefb = &corev1.ObjectReference{
+		Name: chnkeyb.Name,
+	}
+
+	channelb = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:         chnv1alpha1.ChannelTypeNamespace,
+			ConfigMapRef: chnRefb,
+			SecretRef:    chnRefb,
+		},
+	}
+
+	chnsecb = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+	}
+
+	chncfgb = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chnkeyb.Name,
+			Namespace: chnkeyb.Namespace,
+		},
+	}
+)
+
 var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
 const timeout = time.Second * 2
@@ -214,43 +252,6 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 }
 
-var (
-	chnkeyb = types.NamespacedName{
-		Name:      "test-chn-b",
-		Namespace: "test-chn-namespace",
-	}
-
-	chnRefb = &corev1.ObjectReference{
-		Name: chnkeyb.Name,
-	}
-
-	channelb = &chnv1alpha1.Channel{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      chnkeyb.Name,
-			Namespace: chnkeyb.Namespace,
-		},
-		Spec: chnv1alpha1.ChannelSpec{
-			Type:         chnv1alpha1.ChannelTypeNamespace,
-			ConfigMapRef: chnRefb,
-			SecretRef:    chnRefb,
-		},
-	}
-
-	chnsecb = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      chnkeyb.Name,
-			Namespace: chnkeyb.Namespace,
-		},
-	}
-
-	chncfgb = &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      chnkeyb.Name,
-			Namespace: chnkeyb.Namespace,
-		},
-	}
-)
-
 func TestReferredSecert(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -274,14 +275,17 @@ func TestReferredSecert(t *testing.T) {
 
 	chn := channel.DeepCopy()
 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), chn)
 
 	srt := chnsec.DeepCopy()
 	g.Expect(c.Create(context.TODO(), srt)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), srt)
 
 	cfg := chncfg.DeepCopy()
 	g.Expect(c.Create(context.TODO(), cfg)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), cfg)
 
 	// has chn sec, no chn cfg
@@ -313,14 +317,17 @@ func TestReferredSecert(t *testing.T) {
 	// switch to a new channel
 	chb := channelb.DeepCopy()
 	g.Expect(c.Create(context.TODO(), chb)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), chb)
 
 	srtb := chnsecb.DeepCopy()
 	g.Expect(c.Create(context.TODO(), srtb)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), srtb)
 
 	cfgb := chncfgb.DeepCopy()
 	g.Expect(c.Create(context.TODO(), cfgb)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), cfgb)
 
 	instance.Spec.Channel = chnkeyb.String()

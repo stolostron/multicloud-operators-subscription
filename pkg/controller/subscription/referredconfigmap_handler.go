@@ -100,7 +100,7 @@ func getLabelOfSubscription(subName string) *metav1.LabelSelector {
 	return &metav1.LabelSelector{MatchLabels: map[string]string{SercertReferredMarker: "true", subName: "true"}}
 }
 
-//ListReferredSecret lists secert within the subscription namespace and having label <subscription.name>:"true"
+//ListReferredConfigMap lists secert within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredConfigMap(rq types.NamespacedName) (*corev1.ConfigMapList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
 	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
@@ -146,7 +146,7 @@ func (r *ReconcileSubscription) UpdateLabelsOnOldRefConfigMap(instance *appv1alp
 	return err
 }
 
-//DeployReferredSecret deply the referred secert to the subscription namespace, also it set up the lable and ownerReference for the secert
+//DeployReferredConfigMap deply the referred secert to the subscription namespace, also it set up the lable and ownerReference for the secert
 func (r *ReconcileSubscription) DeployReferredConfigMap(instance *appv1alpha1.Subscription, newConfig *corev1.ConfigMap) error {
 	cleanCfg := CleanUpConfigMapObject(*newConfig)
 
@@ -164,7 +164,7 @@ func (r *ReconcileSubscription) DeployReferredConfigMap(instance *appv1alpha1.Su
 	return nil
 }
 
-//ListSubscriptionOwnedSrtAndDelete check up if the secert is owned by the subscription or not,
+//ListSubscriptionOwnedCfgAndDelete check up if the secert is owned by the subscription or not,
 //if not deploy one, otherwise modify the owner relationship for the secret
 func (r *ReconcileSubscription) ListSubscriptionOwnedCfgAndDelete(rq types.NamespacedName) error {
 	cfgLists, _ := r.ListReferredConfigMap(rq)
@@ -195,7 +195,7 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedCfgAndDelete(rq types.Names
 	return err
 }
 
-//CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
+//CleanUpConfigMapObject is used to reset the sercet fields in order to put the secret into deployable template
 func CleanUpConfigMapObject(c corev1.ConfigMap) corev1.ConfigMap {
 	c.SetResourceVersion("")
 

@@ -30,13 +30,13 @@ import (
 )
 
 //ListAndDeployReferredSecrets handles the create/update reconciler request
-// the idea is, first it will try to get the referred secert from the subscription namespace
+// the idea is, first it will try to get the referred secret from the subscription namespace
 // if it can't find it,
-////it could be it's a brand new secert request or it's trying to use a differenet one.
+////it could be it's a brand new secret request or it's trying to use a differenet one.
 //// to address these, we will try to list the sercert within the subscription namespace with the subscription label.
-//// if we are seeing these secert, we will delete the label of the reconciled subscription.
-///// then we will create a new secert and label it
-// if we can find a secert at the subscription namespace, it means there must be some other subscription is
+//// if we are seeing these secret, we will delete the label of the reconciled subscription.
+///// then we will create a new secret and label it
+// if we can find a secret at the subscription namespace, it means there must be some other subscription is
 // using it. In this case, we will just add an extra label to it
 func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secret, instance *appv1alpha1.Subscription) error {
 	if klog.V(utils.QuiteLogLel) {
@@ -46,20 +46,20 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	// list secret within the sub ns given the secert name
+	// list secret within the sub ns given the secret name
 	localSrt, err := r.ListReferredSecretByName(instance, refSrt)
 	if err != nil {
 		return err
 	}
 
-	// list the used secert marked with the subscription
+	// list the used secret marked with the subscription
 	instanceKey := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
 	oldSrts, err := r.ListReferredSecret(instanceKey)
 
 	if err != nil {
 		return err
 	}
-	// if the listed secert is used by myself, and it's not the newOne, then delete it, otherwise,
+	// if the listed secret is used by myself, and it's not the newOne, then delete it, otherwise,
 	err = r.UpdateLabelsOnOldRefSecret(instance, refSrt, oldSrts)
 
 	if err != nil {
@@ -72,7 +72,7 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 		return err
 	}
 
-	// we already have the referred secert in the subscription namespace
+	// we already have the referred secret in the subscription namespace
 	if localSrt.GetName() != "" {
 		lb := localSrt.GetLabels()
 		lb[instance.GetName()] = "true"
@@ -84,7 +84,7 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 	return err
 }
 
-//ListReferredSecretByName lists secert within the subscription namespace and having label <subscription.name>:"true"
+//ListReferredSecretByName lists secret within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.Subscription, refSrt *corev1.Secret) (*corev1.Secret, error) {
 	srtKey := types.NamespacedName{Namespace: instance.GetNamespace(), Name: refSrt.GetName()}
 	localSrt := &corev1.Secret{}
@@ -101,7 +101,7 @@ func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.S
 	return localSrt, nil
 }
 
-//ListReferredSecret lists secert within the subscription namespace and having label <subscription.name>:"true"
+//ListReferredSecret lists secret within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*corev1.SecretList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
 	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
@@ -121,18 +121,18 @@ func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*co
 	return localSrts, nil
 }
 
-//UpdateLabelsOnOldRefSecret check up if the secert was owned by subscriptions
-//Checke up all the secert labled with the reconciled subscription name,
-//if the secert only labeled with one subscription,
-//// then we will delete it as long as the secert is not having the same name as the serRef
-///// skipping the same named secert is due to the fact that later on we will update the label for this case
+//UpdateLabelsOnOldRefSecret check up if the secret was owned by subscriptions
+//Checke up all the secret labeled with the reconciled subscription name,
+//if the secret only labeled with one subscription,
+//// then we will delete it as long as the secret is not having the same name as the serRef
+///// skipping the same named secret is due to the fact that later on we will update the label for this case
 //if the secret labeled with more than one subscription,
 //// then we will only update the label removing the reconciled subscription
 func (r *ReconcileSubscription) UpdateLabelsOnOldRefSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret, srtList *v1.SecretList) error {
 	if len(srtList.Items) == 0 {
 		return nil
 	}
-	//having a referenced secert, label with the subscription name
+	//having a referenced secret, label with the subscription name
 
 	var err error
 
@@ -152,7 +152,7 @@ func (r *ReconcileSubscription) UpdateLabelsOnOldRefSecret(instance *appv1alpha1
 	return err
 }
 
-//DeployReferredSecret deply the referred secert to the subscription namespace, also it set up the lable and ownerReference for the secert
+//DeployReferredSecret deply the referred secret to the subscription namespace, also it set up the label and ownerReference for the secret
 func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret) error {
 	cleanSrt := utils.CleanUpObject(*newSrt)
 
@@ -170,9 +170,9 @@ func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subsc
 	return nil
 }
 
-//ListSubscriptionOwnedSrtAndDelete check up if secerts are owned by the subscription or not,
+//ListSubscriptionOwnedSrtAndDelete check up if secrets are owned by the subscription or not,
 //if the reconciled subscription is the only label subscription for the secret, then we will delete the referred sercert
-//otherwise we will remove the subscription label from the secert labels
+//otherwise we will remove the subscription label from the secret labels
 func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDelete(rq types.NamespacedName) error {
 	srtList, err := r.ListReferredSecret(rq)
 
@@ -184,7 +184,7 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedSrtAndDelete(rq types.Names
 		return nil
 	}
 
-	//having a referenced secert, label with the subscription name
+	//having a referenced secret, label with the subscription name
 	srt := srtList.Items[0]
 
 	if len(srt.GetLabels()) == 2 {
