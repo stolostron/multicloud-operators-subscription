@@ -56,12 +56,31 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
+	// if the subscription has the rollingupdate-target annotation, create a new deploayble as the target deployable of the subscription deployable
+	targetDpl, err := r.createTargetDplForRollingUpdate(sub)
+
+	if err != nil {
+		return err
+	}
+
+	if targetDpl != nil {
+		dplAnno := dpl.GetAnnotations()
+
+		if dplAnno == nil {
+			dplAnno = make(map[string]string)
+		}
+
+		dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+
+		dpl.SetAnnotations(dplAnno)
+	}
+
 	found := &dplv1alpha1.Deployable{}
 	dplkey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}
 	err = r.Get(context.TODO(), dplkey, found)
 
 	if err != nil && errors.IsNotFound(err) {
-		klog.V(10).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
+		klog.V(5).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
 		err = r.Create(context.TODO(), dpl)
 
 		//record events
@@ -77,7 +96,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	err = json.Unmarshal(dpl.Spec.Template.Raw, org)
 
 	if err != nil {
-		klog.Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
 		return err
 	}
 
@@ -85,12 +104,12 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
 
 	if err != nil {
-		klog.Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
 		return err
 	}
 
 	if !reflect.DeepEqual(org, fnd) {
-		klog.Info("Updating Deployable spec:\n", string(dpl.Spec.Template.Raw), "\nfound:\n", string(found.Spec.Template.Raw))
+		klog.V(5).Info("Updating Deployable spec:\n", string(dpl.Spec.Template.Raw), "\nfound:\n", string(found.Spec.Template.Raw))
 
 		dpl.Spec.DeepCopyInto(&found.Spec)
 		// may need to check owner ID and backoff it if is not owned by this subscription
@@ -104,7 +123,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		foundanno[dplv1alpha1.AnnotationLocal] = "false"
 		found.SetAnnotations(foundanno)
 
-		klog.V(10).Info("Updating Deployable - ", "namespace: ", dpl.Namespace, " ,name: ", dpl.Name)
+		klog.V(5).Info("Updating Deployable - ", "namespace: ", dpl.Namespace, " ,name: ", dpl.Name)
 
 		err = r.Update(context.TODO(), found)
 
@@ -252,7 +271,25 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 			if owner.UID == sub.UID {
 				err = r.Delete(context.TODO(), hubdpl)
 				if err != nil {
-					klog.Info("Error in deleting obj ", hubdpl, err)
+					klog.Infof("Error in deleting sbuscription target deploayble: %#v, err: %#v ", hubdpl, err)
+					return err
+				}
+			}
+		}
+	}
+
+	// delete target deployable if exists. This only happens when the subscription placement becomes empty
+	hubTargetDpl := &dplv1alpha1.Deployable{}
+	err = r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-target-deployable", Namespace: sub.Namespace}, hubTargetDpl)
+
+	if err == nil {
+		// no longer hub, check owner-reference and delete if it is generated.
+		owners := hubTargetDpl.GetOwnerReferences()
+		for _, owner := range owners {
+			if owner.UID == sub.UID {
+				err = r.Delete(context.TODO(), hubTargetDpl)
+				if err != nil {
+					klog.Infof("Error in deleting sbuscription target deploayble: %#v, err: %v", hubTargetDpl, err)
 					return err
 				}
 			}
@@ -405,13 +442,13 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	}
 
 	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
-	klog.V(10).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
+	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
 
 	if !reflect.DeepEqual(newsubstatus, sub.Status) {
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
-		klog.V(10).Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
+		klog.Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
 		err := r.Status().Update(context.TODO(), sub)
 
 		if err != nil {
@@ -448,7 +485,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		return nil
 	}
 
-	klog.V(10).Info("Hub Subscription found Deployables:", dplList.Items)
+	klog.V(5).Info("Hub Subscription found Deployables:", dplList.Items)
 
 	for _, dpl := range dplList.Items {
 		if !checkDeployableBySubcriptionPackageFilter(sub, dpl) {
@@ -465,7 +502,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.Package != "" && sub.Spec.Package != dpl.Name {
-			klog.V(10).Info("Name does not match, skiping:", sub.Spec.Package, "|", dpl.Name)
+			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", dpl.Name)
 			return false
 		}
 
@@ -493,7 +530,7 @@ func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dp
 
 		vdpl := dpl.GetAnnotations()[dplv1alpha1.AnnotationDeployableVersion]
 
-		klog.V(10).Info("checking annotations package filter: ", annotations)
+		klog.V(5).Info("checking annotations package filter: ", annotations)
 
 		if annotations != nil {
 			matched := true
@@ -513,7 +550,7 @@ func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dp
 		vsub := sub.Spec.PackageFilter.Version
 		if vsub != "" {
 			vmatch := subutil.SemverCheck(vsub, vdpl)
-			klog.V(10).Infof("version check is %v; subscription version filter condition is %v, deployable version is: %v", vmatch, vsub, vdpl)
+			klog.V(5).Infof("version check is %v; subscription version filter condition is %v, deployable version is: %v", vmatch, vsub, vdpl)
 
 			if !vmatch {
 				return false
@@ -522,4 +559,119 @@ func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dp
 	}
 
 	return true
+}
+
+// createTargetDplForRollingUpdate create a new deployable to contain the target subscription
+func (r *ReconcileSubscription) createTargetDplForRollingUpdate(sub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
+	annotations := sub.GetAnnotations()
+
+	if annotations == nil || annotations[appv1alpha1.AnnotationRollingUpdateTarget] == "" {
+		klog.V(5).Info("Empty annotation or No rolling update target in annotations", annotations)
+
+		return nil, nil
+	}
+
+	targetSub := &appv1alpha1.Subscription{}
+	targetSubKey := types.NamespacedName{
+		Namespace: sub.Namespace,
+		Name:      annotations[appv1alpha1.AnnotationRollingUpdateTarget],
+	}
+	err := r.Get(context.TODO(), targetSubKey, targetSub)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("target Subscription is gone: %#v.", targetSubKey)
+
+			return nil, nil
+		}
+		// Error reading the object - requeue the request.
+		klog.Infof("fetching target Subscription failed: %#v.", err)
+
+		return nil, err
+	}
+
+	targetSubDpl, err := r.prepareDeployableForSubscription(targetSub)
+
+	if err != nil {
+		klog.V(3).Infof("Prepare target Subscription deployable failed: %#v.", err)
+		return nil, err
+	}
+
+	b := false
+	targetSubDpl.Spec.Placement = &plrv1alpha1.Placement{Local: &b}
+
+	targetSubDpl.Name = sub.Name + "-target-deployable"
+	targetSubDpl.Namespace = sub.Namespace
+
+	err = r.updateTargetSubscriptionDeployable(sub, targetSubDpl)
+
+	return targetSubDpl, err
+}
+
+func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alpha1.Subscription, targetSubDpl *dplv1alpha1.Deployable) error {
+	targetKey := types.NamespacedName{
+		Namespace: targetSubDpl.Namespace,
+		Name:      targetSubDpl.Name,
+	}
+
+	found := &dplv1alpha1.Deployable{}
+	err := r.Get(context.TODO(), targetKey, found)
+
+	if err != nil && errors.IsNotFound(err) {
+		klog.Info("Creating target Deployable - ", "namespace: ", targetSubDpl.Namespace, ", name: ", targetSubDpl.Name)
+		err = r.Create(context.TODO(), targetSubDpl)
+
+		//record events
+		addtionalMsg := "target Depolyable " + targetKey.String() + " created in the subscription namespace"
+		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
+
+		return err
+	} else if err != nil {
+		return err
+	}
+
+	orgTpl := &unstructured.Unstructured{}
+	err = json.Unmarshal(targetSubDpl.Spec.Template.Raw, orgTpl)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall target subscription deployable template, err:", err, " |template: ", string(targetSubDpl.Spec.Template.Raw))
+		return err
+	}
+
+	fndTpl := &unstructured.Unstructured{}
+	err = json.Unmarshal(found.Spec.Template.Raw, fndTpl)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall target found subscription deployable template, err:", err, " |template: ", string(found.Spec.Template.Raw))
+		return err
+	}
+
+	if !reflect.DeepEqual(orgTpl, fndTpl) || !reflect.DeepEqual(targetSubDpl.Spec.Overrides, found.Spec.Overrides) {
+		klog.V(5).Infof("Updating target Deployable. orig: %#v, found: %#v", targetSubDpl, found)
+
+		targetSubDpl.Spec.DeepCopyInto(&found.Spec)
+
+		foundanno := found.GetAnnotations()
+		if foundanno == nil {
+			foundanno = make(map[string]string)
+		}
+
+		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
+		foundanno[dplv1alpha1.AnnotationLocal] = "false"
+		found.SetAnnotations(foundanno)
+
+		klog.V(5).Info("Updating Deployable - ", "namespace: ", targetSubDpl.Namespace, " ,name: ", targetSubDpl.Name)
+
+		err = r.Update(context.TODO(), found)
+
+		//record events
+		addtionalMsg := "target Depolyable " + targetKey.String() + " updated in the subscription namespace"
+		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
+
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev1
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: dev1
+  namespace: dev1
+spec:
+    type: Namespace
+    pathname: dev1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dev2
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: dev2
+  namespace: dev2
+spec:
+    type: Namespace
+    pathname: dev2
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  annotations:
+    app.ibm.com/rollingupdate-target: sub-target
+  name: sub-orig
+  namespace: default
+spec:
+  channel: dev1/dev1
+  name: nginx-ingress
+  packageFilter:
+    version: ">=1.17.x"
+  packageOverrides:
+  - packageName: nginx-ingress
+    packageOverrides:
+    - path: spec.values
+      value: |
+        defaultBackend:
+          replicaCount: 2
+  placement:
+    clusters:
+    - name: loca-cluster
+  overrides:
+  - clusterName: /
+    clusterOverrides:
+    - path: metadata.labels
+      value:
+        app: app1
+  - clusterName: local-cluster
+    clusterOverrides:
+    - path: metadata.labels
+      value:
+        app: app2
+
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: sub-target
+  namespace: default
+spec:
+  channel: dev2/dev2
+  name: nginx-ingress2
+  packageFilter:
+    version: ">=1.20.x"
+  packageOverrides:
+  - packageName: nginx-ingress
+    packageOverrides:
+    - path: spec.values
+      value: |
+        defaultBackend:
+          replicaCount: 3
+  placement:
+    clusters:
+    - name: local-cluster
+    - name: remote-cluster-1
+  overrides:
+  - clusterName: /
+    clusterOverrides:
+    - path: metadata.labels
+      value:
+        app: app3
+  - clusterName: local-cluster
+    clusterOverrides:
+    - path: metadata.labels
+      value:
+        app: app4
