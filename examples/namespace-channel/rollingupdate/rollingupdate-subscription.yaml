@@ -47,7 +47,7 @@ spec:
           replicaCount: 2
   placement:
     clusters:
-    - name: loca-cluster
+    - name: local-cluster
   overrides:
   - clusterName: /
     clusterOverrides:
@@ -72,16 +72,12 @@ spec:
   packageFilter:
     version: ">=1.20.x"
   packageOverrides:
-  - packageName: nginx-ingress
+  - packageName: nginx-ingress2
     packageOverrides:
     - path: spec.values
       value: |
         defaultBackend:
           replicaCount: 3
-  placement:
-    clusters:
-    - name: local-cluster
-    - name: remote-cluster-1
   overrides:
   - clusterName: /
     clusterOverrides:

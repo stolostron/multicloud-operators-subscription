@@ -50,7 +50,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	dpl, err := r.prepareDeployableForSubscription(sub)
+	dpl, err := r.prepareDeployableForSubscription(sub, nil)
 
 	if err != nil {
 		return err
@@ -271,7 +271,7 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 			if owner.UID == sub.UID {
 				err = r.Delete(context.TODO(), hubdpl)
 				if err != nil {
-					klog.Infof("Error in deleting sbuscription target deploayble: %#v, err: %#v ", hubdpl, err)
+					klog.V(5).Infof("Error in deleting sbuscription target deploayble: %#v, err: %#v ", hubdpl, err)
 					return err
 				}
 			}
@@ -323,7 +323,7 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 	return nil
 }
 
-func (r *ReconcileSubscription) prepareDeployableForSubscription(sub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
+func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
 	// Fetch the Subscription instance
 	subep := sub.DeepCopy()
 	b := true
@@ -331,13 +331,21 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub *appv1alpha
 	subep.Spec.Overrides = nil
 	subep.ResourceVersion = ""
 	subep.UID = ""
-	subepanno := subep.GetAnnotations()
 
-	if subepanno == nil {
-		subepanno = make(map[string]string)
+	subep.CreationTimestamp = metav1.Time{}
+	subep.Generation = 1
+	subep.Generation = 1
+	subep.SelfLink = ""
+
+	subepanno := make(map[string]string)
+
+	if rootSub == nil {
+		subep.Name = sub.GetName()
+		subepanno[dplv1alpha1.AnnotationSubscription] = subep.Namespace + "/" + subep.Name
+	} else {
+		subep.Name = rootSub.GetName()
+		subepanno[dplv1alpha1.AnnotationSubscription] = rootSub.Namespace + "/" + rootSub.Name
 	}
-
-	subepanno[dplv1alpha1.AnnotationSubscription] = subep.Namespace + "/" + subep.Name
 	// set channel generation as annotation
 	if subep.Spec.Channel != "" {
 		chng, err := r.GetChannelGeneration(subep)
@@ -361,6 +369,10 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub *appv1alpha
 	}
 
 	dpl := &dplv1alpha1.Deployable{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployable",
+			APIVersion: "app.ibm.com/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sub.Name + "-deployable",
 			Namespace: sub.Namespace,
@@ -448,7 +460,7 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
-		klog.Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
+		klog.V(5).Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
 		err := r.Status().Update(context.TODO(), sub)
 
 		if err != nil {
@@ -502,7 +514,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.Package != "" && sub.Spec.Package != dpl.Name {
-			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", dpl.Name)
+			klog.V(5).Info("Name does not match, skiping:", sub.Spec.Package, "|", dpl.Name)
 			return false
 		}
 
@@ -590,15 +602,12 @@ func (r *ReconcileSubscription) createTargetDplForRollingUpdate(sub *appv1alpha1
 		return nil, err
 	}
 
-	targetSubDpl, err := r.prepareDeployableForSubscription(targetSub)
+	targetSubDpl, err := r.prepareDeployableForSubscription(targetSub, sub)
 
 	if err != nil {
 		klog.V(3).Infof("Prepare target Subscription deployable failed: %#v.", err)
 		return nil, err
 	}
-
-	b := false
-	targetSubDpl.Spec.Placement = &plrv1alpha1.Placement{Local: &b}
 
 	targetSubDpl.Name = sub.Name + "-target-deployable"
 	targetSubDpl.Namespace = sub.Namespace
