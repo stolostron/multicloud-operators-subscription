@@ -72,6 +72,40 @@ var (
 )
 
 var (
+	defaultworkloadkey = types.NamespacedName{
+		Name:      "testworkload",
+		Namespace: "default",
+	}
+
+	defaultworkloadconfigmap = corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      defaultworkloadkey.Name,
+			Namespace: defaultworkloadkey.Namespace,
+		},
+	}
+
+	defaultchdpl = &dplv1alpha1.Deployable{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Deployable",
+			APIVersion: "app.ibm.com/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dftdpl",
+			Namespace: id.Namespace,
+		},
+		Spec: dplv1alpha1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: &defaultworkloadconfigmap,
+			},
+		},
+	}
+)
+
+var (
 	chns = &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      id.Namespace,
@@ -90,9 +124,11 @@ func TestDefaultSubscriber(t *testing.T) {
 	// prepare default channel
 	ns := chns.DeepCopy()
 	dpl := chdpl.DeepCopy()
+	dpldft := defaultchdpl.DeepCopy()
 
 	g.Expect(c.Create(context.TODO(), ns)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Create(context.TODO(), dpl)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), dpldft)).NotTo(gomega.HaveOccurred())
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
@@ -106,15 +142,18 @@ func TestDefaultSubscriber(t *testing.T) {
 
 	cfgmap := &corev1.ConfigMap{}
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 
 	g.Expect(c.Get(context.TODO(), workloadkey, cfgmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Get(context.TODO(), defaultworkloadkey, cfgmap)).NotTo(gomega.HaveOccurred())
 
 	// clean up
 	c.Delete(context.TODO(), dpl)
+	c.Delete(context.TODO(), dpldft)
 
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 	g.Expect(c.Get(context.TODO(), workloadkey, cfgmap)).To(gomega.HaveOccurred())
+	g.Expect(c.Get(context.TODO(), defaultworkloadkey, cfgmap)).To(gomega.HaveOccurred())
 
 	c.Delete(context.TODO(), ns)
 }
