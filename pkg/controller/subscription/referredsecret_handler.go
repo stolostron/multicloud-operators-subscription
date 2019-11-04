@@ -76,7 +76,7 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 	if localSrt.GetName() != "" {
 		lb := localSrt.GetLabels()
 		lb[instance.GetName()] = "true"
-		lb[SercertReferredMarker] = "true"
+		lb[utils.SercertReferredMarker] = "true"
 		localSrt.SetLabels(lb)
 		err = r.Client.Update(context.TODO(), localSrt)
 	}
@@ -104,7 +104,7 @@ func (r *ReconcileSubscription) ListReferredSecretByName(instance *appv1alpha1.S
 //ListReferredSecret lists secret within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredSecret(rq types.NamespacedName) (*corev1.SecretList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
-	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
+	ls, err := metav1.LabelSelectorAsSelector(utils.GetLabelSelectorOfSubscription(rq.Name))
 
 	if err != nil {
 		klog.Errorf("Can't parse the sercert label selector due to %v", err)
@@ -156,7 +156,7 @@ func (r *ReconcileSubscription) UpdateLabelsOnOldRefSecret(instance *appv1alpha1
 func (r *ReconcileSubscription) DeployReferredSecret(instance *appv1alpha1.Subscription, newSrt *v1.Secret) error {
 	cleanSrt := utils.CleanUpObject(*newSrt)
 
-	srtLabel := map[string]string{SercertReferredMarker: "true", instance.GetName(): "true"}
+	srtLabel := map[string]string{utils.SercertReferredMarker: "true", instance.GetName(): "true"}
 	cleanSrt.SetLabels(srtLabel)
 
 	cleanSrt.SetNamespace(instance.GetNamespace())

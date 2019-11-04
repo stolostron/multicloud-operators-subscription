@@ -96,14 +96,10 @@ func (r *ReconcileSubscription) ListReferredConfigMapByName(instance *appv1alpha
 	return localRef, nil
 }
 
-func getLabelOfSubscription(subName string) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: map[string]string{SercertReferredMarker: "true", subName: "true"}}
-}
-
 //ListReferredConfigMap lists secert within the subscription namespace and having label <subscription.name>:"true"
 func (r *ReconcileSubscription) ListReferredConfigMap(rq types.NamespacedName) (*corev1.ConfigMapList, error) {
 	listOptions := &client.ListOptions{Namespace: rq.Namespace}
-	ls, err := metav1.LabelSelectorAsSelector(getLabelOfSubscription(rq.Name))
+	ls, err := metav1.LabelSelectorAsSelector(utils.GetLabelSelectorOfSubscription(rq.Name))
 
 	if err != nil {
 		klog.Errorf("Can't parse the sercert label selector due to %v", err)
