@@ -130,17 +130,24 @@ func (ghsi *SubscriberItem) doSubscription() {
 			return
 		}
 
+		hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
+		syncsource := githubk8ssyncsource + hostkey.String()
+		kvalid := ghsi.synchronizer.CreateValiadtor(syncsource)
+		rscPkgMap := make(map[string]bool)
+
 		klog.V(4).Info("Applying resources: ", crdsAndNamespaceFiles)
 
-		ghsi.subscribeResources(crdsAndNamespaceFiles)
+		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, crdsAndNamespaceFiles)
 
 		klog.V(4).Info("Applying resources: ", rbacFiles)
 
-		ghsi.subscribeResources(rbacFiles)
+		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, rbacFiles)
 
 		klog.V(4).Info("Applying resources: ", otherFiles)
 
-		ghsi.subscribeResources(otherFiles)
+		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, otherFiles)
+
+		ghsi.synchronizer.ApplyValiadtor(kvalid)
 
 		klog.V(4).Info("Applying helm charts..")
 
@@ -180,12 +187,11 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 	return kubeIgnore
 }
 
-func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) {
-	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
-	syncsource := githubk8ssyncsource + hostkey.String()
-	kvalid := ghsi.synchronizer.CreateValiadtor(syncsource)
-	pkgMap := make(map[string]bool)
-
+func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
+	syncsource string,
+	kvalid *kubesynchronizer.Validator,
+	pkgMap map[string]bool,
+	rscFiles []string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, _ := ioutil.ReadFile(rscFile)
@@ -234,8 +240,6 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) {
 			klog.V(4).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 		}
 	}
-
-	//ghsi.synchronizer.ApplyValiadtor(kvalid)
 }
 
 func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
