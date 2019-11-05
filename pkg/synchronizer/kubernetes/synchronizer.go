@@ -123,7 +123,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, syncid *types.Namespa
 		Extension:      ext,
 	}
 
-	s.LocalClient, err = client.New(remoteConfig, client.Options{})
+	s.LocalClient, err = client.New(config, client.Options{})
 
 	if err != nil {
 		klog.Error("Failed to initialize client to update local status. err: ", err)
@@ -256,7 +256,8 @@ func (sync *KubeSynchronizer) validateDeployables() error {
 
 	deployablelist, err := sync.DynamicClient.Resource(deployableResource).List(metav1.ListOptions{})
 	if err != nil {
-		klog.Error("Failed to obtain deployable list")
+		klog.Error("Failed to obtain deployable list", err)
+		return err
 	}
 
 	// construct a map to make things easier
