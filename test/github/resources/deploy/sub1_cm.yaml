@@ -1,0 +1,7 @@
+apiVersion: v1
+data:
+  city: "Toronto"
+kind: ConfigMap
+metadata:
+  name: sub1-cm
+  namespace: subscription-test-namespace
