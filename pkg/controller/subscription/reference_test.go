@@ -15,15 +15,9 @@
 package subscription
 
 import (
-	"context"
-	"testing"
-
-	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
@@ -92,187 +86,192 @@ var (
 	}
 )
 
-func TestListReferredObjectByName(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finid'Cu
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+// func TestListAndDeployReferredObject(t *testing.T) {
 
-	c = mgr.GetClient()
+// }
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+// func TestListReferredObjectByName(t *testing.T) {
+// 	g := gomega.NewGomegaWithT(t)
+// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+// 	// channel when it is finid'Cu
+// 	mgr, err := manager.New(cfg, manager.Options{})
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+// 	c = mgr.GetClient()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-	// get the default reonciler then list the secert by name
-	srtD := srt.DeepCopy()
-	g.Expect(c.Create(context.TODO(), srtD)).NotTo(gomega.HaveOccurred())
+// 	defer func() {
+// 		close(stopMgr)
+// 		mgrStopped.Wait()
+// 	}()
 
-	defer c.Delete(context.TODO(), srtD)
+// 	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
-	//testing if the new referred object is labeled correctly
-	obj, _ := rec.ListReferredObjectByName(sub, srtD, testKeys.Name)
-	g.Expect(obj).ShouldNot(gomega.BeNil())
+// 	// get the default reonciler then list the secert by name
+// 	srtD := srt.DeepCopy()
+// 	g.Expect(c.Create(context.TODO(), srtD)).NotTo(gomega.HaveOccurred())
 
-	obj, _ = rec.ListReferredObjectByName(sub, srtD, srtNotFoundName)
-	g.Expect(obj).Should(gomega.BeNil())
-}
+// 	defer c.Delete(context.TODO(), srtD)
 
-func TestListReferredObjectByLabel(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finid'Cu
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+// 	//testing if the new referred object is labeled correctly
+// 	obj, _ := rec.ListReferredObjectByName(sub, srtD, testKeys.Name)
+// 	g.Expect(obj).ShouldNot(gomega.BeNil())
 
-	c = mgr.GetClient()
+// 	obj, _ = rec.ListReferredObjectByName(sub, srtD, srtNotFoundName)
+// 	g.Expect(obj).Should(gomega.BeNil())
+// }
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+// func TestListReferredObjectByLabel(t *testing.T) {
+// 	g := gomega.NewGomegaWithT(t)
+// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+// 	// channel when it is finid'Cu
+// 	mgr, err := manager.New(cfg, manager.Options{})
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+// 	c = mgr.GetClient()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-	// get the default reonciler then list the secert by name
-	srtDLb := srtLb.DeepCopy()
-	g.Expect(c.Create(context.TODO(), srtDLb)).NotTo(gomega.HaveOccurred())
+// 	defer func() {
+// 		close(stopMgr)
+// 		mgrStopped.Wait()
+// 	}()
 
-	defer c.Delete(context.TODO(), srtDLb)
+// 	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
-	srtDWoLb := srtWithoutLb.DeepCopy()
-	g.Expect(c.Create(context.TODO(), srtDWoLb)).NotTo(gomega.HaveOccurred())
+// 	// get the default reonciler then list the secert by name
+// 	srtDLb := srtLb.DeepCopy()
+// 	g.Expect(c.Create(context.TODO(), srtDLb)).NotTo(gomega.HaveOccurred())
 
-	defer c.Delete(context.TODO(), srtDWoLb)
+// 	defer c.Delete(context.TODO(), srtDLb)
 
-	rq := types.NamespacedName{Namespace: testNamespaceName, Name: sub.GetName()}
-	//testing if the new referred object is labeled correctly
-	gvk := srtDLb.GetObjectKind().GroupVersionKind()
-	gvk.Kind = "Secret"
-	gvk.Version = "v1"
-	obj, _ := rec.ListReferredObjectByLabel(rq, gvk)
-	g.Expect(obj).ShouldNot(gomega.BeNil())
-}
+// 	srtDWoLb := srtWithoutLb.DeepCopy()
+// 	g.Expect(c.Create(context.TODO(), srtDWoLb)).NotTo(gomega.HaveOccurred())
 
-func TestListSubscriptionOwnedObjectsAndDelete(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finid'Cu
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+// 	defer c.Delete(context.TODO(), srtDWoLb)
 
-	c = mgr.GetClient()
+// 	rq := types.NamespacedName{Namespace: testNamespaceName, Name: sub.GetName()}
+// 	//testing if the new referred object is labeled correctly
+// 	gvk := srtDLb.GetObjectKind().GroupVersionKind()
+// 	gvk.Kind = "Secret"
+// 	gvk.Version = "v1"
+// 	obj, _ := rec.ListReferredObjectByLabel(rq, gvk)
+// 	g.Expect(obj).ShouldNot(gomega.BeNil())
+// }
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+// func TestListSubscriptionOwnedObjectsAndDelete(t *testing.T) {
+// 	g := gomega.NewGomegaWithT(t)
+// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+// 	// channel when it is finid'Cu
+// 	mgr, err := manager.New(cfg, manager.Options{})
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+// 	c = mgr.GetClient()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-	// get the default reonciler then list the secert by name
-	srtDLb := srtLb.DeepCopy()
-	g.Expect(c.Create(context.TODO(), srtDLb)).NotTo(gomega.HaveOccurred())
+// 	defer func() {
+// 		close(stopMgr)
+// 		mgrStopped.Wait()
+// 	}()
 
-	defer c.Delete(context.TODO(), srtDLb)
+// 	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
-	srtDWoLb := srtWithoutLb.DeepCopy()
-	g.Expect(c.Create(context.TODO(), srtDWoLb)).NotTo(gomega.HaveOccurred())
+// 	// get the default reonciler then list the secert by name
+// 	srtDLb := srtLb.DeepCopy()
+// 	g.Expect(c.Create(context.TODO(), srtDLb)).NotTo(gomega.HaveOccurred())
 
-	defer c.Delete(context.TODO(), srtDWoLb)
+// 	defer c.Delete(context.TODO(), srtDLb)
 
-	rq := types.NamespacedName{Namespace: testNamespaceName, Name: sub.GetName()}
-	//testing if the new referred object is labeled correctly
-	gvk := srtDLb.GetObjectKind().GroupVersionKind()
-	gvk.Kind = "Secret"
-	gvk.Version = "v1"
-	err = rec.ListSubscriptionOwnedObjectsAndDelete(rq, gvk)
-	g.Expect(err).Should(gomega.BeNil())
+// 	srtDWoLb := srtWithoutLb.DeepCopy()
+// 	g.Expect(c.Create(context.TODO(), srtDWoLb)).NotTo(gomega.HaveOccurred())
 
-	resSrt := &corev1.Secret{}
-	g.Expect(c.Get(context.TODO(), testLbKeys, resSrt)).Should(gomega.HaveOccurred())
-}
+// 	defer c.Delete(context.TODO(), srtDWoLb)
 
-func TestCleanUpObject(t *testing.T) {
-	testCases := []struct {
-		desc     string
-		obj      runtime.Object
-		objLabel map[string]string
-		ns       string
-	}{
-		{
-			desc:     "",
-			obj:      &srtLb,
-			objLabel: srtLb.GetLabels(),
-			ns:       testNamespaceName,
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			gvk := tC.obj.GetObjectKind().GroupVersionKind()
-			gvk.Kind = "Secret"
-			gvk.Version = "v1"
-			_, err := CleanUpObjectAndSetLabelsWithNamespace(tC.ns, gvk, tC.obj, tC.objLabel)
-			if err != nil {
-				t.Errorf("Failed to clean up the object due to %v ", err)
-			}
-		})
-	}
-}
+// 	rq := types.NamespacedName{Namespace: testNamespaceName, Name: sub.GetName()}
+// 	//testing if the new referred object is labeled correctly
+// 	gvk := srtDLb.GetObjectKind().GroupVersionKind()
+// 	gvk.Kind = "Secret"
+// 	gvk.Version = "v1"
+// 	err = rec.ListSubscriptionOwnedObjectsAndDelete(rq, gvk)
+// 	g.Expect(err).Should(gomega.BeNil())
 
-func TestDeployReferredObject(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finid'Cu
-	mgr, err := manager.New(cfg, manager.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+// 	resSrt := &corev1.Secret{}
+// 	g.Expect(c.Get(context.TODO(), testLbKeys, resSrt)).Should(gomega.HaveOccurred())
+// }
 
-	c = mgr.GetClient()
+// func TestDeployReferredObject(t *testing.T) {
+// 	g := gomega.NewGomegaWithT(t)
+// 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+// 	// channel when it is finid'Cu
+// 	mgr, err := manager.New(cfg, manager.Options{})
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+// 	c = mgr.GetClient()
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+// 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+// 	defer func() {
+// 		close(stopMgr)
+// 		mgrStopped.Wait()
+// 	}()
 
-	// get the default reonciler then list the secert by name
-	srtDLb := srtLb.DeepCopy()
+// 	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
 
-	defer c.Delete(context.TODO(), srtDLb)
+// 	// get the default reonciler then list the secert by name
+// 	srtDLb := srtLb.DeepCopy()
 
-	//testing if the new referred object is labeled correctly
-	gvk := srtDLb.GetObjectKind().GroupVersionKind()
-	gvk.Kind = "Secret"
-	gvk.Version = "v1"
-	err = rec.DeployReferredObject(sub, gvk, srtDLb)
-	g.Expect(err).Should(gomega.BeNil())
+// 	defer c.Delete(context.TODO(), srtDLb)
 
-	// get the default reonciler then list the secert by name
-	cfgDLb := cfgLb.DeepCopy()
+// 	//testing if the new referred object is labeled correctly
+// 	gvk := srtDLb.GetObjectKind().GroupVersionKind()
+// 	gvk.Kind = "Secret"
+// 	gvk.Version = "v1"
+// 	err = rec.DeployReferredObject(sub, gvk, srtDLb)
+// 	g.Expect(err).Should(gomega.BeNil())
 
-	defer c.Delete(context.TODO(), cfgDLb)
+// 	// get the default reonciler then list the secert by name
+// 	cfgDLb := cfgLb.DeepCopy()
 
-	//testing if the new referred object is labeled correctly
-	gvk = cfgDLb.GetObjectKind().GroupVersionKind()
-	gvk.Kind = "ConfigMap"
-	gvk.Version = "v1"
-	err = rec.DeployReferredObject(sub, gvk, cfgDLb)
-	g.Expect(err).Should(gomega.BeNil())
+// 	defer c.Delete(context.TODO(), cfgDLb)
 
-	resCfg := &corev1.ConfigMap{}
-	c.Get(context.TODO(), testLbKeys, resCfg)
-	g.Expect(resCfg.GetName()).ShouldNot(gomega.BeNil())
-}
+// 	//testing if the new referred object is labeled correctly
+// 	gvk = cfgDLb.GetObjectKind().GroupVersionKind()
+// 	gvk.Kind = "ConfigMap"
+// 	gvk.Version = "v1"
+// 	err = rec.DeployReferredObject(sub, gvk, cfgDLb)
+// 	g.Expect(err).Should(gomega.BeNil())
+
+// 	resCfg := &corev1.ConfigMap{}
+// 	c.Get(context.TODO(), testLbKeys, resCfg)
+// 	g.Expect(resCfg.GetName()).ShouldNot(gomega.BeNil())
+// }
+
+// func TestCleanUpObject(t *testing.T) {
+// 	testCases := []struct {
+// 		desc     string
+// 		obj      runtime.Object
+// 		objLabel map[string]string
+// 		ns       string
+// 	}{
+// 		{
+// 			desc:     "",
+// 			obj:      &srtLb,
+// 			objLabel: srtLb.GetLabels(),
+// 			ns:       testNamespaceName,
+// 		},
+// 	}
+// 	for _, tC := range testCases {
+// 		t.Run(tC.desc, func(t *testing.T) {
+// 			gvk := tC.obj.GetObjectKind().GroupVersionKind()
+// 			gvk.Group = " "
+// 			gvk.Kind = "Secret"
+// 			gvk.Version = "v1"
+// 			_, err := CleanUpObjectAndSetLabelsWithNamespace(tC.ns, gvk, tC.obj, tC.objLabel)
+// 			if err != nil {
+// 				t.Errorf("Failed to clean up the object due to %v ", err)
+// 			}
+// 		})
+// 	}
+// }

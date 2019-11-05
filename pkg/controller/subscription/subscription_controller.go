@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -131,13 +130,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				_ = sub.UnsubscribeItem(request.NamespacedName)
 			}
 
-			objKind := schema.GroupVersionKind{Kind: SecretKindStr, Version: "v1"}
-			err := r.ListSubscriptionOwnedObjectsAndDelete(request.NamespacedName, objKind)
+			// objKind := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+			err := r.ListSubscriptionOwnedObjectsAndDelete(request.NamespacedName)
 			klog.Errorf("Had error %v while processing the referred secert", err)
 
-			objKind = schema.GroupVersionKind{Kind: ConfigMapKindStr, Version: "v1"}
-			err = r.ListSubscriptionOwnedObjectsAndDelete(request.NamespacedName, objKind)
-			klog.Errorf("Had error %v while processing the referred configmap", err)
+			// objKind = schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+			// err = r.ListSubscriptionOwnedObjectsAndDelete(request.NamespacedName, objKind)
+			// klog.Errorf("Had error %v while processing the referred configmap", err)
 
 			return reconcile.Result{}, nil
 		}
@@ -245,9 +244,10 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 	if subitem.Channel.Spec.SecretRef != nil {
 		obj := subitem.ChannelSecret
-		objKind := schema.GroupVersionKind{Kind: SecretKindStr, Version: "v1"}
-		err = r.ListAndDeployReferredObject(instance, objKind, obj, obj.GetName())
 
+		// objKind := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+		// err = r.ListAndDeployReferredObject(instance, objKind, obj, obj.GetName())
+		err = r.ListAndDeployReferredObject(instance, obj)
 		if err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
 		}
@@ -255,8 +255,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 	if subitem.Channel.Spec.ConfigMapRef != nil {
 		obj := subitem.ChannelConfigMap
-		objKind := schema.GroupVersionKind{Kind: ConfigMapKindStr, Version: "v1"}
-		err = r.ListAndDeployReferredObject(instance, objKind, obj, obj.GetName())
+		// objKind := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+		err = r.ListAndDeployReferredObject(instance, obj)
 
 		if err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v", obj.GetName(), instance.GetName())
