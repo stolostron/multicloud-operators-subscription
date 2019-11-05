@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chart1cm
+  namespace: default
+data:
+  chart1: chart1
