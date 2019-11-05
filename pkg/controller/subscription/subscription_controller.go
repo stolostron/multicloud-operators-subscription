@@ -246,8 +246,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	if subitem.Channel.Spec.SecretRef != nil {
 		obj := subitem.ChannelSecret
 		objKind := schema.GroupVersionKind{Kind: SecretKindStr, Version: "v1"}
-
 		err = r.ListAndDeployReferredObject(instance, objKind, obj, obj.GetName())
+
 		if err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
 		}
@@ -257,6 +257,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		obj := subitem.ChannelConfigMap
 		objKind := schema.GroupVersionKind{Kind: ConfigMapKindStr, Version: "v1"}
 		err = r.ListAndDeployReferredObject(instance, objKind, obj, obj.GetName())
+
 		if err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v", obj.GetName(), instance.GetName())
 		}

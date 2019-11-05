@@ -50,7 +50,6 @@ func (r *ReconcileSubscription) ListAndDeployReferredObject(
 	gvk schema.GroupVersionKind,
 	refObj runtime.Object,
 	objName string) error {
-
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -108,6 +107,7 @@ func (r *ReconcileSubscription) ListAndDeployReferredObject(
 			return err
 		}
 	}
+
 	return err
 }
 
@@ -161,10 +161,8 @@ func (r *ReconcileSubscription) ListReferredObjectByLabel(rq types.NamespacedNam
 
 		return localObjs, nil
 	default:
-
 		return nil, nil
 	}
-
 }
 
 ////UpdateLabelsOnOldRefSecret check up if the secret was owned by subscriptions
@@ -174,8 +172,11 @@ func (r *ReconcileSubscription) ListReferredObjectByLabel(rq types.NamespacedNam
 /////// skipping the same named secret is due to the fact that later on we will update the label for this case
 ////if the secret labeled with more than one subscription,
 ////// then we will only update the label removing the reconciled subscription
-func (r *ReconcileSubscription) UpdateLabelsOnOldReferredObject(instance *appv1alpha1.Subscription, gvk schema.GroupVersionKind, newObjName string, objList runtime.Object) error {
-
+func (r *ReconcileSubscription) UpdateLabelsOnOldReferredObject(
+	instance *appv1alpha1.Subscription,
+	gvk schema.GroupVersionKind,
+	newObjName string,
+	objList runtime.Object) error {
 	mObjList, err := meta.ExtractList(objList)
 	if err != nil {
 		return err
@@ -226,7 +227,6 @@ func (r *ReconcileSubscription) UpdateLabelsOnOldReferredObject(instance *appv1a
 //
 ////DeployReferredSecret deply the referred secret to the subscription namespace, also it set up the label and ownerReference for the secret
 func (r *ReconcileSubscription) DeployReferredObject(instance *appv1alpha1.Subscription, objGvk schema.GroupVersionKind, newObj runtime.Object) error {
-
 	srtLabel := map[string]string{utils.SercertReferredMarker: "true", instance.GetName(): "true"}
 
 	ns := instance.GetNamespace()
@@ -235,6 +235,7 @@ func (r *ReconcileSubscription) DeployReferredObject(instance *appv1alpha1.Subsc
 	if err != nil {
 		return err
 	}
+
 	err = r.Client.Create(context.TODO(), cleanSrt)
 
 	if err != nil {
@@ -277,6 +278,9 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedObjectsAndDelete(rq types.N
 
 	if len(mObj.GetLabels()) == 2 {
 		err = r.Client.Delete(context.TODO(), obj)
+		if err != nil {
+			return err
+		}
 	} else {
 		lb := mObj.GetLabels()
 		delete(lb, rq.Name)
@@ -286,20 +290,18 @@ func (r *ReconcileSubscription) ListSubscriptionOwnedObjectsAndDelete(rq types.N
 			return err
 		}
 		err = r.Client.Update(context.TODO(), updatedObj)
+		if err != nil {
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 //CleanUpConfigMapObject is used to reset the sercet fields in order to put the secret into deployable template
 func CleanUpObjectAndSetLabelsWithNamespace(ns string, objGvk schema.GroupVersionKind, obj runtime.Object, objLabel map[string]string) (runtime.Object, error) {
-
-	// srtGvk := schema.GroupVersionKind{
-	// 	Kind:    "Secret",
-	// 	Version: "v1",
-	// }
-
 	mObj, err := meta.Accessor(obj)
+
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +321,6 @@ func CleanUpObjectAndSetLabelsWithNamespace(ns string, objGvk schema.GroupVersio
 
 		return &srt, nil
 	case ConfigMapKindStr:
-
 		cfg := corev1.ConfigMap{}
 		cfg.SetName(mObj.GetName())
 		cfg.SetResourceVersion("")
