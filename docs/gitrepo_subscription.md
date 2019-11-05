@@ -68,6 +68,6 @@ spec:
       name: my-github-secret
 ```
 
-## .kubernetesIgnore file
+## .kubernetesignore file
 
-In a GitHub repository root or in the `data.path` directory which is specified in the config map of `spec.packageFilter.filterRef` described above, you can have `.kubernetesIgnore` file to specify patterns of files and/or subdirectories to ignore when the subscription processes and applies Kubernetes resource from the repository. You can use the `.kubernetesIgnore` as fine-grain filters to selectively apply Kubernetes resources. The pattern format of the `.kubernetesIgnore` is the same as `.gitignore`. If `data.path` is not defined in the config map of `spec.packageFilter.filterRef`, the subscription looks for `.kubernetesIgnore` in the reporitory root. If `data.path` is defined, it looks for `.kubernetesIgnore` in the `data.path` directory. It currently does not support `.kubernetesIgnore` in any other directory.
+In a GitHub repository root or in the `data.path` directory which is specified in the config map of `spec.packageFilter.filterRef` described above, you can have `.kubernetesignore` file to specify patterns of files and/or subdirectories to ignore when the subscription processes and applies Kubernetes resource from the repository. You can use the `.kubernetesignore` as fine-grain filters to selectively apply Kubernetes resources. The pattern format of the `.kubernetesignore` is the same as `.gitignore`. If `data.path` is not defined in the config map of `spec.packageFilter.filterRef`, the subscription looks for `.kubernetesignore` in the reporitory root. If `data.path` is defined, it looks for `.kubernetesignore` in the `data.path` directory. It currently does not support `.kubernetesignore` in any other directory.

@@ -179,9 +179,9 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 	lines := []string{""}
 	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
 
-	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesIgnore")); err == nil {
-		klog.V(4).Info("Found .kubernetesIgnore in ", resourcePath)
-		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesIgnore"))
+	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesignore")); err == nil {
+		klog.V(4).Info("Found .kubernetesignore in ", resourcePath)
+		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesignore"))
 	}
 
 	return kubeIgnore
