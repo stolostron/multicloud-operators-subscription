@@ -80,7 +80,6 @@ func (r *ReconcileSubscription) ListAndDeployReferredSecrets(refSrt *corev1.Secr
 		localSrt.SetLabels(lb)
 		err = r.Client.Update(context.TODO(), localSrt)
 	}
-	runtime.Object
 	return err
 }
 
