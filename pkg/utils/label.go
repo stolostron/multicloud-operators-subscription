@@ -20,13 +20,6 @@ import (
 	"k8s.io/klog"
 )
 
-//SercertReferredMarker is used as a label key to filter out the secert coming from reference
-var SercertReferredMarker = "IsReferredBySub"
-
-func GetLabelSelectorOfSubscription(subName string) *metav1.LabelSelector {
-	return &metav1.LabelSelector{MatchLabels: map[string]string{SercertReferredMarker: "true", subName: "true"}}
-}
-
 func MatchLabelForSubAndDpl(ls *metav1.LabelSelector, dplls map[string]string) bool {
 	klog.V(5).Infof("sub label: %#v, dpl label: %#v", ls, dplls)
 
