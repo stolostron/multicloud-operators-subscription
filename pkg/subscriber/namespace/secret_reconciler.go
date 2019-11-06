@@ -27,49 +27,70 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 //SecretRecondiler defined a info collection for query secret resource
-type SecretRecondiler struct {
+type SecretReconciler struct {
 	Subscriber *Subscriber
 	Clt        client.Client
 	Schema     *runtime.Scheme
 	Itemkey    types.NamespacedName
 }
 
+func newSecertReconciler(subscriber *Subscriber, mgr manager.Manager, subItemKey types.NamespacedName) reconcile.Reconciler {
+	rec := &SecretReconciler{
+		Subscriber: subscriber,
+		Clt:        mgr.GetClient(),
+		Schema:     mgr.GetScheme(),
+		Itemkey:    subItemKey,
+	}
+
+	return rec
+}
+
 //Reconcile handle the main logic to deploy the secret coming from the channel namespace
-func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+		klog.Infof("Entering: %v()\n request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
 
-		defer klog.Infof("Exiting: %v()", fnName)
+		defer klog.Infof("Exiting: %v()\n request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
 	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
-	sl, err := s.ListSecrets()
+	srt, err := s.GetSecret(request.NamespacedName)
+
+	var dpls []*dplv1alpha1.Deployable
+
+	// handle the NotFound case and other can't list case
 	if err != nil {
+		// update the synchronizer to make sure the sercet is also delete from synchronizer
+		s.RegisterToResourceMap(dpls)
 		return reconcile.Result{}, err
 	}
 
-	var dpls []*dplv1alpha1.Deployable
-	//apply the subscription package filter to the correct annotated secret
-	for _, srt := range sl.Items {
-		if !isSecretAnnoatedAsDeployable(srt) {
-			continue
-		}
+	// only move forward if the sercet belongs to the subscription's channel
+	if srt.GetNamespace() != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
+		return reconcile.Result{}, err
+	}
 
-		srt, ok := ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, PackageSecert(srt))
-		}
+	//filter out the secret by deployable annotations
+	if !isSecretAnnoatedAsDeployable(*srt) {
+		return reconcile.Result{}, err
+	}
+
+	klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
+
+	srtNew, ok := utils.ApplyFilters(*srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
+	if ok {
+		dpls = append(dpls, utils.PackageSecert(srtNew))
 	}
 
 	s.RegisterToResourceMap(dpls)
@@ -77,8 +98,8 @@ func (s *SecretRecondiler) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-//ListSecrets list all the secret resouces at the suscribed channel
-func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
+//GetSecret get the Secert from all the suscribed channel
+func (s *SecretReconciler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -86,51 +107,17 @@ func (s *SecretRecondiler) ListSecrets() (*v1.SecretList, error) {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	subitem, ok := s.Subscriber.itemmap[s.Itemkey]
-	if !ok {
-		errmsg := "Failed to locate subscription item " + s.Itemkey.String() + " in existing map"
-
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	sub := subitem.Subscription
-	klog.V(10).Infof("Processing subscriptions: %v/%v ", sub.GetNamespace(), sub.GetName())
-
-	secretList := &v1.SecretList{}
-
-	targetChNamespace := subitem.Channel.Spec.PathName
-	if targetChNamespace == "" {
-		errmsg := "channel namespace should not be empty in channel resource of subitem " + sub.GetName()
-		klog.Error(errmsg)
-
-		return nil, errors.New(errmsg)
-	}
-
-	listOptions := &client.ListOptions{Namespace: targetChNamespace}
-
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		clSelector, err := utils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err:", err)
-		}
-
-		listOptions.LabelSelector = clSelector
-	}
-
-	err := s.Clt.List(context.TODO(), listOptions, secretList)
+	srt := &v1.Secret{}
+	err := s.Clt.Get(context.TODO(), srtKey, srt)
 
 	if err != nil {
-		klog.Error("Failed to list objecrts from namespace ", targetChNamespace, " err:", err)
 		return nil, err
 	}
 
-	return secretList, nil
+	return srt, nil
 }
 
-//PackageSecert put the secret to the deployable template
-func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
+func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -138,24 +125,6 @@ func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	dpl := &dplv1alpha1.Deployable{}
-	dpl.Name = s.GetName()
-	dpl.Namespace = s.GetNamespace()
-	dpl.Spec.Template = &runtime.RawExtension{}
-
-	sRaw, err := json.Marshal(s)
-	dpl.Spec.Template.Raw = sRaw
-
-	if err != nil {
-		klog.Error("Failed to unmashall ", s.GetNamespace(), "/", s.GetName(), " err:", err)
-	}
-
-	klog.V(10).Infof("Retived Dpl: %v", dpl)
-
-	return dpl
-}
-
-func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 	secretsAnno := srt.GetAnnotations()
 
 	if secretsAnno == nil {
@@ -169,63 +138,8 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 	return true
 }
 
-//ApplyFilters will apply the subscription level filters to the secret
-func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, bool) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	secret = CleanUpObject(secret)
-
-	// adding this to avoid the JSON marshall error caused by the embedded fileds, typeMeta
-
-	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.Package != "" && sub.Spec.Package != secret.GetName() {
-			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", secret.GetName())
-			return secret, false
-		}
-
-		subAnno := sub.GetAnnotations()
-		klog.V(10).Info("checking annotations filter:", subAnno)
-
-		if subAnno != nil {
-			secretsAnno := secret.GetAnnotations()
-			for k, v := range subAnno {
-				if secretsAnno[k] != v {
-					klog.Info("Annotation filter does not match:", k, "|", v, "|", secretsAnno[k])
-					return secret, false
-				}
-			}
-		}
-	}
-
-	return secret, true
-}
-
-//CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
-func CleanUpObject(s v1.Secret) v1.Secret {
-	s.SetResourceVersion("")
-
-	t := types.UID("")
-
-	s.SetUID(t)
-
-	s.SetSelfLink("")
-
-	gvk := schema.GroupVersionKind{
-		Kind:    "Secret",
-		Version: "v1",
-	}
-	s.SetGroupVersionKind(gvk)
-
-	return s
-}
-
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
+func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -340,37 +254,3 @@ func (s *SecretRecondiler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
 }
-
-// func DeploySecretFromSubReference(kvalid *kubesync.Validator, pkgMap *map[string]bool, sh *SecretHandler, hostkey types.NamespacedName, subType string) {
-// 	if klog.V(QuiteLogLel) {
-// 		fnName := GetFnName()
-// 		klog.Infof("Entering: %v()", fnName)
-// 		defer klog.Infof("Exiting: %v()", fnName)
-// 	}
-
-// 	subscription := sh.Sub
-// 	sl := ListSecrets(subscription, sh.Clt)
-// 	if len(sl.Items) == 0 {
-// 		return
-// 	}
-
-// 	var dpls []*dplv1alpha1.Deployable
-
-// 	secretRef := sh.GetSecretRef()
-// 	if secretRef == nil {
-// 		return
-// 	}
-// 	for _, srt := range sl.Items {
-// 		if srt.GetName() == secretRef.Name && srt.GetNamespace() == secretRef.Namespace {
-// 			srt, ok := ApplyFilters(srt, subscription)
-// 			if ok {
-// 				dpls = append(dpls, PackageSecert(srt))
-// 			}
-// 		}
-// 	}
-
-// 	if len(dpls) > 0 {
-// 		RegisterToResourceMap(dpls, kvalid, pkgMap, sh, hostkey)
-// 	}
-
-// }

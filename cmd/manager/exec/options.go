@@ -27,47 +27,47 @@ type PlacementRuleCMDOptions struct {
 	SyncInterval          int
 }
 
-var options = PlacementRuleCMDOptions{
+var Options = PlacementRuleCMDOptions{
 	MetricsAddr:  "",
 	SyncInterval: 60,
 }
 
-// ProcessFlags parses command line parameters into options
+// ProcessFlags parses command line parameters into Options
 func ProcessFlags() {
 	flag := pflag.CommandLine
 	// add flags
 	flag.StringVar(
-		&options.MetricsAddr,
+		&Options.MetricsAddr,
 		"metrics-addr",
-		options.MetricsAddr,
+		Options.MetricsAddr,
 		"The address the metric endpoint binds to.",
 	)
 
 	flag.StringVar(
-		&options.HubConfigFilePathName,
+		&Options.HubConfigFilePathName,
 		"hub-cluster-configfile",
-		options.HubConfigFilePathName,
+		Options.HubConfigFilePathName,
 		"Configuration file pathname to hub kubernetes cluster",
 	)
 
 	flag.StringVar(
-		&options.ClusterName,
+		&Options.ClusterName,
 		"cluster-name",
-		options.ClusterName,
+		Options.ClusterName,
 		"Name of this endpoint.",
 	)
 
 	flag.StringVar(
-		&options.ClusterNamespace,
+		&Options.ClusterNamespace,
 		"cluster-namespace",
-		options.ClusterNamespace,
+		Options.ClusterNamespace,
 		"Cluster Namespace of this endpoint in hub.",
 	)
 
 	flag.IntVar(
-		&options.SyncInterval,
+		&Options.SyncInterval,
 		"sync-interval",
-		options.SyncInterval,
+		Options.SyncInterval,
 		"The interval of housekeeping in seconds.",
 	)
 }
