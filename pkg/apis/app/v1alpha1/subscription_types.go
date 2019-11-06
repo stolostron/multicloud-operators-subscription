@@ -15,6 +15,8 @@
 package v1alpha1
 
 import (
+	"time"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,6 +67,25 @@ type Overrides struct {
 	PackageOverrides []PackageOverride `json:"packageOverrides"` // To be added
 }
 
+// TimeWindow defines a time window for subscription to run or be blocked
+// +k8s:deepcopy-gen:interfaces
+type TimeWindow struct {
+	// if true/false, the subscription will only run or not run during this time window.
+	WindowType string `json:"windowtype,omitempty"`
+	Location   string `json:"location,omitempty"`
+	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
+	Weekdays []time.Weekday `json:"weekdays,omitempty"`
+	Hours    []HourRange    `json:"hours,omitempty"`
+}
+
+type HourRange struct {
+	//Kitchen format defined at https://golang.org/pkg/time/#pkg-constants
+	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
+	Start string `json:"start"`
+	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
+	End string `json:"end"`
+}
+
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
@@ -78,6 +99,8 @@ type SubscriptionSpec struct {
 	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
 	// for hub use only to specify the overrides when apply to clusters
 	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
+	// help user control when the subscription will take affect
+	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription
