@@ -7,6 +7,7 @@ require (
 	github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191029233645-528aa3517cb3
 	github.com/aws/aws-sdk-go-v2 v0.15.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/coreos/etcd v3.3.10+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-openapi/spec v0.19.0
 	github.com/onsi/gomega v1.4.3
