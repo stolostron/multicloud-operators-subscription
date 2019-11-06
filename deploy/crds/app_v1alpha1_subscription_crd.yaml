@@ -266,12 +266,10 @@ spec:
                 location:
                   type: string
                 weekdays:
-                  description: // weekdays defined the day of the week for this time
+                  description: weekdays defined the day of the week for this time
                     window https://golang.org/pkg/time/#Weekday
                   items:
-                    description: A Weekday specifies a day of the week (Sunday = 0,
-                      ...).
-                    type: integer
+                    type: string
                   type: array
                 windowtype:
                   description: active time window or not, if timewindow is active,

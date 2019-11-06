@@ -46,6 +46,15 @@ type DeployableReconciler struct {
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Info("Deployable Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
 
+	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
+	if tw != nil {
+		nextRun := utils.NextStartPoint(tw, time.Now())
+		if nextRun > time.Duration(0) {
+			klog.V(1).Infof("Subcription %v will run after %v", request.NamespacedName.String(), nextRun)
+			return reconcile.Result{RequeueAfter: nextRun}, nil
+		}
+	}
+
 	result := reconcile.Result{}
 	err := r.doSubscription()
 

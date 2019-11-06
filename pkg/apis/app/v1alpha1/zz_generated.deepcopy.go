@@ -19,8 +19,6 @@
 package v1alpha1
 
 import (
-	time "time"
-
 	appv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	pkgapisappv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	apisappv1alpha1 "github.com/IBM/multicloud-operators-placementrule/pkg/apis/app/v1alpha1"
@@ -389,7 +387,7 @@ func (in *TimeWindow) DeepCopyInto(out *TimeWindow) {
 	*out = *in
 	if in.Weekdays != nil {
 		in, out := &in.Weekdays, &out.Weekdays
-		*out = make([]time.Weekday, len(*in))
+		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
 	if in.Hours != nil {

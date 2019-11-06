@@ -12,10 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package subscription
+package utils
 
 import (
+	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
@@ -51,14 +53,24 @@ type runDays []time.Weekday
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	// convert current time to the location time defined within the timewindow
 	uniTime := UnifyTimeZone(tw, t)
+	klog.V(5).Infof("Time window checking at %v", uniTime.String())
+
+	if tw.WindowType != "" && tw.WindowType != "active" {
+		// reverse week days
+		// reverse slots
+		// then call on GenerateNextPoint
+		return time.Duration(0)
+	}
 
 	// TODO validate the hour ranges, to avoid the end time is earlier than start time
 	vHr := validateHourRange(tw.Hours)
 	if len(vHr) == 0 {
 		return time.Duration(0)
 	}
+
+	rDays := validateWeekDaysSlice(tw.Weekdays)
 	// generate the duration for t
-	return GenerateNextPoint(vHr, tw.Weekdays, uniTime)
+	return GenerateNextPoint(vHr, rDays, uniTime)
 }
 
 func UnifyTimeZone(tw *appv1alpha1.TimeWindow, t time.Time) time.Time {
@@ -87,6 +99,33 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 	return h
 }
 
+func validateWeekDaysSlice(wds []string) runDays {
+	vwds := runDays{}
+
+	weekdayMap := map[string]int{
+		"sunday":    0,
+		"monday":    1,
+		"tuesday":   2,
+		"wednesday": 3,
+		"thursday":  4,
+		"friday":    5,
+		"saturday":  6,
+	}
+
+	found := make(map[string]bool)
+
+	for _, wd := range wds {
+		wd = strings.ToLower(wd)
+		if v, ok := weekdayMap[wd]; ok {
+			if _, ok := found[wd]; !ok {
+				vwds = append(vwds, time.Weekday(v))
+			}
+		}
+	}
+
+	return vwds
+}
+
 func parseTimeWithKitchenFormat(tstr string) time.Time {
 	t, err := time.Parse(time.Kitchen, tstr)
 	if err != nil {
@@ -106,17 +145,17 @@ func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 // if current time is bigger than the last time point of the window, nextTime will be weekdays offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time slot start point or a 0(if current time is within a time window)
 
-func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, uniTime time.Time) time.Duration {
+func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) time.Duration {
 	slots := sortRangeByStartTime(vhours)
 	timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
 	// t is greater than todays window
 	// eg t is 11pm
 	// slots [1, 3 pm]
 	lastSlot := parseTimeWithKitchenFormat(slots[len(slots)-1].End)
+	fmt.Println(lastSlot.String())
 	if lastSlot.Before(timeByHour) {
 
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
-		rdays := runDays(wdays)
 		dayOffsets := rdays.DurationToNextRunableWeekday(uniTime)
 
 		// Hour difference is from curret day to midnight, then midnight to slot[0]
@@ -127,7 +166,7 @@ func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, uniTime time.
 	// t is at time range
 	for _, slot := range slots {
 		slotStart, slotEnd := parseTimeWithKitchenFormat(slot.Start), parseTimeWithKitchenFormat(slot.End)
-		// fmt.Println(slotStart.String(), slotEnd.String())
+		fmt.Println(slotStart.String(), slotEnd.String())
 		if timeByHour.Before(slotStart) {
 			return slotStart.Sub(timeByHour)
 		} else if timeByHour.After(slotStart) && timeByHour.Before(slotEnd) {

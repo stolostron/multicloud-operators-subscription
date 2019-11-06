@@ -12,9 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package subscription
+package utils
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,7 +23,7 @@ import (
 )
 
 func TestTimeWindowDurationTillNextWindow(t *testing.T) {
-	TZ, _ := time.LoadLocation("Local")
+	TZ, _ := time.LoadLocation("")
 	testCases := []struct {
 		desc    string
 		curTime time.Time
@@ -39,7 +40,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []time.Weekday{0, 1, 5},
+				Weekdays: []string{"Sunday", "monday", "friday"},
 				Location: "",
 			},
 			want: time.Duration(0),
@@ -54,7 +55,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []time.Weekday{0, 1, 5},
+				Weekdays: []string{"Sunday", "monday", "friday"},
 				Location: "",
 			},
 			want: time.Duration(time.Minute * 50),
@@ -70,7 +71,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "1:30PM"},
 				},
-				Weekdays: []time.Weekday{0, 1, 5},
+				Weekdays: []string{"Sunday", "monday", "friday"},
 				Location: "",
 			},
 			want: time.Duration(20*time.Hour) + time.Duration(5*time.Minute),
@@ -86,7 +87,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "1:30PM"},
 				},
-				Weekdays: []time.Weekday{0, 1, 5},
+				Weekdays: []string{"Sunday", "monday", "friday"},
 				Location: "",
 			},
 			want: time.Duration(44*time.Hour) + time.Duration(9*time.Minute),
@@ -95,6 +96,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
+			fmt.Println(tC.curTime.String())
 			got := NextStartPoint(tC.windows, tC.curTime)
 
 			if got != tC.want {

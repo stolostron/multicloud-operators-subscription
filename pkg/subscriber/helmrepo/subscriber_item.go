@@ -78,6 +78,16 @@ func (hrsi *SubscriberItem) Start() {
 	hrsi.stopch = make(chan struct{})
 
 	go wait.Until(func() {
+
+		tw := hrsi.SubscriberItem.Subscription.Spec.TimeWindow
+		if tw != nil {
+			nextRun := utils.NextStartPoint(tw, time.Now())
+			if nextRun > time.Duration(0) {
+				klog.V(1).Infof("Subcription %v/%v will de deploy after %v", hrsi.SubscriberItem.Subscription.GetNamespace(), hrsi.SubscriberItem.Subscription.GetName(), nextRun)
+				return
+			}
+		}
+
 		hrsi.doSubscription()
 	}, time.Duration(hrsi.syncinterval)*time.Second, hrsi.stopch)
 }
