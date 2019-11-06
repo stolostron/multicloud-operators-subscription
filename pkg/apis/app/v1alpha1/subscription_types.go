@@ -68,7 +68,6 @@ type Overrides struct {
 }
 
 // TimeWindow defines a time window for subscription to run or be blocked
-// +k8s:deepcopy-gen:interfaces
 type TimeWindow struct {
 	// if true/false, the subscription will only run or not run during this time window.
 	WindowType string `json:"windowtype,omitempty"`
