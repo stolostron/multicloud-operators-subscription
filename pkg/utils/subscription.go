@@ -26,6 +26,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -324,4 +325,24 @@ func FiltePackageOut(filter *appv1alpha1.PackageFilter, dpl *dplv1alpha1.Deploya
 	}
 
 	return !matched
+}
+
+//KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array
+func KeywordsChecker(labelSelector *metav1.LabelSelector, ks []string) bool {
+	ls := make(map[string]string)
+	for _, k := range ks {
+		ls[k] = "true"
+	}
+
+	return LabelsChecker(labelSelector, ls)
+}
+
+// LabelsChecker checks labels against a labelSelector
+func LabelsChecker(labelSelector *metav1.LabelSelector, ls map[string]string) bool {
+	clSelector, err := ConvertLabels(labelSelector)
+	if err != nil {
+		klog.Error("Failed to set label selector: ", labelSelector, " err:", err)
+	}
+
+	return clSelector.Matches(labels.Set(ls))
 }

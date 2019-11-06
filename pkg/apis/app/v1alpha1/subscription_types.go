@@ -26,8 +26,6 @@ import (
 )
 
 var (
-	// AnnotationRollingUpdateMaxUnavailable defines max un available clusters during rolling update
-	AnnotationRollingUpdateMaxUnavailable = SchemeGroupVersion.Group + "/rollingupdate-maxunavaialble"
 	// AnnotationRollingUpdateTarget target deployable to rolling update to
 	AnnotationRollingUpdateTarget = SchemeGroupVersion.Group + "/rollingupdate-target"
 	// AnnotationDeployables defines all deployables subscribed by the subscription

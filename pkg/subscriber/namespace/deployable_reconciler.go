@@ -265,7 +265,9 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	}
 
 	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {
-		template.SetNamespace(subitem.Subscription.Namespace)
+		if !subitem.clusterscoped || template.GetNamespace() == "" {
+			template.SetNamespace(subitem.Subscription.Namespace)
+		}
 	}
 
 	dpl.Spec.Template.Raw, err = json.Marshal(template)
