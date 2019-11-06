@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -32,7 +31,6 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 // DeployableReconciler reconciles a Deployable object of Nmespace channel
@@ -42,16 +40,6 @@ type DeployableReconciler struct {
 	client.Client
 	subscriber *Subscriber
 	itemkey    types.NamespacedName
-}
-
-type SubscriptionInfo struct {
-	SubItem *SubscriberItem
-	Clt     client.Client
-	Schema  *runtime.Scheme
-	Kvalid  *kubesynchronizer.Validator
-	DplSync *kubesynchronizer.KubeSynchronizer
-	HostKey types.NamespacedName
-	PkgMap  *map[string]bool
 }
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
@@ -170,15 +158,6 @@ func (r *DeployableReconciler) doSubscription() error {
 		klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	sh := SubscriptionInfo{
-		SubItem: subitem,
-		Clt:     r.Client,
-		Schema:  r.subscriber.scheme,
-		Kvalid:  kvalid,
-		DplSync: r.subscriber.synchronizer,
-		PkgMap:  &pkgMap,
-	}
-	secretflow.DeploySecretFromSubscribedNamespace(sh)
 	r.subscriber.synchronizer.ApplyValiadtor(kvalid)
 
 	return retryerr

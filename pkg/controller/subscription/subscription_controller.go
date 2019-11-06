@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -124,9 +125,24 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
+
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
 				_ = sub.UnsubscribeItem(request.NamespacedName)
+			}
+
+			objKind := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+			err := r.DeleteReferredObjects(request.NamespacedName, objKind)
+
+			if err != nil {
+				klog.Errorf("Had error %v while processing the referred secert", err)
+			}
+
+			objKind = schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+			err = r.DeleteReferredObjects(request.NamespacedName, objKind)
+
+			if err != nil {
+				klog.Errorf("Had error %v while processing the referred secert", err)
 			}
 
 			return reconcile.Result{}, nil
@@ -230,6 +246,27 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		if err != nil {
 			klog.Error("Failed to get configmap of channel, error: ", err)
 			return err
+		}
+	}
+
+	if subitem.Channel.Spec.SecretRef != nil {
+		obj := subitem.ChannelSecret
+
+		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+		err = r.ListAndDeployReferredObject(instance, gvk, obj)
+
+		if err != nil {
+			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
+		}
+	}
+
+	if subitem.Channel.Spec.ConfigMapRef != nil {
+		obj := subitem.ChannelConfigMap
+		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+		err = r.ListAndDeployReferredObject(instance, gvk, obj)
+
+		if err != nil {
+			klog.Errorf("Can't deploy referred secret %v for subscription %v", obj.GetName(), instance.GetName())
 		}
 	}
 
