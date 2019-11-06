@@ -334,7 +334,6 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 
 	subep.CreationTimestamp = metav1.Time{}
 	subep.Generation = 1
-	subep.Generation = 1
 	subep.SelfLink = ""
 
 	subepanno := make(map[string]string)
