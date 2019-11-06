@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package subscription
 
 import (
 	"sort"
@@ -52,6 +52,10 @@ func (r runDays) NextWeekdayToRun(t time.Time) time.Duration {
 	// if weekdays is sorted, we want the next day with is greater than the t.Weekday
 	// the weekdays is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
+
+	if r.Len() == 0 {
+		return time.Duration(0)
+	}
 	tc := t.Weekday()
 	sort.Sort(r)
 
@@ -102,15 +106,33 @@ func UnifyTimeZone(tw *appv1alpha1.TimeWindow, t time.Time) time.Time {
 	loc := getLoc(tw.Location)
 	return t.In(loc)
 }
+
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
-	// convert t and tw to UTC based on location
-	curTime := UnifyTimeZone(tw, t)
+	// convert current time to the location time defined within the timewindow
+	uniTime := UnifyTimeZone(tw, t)
+
+	// TODO validate the hour ranges, to avoid the end time is earlier than start time
+	vHr := validateHourRange(tw.Hours)
+	if len(vHr) == 0 {
+		return time.Duration(0)
+	}
 	// generate the duration for t
-	return GenerateNextPoint(tw, curTime)
+	return GenerateNextPoint(vHr, tw.Weekdays, uniTime)
 }
 
-func sortRangeByStartTime(tw *appv1alpha1.TimeWindow) RunHourRanges {
-	rh := RunHourRanges(tw.Hours)
+func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
+	h := RunHourRanges{}
+	for _, r := range rg {
+		s, e := parseTimeWithKitchenFormat(r.Start), parseTimeWithKitchenFormat(r.End)
+		if s.Before(e) {
+			h = append(h, r)
+		}
+	}
+	return h
+}
+
+func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
+	rh := twHr
 	sort.Sort(rh)
 	return rh
 }
@@ -119,13 +141,9 @@ func sortRangeByStartTime(tw *appv1alpha1.TimeWindow) RunHourRanges {
 // if current time is bigger than the last time point of the window, nextTime will be weekdays offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time slot start point or a 0(if current time is within a time window)
 
-func GenerateNextPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
-	if len(tw.Hours) == 0 {
-		return time.Duration(0)
-	}
-
-	slots := sortRangeByStartTime(tw)
-	timeByHour := parseTimeWithKitchenFormat(t.Format(time.Kitchen))
+func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, curTime time.Time) time.Duration {
+	slots := sortRangeByStartTime(vhours)
+	timeByHour := parseTimeWithKitchenFormat(curTime.Format(time.Kitchen))
 	// t is greater than todays window
 	// eg t is 11pm
 	// slots [1, 3 pm]
@@ -133,8 +151,8 @@ func GenerateNextPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	if lastSlot.Before(timeByHour) {
 
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
-		rdays := runDays(tw.Weekdays)
-		dayOffsets := rdays.NextWeekdayToRun(t)
+		rdays := runDays(wdays)
+		dayOffsets := rdays.NextWeekdayToRun(curTime)
 
 		// Hour difference is from curret day to midnight, then midnight to slot[0]
 		// Current time to the next day's midnight

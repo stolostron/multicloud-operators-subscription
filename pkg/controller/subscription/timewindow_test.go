@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package subscription
 
 import (
 	"testing"
@@ -95,8 +95,7 @@ func TestTimeWindow(t *testing.T) {
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-
-			got := GenerateNextPoint(tC.windows, tC.curTime)
+			got := NextStartPoint(tC.windows, tC.curTime)
 
 			if got != tC.want {
 				t.Errorf("wanted time.Duration %v, got %v", tC.want, got)
@@ -125,6 +124,13 @@ func TestNextWeekdayToRun(t *testing.T) {
 			// 6
 			t:      time.Date(2019, 11, 3, 14, 00, 00, 00, time.UTC),
 			wanted: time.Hour * 0 * 24,
+		},
+		{
+			desc: "",
+			rd:   []time.Weekday{},
+			// 6
+			t:      time.Date(2019, 11, 2, 14, 00, 00, 00, time.UTC),
+			wanted: time.Hour * 0,
 		},
 	}
 	for _, tC := range testCases {
