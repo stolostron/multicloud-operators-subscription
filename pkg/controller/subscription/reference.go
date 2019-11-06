@@ -69,7 +69,7 @@ func (r *ReconcileSubscription) ListAndDeployReferredObject(instance *appv1alpha
 	uObjList.SetGroupVersionKind(gvk)
 
 	opts := &client.ListOptions{Namespace: insNs}
-	err := r.Client.List(context.TODO(), opts, uObjList)
+	err := r.Client.List(context.TODO(), uObjList, opts)
 
 	if err != nil {
 		klog.Errorf("Failed to list referred objects with error %v ", err)
@@ -157,7 +157,7 @@ func (r *ReconcileSubscription) DeleteReferredObjects(rq types.NamespacedName, g
 
 	uObjList.SetGroupVersionKind(gvk)
 
-	err := r.Client.List(context.TODO(), opts, uObjList)
+	err := r.Client.List(context.TODO(), uObjList, opts)
 
 	if err != nil {
 		return err

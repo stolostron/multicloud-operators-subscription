@@ -92,17 +92,17 @@ func RunManager(sig <-chan struct{}) {
 
 	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
-		Name:      options.ClusterName,
-		Namespace: options.ClusterNamespace,
+		Name:      Options.ClusterName,
+		Namespace: Options.ClusterNamespace,
 	}
 
 	// generate config to hub cluster
 	hubconfig := mgr.GetConfig()
-	if options.HubConfigFilePathName != "" {
-		hubconfig, err = clientcmd.BuildConfigFromFlags("", options.HubConfigFilePathName)
+	if Options.HubConfigFilePathName != "" {
+		hubconfig, err = clientcmd.BuildConfigFromFlags("", Options.HubConfigFilePathName)
 
 		if err != nil {
-			klog.Error("Failed to build config to hub cluster with the pathname provided ", options.HubConfigFilePathName, " err:", err)
+			klog.Error("Failed to build config to hub cluster with the pathname provided ", Options.HubConfigFilePathName, " err:", err)
 			os.Exit(1)
 		}
 	}
@@ -116,13 +116,13 @@ func RunManager(sig <-chan struct{}) {
 	}
 
 	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, id, options.SyncInterval); err != nil {
+	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 		os.Exit(1)
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, id, options.SyncInterval); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 		os.Exit(1)
 	}
