@@ -106,9 +106,9 @@ func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 // if current time is bigger than the last time point of the window, nextTime will be weekdays offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time slot start point or a 0(if current time is within a time window)
 
-func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, curTime time.Time) time.Duration {
+func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, uniTime time.Time) time.Duration {
 	slots := sortRangeByStartTime(vhours)
-	timeByHour := parseTimeWithKitchenFormat(curTime.Format(time.Kitchen))
+	timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
 	// t is greater than todays window
 	// eg t is 11pm
 	// slots [1, 3 pm]
@@ -117,7 +117,7 @@ func GenerateNextPoint(vhours RunHourRanges, wdays []time.Weekday, curTime time.
 
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
 		rdays := runDays(wdays)
-		dayOffsets := rdays.NextWeekdayToRun(curTime)
+		dayOffsets := rdays.DurationToNextRunableWeekday(uniTime)
 
 		// Hour difference is from curret day to midnight, then midnight to slot[0]
 		// Current time to the next day's midnight
@@ -143,21 +143,28 @@ func (r runDays) Len() int           { return len(r) }
 func (r runDays) Less(i, j int) bool { return r[i] < r[j] }
 func (r runDays) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
-func (r runDays) NextWeekdayToRun(t time.Time) time.Duration {
+func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
 	// if weekdays is sorted, we want the next day with is greater than the t.Weekday
 	// the weekdays is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
 
 	if r.Len() == 0 {
+		// this mean you will wait for less than a day.
 		return time.Duration(0)
 	}
+
 	tc := t.Weekday()
+
 	sort.Sort(r)
 
 	var days int
 
+	//if the current weekday is later than the latest weekday in the time window,
+	//then we find the days left till first runable weekday
 	if tc > r[len(r)-1] {
-		days = 7 - int(tc) + int(r[0])
+		daysLeftOfThisWeek := 7 - int(tc)
+		mostRecentWeekday := int(r[0])
+		days = daysLeftOfThisWeek + mostRecentWeekday
 	} else {
 		for _, d := range r {
 			if tc < d {

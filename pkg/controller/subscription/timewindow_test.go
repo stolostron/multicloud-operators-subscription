@@ -21,7 +21,7 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-func TestTimeWindow(t *testing.T) {
+func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 	TZ, _ := time.LoadLocation("Local")
 	testCases := []struct {
 		desc    string
@@ -135,7 +135,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			got := tC.rd.NextWeekdayToRun(tC.t)
+			got := tC.rd.DurationToNextRunableWeekday(tC.t)
 			if got != tC.wanted {
 				t.Errorf("wanted %v, however got %v", tC.wanted, got)
 			}
