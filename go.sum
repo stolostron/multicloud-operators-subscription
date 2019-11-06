@@ -21,8 +21,8 @@ github.com/IBM/multicloud-operators-deployable v0.0.0-20191106030805-be79868c4e0
 github.com/IBM/multicloud-operators-deployable v0.0.0-20191106030805-be79868c4e0f/go.mod h1:9HTudFRHHpUxckF8X3ljVjtvLMbKJIebwLLyr5ak0+Q=
 github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99597f h1:oLZ1y6XfEcFYQNKrAJRx2g5VNdBLwBQI2aMEerREnNs=
 github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99597f/go.mod h1:7cCjoormsMG/S1lDlmCjqRs4uwjCdsj9m5AwZHKQ0PQ=
-github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106045205-0ac4512ef946 h1:yPo1oFW7KvoMEVBQJSYqLU8sAhgchb3gM+BumgNn+BA=
-github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106045205-0ac4512ef946/go.mod h1:X8NOupaiBal26j5PmyvOVST3RSViXb7R4luclLlQTwM=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106155505-7505f98ccabb h1:uu+abCeEfcbuWHO3wAZMGJHm3f7ycd/RNOA54l6zFC4=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106155505-7505f98ccabb/go.mod h1:KJfNoP7lqOC/uVh7z1oyz+EAdf+Iyqv29BG/JdaC7KU=
 github.com/JeffAshton/win_pdh v0.0.0-20161109143554-76bb4ee9f0ab/go.mod h1:3VYc5hodBMJ5+l/7J4xAyMeuM2PNuepvHlGs8yilUCA=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd h1:sjQovDkwrZp8u+gxLtPgKGjk5hCxuy2hrRejBTA9xFU=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
@@ -810,7 +810,6 @@ k8s.io/gengo v0.0.0-20190128074634-0689ccc1d7d6/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8
 k8s.io/gengo v0.0.0-20190327210449-e17681d19d3a/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/gengo v0.0.0-20191010091904-7fa3014cb28f/go.mod h1:ezvh/TsK7cY6rbqRK0oQQ8IAqLxYwwyPxAX1Pzy0ii0=
 k8s.io/heapster v1.2.0-beta.1/go.mod h1:h1uhptVXMwC8xtZBYsPXKVi8fpdlYkTs6k949KozGrM=
-k8s.io/helm v2.15.0+incompatible h1:smS03+jR1HOLTCZwHVi6PeUyjdYXuowt9aerZksCr+Y=
 k8s.io/helm v2.15.0+incompatible/go.mod h1:LZzlS4LQBHfciFOurYBFkCMTaZ0D1l+p0teMg7TSULI=
 k8s.io/helm v2.15.1+incompatible h1:NFrUrSX2Y+t4XYr5LA2H4rtWB2S9BDxE3DEkzkqQPRo=
 k8s.io/helm v2.15.1+incompatible/go.mod h1:LZzlS4LQBHfciFOurYBFkCMTaZ0D1l+p0teMg7TSULI=
