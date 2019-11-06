@@ -151,6 +151,17 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	tw := instance.Spec.TimeWindow
+
+	if tw != nil {
+		if tw.WindowType == "" || tw.WindowType == "active" {
+			nextRun := NextStartPoint(tw, time.Now())
+			if nextRun > time.Duration(0) {
+				return reconcile.Result{RequeueAfter: nextRun}, nil
+			}
+		}
+	}
+
 	pl := instance.Spec.Placement
 	if pl != nil && pl.Local != nil && *pl.Local {
 		err = r.doReconcile(instance)

@@ -69,20 +69,18 @@ type Overrides struct {
 
 // TimeWindow defines a time window for subscription to run or be blocked
 type TimeWindow struct {
-	// if true/false, the subscription will only run or not run during this time window.
+	// active time window or not, if timewindow is active, then deploy will only applies during these windows
 	WindowType string `json:"windowtype,omitempty"`
 	Location   string `json:"location,omitempty"`
-	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
+	// // weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
 	Weekdays []time.Weekday `json:"weekdays,omitempty"`
 	Hours    []HourRange    `json:"hours,omitempty"`
 }
 
+//Time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
 type HourRange struct {
-	//Kitchen format defined at https://golang.org/pkg/time/#pkg-constants
-	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
-	Start string `json:"start"`
-	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
-	End string `json:"end"`
+	Start string `json:"start,omitempty"`
+	End   string `json:"end,omitempty"`
 }
 
 // SubscriptionSpec defines the desired state of Subscription
