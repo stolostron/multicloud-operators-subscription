@@ -89,7 +89,7 @@ func TestSyncStart(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 10, nil)
@@ -112,7 +112,7 @@ func TestRegisterDeRegister(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
@@ -219,7 +219,7 @@ func TestCRDRegisterDeRegister(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
@@ -288,7 +288,7 @@ func TestDeleteExpired(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
@@ -328,7 +328,7 @@ func TestRestart(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{})
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
