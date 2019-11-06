@@ -101,6 +101,8 @@ var (
 	}
 )
 
+// used for referred rescource tests
+
 var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
 const timeout = time.Second * 2

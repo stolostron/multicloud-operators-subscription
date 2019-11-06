@@ -185,7 +185,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 
 		// adding secret reconciler
 
-		secretreconciler := &SecretRecondiler{
+		secretreconciler := &SecretReconciler{
 			Clt:        hubclient,
 			Subscriber: ns,
 			Itemkey:    itemkey,
@@ -213,8 +213,6 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 			klog.Error("Failed to watch deployable with error: ", err)
 			return err
 		}
-
-		//
 
 		nssubitem.stopch = make(chan struct{})
 
@@ -270,7 +268,7 @@ func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	return nil
 }
 
-// GetDefaultSubscriber - returns the defajlt namespace subscriber
+// GetDefaultSubscriber - returns the default namespace subscriber
 func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	if defaultSubscriber == nil {
 		return nil
