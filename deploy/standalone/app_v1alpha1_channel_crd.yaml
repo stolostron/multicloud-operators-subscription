@@ -67,9 +67,11 @@ spec:
               - Namespace
               - HelmRepo
               - ObjectBucket
+              - GitHub
               - namespace
               - helmrepo
               - objectbucket
+              - github
               type: string
           required:
           - type
