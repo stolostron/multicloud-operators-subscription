@@ -51,4 +51,6 @@ replace (
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20190918201353-5cc279503896
 )
 
+replace github.com/Masterminds/semver => github.com/Masterminds/semver v1.4.2
+
 go 1.13
