@@ -219,7 +219,7 @@ func (in SubscriptionClusterStatusMap) DeepCopy() SubscriptionClusterStatusMap {
 func (in *SubscriptionList) DeepCopyInto(out *SubscriptionList) {
 	*out = *in
 	out.TypeMeta = in.TypeMeta
-	out.ListMeta = in.ListMeta
+	in.ListMeta.DeepCopyInto(&out.ListMeta)
 	if in.Items != nil {
 		in, out := &in.Items, &out.Items
 		*out = make([]Subscription, len(*in))

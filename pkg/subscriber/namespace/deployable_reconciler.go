@@ -104,7 +104,7 @@ func (r *DeployableReconciler) doSubscription() error {
 		listOptions.LabelSelector = clSelector
 	}
 
-	err := r.List(context.TODO(), listOptions, dpllist)
+	err := r.List(context.TODO(), dpllist, listOptions)
 
 	klog.V(2).Info("Got ", len(dpllist.Items), " deployable list for process from namespace ", subNamespace, " with list option:", listOptions.LabelSelector)
 
