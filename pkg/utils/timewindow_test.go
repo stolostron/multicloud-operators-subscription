@@ -102,6 +102,48 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Minute*20 + time.Hour*38,
 		},
+		{
+			desc: "only weekdays is empty",
+			//this is sunday
+			curTime: "Sun Nov  3 09:30:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "8:30PM"},
+				},
+				Weekdays: []string{},
+				Location: "",
+			},
+			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
+			want: time.Hour * 1,
+		},
+		{
+			desc: "both empty hour and weekdays",
+			//this is sunday
+			curTime: "Sun Nov  3 09:30:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours:      []appv1alpha1.HourRange{},
+				Weekdays:   []string{},
+				Location:   "",
+			},
+			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
+			want: 0,
+		},
+		{
+			desc: "empty hours only",
+			//this is sunday
+			curTime: "Sun Nov  3 09:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours:      []appv1alpha1.HourRange{},
+				Weekdays:   []string{"Monday"},
+				Location:   "",
+			},
+			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
+			want: time.Hour * 15,
+		},
 	}
 
 	for _, tC := range testCases {

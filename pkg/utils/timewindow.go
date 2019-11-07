@@ -50,6 +50,11 @@ type RunHourRanges []appv1alpha1.HourRange
 // thie field is actually int
 type runDays []time.Weekday
 
+//NextStartPoint will map the container's time to the location time specified by user
+// then it will handle the window type as will the hour ange and weekdays
+// for hour range and weekdays, it will handle as the following
+// if hour range is empty and weekday is empty then retrun 0
+// if hour range is empty and weekday is not then return nextday durtion(here the window type will be considered again)
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	// convert current time to the location time defined within the timewindow
 	uniTime := UnifyTimeZone(tw, t)
@@ -58,9 +63,6 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	// valid hour ranges, meaning the each hour range's start time is earlier than the end time
 	// also there's no overlap between 2 ranges
 	vHr := validateHourRange(tw.Hours)
-	if len(vHr) == 0 {
-		return time.Duration(0)
-	}
 
 	rDays, rveDays := validateWeekDaysSlice(tw.Weekdays)
 
@@ -92,6 +94,10 @@ func getLoc(loc string) *time.Location {
 }
 
 func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
+	if len(rg) == 0 {
+		return rg
+	}
+
 	h := RunHourRanges{}
 
 	for _, r := range rg {
@@ -167,6 +173,16 @@ func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
 //slot start point or a 0(if current time is within a time window)
 func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) time.Duration {
+	if len(vhours) == 0 {
+		timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
+
+		if len(rdays) == 0 {
+			return rdays.DurationToNextRunableWeekday(uniTime)
+		}
+
+		return MIDNIGHT.Sub(timeByHour) + rdays.DurationToNextRunableWeekday(uniTime)
+	}
+
 	slots := sortRangeByStartTime(vhours)
 	timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
 	// t is greater than todays window
@@ -239,6 +255,10 @@ func MergeHourRanges(in RunHourRanges) RunHourRanges {
 }
 
 func ReverseRange(in RunHourRanges) RunHourRanges {
+	if len(in) == 0 {
+		return in
+	}
+
 	out := make(RunHourRanges, 0)
 
 	tmp := appv1alpha1.HourRange{}
