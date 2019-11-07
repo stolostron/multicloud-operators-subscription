@@ -7,6 +7,7 @@ require (
 	github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106155505-7505f98ccabb
 	github.com/aws/aws-sdk-go-v2 v0.15.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/docker/docker v0.7.3-0.20190409004836-2e1cfbca03da
 	github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
 	github.com/go-openapi/spec v0.19.0
 	github.com/onsi/gomega v1.5.0
@@ -14,6 +15,7 @@ require (
 	github.com/prometheus/common v0.4.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.3
+	github.com/stretchr/testify v1.3.0
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.2.2
@@ -50,5 +52,7 @@ replace (
 	k8s.io/metrics => k8s.io/metrics v0.0.0-20190918202012-3c1ca76f5bda
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.0.0-20190918201353-5cc279503896
 )
+
+replace github.com/Masterminds/semver => github.com/Masterminds/semver v1.4.2
 
 go 1.13

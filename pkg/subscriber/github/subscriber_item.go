@@ -58,8 +58,8 @@ import (
 const (
 	// UserID is key of GitHub user ID in secret
 	UserID = "user"
-	// Password is key of GitHub user password or personal token in secret
-	Password = "password"
+	// AccessToken is key of GitHub user password or personal token in secret
+	AccessToken = "accessToken"
 	// Path is the key of GitHub package filter config map
 	Path = "path"
 )
@@ -116,7 +116,10 @@ func (ghsi *SubscriberItem) Start() {
 			}
 		}
 
-		ghsi.doSubscription()
+		err := ghsi.doSubscription()
+		if err != nil {
+			klog.Error(err, "Subscription error.")
+		}
 	}, time.Duration(ghsi.syncinterval)*time.Second, ghsi.stopch)
 }
 
@@ -126,12 +129,12 @@ func (ghsi *SubscriberItem) Stop() {
 	close(ghsi.stopch)
 }
 
-func (ghsi *SubscriberItem) doSubscription() {
+func (ghsi *SubscriberItem) doSubscription() error {
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
 		klog.Error(err, "Unable to clone the git repo ", ghsi.Channel.Spec.PathName)
-		return
+		return err
 	}
 
 	if commitID != ghsi.commitID {
@@ -140,7 +143,7 @@ func (ghsi *SubscriberItem) doSubscription() {
 		err := ghsi.sortClonedGitRepo()
 		if err != nil {
 			klog.Error(err, "Unable to sort helm charts and kubernetes resources from the cloned git repo.")
-			return
+			return err
 		}
 
 		hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
@@ -168,13 +171,15 @@ func (ghsi *SubscriberItem) doSubscription() {
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe helm charts")
-			return
+			return err
 		}
 
 		ghsi.commitID = commitID
 	} else {
 		klog.V(4).Info("The commit ID is same as before. Skip processing the cloned repo")
 	}
+
+	return nil
 }
 
 func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
@@ -346,41 +351,41 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 		klog.V(4).Info("Name does matches: " + ghsi.Subscription.Spec.Package + "|" + rsc.GetName())
 	}
 
-	if !utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
-		errMsg = "Failed to pass label check on resource " + rsc.GetName()
-
-		return errMsg
-	}
-
-	if utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
-		klog.V(4).Info("Passed label check on resource " + rsc.GetName())
-	}
-
-	annotations := ghsi.Subscription.Spec.PackageFilter.Annotations
-	if annotations != nil {
-		klog.V(4).Info("checking annotations filter:", annotations)
-
-		rscanno := rsc.GetAnnotations()
-		if rscanno == nil {
-			rscanno = make(map[string]string)
-		}
-
-		matched := true
-
-		for k, v := range annotations {
-			if rscanno[k] != v {
-				klog.Info("Annotation filter does not match:", k, "|", v, "|", rscanno[k])
-
-				matched = false
-
-				break
-			}
-		}
-
-		if !matched {
-			errMsg = "Failed to pass annotation check to deployable " + rsc.GetName()
+	if ghsi.Subscription.Spec.PackageFilter != nil {
+		if utils.LabelChecker(ghsi.Subscription.Spec.PackageFilter.LabelSelector, rsc.GetLabels()) {
+			klog.V(4).Info("Passed label check on resource " + rsc.GetName())
+		} else {
+			errMsg = "Failed to pass label check on resource " + rsc.GetName()
 
 			return errMsg
+		}
+
+		annotations := ghsi.Subscription.Spec.PackageFilter.Annotations
+		if annotations != nil {
+			klog.V(4).Info("checking annotations filter:", annotations)
+
+			rscanno := rsc.GetAnnotations()
+			if rscanno == nil {
+				rscanno = make(map[string]string)
+			}
+
+			matched := true
+
+			for k, v := range annotations {
+				if rscanno[k] != v {
+					klog.Info("Annotation filter does not match:", k, "|", v, "|", rscanno[k])
+
+					matched = false
+
+					break
+				}
+			}
+
+			if !matched {
+				errMsg = "Failed to pass annotation check to deployable " + rsc.GetName()
+
+				return errMsg
+			}
 		}
 	}
 
@@ -515,7 +520,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.LocalClient, ghsi.Subscription, pkgMap) != nil {
 		err = ghsi.synchronizer.LocalClient.Get(context.TODO(), hostkey, ghsi.Subscription)
 		if err != nil {
-			klog.Error("Failed to get and subscription resource with error:", err)
+			klog.Error("Failed to get subscription resource with error:", err)
 		}
 
 		err = utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.LocalClient, ghsi.Subscription, pkgMap)
@@ -548,23 +553,29 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 
 		username := ""
-		password := ""
+		accessToken := ""
 
 		err = yaml.Unmarshal(secret.Data[UserID], &username)
 		if err != nil {
 			klog.Error(err, "Failed to unmarshal username from the secret.")
 			return "", err
+		} else if username == "" {
+			klog.Error(err, "Failed to get user from the secret.")
+			return "", errors.New("failed to get user from the secret")
 		}
 
-		err = yaml.Unmarshal(secret.Data[Password], &password)
+		err = yaml.Unmarshal(secret.Data[AccessToken], &accessToken)
 		if err != nil {
-			klog.Error(err, "Failed to unmarshal password from the secret.")
+			klog.Error(err, "Failed to unmarshal accessToken from the secret.")
 			return "", err
+		} else if accessToken == "" {
+			klog.Error(err, "Failed to get accressToken from the secret.")
+			return "", errors.New("failed to get accressToken from the secret")
 		}
 
 		options.Auth = &githttp.BasicAuth{
 			Username: username,
-			Password: password,
+			Password: accessToken,
 		}
 	}
 
