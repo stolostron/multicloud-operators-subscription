@@ -65,7 +65,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		return err
 	}
 
-	defaultSubscriber = CreateGitHubSubsriber(hubconfig, mgr.GetScheme(), mgr, sync, syncinterval)
+	defaultSubscriber = CreateGitHubSubscriber(hubconfig, mgr.GetScheme(), mgr, sync, syncinterval)
 	if defaultSubscriber == nil {
 		errmsg := "failed to create default namespace subscriber"
 
@@ -123,8 +123,8 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
 
-// CreateGitHubSubsriber - create github subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
-func CreateGitHubSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
+// CreateGitHubSubscriber - create github subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+func CreateGitHubSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
 	kubesync *kubesynchronizer.KubeSynchronizer, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
 		klog.Error("Can not create github subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
