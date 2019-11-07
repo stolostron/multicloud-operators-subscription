@@ -102,7 +102,12 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 
 	for _, r := range rg {
 		s, e := parseTimeWithKitchenFormat(r.Start), parseTimeWithKitchenFormat(r.End)
+		klog.V(5).Infof("start time paresed as %v, end time %v", s.Format(time.Kitchen), e.Format(time.Kitchen))
+
 		if s.Before(e) {
+			h = append(h, r)
+		} else {
+			r.Start, r.End = r.End, r.Start
 			h = append(h, r)
 		}
 	}
