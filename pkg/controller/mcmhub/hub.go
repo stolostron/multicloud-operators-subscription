@@ -489,7 +489,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		dplListOptions.LabelSelector = clSelector
 	}
 
-	err := r.Client.List(context.TODO(), dplListOptions, dplList)
+	err := r.Client.List(context.TODO(), dplList, dplListOptions)
 
 	if err != nil {
 		klog.Error("Failed to list objects from sbuscription namespace ", sub.Namespace, " err: ", err)
