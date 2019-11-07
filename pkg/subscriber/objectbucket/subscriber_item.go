@@ -65,12 +65,13 @@ func (obsi *SubscriberItem) Start() {
 	obsi.stopch = make(chan struct{})
 
 	go wait.Until(func() {
-
 		tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
 		if tw != nil {
 			nextRun := utils.NextStartPoint(tw, time.Now())
 			if nextRun > time.Duration(0) {
-				klog.V(1).Infof("Subcription %v/%v will de deploy after %v", obsi.SubscriberItem.Subscription.GetNamespace(), obsi.SubscriberItem.Subscription.GetName(), nextRun)
+				klog.V(1).Infof("Subcription %v/%v will de deploy after %v",
+					obsi.SubscriberItem.Subscription.GetNamespace(),
+					obsi.SubscriberItem.Subscription.GetName(), nextRun)
 				return
 			}
 		}

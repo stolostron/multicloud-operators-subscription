@@ -19,8 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
 type versionTest struct {
@@ -55,7 +56,6 @@ func TestSemverCheck(t *testing.T) {
 		if SemverCheck(test.vsub, test.vdpl) != test.result {
 			t.Errorf("vSub %v, vDpl %v, expecting %v", test.vsub, test.vdpl, test.result)
 		}
-
 	}
 }
 
@@ -166,5 +166,4 @@ func TestGenerateVersionSet(t *testing.T) {
 			}
 		})
 	}
-
 }

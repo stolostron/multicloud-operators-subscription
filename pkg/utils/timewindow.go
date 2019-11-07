@@ -19,8 +19,9 @@ import (
 	"strings"
 	"time"
 
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"k8s.io/klog"
+
+	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 // TimeWindow defines a time window for subscription to run or be blocked
@@ -41,8 +42,8 @@ import (
 // 	End string `json:"end"`
 // }
 
-var CURDAY = time.Date(0000, 1, 1, 0, 0, 0, 0, time.UTC)
-var MIDNIGHT = time.Date(0000, 1, 2, 0, 0, 0, 0, time.UTC)
+var CURDAY, _ = time.Parse(time.UnixDate, "Sat Jan  1 00:00:00 UTC 0000")
+var MIDNIGHT, _ = time.Parse(time.UnixDate, "Sun Jan  2 00:00:00 UTC 0000")
 
 type RunHourRanges []appv1alpha1.HourRange
 
@@ -54,7 +55,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	uniTime := UnifyTimeZone(tw, t)
 	klog.V(5).Infof("Time window checking at %v", uniTime.String())
 
-	// valid hour ranges, meaning the each hour range's start tiem is earlier than the end time
+	// valid hour ranges, meaning the each hour range's start time is earlier than the end time
 	// also there's no overlap between 2 ranges
 	vHr := validateHourRange(tw.Hours)
 	if len(vHr) == 0 {
@@ -83,13 +84,16 @@ func getLoc(loc string) *time.Location {
 	if err != nil {
 		local, err := time.LoadLocation("Local")
 		klog.Errorf("Error %v while parsing the location string %v, will use the current loc %v ", err, loc, local)
+
 		return local
 	}
+
 	return l
 }
 
 func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 	h := RunHourRanges{}
+
 	for _, r := range rg {
 		s, e := parseTimeWithKitchenFormat(r.Start), parseTimeWithKitchenFormat(r.End)
 		if s.Before(e) {
@@ -98,6 +102,7 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 	}
 
 	h = MergeHourRanges(h)
+
 	return h
 }
 
@@ -118,6 +123,7 @@ func validateWeekDaysSlice(wds []string) (runDays, runDays) {
 
 	for _, wd := range wds {
 		wd = strings.ToLower(wd)
+
 		if v, ok := weekdayMap[wd]; ok {
 			if _, ok := found[wd]; !ok {
 				vwds = append(vwds, time.Weekday(v))
@@ -127,6 +133,7 @@ func validateWeekDaysSlice(wds []string) (runDays, runDays) {
 	}
 
 	rwds := make(runDays, 0)
+
 	for k, v := range weekdayMap {
 		if _, ok := found[k]; !ok {
 			rwds = append(rwds, time.Weekday(v))
@@ -141,14 +148,17 @@ func parseTimeWithKitchenFormat(tstr string) time.Time {
 	if err != nil {
 		curTime := time.Now().Local()
 		klog.Errorf("Error: %v, while parsing time string %v with the time.Kitchen format, will use the current time %v instead", err, tstr, curTime.String())
+
 		return curTime
 	}
+
 	return t
 }
 
 func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 	rh := twHr
 	sort.Sort(rh)
+
 	return rh
 }
 
@@ -163,9 +173,8 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 	// eg t is 11pm
 	// slots [1, 3 pm]
 	lastSlot := parseTimeWithKitchenFormat(slots[len(slots)-1].End)
-	// fmt.Println(lastSlot.String())
-	if lastSlot.Before(timeByHour) {
 
+	if lastSlot.Before(timeByHour) {
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
 		dayOffsets := rdays.DurationToNextRunableWeekday(uniTime)
 
@@ -184,13 +193,14 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 		} else {
 			slotEnd = parseTimeWithKitchenFormat(slot.End)
 		}
-		// fmt.Println(slotStart.String(), slotEnd.String())
+
 		if timeByHour.Sub(slotStart) < 0 {
 			return slotStart.Sub(timeByHour)
 		} else if timeByHour.Sub(slotStart) > 0 && timeByHour.Sub(slotEnd) < 0 {
 			return time.Duration(0)
 		}
 	}
+
 	return time.Duration(-1)
 }
 
@@ -198,6 +208,7 @@ func MaxHour(a, b string) string {
 	if parseTimeWithKitchenFormat(a).Before(parseTimeWithKitchenFormat(b)) {
 		return b
 	}
+
 	return a
 }
 
@@ -205,8 +216,10 @@ func MergeHourRanges(in RunHourRanges) RunHourRanges {
 	if len(in) < 2 {
 		return in
 	}
+
 	out := make(RunHourRanges, 0)
 	out = append(out, in[0])
+
 	for i := 1; i < len(in); i++ {
 		l := out[len(out)-1]
 		r := in[i]
@@ -218,8 +231,10 @@ func MergeHourRanges(in RunHourRanges) RunHourRanges {
 		} else {
 			out = append(out, in[i])
 		}
+
 		l = out[len(out)-1]
 	}
+
 	return out
 }
 
@@ -235,6 +250,7 @@ func ReverseRange(in RunHourRanges) RunHourRanges {
 		tmp.Start = in[0].End
 		tmp.End = MIDNIGHT.Format(time.Kitchen)
 		out = append(out, tmp)
+
 		return out
 	}
 
@@ -261,7 +277,6 @@ func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
 	// if weekdays is sorted, we want the next day with is greater than the t.Weekday
 	// the weekdays is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
-
 	if r.Len() == 0 {
 		// this mean you will wait for less than a day.
 		return time.Duration(0)
@@ -295,6 +310,7 @@ func (rh RunHourRanges) Len() int { return len(rh) }
 func (rh RunHourRanges) Less(i, j int) bool {
 	s := parseTimeWithKitchenFormat(rh[i].Start)
 	e := parseTimeWithKitchenFormat(rh[j].Start)
+
 	return e.After(s)
 }
 func (rh RunHourRanges) Swap(i, j int) { rh[i], rh[j] = rh[j], rh[i] }
