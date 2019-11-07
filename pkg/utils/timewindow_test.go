@@ -15,7 +15,7 @@
 package utils
 
 import (
-	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -30,7 +30,6 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 		windows *appv1alpha1.TimeWindow
 		want    time.Duration
 	}{
-
 		{
 			desc:    "the time is within the time windows",
 			curTime: time.Date(2019, 11, 3, 10, 40, 00, 00, TZ),
@@ -45,7 +44,6 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Duration(0),
 		},
-
 		{
 			desc:    "the time is within the time windows",
 			curTime: time.Date(2019, 11, 3, 9, 40, 00, 00, TZ),
@@ -60,23 +58,20 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Duration(time.Minute * 50),
 		},
-
 		{
-			desc: "the time out of the range, need to offset by day",
-			// weekday == 0
-			curTime: time.Date(2019, 11, 3, 14, 25, 00, 00, TZ),
+			desc:    "the time is within the time windows, with location",
+			curTime: time.Date(2019, 11, 3, 9, 40, 00, 00, TZ),
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
 				Hours: []appv1alpha1.HourRange{
 					{Start: "10:30AM", End: "11:30AM"},
-					{Start: "12:30PM", End: "1:30PM"},
+					{Start: "12:30PM", End: "8:30PM"},
 				},
 				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Location: "America/Toronto",
 			},
-			want: time.Duration(20*time.Hour) + time.Duration(5*time.Minute),
+			want: time.Duration(time.Minute*50) + time.Duration(time.Hour*5),
 		},
-
 		{
 			desc: "the time out of the range, need to offset by day",
 			// weekday == 6
@@ -92,15 +87,150 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Duration(44*time.Hour) + time.Duration(9*time.Minute),
 		},
+		{
+			desc: "the time is within the time windows",
+			//this is sunday
+			curTime: time.Date(2019, 11, 3, 9, 40, 00, 00, TZ),
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "8:30PM"},
+				},
+				Weekdays: []string{"Sunday", "monday", "friday"},
+				Location: "",
+			},
+			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
+			want: time.Duration(time.Minute*20) + time.Duration(time.Hour*38),
+		},
 	}
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			fmt.Println(tC.curTime.String())
 			got := NextStartPoint(tC.windows, tC.curTime)
 
 			if got != tC.want {
 				t.Errorf("wanted time.Duration %v, got %v", tC.want, got)
+			}
+		})
+	}
+}
+
+func TestMergeHourRanges(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		rg     RunHourRanges
+		wanted RunHourRanges
+	}{
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "12:30PM", End: "1:30PM"},
+			},
+
+			wanted: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "12:30PM", End: "1:30PM"},
+			},
+		},
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "11:10AM", End: "1:30PM"},
+			},
+
+			wanted: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "1:30PM"},
+			},
+		},
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "11:30AM", End: "1:30PM"},
+			},
+
+			wanted: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "1:30PM"},
+			},
+		},
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "11:40AM", End: "5:30PM"},
+				{Start: "12:40AM", End: "4:30PM"},
+			},
+			wanted: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "11:40AM", End: "5:30PM"},
+			},
+		},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := MergeHourRanges(tC.rg)
+			if !isEqualRanges(got, tC.wanted) {
+				t.Errorf("wanted %v got %v", tC.wanted, got)
+			}
+		})
+	}
+}
+
+func isEqualRanges(a, b RunHourRanges) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := 0; i < len(a); i++ {
+		if a[i].Start != b[i].Start {
+			return false
+		}
+		if a[i].End != b[i].End {
+			return false
+		}
+	}
+	return true
+}
+
+func TestReverseRange(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		rg     RunHourRanges
+		wanted RunHourRanges
+	}{
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+				{Start: "11:40AM", End: "4:30PM"},
+			},
+			wanted: []appv1alpha1.HourRange{
+				{Start: "12:00AM", End: "10:30AM"},
+				{Start: "11:30AM", End: "11:40AM"},
+				{Start: "4:30PM", End: "12:00AM"},
+			},
+		},
+
+		{
+			desc: "",
+			rg: []appv1alpha1.HourRange{
+				{Start: "10:30AM", End: "11:30AM"},
+			},
+			wanted: []appv1alpha1.HourRange{
+				{Start: "12:00AM", End: "10:30AM"},
+				{Start: "11:30AM", End: "12:00AM"},
+			},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := ReverseRange(tC.rg)
+			if !reflect.DeepEqual(got, tC.wanted) {
+				t.Errorf("got %v, want %v", got, tC.wanted)
 			}
 		})
 	}
@@ -145,60 +275,32 @@ func TestNextWeekdayToRun(t *testing.T) {
 	}
 }
 
-// func TestParseTimeWithKicFormat(t *testing.T) {
-// 	testCases := []struct {
-// 		desc   string
-// 		tstr   string
-// 		wanted time.Time
-// 	}{
-// 		{
-// 			desc:   "legal format parsed to UTC",
-// 			tstr:   "10:30AM",
-// 			wanted: time.Now(),
-// 		},
-// 		{
-// 			desc:   "illegal format",
-// 			tstr:   "10:30am",
-// 			wanted: time.Now(),
-// 		},
-// 	}
+func TestParseTimeWithKicFormat(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		tstr   string
+		wanted time.Time
+	}{
+		{
+			desc:   "legal format parsed to UTC",
+			tstr:   "10:30AM",
+			wanted: time.Date(0000, 1, 1, 10, 30, 00, 00, time.UTC),
+		},
+		{
+			desc:   "illegal format",
+			tstr:   "10:30am",
+			wanted: time.Now().Local(),
+		},
+	}
 
-// 	for _, tC := range testCases {
-// 		t.Run(tC.desc, func(t *testing.T) {
-// 			pTime := parseTimeWithKitchenFormat(tC.tstr)
-// 			t.Errorf("time string %v is parsed to %v ", tC.tstr, pTime.String())
-// 			if pTime == tC.wanted {
-// 				t.Errorf("time string %v is parsed to %v ", tC.tstr, pTime.String())
-// 			}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			pTime := parseTimeWithKitchenFormat(tC.tstr)
+			p, g := pTime.Format(time.Kitchen), tC.wanted.Format(time.Kitchen)
+			if p != g {
+				t.Errorf("parsed time %v, wanted %v", pTime.String(), tC.wanted.String())
+			}
 
-// 		})
-// 	}
-// }
-
-// func TestRangeSort(t *testing.T) {
-// 	testCases := []struct {
-// 		desc     string
-// 		before   bool
-// 		hR       RunHourRanges
-// 		isSorted bool
-// 	}{
-// 		{
-// 			desc: "testing RangeHourRanges",
-// 			hR: RunHourRanges{
-// 				HourRange{Start: "10:30AM", End: "11:30AM"},
-// 				HourRange{Start: "12:30PM", End: "1:30PM"},
-// 				HourRange{Start: "9:30AM", End: "9:45AM"},
-// 			},
-// 			isSorted: true,
-// 		},
-// 	}
-// 	for _, tC := range testCases {
-// 		t.Run(tC.desc, func(t *testing.T) {
-// 			sort.Sort(tC.hR)
-// 			got := sort.IsSorted(tC.hR)
-// 			if got != tC.isSorted {
-// 				t.Errorf("sorted hour ranges %v ", tC.hR)
-// 			}
-// 		})
-// 	}
-// }
+		})
+	}
+}

@@ -15,7 +15,6 @@
 package utils
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -55,20 +54,21 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	uniTime := UnifyTimeZone(tw, t)
 	klog.V(5).Infof("Time window checking at %v", uniTime.String())
 
-	if tw.WindowType != "" && tw.WindowType != "active" {
-		// reverse week days
-		// reverse slots
-		// then call on GenerateNextPoint
-		return time.Duration(0)
-	}
-
-	// TODO validate the hour ranges, to avoid the end time is earlier than start time
+	// valid hour ranges, meaning the each hour range's start tiem is earlier than the end time
+	// also there's no overlap between 2 ranges
 	vHr := validateHourRange(tw.Hours)
 	if len(vHr) == 0 {
 		return time.Duration(0)
 	}
 
-	rDays := validateWeekDaysSlice(tw.Weekdays)
+	rDays, rveDays := validateWeekDaysSlice(tw.Weekdays)
+
+	if tw.WindowType != "" && tw.WindowType != "active" {
+		// reverse slots
+		rvevHr := ReverseRange(vHr)
+		return GenerateNextPoint(rvevHr, rveDays, uniTime)
+	}
+
 	// generate the duration for t
 	return GenerateNextPoint(vHr, rDays, uniTime)
 }
@@ -81,8 +81,8 @@ func UnifyTimeZone(tw *appv1alpha1.TimeWindow, t time.Time) time.Time {
 func getLoc(loc string) *time.Location {
 	l, err := time.LoadLocation(loc)
 	if err != nil {
-		local, _ := time.LoadLocation("Local")
-		klog.Errorf("Failded to parse the location string %v, will use the current loc %v ", loc, local)
+		local, err := time.LoadLocation("Local")
+		klog.Errorf("Error %v while parsing the location string %v, will use the current loc %v ", err, loc, local)
 		return local
 	}
 	return l
@@ -96,10 +96,12 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 			h = append(h, r)
 		}
 	}
+
+	h = MergeHourRanges(h)
 	return h
 }
 
-func validateWeekDaysSlice(wds []string) runDays {
+func validateWeekDaysSlice(wds []string) (runDays, runDays) {
 	vwds := runDays{}
 
 	weekdayMap := map[string]int{
@@ -119,18 +121,27 @@ func validateWeekDaysSlice(wds []string) runDays {
 		if v, ok := weekdayMap[wd]; ok {
 			if _, ok := found[wd]; !ok {
 				vwds = append(vwds, time.Weekday(v))
+				found[wd] = true
 			}
 		}
 	}
 
-	return vwds
+	rwds := make(runDays, 0)
+	for k, v := range weekdayMap {
+		if _, ok := found[k]; !ok {
+			rwds = append(rwds, time.Weekday(v))
+		}
+	}
+
+	return vwds, rwds
 }
 
 func parseTimeWithKitchenFormat(tstr string) time.Time {
 	t, err := time.Parse(time.Kitchen, tstr)
 	if err != nil {
-		klog.Errorf("Can't parse time string %v with the time.Kitchen format %v, will use the current time instead ", tstr, time.Kitchen)
-		return time.Now().UTC()
+		curTime := time.Now().Local()
+		klog.Errorf("Error: %v, while parsing time string %v with the time.Kitchen format, will use the current time %v instead", err, tstr, curTime.String())
+		return curTime
 	}
 	return t
 }
@@ -143,8 +154,8 @@ func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 
 // next time will be:
 // if current time is bigger than the last time point of the window, nextTime will be weekdays offset + the hour offset
-// if current time is smaller than the lastSlot time point, nextTime will be a duration till next time slot start point or a 0(if current time is within a time window)
-
+// if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
+//slot start point or a 0(if current time is within a time window)
 func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) time.Duration {
 	slots := sortRangeByStartTime(vhours)
 	timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
@@ -152,7 +163,7 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 	// eg t is 11pm
 	// slots [1, 3 pm]
 	lastSlot := parseTimeWithKitchenFormat(slots[len(slots)-1].End)
-	fmt.Println(lastSlot.String())
+	// fmt.Println(lastSlot.String())
 	if lastSlot.Before(timeByHour) {
 
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
@@ -165,15 +176,79 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 
 	// t is at time range
 	for _, slot := range slots {
-		slotStart, slotEnd := parseTimeWithKitchenFormat(slot.Start), parseTimeWithKitchenFormat(slot.End)
-		fmt.Println(slotStart.String(), slotEnd.String())
-		if timeByHour.Before(slotStart) {
+		slotStart := parseTimeWithKitchenFormat(slot.Start)
+
+		var slotEnd time.Time
+		if slot.End == "12:00AM" {
+			slotEnd = MIDNIGHT
+		} else {
+			slotEnd = parseTimeWithKitchenFormat(slot.End)
+		}
+		// fmt.Println(slotStart.String(), slotEnd.String())
+		if timeByHour.Sub(slotStart) < 0 {
 			return slotStart.Sub(timeByHour)
-		} else if timeByHour.After(slotStart) && timeByHour.Before(slotEnd) {
+		} else if timeByHour.Sub(slotStart) > 0 && timeByHour.Sub(slotEnd) < 0 {
 			return time.Duration(0)
 		}
 	}
 	return time.Duration(-1)
+}
+
+func MaxHour(a, b string) string {
+	if parseTimeWithKitchenFormat(a).Before(parseTimeWithKitchenFormat(b)) {
+		return b
+	}
+	return a
+}
+
+func MergeHourRanges(in RunHourRanges) RunHourRanges {
+	if len(in) < 2 {
+		return in
+	}
+	out := make(RunHourRanges, 0)
+	out = append(out, in[0])
+	for i := 1; i < len(in); i++ {
+		l := out[len(out)-1]
+		r := in[i]
+
+		e, s := parseTimeWithKitchenFormat(l.End), parseTimeWithKitchenFormat(r.Start)
+		if e.Sub(s) >= 0 {
+			m := MaxHour(l.End, r.End)
+			out[len(out)-1].End = m
+		} else {
+			out = append(out, in[i])
+		}
+		l = out[len(out)-1]
+	}
+	return out
+}
+
+func ReverseRange(in RunHourRanges) RunHourRanges {
+	out := make(RunHourRanges, 0)
+
+	tmp := appv1alpha1.HourRange{}
+	tmp.Start = CURDAY.Format(time.Kitchen)
+	tmp.End = in[0].Start
+	out = append(out, tmp)
+
+	if len(in) == 1 {
+		tmp.Start = in[0].End
+		tmp.End = MIDNIGHT.Format(time.Kitchen)
+		out = append(out, tmp)
+		return out
+	}
+
+	for i := 0; i < len(in)-1; i++ {
+		tmp.Start = in[i].End
+		tmp.End = in[i+1].Start
+		out = append(out, tmp)
+	}
+
+	tmp.Start = in[len(in)-1].End
+	tmp.End = MIDNIGHT.Format(time.Kitchen)
+	out = append(out, tmp)
+
+	return out
 }
 
 // type runDays []time.Weekday
