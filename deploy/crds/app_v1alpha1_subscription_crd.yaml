@@ -264,6 +264,7 @@ spec:
                     type: object
                   type: array
                 location:
+                  description: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
                   type: string
                 weekdays:
                   description: weekdays defined the day of the week for this time

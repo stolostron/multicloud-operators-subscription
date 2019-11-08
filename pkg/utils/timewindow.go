@@ -24,24 +24,6 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-// TimeWindow defines a time window for subscription to run or be blocked
-// type TimeWindow struct {
-// 	// if true/false, the subscription will only run or not run during this time window.
-// 	WindowType string `json:"windowtype,omitempty"`
-// 	Location   string `json:"location,omitempty"`
-// 	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
-// 	Weekdays []time.Weekday `json:"weekdays,omitempty"`
-// 	Hours    []HourRange    `json:"hours,omitempty"`
-// }
-
-// type HourRange struct {
-// 	//Kitchen format defined at https://golang.org/pkg/time/#pkg-constants
-// 	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
-// 	Start string `json:"start"`
-// 	// +kubebuilder:validation:Pattern=([0-1][0-9])\:([0-5][0-9])([A|P]+)[M]
-// 	End string `json:"end"`
-// }
-
 var CURDAY, _ = time.Parse(time.UnixDate, "Sat Jan  1 00:00:00 UTC 0000")
 var MIDNIGHT, _ = time.Parse(time.UnixDate, "Sun Jan  2 00:00:00 UTC 0000")
 

@@ -50,7 +50,6 @@ import (
 	releasev1alpha1 "github.com/IBM/multicloud-operators-subscription-release/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 
-	// subctrl "github.com/IBM/multicloud-operators-subscription/pkg/controller/subscription"
 	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
