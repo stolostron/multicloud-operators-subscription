@@ -44,7 +44,7 @@ In this example, we are going to create a channel that connects to a public IBM 
 
 ## Subscribing to a Helm chart from an enterprise GitHub repository requiring authentication
 
-In the previous example, the GitHub repository that the channel connects is a public repository so it does not require authentication. If a GitHub repository requires authentication, you need to associate a channel with a kubernetes secret. Currently the `channel` and `subscription` supports only basic authentication.
+In the previous example, the GitHub repository that the channel connects is a public repository so it does not require authentication. If a GitHub repository requires authentication, you need to associate a channel with a kubernetes secret. Currently the `channel` and `subscription` supports only basic authentication. Set `user` with a GitHub user ID and `accessToken` with a GitHub personal access token.
 
 ```yaml
 apiVersion: v1
@@ -54,7 +54,7 @@ metadata:
   namespace: ibmcharts
 data:
   user: dXNlcgo=
-  password: cGFzc3dvcmQK
+  accessToken: cGFzc3dvcmQK
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: Channel
