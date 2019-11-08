@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
@@ -61,6 +62,15 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		klog.Infof("Entering: %v()\n request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
 
 		defer klog.Infof("Exiting: %v()\n request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
+	}
+
+	tw := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.TimeWindow
+	if tw != nil {
+		nextRun := utils.NextStartPoint(tw, time.Now())
+		if nextRun > time.Duration(0) {
+			klog.V(1).Infof("Subcription %v will run after %v", request.NamespacedName.String(), nextRun)
+			return reconcile.Result{RequeueAfter: nextRun}, nil
+		}
 	}
 
 	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)

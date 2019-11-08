@@ -25,7 +25,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/kuanf/multicloud-operators-subscription/pkg/apis/app/v1alpha1.Subscription": schema_pkg_apis_app_v1alpha1_Subscription(ref),
+		"github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1.Subscription": schema_pkg_apis_app_v1alpha1_Subscription(ref),
 	}
 }
 
@@ -34,6 +34,7 @@ func schema_pkg_apis_app_v1alpha1_Subscription(ref common.ReferenceCallback) com
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "Subscription is the Schema for the subscriptions API",
+				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"kind": {
 						SchemaProps: spec.SchemaProps{
@@ -56,18 +57,18 @@ func schema_pkg_apis_app_v1alpha1_Subscription(ref common.ReferenceCallback) com
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kuanf/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionSpec"),
+							Ref: ref("github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/kuanf/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionStatus"),
+							Ref: ref("github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/kuanf/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionSpec", "github.com/kuanf/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionSpec", "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1.SubscriptionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
