@@ -17,7 +17,7 @@ spec:
     listKind: SubscriptionList
     plural: subscriptions
     singular: subscription
-  scope: ""
+  scope: Namespaced
   subresources:
     status: {}
   validation:
