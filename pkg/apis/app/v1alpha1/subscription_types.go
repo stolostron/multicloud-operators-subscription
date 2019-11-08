@@ -65,6 +65,23 @@ type Overrides struct {
 	PackageOverrides []PackageOverride `json:"packageOverrides"` // To be added
 }
 
+// TimeWindow defines a time window for subscription to run or be blocked
+type TimeWindow struct {
+	// active time window or not, if timewindow is active, then deploy will only applies during these windows
+	WindowType string `json:"windowtype,omitempty"`
+	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+	Location string `json:"location,omitempty"`
+	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
+	Weekdays []string    `json:"weekdays,omitempty"`
+	Hours    []HourRange `json:"hours,omitempty"`
+}
+
+//Time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
+type HourRange struct {
+	Start string `json:"start,omitempty"`
+	End   string `json:"end,omitempty"`
+}
+
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
@@ -78,6 +95,8 @@ type SubscriptionSpec struct {
 	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
 	// for hub use only to specify the overrides when apply to clusters
 	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
+	// help user control when the subscription will take affect
+	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription
@@ -155,6 +174,7 @@ type SubscriptionStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="subscription status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:scope=Namespaced
 type Subscription struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

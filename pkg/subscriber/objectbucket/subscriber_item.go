@@ -33,6 +33,7 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/IBM/multicloud-operators-subscription/pkg/utils/aws"
 )
@@ -64,6 +65,17 @@ func (obsi *SubscriberItem) Start() {
 	obsi.stopch = make(chan struct{})
 
 	go wait.Until(func() {
+		tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
+		if tw != nil {
+			nextRun := utils.NextStartPoint(tw, time.Now())
+			if nextRun > time.Duration(0) {
+				klog.V(1).Infof("Subcription %v/%v will de deploy after %v",
+					obsi.SubscriberItem.Subscription.GetNamespace(),
+					obsi.SubscriberItem.Subscription.GetName(), nextRun)
+				return
+			}
+		}
+
 		err := obsi.doSubscription()
 
 		if err != nil {
