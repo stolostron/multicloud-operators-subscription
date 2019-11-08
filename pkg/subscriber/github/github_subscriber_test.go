@@ -68,7 +68,7 @@ metadata:
     need: this
   labels:
     environment: dev
-	city: Toronto`
+    city: Toronto`
 
 const correctSecret = `apiVersion: v1
 kind: Secret
@@ -138,10 +138,10 @@ func TestGitHubSubscriber(t *testing.T) {
 	c = mgr.GetClient()
 
 	err = c.Create(context.TODO(), githubchn)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = c.Create(context.TODO(), githubsub)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
@@ -167,7 +167,7 @@ func TestResourceLableSelector(t *testing.T) {
 
 	rsc := &unstructured.Unstructured{}
 	err := yaml.Unmarshal([]byte(rsc1), &rsc)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test kube resource with no package filter
 	errMsg := subitem.checkFilters(rsc)
@@ -255,7 +255,7 @@ func TestSubscribeInvalidResource(t *testing.T) {
 
 	// Test subscribing an invalid kubernetes resource
 	_, _, err = subitem.subscribeResource([]byte(invalidRsc), pkgMap)
-	assert.Error(t, err)
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 func TestCloneGitRepo(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -281,15 +281,15 @@ func TestCloneGitRepo(t *testing.T) {
 	subitem.synchronizer = defaultSubscriber.synchronizer
 	commitid, err := subitem.cloneGitRepo()
 	g.Expect(commitid).ToNot(gomega.Equal(""))
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test with a fake authentication secret but correct data keys in the secret
 	chnSecret := &corev1.Secret{}
 	err = yaml.Unmarshal([]byte(correctSecret), &chnSecret)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = c.Create(context.TODO(), chnSecret)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	secretRef := &corev1.ObjectReference{}
 	secretRef.Name = "correct-secret"
@@ -298,18 +298,260 @@ func TestCloneGitRepo(t *testing.T) {
 	_, err = subitem.cloneGitRepo()
 	g.Expect(err.Error()).To(gomega.Equal("authentication required"))
 
+	noUserKey := make(map[string][]byte)
+	chnSecret.Data = noUserKey
+	err = c.Update(context.TODO(), chnSecret)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	_, err = subitem.cloneGitRepo()
+	g.Expect(err.Error()).To(gomega.Equal("failed to get user from the secret"))
+
 	err = c.Delete(context.TODO(), chnSecret)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test with a fake authentication secret but correct data keys in the secret
 	chnSecret = &corev1.Secret{}
 	err = yaml.Unmarshal([]byte(incorrectSecret), &chnSecret)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = c.Create(context.TODO(), chnSecret)
-	assert.NoError(t, err)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	secretRef.Name = "incorrect-secret"
 	_, err = subitem.cloneGitRepo()
 	g.Expect(err.Error()).To(gomega.Equal("failed to get accressToken from the secret"))
+
+	githubchn.Spec.SecretRef = nil
+}
+
+func TestSubscriptionWithRepoPath(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	pathConfigMapYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-config-map
+  namespace: default
+data:
+  path: test/github/resources/deploy/crds`
+
+	pathConfigMap := &corev1.ConfigMap{}
+	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	filterRef := &corev1.LocalObjectReference{}
+	filterRef.Name = "path-config-map"
+
+	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter.FilterRef = filterRef
+
+	githubsub.Spec.PackageFilter = packageFilter
+
+	subitem := &SubscriberItem{}
+	subitem.Subscription = githubsub
+	subitem.Channel = githubchn
+	subitem.synchronizer = defaultSubscriber.synchronizer
+
+	// Set the cloned Git repo root directory to this Git repository root.
+	subitem.repoRoot = "../../.."
+
+	err = subitem.sortClonedGitRepo()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(subitem.indexFile.Entries)).To(gomega.BeZero())
+
+	g.Expect(len(subitem.crdsAndNamespaceFiles)).To(gomega.Equal(1))
+	g.Expect(subitem.crdsAndNamespaceFiles[0]).To(gomega.ContainSubstring("test/github/resources/deploy/crds/crontab.yaml"))
+
+	g.Expect(len(subitem.otherFiles)).To(gomega.BeZero())
+
+	githubsub.Spec.PackageFilter = nil
+
+	err = c.Delete(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestRemoveNoMatchingName(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	pathConfigMapYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-config-map
+  namespace: default
+data:
+  path: test/github/helmcharts`
+
+	pathConfigMap := &corev1.ConfigMap{}
+	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	filterRef := &corev1.LocalObjectReference{}
+	filterRef.Name = "path-config-map"
+
+	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter.FilterRef = filterRef
+
+	githubsub.Spec.PackageFilter = packageFilter
+
+	githubsub.Spec.Package = "chart1"
+
+	subitem := &SubscriberItem{}
+	subitem.Subscription = githubsub
+	subitem.Channel = githubchn
+	subitem.synchronizer = defaultSubscriber.synchronizer
+
+	// Set the cloned Git repo root directory to this Git repository root.
+	subitem.repoRoot = "../../.."
+
+	err = subitem.sortClonedGitRepo()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	// 3 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1
+	g.Expect(len(subitem.chartDirs)).To(gomega.Equal(3))
+
+	// Filter out chart2
+	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+
+	// chart1 has two versions
+	chartVersion, err := subitem.indexFile.Get("chart1", "1.1.1")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
+	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.1"))
+
+	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.2")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
+	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
+
+	packageFilter.Version = "1.1.2"
+
+	err = subitem.sortClonedGitRepo()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+
+	_, err = subitem.indexFile.Get("chart1", "1.1.1")
+	g.Expect(err).To(gomega.HaveOccurred())
+
+	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.2")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
+	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
+
+	err = c.Delete(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	githubsub.Spec.Package = ""
+	githubsub.Spec.PackageFilter = nil
+}
+
+func TestCheckTillerVersion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	pathConfigMapYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-config-map
+  namespace: default
+data:
+  path: test/github/helmcharts`
+
+	pathConfigMap := &corev1.ConfigMap{}
+	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	filterRef := &corev1.LocalObjectReference{}
+	filterRef.Name = "path-config-map"
+
+	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter.FilterRef = filterRef
+
+	annotations := make(map[string]string)
+	annotations["tillerVersion"] = "2.8.0"
+
+	packageFilter.Annotations = annotations
+
+	githubsub.Spec.PackageFilter = packageFilter
+
+	githubsub.Spec.Package = "chart2"
+
+	subitem := &SubscriberItem{}
+	subitem.Subscription = githubsub
+	subitem.Channel = githubchn
+	subitem.synchronizer = defaultSubscriber.synchronizer
+
+	// Set the cloned Git repo root directory to this Git repository root.
+	subitem.repoRoot = "../../.."
+
+	err = subitem.sortClonedGitRepo()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(0))
+
+	annotations["tillerVersion"] = "2.9.2"
+
+	// In test/github/helmcharts directory, filter out all helm charts except charts with name "chart2"
+	// and with tillerVersion annotation that satisfies subscription's tillerVersion annotation
+	err = subitem.sortClonedGitRepo()
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+
+	err = c.Delete(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	githubsub.Spec.Package = ""
+	githubsub.Spec.PackageFilter = nil
 }
