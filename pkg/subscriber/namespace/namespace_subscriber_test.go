@@ -259,15 +259,9 @@ func TestSecretReconcile(t *testing.T) {
 	//check up if the target secert is deployed at the subscriptions namespace
 	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
 
+	time.Sleep(4 * time.Second)
+
 	//checked up if the secret is deployed at the subscription namespace
-
-	//Figure out why the synchronizer is complaining the " Secret "dpl-srt" is invalid:
-	// metadata.ownerReferences.uid: Invalid value: "": uid must not be empty"
-
-	// subDplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: subscription.GetNamespace()}
-	// time.Sleep(4 * time.Second)
-	// subSrt := &corev1.Secret{}
-	// g.Expect(c.Get(context.TODO(), subDplSrtKey, subSrt)).NotTo(gomega.HaveOccurred())
 
 	// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
 	//checking if the reconcile has any error
