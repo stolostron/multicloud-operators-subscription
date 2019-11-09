@@ -21,8 +21,8 @@ github.com/IBM/multicloud-operators-deployable v0.0.0-20191106030805-be79868c4e0
 github.com/IBM/multicloud-operators-deployable v0.0.0-20191106030805-be79868c4e0f/go.mod h1:9HTudFRHHpUxckF8X3ljVjtvLMbKJIebwLLyr5ak0+Q=
 github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99597f h1:oLZ1y6XfEcFYQNKrAJRx2g5VNdBLwBQI2aMEerREnNs=
 github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99597f/go.mod h1:7cCjoormsMG/S1lDlmCjqRs4uwjCdsj9m5AwZHKQ0PQ=
-github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106155505-7505f98ccabb h1:uu+abCeEfcbuWHO3wAZMGJHm3f7ycd/RNOA54l6zFC4=
-github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191106155505-7505f98ccabb/go.mod h1:KJfNoP7lqOC/uVh7z1oyz+EAdf+Iyqv29BG/JdaC7KU=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191108225706-fc3331ee0819 h1:/rQ7LS0JWC/BlWaQYrPFPUfCLGCXxYPHBoZo/FKV9sE=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191108225706-fc3331ee0819/go.mod h1:KJfNoP7lqOC/uVh7z1oyz+EAdf+Iyqv29BG/JdaC7KU=
 github.com/JeffAshton/win_pdh v0.0.0-20161109143554-76bb4ee9f0ab/go.mod h1:3VYc5hodBMJ5+l/7J4xAyMeuM2PNuepvHlGs8yilUCA=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd h1:sjQovDkwrZp8u+gxLtPgKGjk5hCxuy2hrRejBTA9xFU=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
@@ -30,8 +30,6 @@ github.com/Masterminds/goutils v1.1.0 h1:zukEsf/1JZwCMgHiK3GZftabmxiCw4apj3a28RP
 github.com/Masterminds/goutils v1.1.0/go.mod h1:8cTjp+g8YejhMuvIA5y2vz3BpJxksy863GQaJW2MFNU=
 github.com/Masterminds/semver v1.4.2 h1:WBLTQ37jOCzSLtXNdoo8bNM8876KhNqOKvrlGITgsTc=
 github.com/Masterminds/semver v1.4.2/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
-github.com/Masterminds/semver v1.5.0 h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=
-github.com/Masterminds/semver v1.5.0/go.mod h1:MB6lktGJrhw8PrUyiEoblNEGEQ+RzHPF078ddwwvV3Y=
 github.com/Masterminds/sprig v2.22.0+incompatible h1:z4yfnGrZ7netVz+0EDJ0Wi+5VZCSYp4Z0m2dk6cEM60=
 github.com/Masterminds/sprig v2.22.0+incompatible/go.mod h1:y6hNFY5UBTIWBxnzTeuNhlNS5hqE0NB0E6fgfo2Br3o=
 github.com/Microsoft/go-winio v0.4.11/go.mod h1:VhR8bwka0BXejwEJY73c50VrPtXAaKcyvVC4A4RozmA=
