@@ -39,20 +39,8 @@ var SubscriptionGVK = schema.GroupVersionKind{Group: "", Kind: "Subscription", V
 var SercertReferredMarker = "IsReferredBySub-"
 
 type referredObject interface {
-	GetObjectKind() schema.ObjectKind
-	DeepCopyObject() runtime.Object
-
-	GetName() string
-	SetName(name string)
-	SetNamespace(namespace string)
-	SetUID(uid types.UID)
-	SetResourceVersion(version string)
-	GetLabels() map[string]string
-	SetLabels(labels map[string]string)
-	GetAnnotations() map[string]string
-	SetAnnotations(annotations map[string]string)
-	GetOwnerReferences() []metav1.OwnerReference
-	SetOwnerReferences([]metav1.OwnerReference)
+	runtime.Object
+	metav1.Object
 }
 
 //ListAndDeployReferredObject handles the create/update reconciler request
