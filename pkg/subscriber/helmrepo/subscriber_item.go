@@ -489,22 +489,11 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		//Compose release name
 		helmReleaseNewName := packageName + "-" + hrsi.Subscription.Name + "-" + hrsi.Subscription.Namespace
-		//Trunc the releaseName
-		//Max is 53 chars but as helm add behind the scene extension -delete-registrations for some objects
-		//The new limit is 32 chars
-		//Code remove managed at the helm-crd level
-		// if len(releaseName) > 32 {
-		// 	releaseName = releaseName[0:31]
-		// }
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		//Create a new helrmReleases
 		//Try to retrieve the releases to check if we have to reuse the releaseName or calculate one.
-
-		err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
-			types.NamespacedName{Name: helmReleaseNewName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
 
 		for i := range chartVersions[0].URLs {
 			parsedURL, err := url.Parse(chartVersions[0].URLs[i])
@@ -521,6 +510,9 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			}
 		}
 		//Check if Update or Create
+		err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
+			types.NamespacedName{Name: helmReleaseNewName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
+
 		if err != nil {
 			if errors.IsNotFound(err) {
 				klog.V(2).Infof("Create helmRelease %s", helmReleaseNewName)
@@ -555,7 +547,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 					},
 				}
 			} else {
-				klog.Error(err)
+				klog.Error("Error in getting existing helm release", err)
 				return err
 			}
 		} else {
@@ -600,7 +592,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 		if err != nil {
 			klog.Error("Failed to mashall helm release", helmRelease)
-			continue
+			return err
 		}
 
 		dplanno := make(map[string]string)
@@ -618,7 +610,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 			pkgMap[dpl.GetName()] = true
 
-			continue
+			return err
 		}
 
 		dplkey := types.NamespacedName{

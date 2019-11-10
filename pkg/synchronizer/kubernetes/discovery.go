@@ -141,7 +141,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 	for _, res := range rl.APIResources {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
-			klog.V(10).Info("Skipping ", rl.GroupVersion, " with error:", err)
+			klog.V(5).Info("Skipping ", rl.GroupVersion, " with error:", err)
 			continue
 		}
 
@@ -152,12 +152,12 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 		}
 
 		if internalIgnoredGroupKind[gvk.GroupKind()] {
-			klog.V(10).Info("Skipping internal ignored resource:", gvk, "Categories:", res.Categories)
+			klog.V(5).Info("Skipping internal ignored resource:", gvk, "Categories:", res.Categories)
 			continue
 		}
 
 		if sync.Extension.IsIgnoredGroupKind(gvk.GroupKind()) {
-			klog.V(10).Info("Skipping ignored resource:", gvk, "Categories:", res.Categories)
+			klog.V(5).Info("Skipping ignored resource:", gvk, "Categories:", res.Categories)
 			continue
 		}
 
