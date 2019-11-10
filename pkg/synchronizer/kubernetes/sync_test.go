@@ -101,6 +101,15 @@ func TestSyncStart(t *testing.T) {
 	}()
 }
 
+func TestHouseKeeping(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	sync.houseKeeping()
+}
+
 func TestRegisterDeRegister(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -205,9 +214,9 @@ func TestApply(t *testing.T) {
 
 var (
 	crdgvk = schema.GroupVersionKind{
-		Group:   "apiextensions.k8s.io",
-		Version: "v1beta1",
-		Kind:    "CustomResourceDefinition",
+		Group:   "samplecontroller.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "Foo",
 	}
 
 	crdkey = types.NamespacedName{
@@ -216,8 +225,8 @@ var (
 
 	crd = crdv1beta1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       crdgvk.Kind,
-			APIVersion: crdgvk.Group + "/" + crdgvk.Version,
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdkey.Name,
@@ -243,6 +252,11 @@ func TestClusterScopedApply(t *testing.T) {
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
+	stop := make(chan struct{})
+	sync.dynamicFactory.Start(stop)
+
+	defer close(stop)
+
 	sub := subinstance.DeepCopy()
 
 	g.Expect(c.Create(context.TODO(), sub)).NotTo((gomega.HaveOccurred()))
@@ -256,26 +270,24 @@ func TestClusterScopedApply(t *testing.T) {
 	}
 	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
-	resmap, ok := sync.KubeResources[crdgvk]
-	g.Expect(ok).Should(gomega.BeTrue())
+	_, ok := sync.KubeResources[crdgvk]
+	g.Expect(ok).Should(gomega.BeFalse())
 
-	reskey := sync.generateResourceMapKey(hostnn, dplnn)
-	tplunit, ok := resmap.TemplateMap[reskey]
-	g.Expect(ok).Should(gomega.BeTrue())
+	time.Sleep(1 * time.Second)
 
-	defer c.Delete(context.TODO(), sub)
-
-	nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-	g.Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(gomega.HaveOccurred())
+	sync.houseKeeping()
 
 	result := &crdv1beta1.CustomResourceDefinition{}
 	g.Expect(c.Get(context.TODO(), crdkey, result)).NotTo(gomega.HaveOccurred())
 
+	_, ok = sync.KubeResources[crdgvk]
+	g.Expect(ok).Should(gomega.BeTrue())
+
 	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
+
 	time.Sleep(1 * time.Second)
 
 	err = c.Get(context.TODO(), crdkey, result)
-
 	g.Expect(errors.IsNotFound(err)).Should(gomega.BeTrue())
 }
 
