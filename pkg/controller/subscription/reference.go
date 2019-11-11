@@ -33,7 +33,7 @@ import (
 
 var SecretKindStr = "Secret"
 var ConfigMapKindStr = "ConfigMap"
-var SubscriptionGVK = schema.GroupVersionKind{Group: "", Kind: "Subscription", Version: "v1alpha1"}
+var SubscriptionGVK = schema.GroupVersionKind{Group: "app.ibm.com", Kind: "Subscription", Version: "v1alpha1"}
 
 //SercertReferredMarker is used as a label key to filter out the secert coming from reference
 var SercertReferredMarker = "IsReferredBySub-"
