@@ -104,7 +104,7 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	return valid
 }
 
-func (sync *KubeSynchronizer) discoverResources() error {
+func (sync *KubeSynchronizer) discoverResources() {
 	klog.Info("Discovering cluster resources")
 
 	if sync.dynamicFactory == nil {
@@ -113,8 +113,9 @@ func (sync *KubeSynchronizer) discoverResources() error {
 
 	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
 	if err != nil {
-		klog.Error("Failed to discover server resources. err:", err)
-		return err
+		// do not return this error
+		// some api server aggregation may cause this problem, but can still get return some resources.
+		klog.Error("Failed to discover server resources. skipping err:", err)
 	}
 
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)
@@ -133,15 +134,13 @@ func (sync *KubeSynchronizer) discoverResources() error {
 			delete(sync.KubeResources, k)
 		}
 	}
-
-	return nil
 }
 
 func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList, valid map[schema.GroupVersionKind]bool) {
 	for _, res := range rl.APIResources {
 		gv, err := schema.ParseGroupVersion(rl.GroupVersion)
 		if err != nil {
-			klog.V(10).Info("Skipping ", rl.GroupVersion, " with error:", err)
+			klog.V(5).Info("Skipping ", rl.GroupVersion, " with error:", err)
 			continue
 		}
 
@@ -152,12 +151,12 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 		}
 
 		if internalIgnoredGroupKind[gvk.GroupKind()] {
-			klog.V(10).Info("Skipping internal ignored resource:", gvk, "Categories:", res.Categories)
+			klog.V(5).Info("Skipping internal ignored resource:", gvk, "Categories:", res.Categories)
 			continue
 		}
 
 		if sync.Extension.IsIgnoredGroupKind(gvk.GroupKind()) {
-			klog.V(10).Info("Skipping ignored resource:", gvk, "Categories:", res.Categories)
+			klog.V(5).Info("Skipping ignored resource:", gvk, "Categories:", res.Categories)
 			continue
 		}
 

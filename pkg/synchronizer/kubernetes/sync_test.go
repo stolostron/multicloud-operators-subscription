@@ -24,13 +24,16 @@ import (
 	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -42,13 +45,13 @@ var (
 )
 
 var (
-	workloadconfigmapgvk = schema.GroupVersionKind{
+	configmapgvk = schema.GroupVersionKind{
 		Version: "v1",
 		Kind:    "ConfigMap",
 	}
 
 	sharedkey = types.NamespacedName{
-		Name:      "configmap",
+		Name:      "workload",
 		Namespace: "default",
 	}
 	workloadconfigmap = corev1.ConfigMap{
@@ -75,39 +78,9 @@ var (
 			},
 		},
 	}
-
-	subinstance = appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sharedkey.Name,
-			Namespace: sharedkey.Namespace,
-		},
-	}
 )
 
 func TestSyncStart(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 10, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	time.Sleep(5 * time.Second)
-}
-
-func TestRegisterDeRegister(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -126,46 +99,124 @@ func TestRegisterDeRegister(t *testing.T) {
 		close(stopMgr)
 		mgrStopped.Wait()
 	}()
+}
 
-	time.Sleep(1 * time.Second)
+func TestHouseKeeping(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
 
-	sub := subinstance.DeepCopy()
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(c.Create(context.TODO(), sub)).NotTo((gomega.HaveOccurred()))
-	defer c.Delete(context.TODO(), sub)
+	sync.houseKeeping()
+}
+
+func TestRegisterDeRegister(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	dpl := dplinstance.DeepCopy()
-	g.Expect(sync.RegisterTemplate(sharedkey, dpl, source)).NotTo(gomega.HaveOccurred())
-
-	tplmap := sync.KubeResources[workloadconfigmapgvk].TemplateMap
-	if len(tplmap) != 1 {
-		t.Error("Failed to register template to map:", tplmap)
+	hostnn := sharedkey
+	dplnn := types.NamespacedName{
+		Name:      dpl.Name,
+		Namespace: dpl.Namespace,
 	}
 
-	time.Sleep(10 * time.Second)
+	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
-	result := &corev1.ConfigMap{}
+	resmap, ok := sync.KubeResources[configmapgvk]
+	g.Expect(ok).Should(gomega.BeTrue())
 
-	g.Expect(c.Get(context.TODO(), sharedkey, result)).NotTo(gomega.HaveOccurred())
+	reskey := sync.generateResourceMapKey(hostnn, dplnn)
+	tplunit, ok := resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeTrue())
 
-	if result.Name != workloadconfigmap.Name || result.Namespace != workloadconfigmap.Namespace {
-		t.Error("Got wrong configmap workload: ", workloadconfigmap)
+	target := workloadconfigmap.DeepCopy()
+
+	converted := unstructured.Unstructured{}
+	converted.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(target)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	anno := map[string]string{
+		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource: source,
 	}
+	lbls := make(map[string]string)
 
-	g.Expect(sync.DeRegisterTemplate(sharedkey, sharedkey, source)).NotTo(gomega.HaveOccurred())
+	converted.SetAnnotations(anno)
+	converted.SetLabels(lbls)
 
-	if len(tplmap) != 0 {
-		t.Error("Failed to deregister template from map:", tplmap)
+	g.Expect(tplunit.Unstructured.Object).Should(gomega.BeEquivalentTo(converted.Object))
+
+	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
+
+	_, ok = resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeFalse())
+}
+
+var (
+	subinstance = appv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			Channel: sharedkey.String(),
+		},
 	}
+)
 
-	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, result))).To(gomega.BeTrue())
+func TestApply(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+
+	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	dpl := dplinstance.DeepCopy()
+	hostnn := sharedkey
+	dplnn := sharedkey
+
+	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
+
+	resmap, ok := sync.KubeResources[configmapgvk]
+	g.Expect(ok).Should(gomega.BeTrue())
+
+	reskey := sync.generateResourceMapKey(hostnn, dplnn)
+	tplunit, ok := resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeTrue())
+
+	sub := subinstance.DeepCopy()
+	g.Expect(c.Create(context.TODO(), sub)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), sub)
+
+	nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
+	g.Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(gomega.HaveOccurred())
+
+	cfgmap := &corev1.ConfigMap{}
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+
+	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
+	time.Sleep(1 * time.Second)
+
+	err = c.Get(context.TODO(), sharedkey, cfgmap)
+
+	g.Expect(errors.IsNotFound(err)).Should(gomega.BeTrue())
 }
 
 var (
 	crdgvk = schema.GroupVersionKind{
-		Group:   "apiextensions.k8s.io",
-		Version: "v1beta1",
-		Kind:    "CustomResourceDefinition",
+		Group:   "samplecontroller.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "Foo",
 	}
 
 	crdkey = types.NamespacedName{
@@ -174,8 +225,8 @@ var (
 
 	crd = crdv1beta1.CustomResourceDefinition{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       crdgvk.Kind,
-			APIVersion: crdgvk.Group + "/" + crdgvk.Version,
+			Kind:       "CustomResourceDefinition",
+			APIVersion: "apiextensions.k8s.io/v1beta1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: crdkey.Name,
@@ -190,92 +241,65 @@ var (
 			Scope: crdv1beta1.NamespaceScoped,
 		},
 	}
-
-	crddpl = dplv1alpha1.Deployable{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sharedkey.Name,
-			Namespace: sharedkey.Namespace,
-			Annotations: map[string]string{
-				dplv1alpha1.AnnotationLocal: "true",
-			},
-		},
-		Spec: dplv1alpha1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: &crd,
-			},
-		},
-	}
-
-	crdsub = appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sharedkey.Name,
-			Namespace: sharedkey.Namespace,
-		},
-	}
 )
 
-func TestCRDRegisterDeRegister(t *testing.T) {
+func TestClusterScopedApply(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
+	stop := make(chan struct{})
+	sync.dynamicFactory.Start(stop)
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	defer close(stop)
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	time.Sleep(1 * time.Second)
-
-	sub := crdsub.DeepCopy()
+	sub := subinstance.DeepCopy()
 
 	g.Expect(c.Create(context.TODO(), sub)).NotTo((gomega.HaveOccurred()))
 	defer c.Delete(context.TODO(), sub)
 
-	dpl := crddpl.DeepCopy()
-	g.Expect(sync.RegisterTemplate(sharedkey, dpl, source)).NotTo(gomega.HaveOccurred())
-
-	tplmap := sync.KubeResources[crdgvk].TemplateMap
-	if len(tplmap) != 1 {
-		t.Error("Failed to register template to map:", tplmap)
+	hostnn := sharedkey
+	dplnn := sharedkey
+	dpl := dplinstance.DeepCopy()
+	dpl.Spec.Template = &runtime.RawExtension{
+		Object: crd.DeepCopy(),
 	}
+	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(10 * time.Second)
+	_, ok := sync.KubeResources[crdgvk]
+	g.Expect(ok).Should(gomega.BeFalse())
+
+	time.Sleep(1 * time.Second)
+
+	sync.houseKeeping()
 
 	result := &crdv1beta1.CustomResourceDefinition{}
-
 	g.Expect(c.Get(context.TODO(), crdkey, result)).NotTo(gomega.HaveOccurred())
 
-	if result.Name != crdkey.Name {
-		t.Error("Got wrong crd: ", result)
-	}
+	_, ok = sync.KubeResources[crdgvk]
+	g.Expect(ok).Should(gomega.BeTrue())
 
-	g.Expect(sync.DeRegisterTemplate(sharedkey, sharedkey, source)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
 
-	if len(tplmap) != 0 {
-		t.Error("Failed to deregister template from map:", tplmap)
-	}
+	time.Sleep(1 * time.Second)
 
-	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, result))).To(gomega.BeTrue())
+	err = c.Get(context.TODO(), crdkey, result)
+	g.Expect(errors.IsNotFound(err)).Should(gomega.BeTrue())
 }
 
-func TestDeleteExpired(t *testing.T) {
+func TestHarvestExisting(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	cfgmap := workloadconfigmap.DeepCopy()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
-		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource: source,
 	}
 
 	cfgmap.SetAnnotations(anno)
@@ -285,69 +309,144 @@ func TestDeleteExpired(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), cfgmap)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
+	resgvk := schema.GroupVersionKind{
+		Version: "v1",
+		Kind:    "ConfigMap",
+	}
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	hostnn := sync.Extension.GetHostFromObject(cfgmap)
+	dplnn := utils.GetHostDeployableFromObject(cfgmap)
+	reskey := sync.generateResourceMapKey(*hostnn, *dplnn)
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+	// object should be havested back before source is found
+	resmap := sync.KubeResources[resgvk]
+	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(15 * time.Second)
+	tplunit, ok := resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeTrue())
+	g.Expect(tplunit.Source).Should(gomega.Equal(source))
 
-	g.Expect(errors.IsNotFound(c.Get(context.TODO(), sharedkey, cfgmap))).To(gomega.BeTrue())
+	time.Sleep(1 * time.Second)
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
 }
 
-func TestRestart(t *testing.T) {
+var (
+	serviceport1 = corev1.ServicePort{
+		Protocol: corev1.ProtocolTCP,
+		Port:     8888,
+		TargetPort: intstr.IntOrString{
+			IntVal: 18888,
+		},
+	}
+
+	serviceport2 = corev1.ServicePort{
+		Protocol: corev1.ProtocolTCP,
+		Port:     6666,
+		TargetPort: intstr.IntOrString{
+			IntVal: 16666,
+		},
+	}
+
+	service = &corev1.Service{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Service",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Selector: map[string]string{
+				"tkey": "tval",
+			},
+			Ports: []corev1.ServicePort{serviceport1},
+		},
+	}
+)
+
+func TestServiceResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	cfgmap := workloadconfigmap.DeepCopy()
+	svc := service.DeepCopy()
 
 	var anno = map[string]string{
 		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
 		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource:   source,
 	}
 
-	cfgmap.SetAnnotations(anno)
+	svc.SetAnnotations(anno)
 
-	g.Expect(c.Create(context.TODO(), cfgmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), svc)).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(1 * time.Second)
+	sub := subinstance.DeepCopy()
+	g.Expect(c.Create(context.TODO(), sub)).NotTo(gomega.HaveOccurred())
 
-	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
-
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), sub)
 
 	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Get(context.TODO(), sharedkey, svc)).NotTo(gomega.HaveOccurred())
+
+	resgvk := schema.GroupVersionKind{
+		Version: "v1",
+		Kind:    "Service",
+	}
+
+	// object should be havested back before source is found
+	resmap := sync.KubeResources[resgvk]
+	hostnn := sharedkey
+	dplnn := sharedkey
+
+	reskey := sync.generateResourceMapKey(hostnn, dplnn)
+
+	// havest existing from cluster
+	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+
+	tplunit, ok := resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeTrue())
+	g.Expect(tplunit.Source).Should(gomega.Equal(source))
 
 	// load template before start, pretend to be added by subscribers
 	dpl := dplinstance.DeepCopy()
+	svc = service.DeepCopy()
+	svc.SetAnnotations(anno)
+	svc.Spec.Ports = []corev1.ServicePort{serviceport2}
+	dpl.Spec.Template = &runtime.RawExtension{
+		Object: svc,
+	}
+
 	g.Expect(sync.RegisterTemplate(sharedkey, dpl, source)).NotTo(gomega.HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	tplunit, ok = resmap.TemplateMap[reskey]
+	g.Expect(ok).Should(gomega.BeTrue())
+	g.Expect(tplunit.Source).Should(gomega.Equal(source))
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+	converted := unstructured.Unstructured{}
+	converted.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(svc.DeepCopy())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(10 * time.Second)
+	lbls := make(map[string]string)
 
-	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+	converted.SetAnnotations(anno)
+	converted.SetLabels(lbls)
+
+	g.Expect(tplunit.Unstructured.Object).Should(gomega.BeEquivalentTo(converted.Object))
+
+	nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
+	g.Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, true)).NotTo(gomega.HaveOccurred())
+
+	g.Expect(c.Get(context.TODO(), sharedkey, svc)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), svc)
+
+	g.Expect(svc.Spec.Ports[0]).Should(gomega.Equal(serviceport2))
 }

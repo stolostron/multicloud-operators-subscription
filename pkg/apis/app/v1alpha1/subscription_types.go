@@ -26,6 +26,8 @@ import (
 )
 
 var (
+	// AnnotationSyncSource target deployable to rolling update to
+	AnnotationSyncSource = SchemeGroupVersion.Group + "/sync-source"
 	// AnnotationRollingUpdateTarget target deployable to rolling update to
 	AnnotationRollingUpdateTarget = SchemeGroupVersion.Group + "/rollingupdate-target"
 	// AnnotationDeployables defines all deployables subscribed by the subscription
