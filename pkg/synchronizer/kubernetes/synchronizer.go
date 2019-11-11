@@ -143,12 +143,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, syncid *types.Namespa
 		s.Extension = defaultExtension
 	}
 
-	err = s.discoverResources()
-
-	if err != nil {
-		klog.Error("Failed to discover resources with error", err)
-		return nil, err
-	}
+	s.discoverResources()
 
 	return s, nil
 }
@@ -179,8 +174,6 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 
 //HouseKeeping - Apply resources defined in sync.KubeResources
 func (sync *KubeSynchronizer) houseKeeping() {
-	var err error
-
 	crdUpdated := false
 	// make sure the template map and the actual resource are aligned
 	for gvk, res := range sync.KubeResources {
@@ -209,10 +202,7 @@ func (sync *KubeSynchronizer) houseKeeping() {
 	}
 
 	if crdUpdated {
-		err = sync.discoverResources()
-		if err != nil {
-			klog.Error("discover resource with error", err)
-		}
+		sync.discoverResources()
 	}
 }
 
