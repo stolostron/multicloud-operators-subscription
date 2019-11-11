@@ -164,6 +164,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		}
 
 		ghsi.commitID = commitID
+
+		ghsi.chartDirs = nil
+		ghsi.crdsAndNamespaceFiles = nil
+		ghsi.rbacFiles = nil
+		ghsi.otherFiles = nil
+		ghsi.indexFile = nil
 	} else {
 		klog.V(4).Info("The commit ID is same as before. Skip processing the cloned repo")
 	}
@@ -421,6 +427,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 							GitHub: &releasev1alpha1.GitHub{
 								Urls:      []string{ghsi.Channel.Spec.PathName},
 								ChartPath: chartVersions[0].URLs[0],
+								Branch:    ghsi.getGitBranch().Short(),
 							},
 						},
 						ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
@@ -446,6 +453,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 					GitHub: &releasev1alpha1.GitHub{
 						Urls:      []string{ghsi.Channel.Spec.PathName},
 						ChartPath: chartVersions[0].URLs[0],
+						Branch:    ghsi.getGitBranch().Short(),
 					},
 				},
 				ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
@@ -523,7 +531,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		Depth:             1,
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		ReferenceName:     plumbing.Master,
+		ReferenceName:     ghsi.getGitBranch(),
 	}
 
 	if ghsi.Channel.Spec.SecretRef != nil {
@@ -603,6 +611,25 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	}
 
 	return commit.ID().String(), nil
+}
+
+func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
+	branch := plumbing.Master
+
+	if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+		if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
+			branchStr := ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
+			if !strings.HasPrefix(branchStr, "refs/heads/") {
+				branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
+			}
+
+			branch = plumbing.ReferenceName(branchStr)
+		}
+	}
+
+	klog.V(4).Info("Subscribing to branch: ", branch)
+
+	return branch
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
