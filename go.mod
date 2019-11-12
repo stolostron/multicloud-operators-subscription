@@ -7,6 +7,8 @@ require (
 	github.com/IBM/multicloud-operators-subscription-release v0.0.0-20191108225706-fc3331ee0819
 	github.com/aws/aws-sdk-go-v2 v0.15.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/cameront/go-jsonpatch v0.0.0-20180223123257-a8710867776e
+	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
 	github.com/go-openapi/spec v0.19.0
 	github.com/onsi/gomega v1.5.0

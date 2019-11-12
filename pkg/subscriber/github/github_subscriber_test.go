@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -551,6 +552,70 @@ data:
 
 	err = c.Delete(context.TODO(), pathConfigMap)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	githubsub.Spec.Package = ""
+	githubsub.Spec.PackageFilter = nil
+
+}
+
+func TestGetBranch(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	pathConfigMapYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-config-map
+  namespace: default
+data:
+  path: test/github/helmcharts`
+
+	pathConfigMap := &corev1.ConfigMap{}
+	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), pathConfigMap)
+
+	filterRef := &corev1.LocalObjectReference{}
+	filterRef.Name = "path-config-map"
+
+	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter.FilterRef = filterRef
+	githubsub.Spec.PackageFilter = packageFilter
+
+	subitem := &SubscriberItem{}
+	subitem.Subscription = githubsub
+	subitem.Channel = githubchn
+	subitem.SubscriberItem.SubscriptionConfigMap = pathConfigMap
+
+	branch := subitem.getGitBranch()
+	g.Expect(branch).To(gomega.Equal(plumbing.Master))
+	g.Expect(branch.Short()).To(gomega.Equal("master"))
+
+	pathConfigMap.Data["branch"] = "notmaster"
+	err = c.Update(context.TODO(), pathConfigMap)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	branch = subitem.getGitBranch()
+	g.Expect(branch).To(gomega.Equal(plumbing.ReferenceName("refs/heads/notmaster")))
+	g.Expect(branch.Short()).To(gomega.Equal("notmaster"))
 
 	githubsub.Spec.Package = ""
 	githubsub.Spec.PackageFilter = nil
