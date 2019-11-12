@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
@@ -46,6 +47,8 @@ type SubscriberItem struct {
 	secretcontroller     controller.Controller
 	clusterscoped        bool
 	stopch               chan struct{}
+	dplreconciler        *DeployableReconciler
+	srtrecondiler        *SecretReconciler
 }
 
 type itemmap map[types.NamespacedName]*SubscriberItem
@@ -237,11 +240,26 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 			}
 		}()
 
+		nssubitem.dplreconciler = reconciler
+		nssubitem.srtrecondiler = secretreconciler
+
 		subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 		ns.itemmap[itemkey] = nssubitem
 	} else if !reflect.DeepEqual(nssubitem.SubscriberItem, subitem) {
 		subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 		ns.itemmap[itemkey] = nssubitem
+
+		err := nssubitem.dplreconciler.doSubscription()
+		if err != nil {
+			klog.Errorf("Failed to do subscription %v, due to %v", nssubitem.Subscription.GetName(), err)
+		}
+
+		fakeKey := types.NamespacedName{Namespace: nssubitem.Channel.Spec.PathName}
+		rq := reconcile.Request{NamespacedName: fakeKey}
+		_, err = nssubitem.srtrecondiler.Reconcile(rq)
+		if err != nil {
+			klog.Errorf("Failed to do subscription %v, due to %v", nssubitem.Subscription.GetName(), err)
+		}
 	}
 
 	return nil
