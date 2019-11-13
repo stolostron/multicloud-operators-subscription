@@ -59,9 +59,9 @@ func newSecertReconciler(subscriber *Subscriber, mgr manager.Manager, subItemKey
 func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()\n request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
+		klog.Infof("Entering: %v() request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
 
-		defer klog.Infof("Exiting: %v()\n request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
+		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
 	tw := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.TimeWindow
@@ -73,34 +73,29 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
+	// we only care the secret changes of the target namespace
+	if request.Namespace != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
+		return reconcile.Result{}, nil
+	}
+
 	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
-	srt, err := s.GetSecret(request.NamespacedName)
+	srts, err := s.GetSecrets(request.NamespacedName)
 
 	var dpls []*dplv1alpha1.Deployable
 
-	// handle the NotFound case and other can't list case
-	if err != nil {
-		// update the synchronizer to make sure the sercet is also delete from synchronizer
-		s.RegisterToResourceMap(dpls)
-		return reconcile.Result{}, err
-	}
+	for _, srt := range srts.Items {
+		//filter out the secret by deployable annotations
+		if !isSecretAnnoatedAsDeployable(srt) {
+			continue
+		}
 
-	// only move forward if the sercet belongs to the subscription's channel
-	if srt.GetNamespace() != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
-		return reconcile.Result{}, err
-	}
+		klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
 
-	//filter out the secret by deployable annotations
-	if !isSecretAnnoatedAsDeployable(*srt) {
-		return reconcile.Result{}, err
-	}
-
-	klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
-
-	srtNew, ok := utils.ApplyFilters(*srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-	if ok {
-		dpls = append(dpls, utils.PackageSecert(srtNew))
+		srtNew, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
+		if ok {
+			dpls = append(dpls, utils.PackageSecert(srtNew))
+		}
 	}
 
 	s.RegisterToResourceMap(dpls)
@@ -109,7 +104,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 }
 
 //GetSecret get the Secert from all the suscribed channel
-func (s *SecretReconciler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, error) {
+func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretList, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -117,14 +112,15 @@ func (s *SecretReconciler) GetSecret(srtKey types.NamespacedName) (*v1.Secret, e
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	srt := &v1.Secret{}
-	err := s.Clt.Get(context.TODO(), srtKey, srt)
+	srts := &v1.SecretList{}
+	opts := &client.ListOptions{Namespace: srtKey.Namespace}
+	err := s.Clt.List(context.TODO(), srts, opts)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return srt, nil
+	return srts, nil
 }
 
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {

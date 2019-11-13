@@ -255,7 +255,7 @@ func TestSecretReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), noneDplSrt)
 
 	dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
-	g.Expect(srtRec.GetSecret(dplSrtKey)).ShouldNot(gomega.BeNil())
+	g.Expect(srtRec.GetSecrets(dplSrtKey)).ShouldNot(gomega.BeNil())
 	//check up if the target secert is deployed at the subscriptions namespace
 	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
 
