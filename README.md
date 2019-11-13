@@ -72,7 +72,7 @@ ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backen85m6   1/1       Runn
 ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backew5p2n   1/1       Running   0          26s
 ```
 
-Check the [Getting Started](docs/getting_started) doc for more details
+Check the [Getting Started](docs/getting_started.md) doc for more details
 
 ### Trouble shooting
 
