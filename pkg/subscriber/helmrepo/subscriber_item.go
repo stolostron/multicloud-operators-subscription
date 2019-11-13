@@ -420,7 +420,7 @@ func (hrsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
 				versionVersion, err := semver.Parse(version)
 
 				if err != nil {
-					klog.Error(err)
+					klog.V(3).Info("Skipping error in parsing version, taking it as not match. The error is:", err)
 					return false
 				}
 

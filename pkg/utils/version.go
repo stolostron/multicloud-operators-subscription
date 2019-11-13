@@ -30,12 +30,12 @@ import (
 // edge case: if the version of subscription or deployable is empty then return true
 func SemverCheck(vSubStr, vDplStr string) bool {
 	if len(vSubStr) == 0 {
-		klog.V(10).Infof("Subscription doesn't specify a version, process as update to the latest")
+		klog.V(5).Infof("Subscription doesn't specify a version, process as update to the latest")
 		return true
 	}
 
 	if len(vDplStr) == 0 {
-		klog.V(10).Infof("Deployable doesn't specify a version, process as update with the current Deployable")
+		klog.V(5).Infof("Deployable doesn't specify a version, process as update with the current Deployable")
 		return true
 	}
 
