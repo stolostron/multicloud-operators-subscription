@@ -82,6 +82,10 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	srts, err := s.GetSecrets(request.NamespacedName)
 
+	if len(srts.Items) == 0 || err != nil {
+		return reconcile.Result{}, nil
+	}
+
 	var dpls []*dplv1alpha1.Deployable
 
 	for _, srt := range srts.Items {
