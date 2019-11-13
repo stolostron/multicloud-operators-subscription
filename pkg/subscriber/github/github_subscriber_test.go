@@ -555,7 +555,6 @@ data:
 
 	githubsub.Spec.Package = ""
 	githubsub.Spec.PackageFilter = nil
-
 }
 
 func TestGetBranch(t *testing.T) {

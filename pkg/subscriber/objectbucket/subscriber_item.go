@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -37,6 +37,8 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/IBM/multicloud-operators-subscription/pkg/utils/aws"
 )
+
+var SubscriptionGVK = schema.GroupVersionKind{Group: "app.ibm.com", Kind: "Subscription", Version: "v1alpha1"}
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
@@ -333,8 +335,8 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
 	}
 
 	template.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: obsi.Subscription.APIVersion,
-		Kind:       obsi.Subscription.Kind,
+		APIVersion: SubscriptionGVK.Version,
+		Kind:       SubscriptionGVK.Kind,
 		Name:       obsi.Subscription.Name,
 		UID:        obsi.Subscription.UID,
 	}})
