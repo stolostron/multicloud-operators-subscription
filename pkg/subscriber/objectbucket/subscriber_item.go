@@ -174,7 +174,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dpl.Name = key
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
-		err = yaml.Unmarshal(tplb, dpl.Spec.Template)
+		dpl.GenerateName = tplb.GenerateName
+		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
 
 		if err != nil {
 			klog.Error("Failed to unmashall ", obsi.bucket, "/", key, " err:", err)
