@@ -175,6 +175,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
 		dpl.GenerateName = tplb.GenerateName
+		verionAnno := map[string]string{dplv1alpha1.AnnotationDeployableVersion: tplb.Version}
+		dpl.SetAnnotations(verionAnno)
 		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
 
 		if err != nil {

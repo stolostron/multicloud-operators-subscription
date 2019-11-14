@@ -45,9 +45,13 @@ const (
 	// SecretMapKeySecretAccessKey is key of secretaccesskey in secret
 	SecretMapKeySecretAccessKey = "SecretAccessKey"
 	//metadata key for stroing the deployable generatename name
-	DeployableGenerateMeta = "x-amz-meta-generatename"
+	DeployableGenerateNameMeta = "x-amz-meta-generatename"
 	//Deployable generate name key within the meta map
-	DployableMateKey = "Generatename"
+	DployableMateGenerateNameKey = "Generatename"
+	//metadata key for stroing the deployable generatename name
+	DeployableVersionMeta = "x-amz-meta-deployableversion"
+	//Deployable generate name key within the meta map
+	DeployableMetaVersionKey = "Deployableversion"
 )
 
 // Handler handles connections to aws
@@ -74,6 +78,7 @@ func (p *credentialProvider) Retrieve() (aws.Credentials, error) {
 type DeployableObject struct {
 	Name         string
 	GenerateName string
+	Version      string
 	Content      []byte
 }
 
@@ -198,7 +203,8 @@ func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 		return dplObj, err
 	}
 
-	generateName := resp.GetObjectOutput.Metadata[DployableMateKey]
+	generateName := resp.GetObjectOutput.Metadata[DployableMateGenerateNameKey]
+	version := resp.GetObjectOutput.Metadata[DeployableMetaVersionKey]
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
@@ -209,6 +215,7 @@ func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 	dplObj.Name = name
 	dplObj.GenerateName = generateName
 	dplObj.Content = body
+	dplObj.Version = version
 	klog.V(10).Info("Get Success: \n", string(body))
 
 	return dplObj, nil
@@ -227,7 +234,9 @@ func (h *Handler) Put(bucket string, dplObj DeployableObject) error {
 		Body:   bytes.NewReader(dplObj.Content),
 	})
 
-	req.HTTPRequest.Header.Set(DeployableGenerateMeta, dplObj.GenerateName)
+	req.HTTPRequest.Header.Set(DeployableGenerateNameMeta, dplObj.GenerateName)
+	req.HTTPRequest.Header.Set(DeployableVersionMeta, dplObj.Version)
+
 	resp, err := req.Send(context.Background())
 	if err != nil {
 		klog.Error("Failed to send Put request. error: ", err)
