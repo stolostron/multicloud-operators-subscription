@@ -86,6 +86,7 @@ func (d DeployableObject) isEmpty() bool {
 	if d.Name == "" && d.GenerateName == "" && len(d.Content) == 0 {
 		return true
 	}
+
 	return false
 }
 
@@ -216,6 +217,7 @@ func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 	dplObj.GenerateName = generateName
 	dplObj.Content = body
 	dplObj.Version = version
+
 	klog.V(10).Info("Get Success: \n", string(body))
 
 	return dplObj, nil
