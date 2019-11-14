@@ -322,6 +322,16 @@ func (hrsi *SubscriberItem) removeNoMatchingName(indexFile *repo.IndexFile) erro
 	return nil
 }
 
+//checkKeywords Checks if the charts has at least 1 keyword from the packageFilter.Keywords array
+func (hrsi *SubscriberItem) checkKeywords(chartVersion *repo.ChartVersion) bool {
+	var labelSelector *metav1.LabelSelector
+	if hrsi.Subscription.Spec.PackageFilter != nil {
+		labelSelector = hrsi.Subscription.Spec.PackageFilter.LabelSelector
+	}
+
+	return utils.KeywordsChecker(labelSelector, chartVersion.Keywords)
+}
+
 //filterOnVersion filters the indexFile with the version, tillerVersion and Digest provided in the subscription
 //The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
 //The tillerVersion and the digest provided in the subscription must be literals.
@@ -336,7 +346,7 @@ func (hrsi *SubscriberItem) filterOnVersion(indexFile *repo.IndexFile) {
 		newChartVersions := make([]*repo.ChartVersion, 0)
 
 		for index, chartVersion := range chartVersions {
-			if hrsi.checkDigest(chartVersion) && hrsi.checkTillerVersion(chartVersion) && hrsi.checkVersion(chartVersion) {
+			if hrsi.checkKeywords(chartVersion) && hrsi.checkDigest(chartVersion) && hrsi.checkTillerVersion(chartVersion) && hrsi.checkVersion(chartVersion) {
 				newChartVersions = append(newChartVersions, chartVersions[index])
 			}
 		}
@@ -410,7 +420,7 @@ func (hrsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
 				versionVersion, err := semver.Parse(version)
 
 				if err != nil {
-					klog.Error(err)
+					klog.V(3).Info("Skipping error in parsing version, taking it as not match. The error is:", err)
 					return false
 				}
 

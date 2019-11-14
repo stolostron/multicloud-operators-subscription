@@ -39,6 +39,8 @@ import (
 	ghsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/github"
 	hrsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
+	ossub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -68,6 +70,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 	subs["github"] = ghsub.GetDefaultSubscriber()
+	subs[chnv1alpha1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
