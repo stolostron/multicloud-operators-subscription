@@ -187,23 +187,29 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				AddFunc: func(new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 			})
 			klog.V(5).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
 		}
+	}
+}
+
+func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
+	if resmap, ok := sync.KubeResources[gvk]; ok {
+		resmap.ServerUpdated = true
 	}
 }
