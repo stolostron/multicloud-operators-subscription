@@ -174,7 +174,10 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dpl.Name = key
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
-		err = yaml.Unmarshal(tplb, dpl.Spec.Template)
+		dpl.GenerateName = tplb.GenerateName
+		verionAnno := map[string]string{dplv1alpha1.AnnotationDeployableVersion: tplb.Version}
+		dpl.SetAnnotations(verionAnno)
+		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
 
 		if err != nil {
 			klog.Error("Failed to unmashall ", obsi.bucket, "/", key, " err:", err)
@@ -198,6 +201,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 	}
 
 	versionMap := utils.GenerateVersionSet(dpls, vsub)
+
+	klog.V(5).Infof("dplversion map is %v", versionMap)
 
 	for _, dpl := range dpls {
 		dpltosync, validgvk, err := obsi.doSubscribeDeployable(dpl.DeepCopy(), versionMap, pkgMap)
