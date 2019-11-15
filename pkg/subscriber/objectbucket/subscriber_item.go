@@ -202,6 +202,7 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 	versionMap := utils.GenerateVersionSet(dpls, vsub)
 
+	klog.V(5).Infof("dplversion map is %v", versionMap)
 	for _, dpl := range dpls {
 		dpltosync, validgvk, err := obsi.doSubscribeDeployable(dpl.DeepCopy(), versionMap, pkgMap)
 
