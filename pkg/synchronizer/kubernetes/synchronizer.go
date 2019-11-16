@@ -291,7 +291,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 				sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
-					"Update Resource "+tplunit.GetName()+" for retry", err)
+					"Synchronizer updated resource "+tplunit.GetName()+" for retry", err)
 
 				if err == nil {
 					tplunit.ResourceUpdated = true
@@ -323,7 +323,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 
 		if err == nil {
 			sync.eventrecorder.RecordEvent(nsus, "CreateNamespace",
-				"Create namespace "+ns.Name+" for resource "+tplunit.GetName(), err)
+				"Synchronizer created namespace "+ns.Name+" for resource "+tplunit.GetName(), err)
 
 			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
 				Version:  "v1",
@@ -346,7 +346,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	}
 
 	sync.eventrecorder.RecordEvent(obj, "CreateResource",
-		"Create Resource "+tplunit.GetName(), err)
+		"Synchronizer created resource "+tplunit.GetName(), err)
 
 	tplunit.ResourceUpdated = true
 
@@ -416,7 +416,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	}
 
 	sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
-		"Update Resource for Template "+tplunit.GetName(), err)
+		"Synchronizer updated resource for template "+tplunit.GetName(), err)
 
 	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
@@ -530,7 +530,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 					sync.eventrecorder.RecordEvent(tplunit, "DeleteResource",
-						"Update Resource "+tplunit.GetName()+" by deregister", err)
+						"Synchronizer deleted resource "+tplunit.GetName()+" by deregister", err)
 
 					if err != nil {
 						klog.Error("Failed to delete tplunit in kubernetes, with error:", err)
