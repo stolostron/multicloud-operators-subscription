@@ -77,19 +77,25 @@ var (
 
 var crdKind = "CustomResourceDefinition"
 
+func (sync *KubeSynchronizer) stopCaching() {
+	if sync.stopCh != nil {
+		close(sync.stopCh)
+		sync.dynamicFactory = nil
+	}
+}
+
 func (sync *KubeSynchronizer) rediscoverResource() {
 	if sync.resetcache {
 		if sync.stopCh != nil {
 			close(sync.stopCh)
 			sync.dynamicFactory = nil
 		}
-
-		sync.stopCh = make(chan struct{})
 	}
 
 	sync.discoverResourcesOnce()
 
 	if sync.resetcache {
+		sync.stopCh = make(chan struct{})
 		sync.dynamicFactory.Start(sync.stopCh)
 		klog.Info("Synchronizer cache (re)started")
 	}
