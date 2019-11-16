@@ -77,6 +77,25 @@ var (
 
 var crdKind = "CustomResourceDefinition"
 
+func (sync *KubeSynchronizer) rediscoverResource() {
+	if sync.rediscover {
+		if sync.stopCh != nil {
+			close(sync.stopCh)
+			sync.dynamicFactory = nil
+		}
+
+		sync.stopCh = make(chan struct{})
+	}
+
+	sync.discoverResourcesOnce()
+
+	if sync.rediscover {
+		sync.dynamicFactory.Start(sync.stopCh)
+	}
+
+	sync.rediscover = false
+}
+
 // GetValidatedGVK return right gvk from original
 func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *schema.GroupVersionKind {
 	valid := &org
@@ -104,7 +123,7 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	return valid
 }
 
-func (sync *KubeSynchronizer) discoverResources() {
+func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.Info("Discovering cluster resources")
 
 	if sync.dynamicFactory == nil {
@@ -198,6 +217,10 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				},
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
+					if obj.GetKind() == crdKind {
+						sync.rediscover = true
+					}
+
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
 						sync.markServerUpdated(gvk)
 					}

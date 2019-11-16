@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
@@ -88,7 +89,7 @@ func TestSyncStart(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, mgr.GetScheme(), &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(mgr.Add(sync)).NotTo(gomega.HaveOccurred())
@@ -104,7 +105,7 @@ func TestSyncStart(t *testing.T) {
 func TestHouseKeeping(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	sync.houseKeeping()
@@ -116,7 +117,7 @@ func TestRegisterDeRegister(t *testing.T) {
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	dpl := dplinstance.DeepCopy()
@@ -177,7 +178,7 @@ func TestApply(t *testing.T) {
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	dpl := dplinstance.DeepCopy()
@@ -249,7 +250,7 @@ func TestClusterScopedApply(t *testing.T) {
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	stop := make(chan struct{})
@@ -313,7 +314,7 @@ func TestHarvestExisting(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	resgvk := schema.GroupVersionKind{
@@ -392,7 +393,7 @@ func TestServiceResource(t *testing.T) {
 
 	defer c.Delete(context.TODO(), sub)
 
-	sync, err := CreateSynchronizer(cfg, cfg, &host, 2, nil)
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(c.Get(context.TODO(), sharedkey, svc)).NotTo(gomega.HaveOccurred())
