@@ -78,7 +78,7 @@ var (
 var crdKind = "CustomResourceDefinition"
 
 func (sync *KubeSynchronizer) rediscoverResource() {
-	if sync.rediscover {
+	if sync.resetcache {
 		if sync.stopCh != nil {
 			close(sync.stopCh)
 			sync.dynamicFactory = nil
@@ -89,11 +89,11 @@ func (sync *KubeSynchronizer) rediscoverResource() {
 
 	sync.discoverResourcesOnce()
 
-	if sync.rediscover {
+	if sync.resetcache {
 		sync.dynamicFactory.Start(sync.stopCh)
 	}
 
-	sync.rediscover = false
+	sync.resetcache = false
 }
 
 // GetValidatedGVK return right gvk from original
@@ -218,7 +218,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind {
-						sync.rediscover = true
+						sync.resetcache = true
 					}
 
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {

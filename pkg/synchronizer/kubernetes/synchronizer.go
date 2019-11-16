@@ -70,7 +70,7 @@ type KubeSynchronizer struct {
 	eventrecorder  *utils.EventRecorder
 
 	stopCh         chan struct{}
-	rediscover     bool
+	resetcache     bool
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
