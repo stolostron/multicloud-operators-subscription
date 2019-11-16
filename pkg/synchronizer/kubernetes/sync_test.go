@@ -204,6 +204,7 @@ func TestApply(t *testing.T) {
 
 	cfgmap := &corev1.ConfigMap{}
 	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).NotTo(gomega.HaveOccurred())
+	newtplobj := cfgmap.DeepCopy()
 
 	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
 	time.Sleep(1 * time.Second)
@@ -211,6 +212,18 @@ func TestApply(t *testing.T) {
 	err = c.Get(context.TODO(), sharedkey, cfgmap)
 
 	g.Expect(errors.IsNotFound(err)).Should(gomega.BeTrue())
+
+	// test create new with disallowed information
+	nu := &unstructured.Unstructured{}
+	nu.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(newtplobj)
+	nu.DeepCopyInto(tplunit.Unstructured)
+
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), newtplobj)
+
+	g.Expect(c.Get(context.TODO(), sharedkey, cfgmap)).ShouldNot(gomega.HaveOccurred())
 }
 
 var (

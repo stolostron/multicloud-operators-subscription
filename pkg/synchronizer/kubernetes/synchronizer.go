@@ -313,6 +313,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) error {
 	klog.V(5).Info("Apply - Creating New Resource ", tplunit)
 
+	tplunit.Unstructured.SetResourceVersion("")
 	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
 
 	// Auto Create Namespace if not exist
