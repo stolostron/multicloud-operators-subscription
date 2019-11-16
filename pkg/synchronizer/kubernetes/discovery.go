@@ -91,6 +91,7 @@ func (sync *KubeSynchronizer) rediscoverResource() {
 
 	if sync.resetcache {
 		sync.dynamicFactory.Start(sync.stopCh)
+		klog.Info("Synchronizer cache (re)started")
 	}
 
 	sync.resetcache = false

@@ -152,6 +152,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		return nil, err
 	}
 
+	s.resetcache = true
 	s.discoverResourcesOnce()
 
 	return s, nil
