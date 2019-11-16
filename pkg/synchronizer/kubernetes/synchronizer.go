@@ -67,9 +67,10 @@ type KubeSynchronizer struct {
 	KubeResources  map[schema.GroupVersionKind]*ResourceMap
 	SynchronizerID *types.NamespacedName
 	Extension      Extension
+	eventrecorder  *utils.EventRecorder
 
-	signal <-chan struct{}
-
+	stopCh         chan struct{}
+	resetcache     bool
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -82,7 +83,7 @@ var defaultSynchronizer *KubeSynchronizer
 // Add creates the default syncrhonizer and add the start function as runnable into manager
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, interval int) error {
 	var err error
-	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, syncid, interval, defaultExtension)
+	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension)
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer with error: ", err)
@@ -98,7 +99,8 @@ func GetDefaultSynchronizer() *KubeSynchronizer {
 }
 
 // CreateSynchronizer createa an instance of synchrizer with give api-server config
-func CreateSynchronizer(config, remoteConfig *rest.Config, syncid *types.NamespacedName, interval int, ext Extension) (*KubeSynchronizer, error) {
+func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Scheme, syncid *types.NamespacedName,
+	interval int, ext Extension) (*KubeSynchronizer, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -143,7 +145,15 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, syncid *types.Namespa
 		s.Extension = defaultExtension
 	}
 
-	s.discoverResources()
+	s.eventrecorder, err = utils.NewEventRecorder(config, scheme)
+
+	if err != nil {
+		klog.Error("Failed to create event recorder. err: ", err)
+		return nil, err
+	}
+
+	s.resetcache = true
+	s.discoverResourcesOnce()
 
 	return s, nil
 }
@@ -157,17 +167,13 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	sync.signal = s
-
-	time.Sleep(time.Duration(sync.Interval) * time.Second)
-
-	sync.dynamicFactory.Start(s)
+	sync.rediscoverResource()
 
 	go wait.Until(func() {
 		sync.houseKeeping()
-	}, time.Duration(sync.Interval)*time.Second, sync.signal)
+	}, time.Duration(sync.Interval)*time.Second, s)
 
-	<-sync.signal
+	<-s
 
 	return nil
 }
@@ -202,7 +208,7 @@ func (sync *KubeSynchronizer) houseKeeping() {
 	}
 
 	if crdUpdated {
-		sync.discoverResources()
+		sync.rediscoverResource()
 	}
 }
 
@@ -248,15 +254,17 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 
 		if !ok {
 			// Harvest from system
-			klog.V(3).Infof("Havesting tplunit from cluster host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
+			if obj.GetDeletionTimestamp() == nil {
+				klog.V(3).Infof("Havesting tplunit from cluster host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
 
-			unit := &TemplateUnit{
-				ResourceUpdated: false,
-				StatusUpdated:   false,
-				Unstructured:    obj.DeepCopy(),
-				Source:          source,
+				unit := &TemplateUnit{
+					ResourceUpdated: false,
+					StatusUpdated:   false,
+					Unstructured:    obj.DeepCopy(),
+					Source:          source,
+				}
+				res.TemplateMap[reskey] = unit
 			}
-			res.TemplateMap[reskey] = unit
 		} else {
 			if tplunit.Source != source {
 				klog.V(3).Info("Havesting resource ", dpl.Namespace, "/", dpl.Name, " but owned by other source, skipping")
@@ -280,8 +288,11 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 			if !reflect.DeepEqual(obj, tplunit.Unstructured.Object) {
 				newobj := tplunit.Unstructured.DeepCopy()
 				newobj.SetResourceVersion(obj.GetResourceVersion())
-				_, err = dl.Update(newobj, metav1.UpdateOptions{})
+				newobj, err = dl.Update(newobj, metav1.UpdateOptions{})
 				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
+
+				sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
+					"Synchronizer updated resource "+tplunit.GetName()+" for retry", err)
 
 				if err == nil {
 					tplunit.ResourceUpdated = true
@@ -291,7 +302,7 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 			if err != nil {
 				return err
 			}
-			klog.V(10).Info("Updated template ", tplunit.Unstructured.GetName(), ":", tplunit.ResourceUpdated)
+			klog.V(5).Info("Updated template ", tplunit.Unstructured.GetName(), ":", tplunit.ResourceUpdated)
 			res.TemplateMap[reskey] = tplunit
 		}
 	}
@@ -301,6 +312,8 @@ func (sync *KubeSynchronizer) checkServerObjects(res *ResourceMap) error {
 
 func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) error {
 	klog.V(5).Info("Apply - Creating New Resource ", tplunit)
+
+	tplunit.Unstructured.SetResourceVersion("")
 	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
 
 	// Auto Create Namespace if not exist
@@ -311,6 +324,9 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 		nsus.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
 
 		if err == nil {
+			sync.eventrecorder.RecordEvent(nsus, "CreateNamespace",
+				"Synchronizer created namespace "+ns.Name+" for resource "+tplunit.GetName(), err)
+
 			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
 				Version:  "v1",
 				Resource: "namespaces",
@@ -330,6 +346,9 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 
 		return err
 	}
+
+	sync.eventrecorder.RecordEvent(obj, "CreateResource",
+		"Synchronizer created resource "+tplunit.GetName(), err)
 
 	tplunit.ResourceUpdated = true
 
@@ -393,10 +412,13 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 		klog.V(4).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 
-		_, err = ri.Patch(obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+		newobj, err = ri.Patch(obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		_, err = ri.Update(newobj, metav1.UpdateOptions{})
+		newobj, err = ri.Update(newobj, metav1.UpdateOptions{})
 	}
+
+	sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
+		"Synchronizer updated resource for template "+tplunit.GetName(), err)
 
 	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
@@ -509,6 +531,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
+					sync.eventrecorder.RecordEvent(tplunit, "DeleteResource",
+						"Synchronizer deleted resource "+tplunit.GetName()+" by deregister", err)
 
 					if err != nil {
 						klog.Error("Failed to delete tplunit in kubernetes, with error:", err)
