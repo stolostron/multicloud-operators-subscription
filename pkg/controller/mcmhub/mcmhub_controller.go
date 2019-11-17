@@ -62,6 +62,73 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return rec
 }
 
+type subscriptionMapper struct {
+	client.Client
+}
+
+func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
+	// rolling target subscription changed, need to update the source subscription
+	var requests []reconcile.Request
+
+	// enqueue itself
+	requests = append(requests,
+		reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      obj.Meta.GetName(),
+				Namespace: obj.Meta.GetNamespace(),
+			},
+		},
+	)
+
+	// list thing for rolling update check
+	subList := &appv1alpha1.SubscriptionList{}
+	listopts := &client.ListOptions{Namespace: obj.Meta.GetNamespace()}
+	err := mapper.List(context.TODO(), subList, listopts)
+
+	if err != nil {
+		klog.Error("Listing subscriptions in mapper and got error:", err)
+	}
+
+	for _, sub := range subList.Items {
+		annotations := sub.GetAnnotations()
+		if annotations == nil || annotations[appv1alpha1.AnnotationRollingUpdateTarget] == "" {
+			// not rolling
+			continue
+		}
+
+		if annotations[appv1alpha1.AnnotationRollingUpdateTarget] != obj.Meta.GetName() {
+			// rolling to annother one, skipping
+			continue
+		}
+
+		// rolling target subscription changed, need to update the source subscription
+		objkey := types.NamespacedName{
+			Name:      sub.GetName(),
+			Namespace: sub.GetNamespace(),
+		}
+
+		requests = append(requests, reconcile.Request{NamespacedName: objkey})
+	}
+	// end of rolling update check
+
+	// reconcile hosting one, if there is change in cluster, assuming no 2-hop hosting
+	hdplkey := utils.GetHostSubscriptionFromObject(obj.Meta)
+	if hdplkey != nil && hdplkey.Name != "" {
+		requests = append(requests, reconcile.Request{NamespacedName: *hdplkey})
+	}
+
+	klog.V(5).Info("Out subscription mapper with requests:", requests)
+
+	return requests
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
@@ -71,7 +138,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
+	err = c.Watch(
+		&source.Kind{Type: &appv1alpha1.Subscription{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: &subscriptionMapper{mgr.GetClient()}},
+		utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -141,6 +211,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 	} else {
 		// no longer hub subscription
+		err = r.clearSubscriptionDpls(instance)
+		if err != nil {
+			instance.Status.Phase = appv1alpha1.SubscriptionFailed
+			instance.Status.Reason = err.Error()
+		}
+
 		if instance.Status.Phase != appv1alpha1.SubscriptionFailed && instance.Status.Phase != appv1alpha1.SubscriptionSubscribed {
 			instance.Status.Phase = ""
 			instance.Status.Message = ""

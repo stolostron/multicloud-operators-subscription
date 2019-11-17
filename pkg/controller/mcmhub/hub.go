@@ -45,11 +45,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return nil
 	}
 
-	if sub.Spec.Placement == nil {
-		err := r.stopDeploySubscription(sub)
-		return err
-	}
-
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
 
 	if err != nil {
@@ -108,8 +103,16 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	if !reflect.DeepEqual(org, fnd) {
-		klog.V(5).Info("Updating Deployable spec:\n", string(dpl.Spec.Template.Raw), "\nfound:\n", string(found.Spec.Template.Raw))
+	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl)
+
+	if !reflect.DeepEqual(org, fnd) || updateTargetAnno {
+		klog.V(5).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
+			"\nfound:", string(found.Spec.Template.Raw),
+			"\nupdateTargetAnno:", updateTargetAnno)
+
+		if targetDpl != nil {
+			klog.V(5).Infof("targetDpl: %#v", targetDpl)
+		}
 
 		dpl.Spec.DeepCopyInto(&found.Spec)
 		// may need to check owner ID and backoff it if is not owned by this subscription
@@ -121,9 +124,18 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
 		foundanno[dplv1alpha1.AnnotationLocal] = "false"
+
+		if updateTargetAnno {
+			if targetDpl != nil {
+				foundanno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+			} else {
+				delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
+			}
+		}
+
 		found.SetAnnotations(foundanno)
 
-		klog.V(5).Info("Updating Deployable - ", "namespace: ", dpl.Namespace, " ,name: ", dpl.Name)
+		klog.V(5).Info("Updating Deployable - ", "namespace: ", found.Namespace, " ,name: ", found.Name)
 
 		err = r.Update(context.TODO(), found)
 
@@ -139,6 +151,28 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	return err
+}
+
+// ifUpdateTargetAnno check if there needs to update rolling update target annotation to the subscription deployable
+func ifUpdateTargetAnno(found, targetDpl *dplv1alpha1.Deployable) bool {
+	updateTargetAnno := false
+	foundanno := found.GetAnnotations()
+
+	if foundanno == nil {
+		foundanno = make(map[string]string)
+	}
+
+	if targetDpl != nil {
+		if foundanno[appv1alpha1.AnnotationRollingUpdateTarget] != targetDpl.GetName() {
+			updateTargetAnno = true
+		}
+	} else {
+		if foundanno[appv1alpha1.AnnotationRollingUpdateTarget] > "" {
+			updateTargetAnno = true
+		}
+	}
+
+	return updateTargetAnno
 }
 
 //GetChannelNamespaceType get the channel namespace and channel type by the given subscription
@@ -258,9 +292,10 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 	return updated
 }
 
-// stopDeploySubscription stop deploying the subscription if there is no placement for the subscription.
-// As a result, the subscription deployable is removed and the subscription status is updated accordingly
-func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscription) error {
+// clearSubscriptionDpls clear the subscription deployable and its rolling update target deployable if exists.
+func (r *ReconcileSubscription) clearSubscriptionDpls(sub *appv1alpha1.Subscription) error {
+	klog.V(5).Info("No longer hub, deleting sbscription deploayble")
+
 	hubdpl := &dplv1alpha1.Deployable{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
 
@@ -278,12 +313,21 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 		}
 	}
 
-	// delete target deployable if exists. This only happens when the subscription placement becomes empty
+	err = r.clearSubscriptionTargetDpl(sub)
+
+	return err
+}
+
+// clearSubscriptionTargetDpls clear the subscription target deployable if exists.
+func (r *ReconcileSubscription) clearSubscriptionTargetDpl(sub *appv1alpha1.Subscription) error {
+	klog.V(5).Info("deleting sbscription target deploayble")
+
+	// delete target deployable if exists.
 	hubTargetDpl := &dplv1alpha1.Deployable{}
-	err = r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-target-deployable", Namespace: sub.Namespace}, hubTargetDpl)
+	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-target-deployable", Namespace: sub.Namespace}, hubTargetDpl)
 
 	if err == nil {
-		// no longer hub, check owner-reference and delete if it is generated.
+		// check owner-reference and delete if it is generated.
 		owners := hubTargetDpl.GetOwnerReferences()
 		for _, owner := range owners {
 			if owner.UID == sub.UID {
@@ -293,30 +337,6 @@ func (r *ReconcileSubscription) stopDeploySubscription(sub *appv1alpha1.Subscrip
 					return err
 				}
 			}
-		}
-	}
-
-	savest := sub.Status.DeepCopy()
-
-	if sub.Status.Statuses != nil {
-		for k := range sub.Status.Statuses {
-			delete(sub.Status.Statuses, k)
-		}
-	}
-
-	if sub.Status.Phase == appv1alpha1.SubscriptionPropagated {
-		sub.Status.Phase = ""
-		sub.Status.Message = ""
-		sub.Status.Reason = ""
-	}
-
-	if !reflect.DeepEqual(savest, sub.Status) {
-		sub.Status.LastUpdateTime = metav1.Now()
-		err = r.Status().Update(context.TODO(), sub)
-
-		if err != nil {
-			klog.Info("Error in updating subscription obj: ", sub, err)
-			return err
 		}
 	}
 
@@ -387,7 +407,13 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 			Placement: sub.Spec.Placement,
 		},
 	}
-	if err = controllerutil.SetControllerReference(sub, dpl, r.scheme); err != nil {
+
+	ownerSub := sub
+	if rootSub != nil {
+		ownerSub = rootSub
+	}
+
+	if err = controllerutil.SetControllerReference(ownerSub, dpl, r.scheme); err != nil {
 		return nil, err
 	}
 
@@ -579,7 +605,9 @@ func (r *ReconcileSubscription) createTargetDplForRollingUpdate(sub *appv1alpha1
 	if annotations == nil || annotations[appv1alpha1.AnnotationRollingUpdateTarget] == "" {
 		klog.V(5).Info("Empty annotation or No rolling update target in annotations", annotations)
 
-		return nil, nil
+		err := r.clearSubscriptionTargetDpl(sub)
+
+		return nil, err
 	}
 
 	targetSub := &appv1alpha1.Subscription{}
