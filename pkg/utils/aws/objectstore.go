@@ -32,9 +32,9 @@ type ObjectStore interface {
 	Exists(bucket string) error
 	Create(bucket string) error
 	List(bucket string) ([]string, error)
-	Put(bucket, name string, content []byte) error
+	Put(bucket string, dplObj DeployableObject) error
 	Delete(bucket, name string) error
-	Get(bucket, name string) ([]byte, error)
+	Get(bucket, name string) (DeployableObject, error)
 }
 
 var _ ObjectStore = &Handler{}
@@ -44,6 +44,14 @@ const (
 	SecretMapKeyAccessKeyID = "AccessKeyID"
 	// SecretMapKeySecretAccessKey is key of secretaccesskey in secret
 	SecretMapKeySecretAccessKey = "SecretAccessKey"
+	//metadata key for stroing the deployable generatename name
+	DeployableGenerateNameMeta = "x-amz-meta-generatename"
+	//Deployable generate name key within the meta map
+	DployableMateGenerateNameKey = "Generatename"
+	//metadata key for stroing the deployable generatename name
+	DeployableVersionMeta = "x-amz-meta-deployableversion"
+	//Deployable generate name key within the meta map
+	DeployableMetaVersionKey = "Deployableversion"
 )
 
 // Handler handles connections to aws
@@ -65,6 +73,21 @@ func (p *credentialProvider) Retrieve() (aws.Credentials, error) {
 	}
 
 	return awscred, nil
+}
+
+type DeployableObject struct {
+	Name         string
+	GenerateName string
+	Version      string
+	Content      []byte
+}
+
+func (d DeployableObject) isEmpty() bool {
+	if d.Name == "" && d.GenerateName == "" && len(d.Content) == 0 {
+		return true
+	}
+
+	return false
 }
 
 // InitObjectStoreConnection connect to object store
@@ -167,7 +190,9 @@ func (h *Handler) List(bucket string) ([]string, error) {
 }
 
 // Get get existing object
-func (h *Handler) Get(bucket, name string) ([]byte, error) {
+func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
+	dplObj := DeployableObject{}
+
 	req := h.Client.GetObjectRequest(&s3.GetObjectInput{
 		Bucket: &bucket,
 		Key:    &name,
@@ -176,26 +201,43 @@ func (h *Handler) Get(bucket, name string) ([]byte, error) {
 	resp, err := req.Send(context.Background())
 	if err != nil {
 		klog.Error("Failed to send Get request. error: ", err)
-		return nil, err
+		return dplObj, err
 	}
 
+	generateName := resp.GetObjectOutput.Metadata[DployableMateGenerateNameKey]
+	version := resp.GetObjectOutput.Metadata[DeployableMetaVersionKey]
 	body, err := ioutil.ReadAll(resp.Body)
+
 	if err != nil {
-		klog.Error()
+		klog.Error("Failed to parse Get request. error: ", err)
+		return dplObj, err
 	}
 
-	klog.V(5).Info("Object Store Get Success: \n", string(body))
+	dplObj.Name = name
+	dplObj.GenerateName = generateName
+	dplObj.Content = body
+	dplObj.Version = version
 
-	return body, nil
+	klog.V(10).Info("Get Success: \n", string(body))
+
+	return dplObj, nil
 }
 
 // Put create new object
-func (h *Handler) Put(bucket, name string, content []byte) error {
+func (h *Handler) Put(bucket string, dplObj DeployableObject) error {
+	if dplObj.isEmpty() {
+		klog.V(5).Infof("got an empty deployableObject to put to object store")
+		return nil
+	}
+
 	req := h.Client.PutObjectRequest(&s3.PutObjectInput{
 		Bucket: &bucket,
-		Key:    &name,
-		Body:   bytes.NewReader(content),
+		Key:    &dplObj.Name,
+		Body:   bytes.NewReader(dplObj.Content),
 	})
+
+	req.HTTPRequest.Header.Set(DeployableGenerateNameMeta, dplObj.GenerateName)
+	req.HTTPRequest.Header.Set(DeployableVersionMeta, dplObj.Version)
 
 	resp, err := req.Send(context.Background())
 	if err != nil {
@@ -203,7 +245,7 @@ func (h *Handler) Put(bucket, name string, content []byte) error {
 		return err
 	}
 
-	klog.V(10).Info("Put Success", resp)
+	klog.V(5).Info("Put Success", resp)
 
 	return nil
 }

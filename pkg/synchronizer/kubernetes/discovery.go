@@ -77,6 +77,32 @@ var (
 
 var crdKind = "CustomResourceDefinition"
 
+func (sync *KubeSynchronizer) stopCaching() {
+	if sync.stopCh != nil {
+		close(sync.stopCh)
+		sync.dynamicFactory = nil
+	}
+}
+
+func (sync *KubeSynchronizer) rediscoverResource() {
+	if sync.resetcache {
+		if sync.stopCh != nil {
+			close(sync.stopCh)
+			sync.dynamicFactory = nil
+		}
+	}
+
+	sync.discoverResourcesOnce()
+
+	if sync.resetcache {
+		sync.stopCh = make(chan struct{})
+		sync.dynamicFactory.Start(sync.stopCh)
+		klog.Info("Synchronizer cache (re)started")
+	}
+
+	sync.resetcache = false
+}
+
 // GetValidatedGVK return right gvk from original
 func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *schema.GroupVersionKind {
 	valid := &org
@@ -104,7 +130,7 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	return valid
 }
 
-func (sync *KubeSynchronizer) discoverResources() {
+func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.Info("Discovering cluster resources")
 
 	if sync.dynamicFactory == nil {
@@ -187,23 +213,33 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				AddFunc: func(new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 				UpdateFunc: func(old, new interface{}) {
 					obj := new.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
+					if obj.GetKind() == crdKind {
+						sync.resetcache = true
+					}
+
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
-						sync.KubeResources[gvk].ServerUpdated = true
+						sync.markServerUpdated(gvk)
 					}
 				},
 			})
 			klog.V(5).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
 		}
+	}
+}
+
+func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
+	if resmap, ok := sync.KubeResources[gvk]; ok {
+		resmap.ServerUpdated = true
 	}
 }
