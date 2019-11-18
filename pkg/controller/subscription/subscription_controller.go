@@ -75,6 +75,46 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
 
+type configMapper struct {
+	client.Client
+}
+
+func (c *configMapper) Map(obj handler.MapObject) []reconcile.Request {
+	sublist := &appv1alpha1.SubscriptionList{}
+	c.List(context.TODO(), sublist)
+
+	var requests []reconcile.Request
+
+	for _, sub := range sublist.Items {
+		if sub.Spec.Channel != "" {
+			ch := &chnv1alpha1.Channel{}
+			chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
+			err := c.Get(context.TODO(), chnkey, ch)
+
+			if err != nil {
+				continue
+			}
+
+			if ch.Spec.ConfigMapRef != nil {
+				chncfgkey := types.NamespacedName{
+					Name:      ch.Spec.ConfigMapRef.Name,
+					Namespace: chnkey.Namespace,
+				}
+
+				if chncfgkey.Name == obj.Meta.GetName() && chncfgkey.Namespace == obj.Meta.GetNamespace() {
+					nextKey := types.NamespacedName{
+						Name:      sub.GetName(),
+						Namespace: sub.GetNamespace(),
+					}
+					requests = append(requests, reconcile.Request{NamespacedName: nextKey})
+				}
+			}
+		}
+	}
+
+	return requests
+}
+
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber) reconcile.Reconciler {
 	rec := &ReconcileSubscription{
@@ -97,6 +137,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource Subscription
 	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
+	if err != nil {
+		return err
+	}
+
+	// watch for cluster change excluding heartbeat
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: &configMapper{mgr.GetClient()}})
 	if err != nil {
 		return err
 	}
