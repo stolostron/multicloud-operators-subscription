@@ -16,6 +16,8 @@ spec:
     kind: Subscription
     listKind: SubscriptionList
     plural: subscriptions
+    shortNames:
+    - appsub
     singular: subscription
   scope: Namespaced
   subresources:
