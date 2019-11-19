@@ -536,8 +536,8 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 						Name:      helmReleaseNewName,
 						Namespace: hrsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: hrsi.Subscription.APIVersion,
-							Kind:       hrsi.Subscription.Kind,
+							APIVersion: "app.ibm.com/v1alpha1",
+							Kind:       "Subscription",
 							Name:       hrsi.Subscription.Name,
 							UID:        hrsi.Subscription.UID,
 						}},
