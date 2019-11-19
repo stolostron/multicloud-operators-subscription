@@ -16,6 +16,7 @@ package subscription
 
 import (
 	"context"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -84,15 +85,33 @@ func (r *ReconcileSubscription) ListAndDeployReferredObject(instance *appv1alpha
 
 		if u.GetName() == refObj.GetName() {
 			found = true
-
 			lb[referLabel] = "true"
-			u.SetLabels(lb)
-			newOwers := addObjectOwnedBySub(u, instance)
-			u.SetOwnerReferences(newOwers)
 
-			err := r.Client.Update(context.TODO(), u)
-			if err != nil {
-				return err
+			if !reflect.DeepEqual(u, refObj) {
+				urerf := refObj
+
+				urerf.SetLabels(lb)
+				newOwers := addObjectOwnedBySub(u, instance)
+				urerf.SetOwnerReferences(newOwers)
+				urerf.SetNamespace(insNs)
+				t := types.UID("")
+
+				urerf.SetResourceVersion("")
+				urerf.SetUID(t)
+
+				err := r.Client.Update(context.TODO(), urerf)
+				if err != nil {
+					return err
+				}
+			} else {
+				u.SetLabels(lb)
+				newOwers := addObjectOwnedBySub(u, instance)
+				u.SetOwnerReferences(newOwers)
+
+				err := r.Client.Update(context.TODO(), u)
+				if err != nil {
+					return err
+				}
 			}
 
 			continue

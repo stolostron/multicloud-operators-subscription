@@ -228,7 +228,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
-	err = r.Status().Update(context.TODO(), instance)
+	result := reconcile.Result{}
 
 	result := reconcile.Result{}
 
@@ -305,7 +305,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 
 		if err != nil {
-			klog.Errorf("Can't deploy referred secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
+			klog.Errorf("Can't deploy referred secret %v for subscription %v due to %v", subitem.ChannelSecret.GetName(), instance.GetName(), err)
 		}
 	}
 
@@ -315,7 +315,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 
 		if err != nil {
-			klog.Errorf("Can't deploy referred secret %v for subscription %v", obj.GetName(), instance.GetName())
+			klog.Errorf("Can't deploy referred configmap %v for subscription %v due to %v", obj.GetName(), instance.GetName(), err)
 		}
 	}
 
