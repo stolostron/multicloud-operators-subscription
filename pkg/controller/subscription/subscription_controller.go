@@ -230,8 +230,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	result := reconcile.Result{}
 
-	result := reconcile.Result{}
-
 	if err != nil {
 		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
 
