@@ -275,6 +275,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
+	err = r.Status().Update(context.TODO(), instance)
+
 	result := reconcile.Result{}
 
 	if err != nil {

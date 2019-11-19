@@ -109,12 +109,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 //GetSecret get the Secert from all the suscribed channel
 func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretList, error) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
 
 	srts := &v1.SecretList{}
 	opts := &client.ListOptions{Namespace: srtKey.Namespace}
@@ -128,12 +123,7 @@ func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretLi
 }
 
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
 
 	secretsAnno := srt.GetAnnotations()
 
@@ -150,12 +140,7 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
 func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
 
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
