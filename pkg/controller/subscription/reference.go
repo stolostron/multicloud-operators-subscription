@@ -89,13 +89,12 @@ func (r *ReconcileSubscription) ListAndDeployReferredObject(instance *appv1alpha
 
 			if !reflect.DeepEqual(u, refObj) {
 				urerf := refObj
-
-				urerf.SetLabels(lb)
 				newOwers := addObjectOwnedBySub(u, instance)
-				urerf.SetOwnerReferences(newOwers)
-				urerf.SetNamespace(insNs)
 				t := types.UID("")
 
+				urerf.SetLabels(lb)
+				urerf.SetOwnerReferences(newOwers)
+				urerf.SetNamespace(insNs)
 				urerf.SetResourceVersion("")
 				urerf.SetUID(t)
 
