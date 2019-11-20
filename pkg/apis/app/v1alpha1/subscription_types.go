@@ -30,6 +30,8 @@ var (
 	AnnotationSyncSource = SchemeGroupVersion.Group + "/sync-source"
 	// AnnotationRollingUpdateTarget target deployable to rolling update to
 	AnnotationRollingUpdateTarget = SchemeGroupVersion.Group + "/rollingupdate-target"
+	// AnnotationRollingUpdateMaxUnavailable defines max un available clusters during rolling update
+	AnnotationRollingUpdateMaxUnavailable = SchemeGroupVersion.Group + "/rollingupdate-maxunavaialble"
 	// AnnotationDeployables defines all deployables subscribed by the subscription
 	AnnotationDeployables = SchemeGroupVersion.Group + "/deployables"
 	// AnnotationHosting defines the subscription hosting the resource

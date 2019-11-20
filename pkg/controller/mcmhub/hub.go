@@ -67,6 +67,11 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 		dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
 
+		subAnno := sub.GetAnnotations()
+		if subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+			dplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+		}
+
 		dpl.SetAnnotations(dplAnno)
 	}
 
@@ -103,7 +108,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl)
+	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl, dpl)
 
 	if !reflect.DeepEqual(org, fnd) || updateTargetAnno {
 		klog.V(5).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
@@ -131,6 +136,17 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 			} else {
 				delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
 			}
+
+			subDplAnno := dpl.GetAnnotations()
+			if subDplAnno == nil {
+				subDplAnno = make(map[string]string)
+			}
+
+			if subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+				foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+			} else {
+				delete(foundanno, appv1alpha1.AnnotationRollingUpdateMaxUnavailable)
+			}
 		}
 
 		found.SetAnnotations(foundanno)
@@ -154,13 +170,23 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 }
 
 // ifUpdateTargetAnno check if there needs to update rolling update target annotation to the subscription deployable
-func ifUpdateTargetAnno(found, targetDpl *dplv1alpha1.Deployable) bool {
-	updateTargetAnno := false
+func ifUpdateTargetAnno(found, targetDpl, subDpl *dplv1alpha1.Deployable) bool {
 	foundanno := found.GetAnnotations()
 
 	if foundanno == nil {
 		foundanno = make(map[string]string)
 	}
+
+	subDplAnno := subDpl.GetAnnotations()
+	if subDplAnno == nil {
+		subDplAnno = make(map[string]string)
+	}
+
+	if foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] != subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] {
+		return true
+	}
+
+	updateTargetAnno := false
 
 	if targetDpl != nil {
 		if foundanno[appv1alpha1.AnnotationRollingUpdateTarget] != targetDpl.GetName() {
@@ -484,13 +510,6 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	if !reflect.DeepEqual(newsubstatus, sub.Status) {
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
-
-		klog.V(5).Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
-		err := r.Status().Update(context.TODO(), sub)
-
-		if err != nil {
-			klog.Info("Failed to update hub subscription status. error: ", err, "\n sub: ", sub)
-		}
 	}
 
 	return nil
