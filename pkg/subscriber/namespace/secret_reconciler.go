@@ -109,8 +109,6 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 //GetSecret get the Secert from all the suscribed channel
 func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretList, error) {
-
-
 	srts := &v1.SecretList{}
 	opts := &client.ListOptions{Namespace: srtKey.Namespace}
 	err := s.Clt.List(context.TODO(), srts, opts)
@@ -123,8 +121,6 @@ func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretLi
 }
 
 func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
-
-
 	secretsAnno := srt.GetAnnotations()
 
 	if secretsAnno == nil {
@@ -140,8 +136,6 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 
 //RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
 func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
-
-
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
