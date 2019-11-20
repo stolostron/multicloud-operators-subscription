@@ -499,7 +499,8 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		helmReleaseNewName := packageName + "-" + hrsi.Subscription.Name + "-" + hrsi.Subscription.Namespace
+		releaseCRName := packageName + "-" + hrsi.Subscription.Name + "-" + hrsi.Subscription.Namespace
+		releaseName := packageName
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		//Create a new helrmReleases
@@ -521,11 +522,11 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		}
 		//Check if Update or Create
 		err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
-			types.NamespacedName{Name: helmReleaseNewName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
+			types.NamespacedName{Name: releaseCRName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
 
 		if err != nil {
 			if errors.IsNotFound(err) {
-				klog.V(2).Infof("Create helmRelease %s", helmReleaseNewName)
+				klog.V(2).Infof("Create helmRelease %s", releaseCRName)
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
@@ -533,7 +534,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      helmReleaseNewName,
+						Name:      releaseCRName,
 						Namespace: hrsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
 							APIVersion: "app.ibm.com/v1alpha1",
@@ -552,7 +553,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 						ConfigMapRef: hrsi.Channel.Spec.ConfigMapRef,
 						SecretRef:    hrsi.Channel.Spec.SecretRef,
 						ChartName:    packageName,
-						ReleaseName:  getReleaseName(helmReleaseNewName),
+						ReleaseName:  getReleaseName(releaseName),
 						Version:      chartVersions[0].GetVersion(),
 					},
 				}
@@ -565,7 +566,6 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(2).Infof("Update helmRelease spec %s", helmRelease.Name)
-			releaseName := helmRelease.Spec.ReleaseName
 			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.HelmRepoSourceType,
