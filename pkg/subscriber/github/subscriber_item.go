@@ -415,8 +415,8 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						Name:      helmReleaseNewName,
 						Namespace: ghsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: ghsi.Subscription.APIVersion,
-							Kind:       ghsi.Subscription.Kind,
+							APIVersion: "app.ibm.com/v1alpha1",
+							Kind:       "Subscription",
 							Name:       ghsi.Subscription.Name,
 							UID:        ghsi.Subscription.UID,
 						}},

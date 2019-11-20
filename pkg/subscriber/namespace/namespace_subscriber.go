@@ -148,6 +148,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 
 		err := syncUpWithChannel(nssubitem)
 		if err != nil {
+			klog.V(5).Infof("Having error %v while sync up with channel", err)
 			return err
 		}
 	}

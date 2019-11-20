@@ -163,7 +163,7 @@ type SubscriptionStatus struct {
 	Phase          SubscriptionPhase `json:"phase,omitempty"`
 	Message        string            `json:"message,omitempty"`
 	Reason         string            `json:"reason,omitempty"`
-	LastUpdateTime metav1.Time       `json:"lastUpdateTime"`
+	LastUpdateTime metav1.Time       `json:"lastUpdateTime,omitempty"`
 
 	// For endpoint, it is the status of subscription, key is packagename,
 	// For hub, it aggregates all status, key is cluster name
