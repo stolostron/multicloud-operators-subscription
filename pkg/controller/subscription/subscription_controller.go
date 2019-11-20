@@ -75,83 +75,6 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
 
-type referredMapper struct {
-	client.Client
-}
-
-func (ref *referredMapper) Map(obj handler.MapObject) []reconcile.Request {
-	sublist := &appv1alpha1.SubscriptionList{}
-
-	var requests []reconcile.Request
-
-	err := ref.List(context.TODO(), sublist)
-	if err != nil {
-		return requests
-	}
-
-	for _, sub := range sublist.Items {
-		if sub.Spec.Channel != "" {
-			ch := &chnv1alpha1.Channel{}
-			chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
-			err := ref.Get(context.TODO(), chnkey, ch)
-
-			if err != nil {
-				continue
-			}
-
-			nextKey := types.NamespacedName{
-				Name:      sub.GetName(),
-				Namespace: sub.GetNamespace(),
-			}
-
-			if ch.Spec.ConfigMapRef != nil {
-				if ch.Spec.ConfigMapRef.Name == obj.Meta.GetName() && ch.GetNamespace() == obj.Meta.GetNamespace() {
-					requests = append(requests, reconcile.Request{NamespacedName: nextKey})
-				}
-			}
-
-			if ch.Spec.SecretRef != nil {
-				if ch.Spec.SecretRef.Name == obj.Meta.GetName() && ch.GetNamespace() == obj.Meta.GetNamespace() {
-					requests = append(requests, reconcile.Request{NamespacedName: nextKey})
-				}
-			}
-		}
-	}
-
-	return requests
-}
-
-type channelMapper struct {
-	client.Client
-}
-
-func (ch *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
-	sublist := &appv1alpha1.SubscriptionList{}
-
-	var requests []reconcile.Request
-
-	err := ch.List(context.TODO(), sublist)
-	if err != nil {
-		return requests
-	}
-
-	for _, sub := range sublist.Items {
-		if sub.Spec.Channel != "" {
-			chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
-			if chnkey.Name == obj.Meta.GetName() && chnkey.Namespace == obj.Meta.GetNamespace() {
-				nextKey := types.NamespacedName{
-					Name:      sub.GetName(),
-					Namespace: sub.GetNamespace(),
-				}
-
-				requests = append(requests, reconcile.Request{NamespacedName: nextKey})
-			}
-		}
-	}
-
-	return requests
-}
-
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber) reconcile.Reconciler {
 	rec := &ReconcileSubscription{
@@ -174,22 +97,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Watch for changes to primary resource Subscription
 	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
-	if err != nil {
-		return err
-	}
-
-	// watch for configmap changes to make sure the referred object is up to date
-	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: &referredMapper{mgr.GetClient()}})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: &referredMapper{mgr.GetClient()}})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(&source.Kind{Type: &chnv1alpha1.Channel{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}})
 	if err != nil {
 		return err
 	}
