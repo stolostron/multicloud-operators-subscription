@@ -97,7 +97,17 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	hosttr := objanno[appv1alpha1.AnnotationHosting]
+	sourcestr := objanno[appv1alpha1.AnnotationSyncSource]
+	if sourcestr == "" {
+		return nil
+	}
+
+	pos := strings.Index(sourcestr, "-")
+	if pos == -1 {
+		return nil
+	}
+
+	hosttr := sourcestr[pos+1:]
 
 	if hosttr == "" {
 		return nil

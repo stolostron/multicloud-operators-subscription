@@ -42,7 +42,8 @@ var (
 		Name:      "cluster",
 		Namespace: "namspace",
 	}
-	source = "synctest"
+
+	sourceprefix = "synctest-"
 )
 
 var (
@@ -126,6 +127,7 @@ func TestRegisterDeRegister(t *testing.T) {
 		Name:      dpl.Name,
 		Namespace: dpl.Namespace,
 	}
+	source := sourceprefix + hostnn.String()
 
 	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
@@ -144,7 +146,6 @@ func TestRegisterDeRegister(t *testing.T) {
 
 	anno := map[string]string{
 		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		appv1alpha1.AnnotationSyncSource: source,
 	}
 	lbls := make(map[string]string)
@@ -184,6 +185,7 @@ func TestApply(t *testing.T) {
 	dpl := dplinstance.DeepCopy()
 	hostnn := sharedkey
 	dplnn := sharedkey
+	source := sourceprefix + hostnn.String()
 
 	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
@@ -315,6 +317,8 @@ func TestClusterScopedApply(t *testing.T) {
 	dpl.Spec.Template = &runtime.RawExtension{
 		Object: crd.DeepCopy(),
 	}
+	source := sourceprefix + hostnn.String()
+
 	g.Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(gomega.HaveOccurred())
 
 	_, ok := sync.KubeResources[foocrdgvk]
@@ -341,6 +345,7 @@ func TestClusterScopedApply(t *testing.T) {
 func TestHarvestExisting(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	source := sourceprefix + sharedkey.String()
 	cfgmap := workloadconfigmap.DeepCopy()
 
 	var anno = map[string]string{
@@ -423,11 +428,11 @@ func TestServiceResource(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	svc := service.DeepCopy()
+	source := sourceprefix + sharedkey.String()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
-		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationSyncSource:   source,
+		"app.ibm.com/hosting-deployable": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource: source,
 	}
 
 	svc.SetAnnotations(anno)

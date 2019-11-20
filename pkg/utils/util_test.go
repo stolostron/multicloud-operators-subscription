@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
+	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 func TestKubernetes(t *testing.T) {
@@ -131,6 +132,7 @@ var (
 				dplv1alpha1.AnnotationHosting:        hostdplkey.String(),
 				dplv1alpha1.AnnotationSubscription:   hostsubkey.String(),
 				dplv1alpha1.AnnotationManagedCluster: hostclkey.String(),
+				appv1alpha1.AnnotationSyncSource:     "testsource-" + hostsubkey.String(),
 			},
 		},
 	}
