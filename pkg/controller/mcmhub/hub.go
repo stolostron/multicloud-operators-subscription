@@ -41,9 +41,7 @@ import (
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
-	if r.UpdateDeployablesAnnotation(sub) {
-		return nil
-	}
+	r.UpdateDeployablesAnnotation(sub)
 
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
 
@@ -98,8 +96,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl, dpl)
 
-	if !reflect.DeepEqual(org, fnd) || updateTargetAnno {
-		klog.V(5).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
+	if !reflect.DeepEqual(org, fnd) ||
+		updateTargetAnno ||
+		!comparePlacementOverride(found, dpl) {
+		klog.V(1).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
 			"\nfound:", string(found.Spec.Template.Raw),
 			"\nupdateTargetAnno:", updateTargetAnno)
 
@@ -113,7 +113,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		foundanno := setFoundDplAnnotation(found, dpl, targetDpl, updateTargetAnno)
 		found.SetAnnotations(foundanno)
 
-		klog.V(5).Info("Updating Deployable - ", "namespace: ", found.Namespace, " ,name: ", found.Name)
+		klog.V(5).Infof("Updating Deployable: %#v, ref dpl: %#v", found, dpl)
 
 		err = r.Update(context.TODO(), found)
 
@@ -129,6 +129,19 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	return err
+}
+
+//comparePlacementOverride compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
+func comparePlacementOverride(found, dpl *dplv1alpha1.Deployable) bool {
+	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
+		return false
+	}
+
+	if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
+		return false
+	}
+
+	return true
 }
 
 //setFoundDplAnnotation set target dpl annotation to the source dpl annoation
