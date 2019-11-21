@@ -59,19 +59,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	if targetDpl != nil {
-		dplAnno := dpl.GetAnnotations()
-
-		if dplAnno == nil {
-			dplAnno = make(map[string]string)
-		}
-
-		dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
-
-		subAnno := sub.GetAnnotations()
-		if subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
-			dplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
-		}
-
+		dplAnno := setTargetDplAnnotation(sub, dpl, targetDpl)
 		dpl.SetAnnotations(dplAnno)
 	}
 
@@ -122,33 +110,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		dpl.Spec.DeepCopyInto(&found.Spec)
 		// may need to check owner ID and backoff it if is not owned by this subscription
 
-		foundanno := found.GetAnnotations()
-		if foundanno == nil {
-			foundanno = make(map[string]string)
-		}
-
-		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
-		foundanno[dplv1alpha1.AnnotationLocal] = "false"
-
-		if updateTargetAnno {
-			if targetDpl != nil {
-				foundanno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
-			} else {
-				delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
-			}
-
-			subDplAnno := dpl.GetAnnotations()
-			if subDplAnno == nil {
-				subDplAnno = make(map[string]string)
-			}
-
-			if subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
-				foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
-			} else {
-				delete(foundanno, appv1alpha1.AnnotationRollingUpdateMaxUnavailable)
-			}
-		}
-
+		foundanno := setFoundDplAnnotation(found, dpl, targetDpl, updateTargetAnno)
 		found.SetAnnotations(foundanno)
 
 		klog.V(5).Info("Updating Deployable - ", "namespace: ", found.Namespace, " ,name: ", found.Name)
@@ -167,6 +129,56 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	return err
+}
+
+//setFoundDplAnnotation set target dpl annotation to the source dpl annoation
+func setFoundDplAnnotation(found, dpl, targetDpl *dplv1alpha1.Deployable, updateTargetAnno bool) map[string]string {
+	foundanno := found.GetAnnotations()
+	if foundanno == nil {
+		foundanno = make(map[string]string)
+	}
+
+	foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
+	foundanno[dplv1alpha1.AnnotationLocal] = "false"
+
+	if updateTargetAnno {
+		if targetDpl != nil {
+			foundanno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+		} else {
+			delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
+		}
+
+		subDplAnno := dpl.GetAnnotations()
+		if subDplAnno == nil {
+			subDplAnno = make(map[string]string)
+		}
+
+		if subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+			foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+		} else {
+			delete(foundanno, appv1alpha1.AnnotationRollingUpdateMaxUnavailable)
+		}
+	}
+
+	return foundanno
+}
+
+//SetTargetDplAnnotation set target dpl annotation to the source dpl annoation
+func setTargetDplAnnotation(sub *appv1alpha1.Subscription, dpl, targetDpl *dplv1alpha1.Deployable) map[string]string {
+	dplAnno := dpl.GetAnnotations()
+
+	if dplAnno == nil {
+		dplAnno = make(map[string]string)
+	}
+
+	dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+
+	subAnno := sub.GetAnnotations()
+	if subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+		dplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+	}
+
+	return dplAnno
 }
 
 // ifUpdateTargetAnno check if there needs to update rolling update target annotation to the subscription deployable
@@ -329,7 +341,7 @@ func (r *ReconcileSubscription) clearSubscriptionDpls(sub *appv1alpha1.Subscript
 		// no longer hub, check owner-reference and delete if it is generated.
 		owners := hubdpl.GetOwnerReferences()
 		for _, owner := range owners {
-			if owner.UID == sub.UID {
+			if owner.Name == sub.Name {
 				err = r.Delete(context.TODO(), hubdpl)
 				if err != nil {
 					klog.V(5).Infof("Error in deleting sbuscription target deploayble: %#v, err: %#v ", hubdpl, err)
@@ -356,7 +368,7 @@ func (r *ReconcileSubscription) clearSubscriptionTargetDpl(sub *appv1alpha1.Subs
 		// check owner-reference and delete if it is generated.
 		owners := hubTargetDpl.GetOwnerReferences()
 		for _, owner := range owners {
-			if owner.UID == sub.UID {
+			if owner.Name == sub.Name {
 				err = r.Delete(context.TODO(), hubTargetDpl)
 				if err != nil {
 					klog.Infof("Error in deleting sbuscription target deploayble: %#v, err: %v", hubTargetDpl, err)
