@@ -1,6 +1,6 @@
 # multicloud-operators-subscription
 
-[![Build](http://35.227.205.240/badge.svg?jobs=build_multicloud-operators-subscription)](http://35.227.205.240/?job=images_multicloud-operators-subscription_postsubmit)
+[![Build](http://35.227.205.240/badge.svg?jobs=images_multicloud-operators-subscription_postsubmit)](http://35.227.205.240/?job=images_multicloud-operators-subscription_postsubmit)
 [![GoDoc](https://godoc.org/github.com/IBM/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/IBM/multicloud-operators-subscription)
 [![Go Report Card](https://goreportcard.com/badge/github.com/IBM/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/IBM/multicloud-operators-subscription)
 [![Code Coverage](https://codecov.io/gh/IBM/multicloud-operators-subscription/branch/master/graphs/badge.svg?branch=master)](https://codecov.io/gh/IBM/multicloud-operators-subscription?branch=master)
@@ -65,11 +65,11 @@ Find the nginx pods deployed to current namespace, and the number of backend pod
 
 ```shell
 % kubectl get pods -l app=nginx-ingress
-NAME                                                              READY     STATUS    RESTARTS   AGE
-ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-controller-68tf55x   1/1       Running   0          26s
-ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backe95wfk   1/1       Running   0          26s
-ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backen85m6   1/1       Running   0          26s
-ngin-f3ts5xr8xpcml36hlkwq8tzfw-nginx-ingress-default-backew5p2n   1/1       Running   0          26s
+NAME                                             READY   STATUS    RESTARTS   AGE
+nginx-ingress-controller-857f44797-7fx7c         1/1     Running   0          96s
+nginx-ingress-default-backend-6b8dc9d88f-97pxz   1/1     Running   0          96s
+nginx-ingress-default-backend-6b8dc9d88f-drt7c   1/1     Running   0          96s
+nginx-ingress-default-backend-6b8dc9d88f-n26ls   1/1     Running   0          96s
 ```
 
 Check the [Getting Started](docs/getting_started.md) doc for more details
@@ -90,19 +90,20 @@ pod/multicloud-operators-subscription-557c676479-dh2fg   1/1       Running   0  
 - Check Subscription and its status
 
 ```shell
-% kubectl describe subscriptions simple
+% kubectl describe appsub simple
 Name:         simple
 Namespace:    default
 Labels:       <none>
-Annotations:  kubectl.kubernetes.io/last-applied-configuration={"apiVersion":"app.ibm.com/v1alpha1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"channel":"dev/d...
+Annotations:  kubectl.kubernetes.io/last-applied-configuration:
+                {"apiVersion":"app.ibm.com/v1alpha1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"ch...
 API Version:  app.ibm.com/v1alpha1
 Kind:         Subscription
 Metadata:
-  Creation Timestamp:  2019-10-20T00:43:54Z
-  Generation:          14
-  Resource Version:    39456
+  Creation Timestamp:  2019-11-21T04:01:47Z
+  Generation:          2
+  Resource Version:    24045
   Self Link:           /apis/app.ibm.com/v1alpha1/namespaces/default/subscriptions/simple
-  UID:                 2abed0ce-78e0-42e9-bc25-39737bc50220
+  UID:                 a35b6ef5-0c13-11ea-b4e7-00000a100ef8
 Spec:
   Channel:  dev/dev-helmrepo
   Name:     nginx-ingress
@@ -110,22 +111,22 @@ Spec:
     Package Name:  nginx-ingress
     Package Overrides:
       Path:   spec.values
-      Value:  controller:
+      Value:  defaultBackend:
   replicaCount: 3
 
   Placement:
     Local:  true
 Status:
-  Last Update Time:  2019-10-20T02:46:25Z
+  Last Update Time:  2019-11-21T04:02:38Z
   Phase:             Subscribed
   Statuses:
     /:
       Packages:
-        Dev - Helmrepo - Nginx - Ingress - 1 . 24 . 3:
-          Last Update Time:  2019-10-20T02:46:25Z
+        dev-helmrepo-nginx-ingress-1.25.0:
+          Last Update Time:  2019-11-21T04:02:38Z
           Phase:             Subscribed
           Resource Status:
-            Last Update:  2019-10-20T02:46:13Z
+            Last Update:  2019-11-21T04:02:24Z
             Phase:        Success
 Events:                   <none>
 ```

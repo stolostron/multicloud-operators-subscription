@@ -395,16 +395,17 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		//Compose release name
-		helmReleaseNewName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
+		releaseCRName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
+		releaseName := packageName
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		err = ghsi.synchronizer.LocalClient.Get(context.TODO(),
-			types.NamespacedName{Name: helmReleaseNewName, Namespace: ghsi.Subscription.Namespace}, helmRelease)
+			types.NamespacedName{Name: releaseCRName, Namespace: ghsi.Subscription.Namespace}, helmRelease)
 
 		//Check if Update or Create
 		if err != nil {
 			if kerrors.IsNotFound(err) {
-				klog.V(4).Infof("Create helmRelease %s", helmReleaseNewName)
+				klog.V(4).Infof("Create helmRelease %s", releaseCRName)
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
@@ -412,7 +413,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      helmReleaseNewName,
+						Name:      releaseCRName,
 						Namespace: ghsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
 							APIVersion: "app.ibm.com/v1alpha1",
@@ -433,7 +434,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
 						SecretRef:    ghsi.Channel.Spec.SecretRef,
 						ChartName:    packageName,
-						ReleaseName:  packageName,
+						ReleaseName:  releaseName,
 						Version:      chartVersions[0].GetVersion(),
 					},
 				}
@@ -446,7 +447,6 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(4).Infof("Update helmRelease spec %s", helmRelease.Name)
-			releaseName := helmRelease.Spec.ReleaseName
 			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.GitHubSourceType,
