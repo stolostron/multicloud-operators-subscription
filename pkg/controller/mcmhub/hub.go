@@ -341,7 +341,7 @@ func (r *ReconcileSubscription) clearSubscriptionDpls(sub *appv1alpha1.Subscript
 		// no longer hub, check owner-reference and delete if it is generated.
 		owners := hubdpl.GetOwnerReferences()
 		for _, owner := range owners {
-			if owner.Name == sub.Name {
+			if owner.UID == sub.UID {
 				err = r.Delete(context.TODO(), hubdpl)
 				if err != nil {
 					klog.V(5).Infof("Error in deleting sbuscription target deploayble: %#v, err: %#v ", hubdpl, err)
@@ -368,7 +368,7 @@ func (r *ReconcileSubscription) clearSubscriptionTargetDpl(sub *appv1alpha1.Subs
 		// check owner-reference and delete if it is generated.
 		owners := hubTargetDpl.GetOwnerReferences()
 		for _, owner := range owners {
-			if owner.Name == sub.Name {
+			if owner.UID == sub.UID {
 				err = r.Delete(context.TODO(), hubTargetDpl)
 				if err != nil {
 					klog.Infof("Error in deleting sbuscription target deploayble: %#v, err: %v", hubTargetDpl, err)
