@@ -379,7 +379,7 @@ func TestHarvestExisting(t *testing.T) {
 
 	// object should be havested back before source is found
 	resmap := sync.KubeResources[resgvk]
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())
@@ -462,7 +462,7 @@ func TestServiceResource(t *testing.T) {
 	reskey := sync.generateResourceMapKey(hostnn, dplnn)
 
 	// havest existing from cluster
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())
