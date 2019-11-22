@@ -41,9 +41,7 @@ import (
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
-	if r.UpdateDeployablesAnnotation(sub) {
-		return nil
-	}
+	r.UpdateDeployablesAnnotation(sub)
 
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
 
@@ -59,14 +57,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	if targetDpl != nil {
-		dplAnno := dpl.GetAnnotations()
-
-		if dplAnno == nil {
-			dplAnno = make(map[string]string)
-		}
-
-		dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
-
+		dplAnno := setTargetDplAnnotation(sub, dpl, targetDpl)
 		dpl.SetAnnotations(dplAnno)
 	}
 
@@ -103,10 +94,12 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl)
+	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl, dpl)
 
-	if !reflect.DeepEqual(org, fnd) || updateTargetAnno {
-		klog.V(5).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
+	if !reflect.DeepEqual(org, fnd) ||
+		updateTargetAnno ||
+		!comparePlacementOverride(found, dpl) {
+		klog.V(1).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
 			"\nfound:", string(found.Spec.Template.Raw),
 			"\nupdateTargetAnno:", updateTargetAnno)
 
@@ -117,25 +110,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		dpl.Spec.DeepCopyInto(&found.Spec)
 		// may need to check owner ID and backoff it if is not owned by this subscription
 
-		foundanno := found.GetAnnotations()
-		if foundanno == nil {
-			foundanno = make(map[string]string)
-		}
-
-		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
-		foundanno[dplv1alpha1.AnnotationLocal] = "false"
-
-		if updateTargetAnno {
-			if targetDpl != nil {
-				foundanno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
-			} else {
-				delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
-			}
-		}
-
+		foundanno := setFoundDplAnnotation(found, dpl, targetDpl, updateTargetAnno)
 		found.SetAnnotations(foundanno)
 
-		klog.V(5).Info("Updating Deployable - ", "namespace: ", found.Namespace, " ,name: ", found.Name)
+		klog.V(5).Infof("Updating Deployable: %#v, ref dpl: %#v", found, dpl)
 
 		err = r.Update(context.TODO(), found)
 
@@ -153,14 +131,87 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	return err
 }
 
+//comparePlacementOverride compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
+func comparePlacementOverride(found, dpl *dplv1alpha1.Deployable) bool {
+	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
+		return false
+	}
+
+	if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
+		return false
+	}
+
+	return true
+}
+
+//setFoundDplAnnotation set target dpl annotation to the source dpl annoation
+func setFoundDplAnnotation(found, dpl, targetDpl *dplv1alpha1.Deployable, updateTargetAnno bool) map[string]string {
+	foundanno := found.GetAnnotations()
+	if foundanno == nil {
+		foundanno = make(map[string]string)
+	}
+
+	foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
+	foundanno[dplv1alpha1.AnnotationLocal] = "false"
+
+	if updateTargetAnno {
+		if targetDpl != nil {
+			foundanno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+		} else {
+			delete(foundanno, appv1alpha1.AnnotationRollingUpdateTarget)
+		}
+
+		subDplAnno := dpl.GetAnnotations()
+		if subDplAnno == nil {
+			subDplAnno = make(map[string]string)
+		}
+
+		if subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+			foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+		} else {
+			delete(foundanno, appv1alpha1.AnnotationRollingUpdateMaxUnavailable)
+		}
+	}
+
+	return foundanno
+}
+
+//SetTargetDplAnnotation set target dpl annotation to the source dpl annoation
+func setTargetDplAnnotation(sub *appv1alpha1.Subscription, dpl, targetDpl *dplv1alpha1.Deployable) map[string]string {
+	dplAnno := dpl.GetAnnotations()
+
+	if dplAnno == nil {
+		dplAnno = make(map[string]string)
+	}
+
+	dplAnno[appv1alpha1.AnnotationRollingUpdateTarget] = targetDpl.GetName()
+
+	subAnno := sub.GetAnnotations()
+	if subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] > "" {
+		dplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] = subAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable]
+	}
+
+	return dplAnno
+}
+
 // ifUpdateTargetAnno check if there needs to update rolling update target annotation to the subscription deployable
-func ifUpdateTargetAnno(found, targetDpl *dplv1alpha1.Deployable) bool {
-	updateTargetAnno := false
+func ifUpdateTargetAnno(found, targetDpl, subDpl *dplv1alpha1.Deployable) bool {
 	foundanno := found.GetAnnotations()
 
 	if foundanno == nil {
 		foundanno = make(map[string]string)
 	}
+
+	subDplAnno := subDpl.GetAnnotations()
+	if subDplAnno == nil {
+		subDplAnno = make(map[string]string)
+	}
+
+	if foundanno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] != subDplAnno[appv1alpha1.AnnotationRollingUpdateMaxUnavailable] {
+		return true
+	}
+
+	updateTargetAnno := false
 
 	if targetDpl != nil {
 		if foundanno[appv1alpha1.AnnotationRollingUpdateTarget] != targetDpl.GetName() {
@@ -484,13 +535,6 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	if !reflect.DeepEqual(newsubstatus, sub.Status) {
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
-
-		klog.V(5).Info("Do Updating status for ", sub.Namespace, "/", sub.Name, " with ", sub.Status)
-		err := r.Status().Update(context.TODO(), sub)
-
-		if err != nil {
-			klog.Info("Failed to update hub subscription status. error: ", err, "\n sub: ", sub)
-		}
 	}
 
 	return nil
