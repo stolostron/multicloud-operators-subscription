@@ -122,9 +122,9 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 //compareSubDeployables compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
 func compareSubDeployables(found, dpl, targetDpl *dplv1alpha1.Deployable) (bool, error) {
 	// First things first, check if it is rolling update.
-	// the changes of Overrides, placement and template could be caused by the on-going rolling update.
+	// the changes of Overrides and template could be caused by the on-going rolling update.
 	// subscription hub controller should not update the subscription deployable until the end of the rolling update
-	// After the rolling update, the newly modified subcription Overrides/placement/template will be passed to the subscription deployable.
+	// After it, the subcription Overrides/placement/template modified by end user will be passed to the subscription deployable.
 	if targetDpl != nil {
 		if !reflect.DeepEqual(found.Spec.Overrides, targetDpl.Spec.Overrides) {
 			klog.V(1).Infof("found: %v, startRollingUpdate: %v", found.GetName(), startRollingUpdate[found.GetName()])
@@ -145,7 +145,7 @@ func compareSubDeployables(found, dpl, targetDpl *dplv1alpha1.Deployable) (bool,
 		return false, nil
 	}
 
-	//compare placement
+	//compare placement. placemen change always happens in subscription, not in target subscription
 	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
 		klog.V(1).Infof("different placement: found: %v, dpl: %v", found.Spec.Placement, dpl.Spec.Placement)
 		return false, nil
