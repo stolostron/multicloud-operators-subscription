@@ -39,6 +39,8 @@ import (
 	subutil "github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
+var startRollingUpdate = make(map[string]bool)
+
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
 	r.UpdateDeployablesAnnotation(sub)
@@ -78,30 +80,16 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	org := &unstructured.Unstructured{}
-	err = json.Unmarshal(dpl.Spec.Template.Raw, org)
+	noUpdateSubDeployable, err := compareSubDeployables(found, dpl, targetDpl)
 
 	if err != nil {
-		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
 		return err
 	}
 
-	fnd := &unstructured.Unstructured{}
-	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
+	updateTargetAnno := checkRollingUpdateAnno(found, targetDpl, dpl)
 
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
-		return err
-	}
-
-	updateTargetAnno := ifUpdateTargetAnno(found, targetDpl, dpl)
-
-	if !reflect.DeepEqual(org, fnd) ||
-		updateTargetAnno ||
-		!comparePlacementOverride(found, dpl) {
-		klog.V(1).Info("Updating Deployable spec:", string(dpl.Spec.Template.Raw),
-			"\nfound:", string(found.Spec.Template.Raw),
-			"\nupdateTargetAnno:", updateTargetAnno)
+	if !noUpdateSubDeployable || updateTargetAnno {
+		klog.V(1).Infof("noUpdateSubDeployable: %v, updateTargetAnno: %v", noUpdateSubDeployable, updateTargetAnno)
 
 		if targetDpl != nil {
 			klog.V(5).Infof("targetDpl: %#v", targetDpl)
@@ -131,17 +119,74 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	return err
 }
 
-//comparePlacementOverride compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
-func comparePlacementOverride(found, dpl *dplv1alpha1.Deployable) bool {
+//compareSubDeployables compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
+func compareSubDeployables(found, dpl, targetDpl *dplv1alpha1.Deployable) (bool, error) {
+	// First things first, check if it is rolling update.
+	// the changes of Overrides, placement and template could be caused by the on-going rolling update.
+	// subscription hub controller should not update the subscription deployable until the end of the rolling update
+	// After the rolling update, the newly modified subcription Overrides/placement/template will be passed to the subscription deployable.
+	if targetDpl != nil {
+		if !reflect.DeepEqual(found.Spec.Overrides, targetDpl.Spec.Overrides) {
+			klog.V(1).Infof("found: %v, startRollingUpdate: %v", found.GetName(), startRollingUpdate[found.GetName()])
+
+			if !startRollingUpdate[found.GetName()] {
+				startRollingUpdate[found.GetName()] = true
+
+				klog.V(1).Infof("rolling update sub deployable one time because of different override, found: %#v, target dpl: %#v",
+					found.Spec.Overrides, targetDpl.Spec.Overrides)
+
+				return false, nil
+			}
+		} else {
+			startRollingUpdate[found.GetName()] = false
+		}
+	} else if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
+		klog.V(1).Infof("different override, found: %#v, dpl: %#v", found.Spec.Overrides, dpl.Spec.Overrides)
+		return false, nil
+	}
+
+	//compare placement
 	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
-		return false
+		klog.V(1).Infof("different placement: found: %v, dpl: %v", found.Spec.Placement, dpl.Spec.Placement)
+		return false, nil
 	}
 
-	if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
-		return false
+	//compare template
+	org := &unstructured.Unstructured{}
+	err := json.Unmarshal(dpl.Spec.Template.Raw, org)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
+		return true, err
 	}
 
-	return true
+	fnd := &unstructured.Unstructured{}
+	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
+		return true, err
+	}
+
+	if targetDpl != nil {
+		target := &unstructured.Unstructured{}
+		err = json.Unmarshal(targetDpl.Spec.Template.Raw, target)
+
+		if err != nil {
+			klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(targetDpl.Spec.Template.Raw))
+			return true, err
+		}
+
+		if !reflect.DeepEqual(target, fnd) {
+			klog.V(1).Infof("rolling update different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(targetDpl.Spec.Template.Raw))
+			return false, nil
+		}
+	} else if !reflect.DeepEqual(org, fnd) {
+		klog.V(1).Infof("different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
+		return false, nil
+	}
+
+	return true, nil
 }
 
 //setFoundDplAnnotation set target dpl annotation to the source dpl annoation
@@ -194,8 +239,8 @@ func setTargetDplAnnotation(sub *appv1alpha1.Subscription, dpl, targetDpl *dplv1
 	return dplAnno
 }
 
-// ifUpdateTargetAnno check if there needs to update rolling update target annotation to the subscription deployable
-func ifUpdateTargetAnno(found, targetDpl, subDpl *dplv1alpha1.Deployable) bool {
+// checkRollingUpdateAnno check if there needs to update rolling update target annotation to the subscription deployable
+func checkRollingUpdateAnno(found, targetDpl, subDpl *dplv1alpha1.Deployable) bool {
 	foundanno := found.GetAnnotations()
 
 	if foundanno == nil {
