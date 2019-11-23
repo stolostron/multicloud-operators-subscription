@@ -675,13 +675,14 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		return nil
 	}
 
-	tplanno := template.GetAnnotations()
-
-	if tplanno == nil {
-		tplanno = make(map[string]string)
+	err = sync.Extension.SetHostToObject(template, host, sync.SynchronizerID)
+	if err != nil {
+		klog.Error("Failed to set host to object with error:", err)
 	}
 
+	tplanno := template.GetAnnotations()
 	tplanno[dplv1alpha1.AnnotationHosting] = instance.GetNamespace() + "/" + instance.GetName()
+
 	tplanno[appv1alpha1.AnnotationSyncSource] = source
 	template.SetAnnotations(tplanno)
 

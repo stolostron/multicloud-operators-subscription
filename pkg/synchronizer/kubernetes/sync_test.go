@@ -145,6 +145,7 @@ func TestRegisterDeRegister(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	anno := map[string]string{
+		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		appv1alpha1.AnnotationSyncSource: source,
 	}
@@ -431,8 +432,9 @@ func TestServiceResource(t *testing.T) {
 	source := sourceprefix + sharedkey.String()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable": sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationSyncSource: source,
+		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource:   source,
 	}
 
 	svc.SetAnnotations(anno)
