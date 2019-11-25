@@ -39,10 +39,13 @@ import (
 	subutil "github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
-var startRollingUpdate = make(map[string]bool)
-
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
+	targetSub, updateSub, err := r.updateSubscriptionToTarget(sub)
+	if err != nil {
+		return err
+	}
+
 	r.UpdateDeployablesAnnotation(sub)
 
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
@@ -52,7 +55,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	// if the subscription has the rollingupdate-target annotation, create a new deploayble as the target deployable of the subscription deployable
-	targetDpl, err := r.createTargetDplForRollingUpdate(sub)
+	targetDpl, err := r.createTargetDplForRollingUpdate(sub, targetSub)
 
 	if err != nil {
 		return err
@@ -80,16 +83,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	noUpdateSubDeployable, err := compareSubDeployables(found, dpl, targetDpl)
-
-	if err != nil {
-		return err
-	}
-
 	updateTargetAnno := checkRollingUpdateAnno(found, targetDpl, dpl)
 
-	if !noUpdateSubDeployable || updateTargetAnno {
-		klog.V(1).Infof("noUpdateSubDeployable: %v, updateTargetAnno: %v", noUpdateSubDeployable, updateTargetAnno)
+	if updateSub || updateTargetAnno {
+		klog.V(1).Infof("updateSub: %v, updateTargetAnno: %v", updateSub, updateTargetAnno)
 
 		if targetDpl != nil {
 			klog.V(5).Infof("targetDpl: %#v", targetDpl)
@@ -119,74 +116,100 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	return err
 }
 
-//compareSubDeployables compare placmentrule and override between existing subscription dpl (found) and new subscription dpl (dpl)
-func compareSubDeployables(found, dpl, targetDpl *dplv1alpha1.Deployable) (bool, error) {
-	// First things first, check if it is rolling update.
-	// the changes of Overrides and template could be caused by the on-going rolling update.
-	// subscription hub controller should not update the subscription deployable until the end of the rolling update
-	// After it, the subcription Overrides/placement/template modified by end user will be passed to the subscription deployable.
-	if targetDpl != nil {
-		if !reflect.DeepEqual(found.Spec.Overrides, targetDpl.Spec.Overrides) {
-			klog.V(1).Infof("found: %v, startRollingUpdate: %v", found.GetName(), startRollingUpdate[found.GetName()])
+// if there exists target subscription, update the source subscription basd on its target subscription.
+// return the target subscription and updated flag
+func (r *ReconcileSubscription) updateSubscriptionToTarget(sub *appv1alpha1.Subscription) (*appv1alpha1.Subscription, bool, error) {
+	//Fetch target subcription if exists
+	annotations := sub.GetAnnotations()
 
-			if !startRollingUpdate[found.GetName()] {
-				startRollingUpdate[found.GetName()] = true
+	if annotations == nil || annotations[appv1alpha1.AnnotationRollingUpdateTarget] == "" {
+		klog.V(5).Info("Empty annotation or No rolling update target in annotations", annotations)
 
-				klog.V(1).Infof("rolling update sub deployable one time because of different override, found: %#v, target dpl: %#v",
-					found.Spec.Overrides, targetDpl.Spec.Overrides)
+		err := r.clearSubscriptionTargetDpl(sub)
 
-				return false, nil
-			}
-		} else {
-			startRollingUpdate[found.GetName()] = false
+		return nil, false, err
+	}
+
+	targetSub := &appv1alpha1.Subscription{}
+	targetSubKey := types.NamespacedName{
+		Namespace: sub.Namespace,
+		Name:      annotations[appv1alpha1.AnnotationRollingUpdateTarget],
+	}
+	err := r.Get(context.TODO(), targetSubKey, targetSub)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("target Subscription is gone: %#v.", targetSubKey)
+
+			return nil, false, nil
 		}
-	} else if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
-		klog.V(1).Infof("different override, found: %#v, dpl: %#v", found.Spec.Overrides, dpl.Spec.Overrides)
-		return false, nil
+		// Error reading the object - requeue the request.
+		klog.Infof("fetching target Subscription failed: %#v.", err)
+
+		return nil, false, err
 	}
 
-	//compare placement. placemen change always happens in subscription, not in target subscription
-	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
-		klog.V(1).Infof("different placement: found: %v, dpl: %v", found.Spec.Placement, dpl.Spec.Placement)
-		return false, nil
+	//compare the source subscription with the target subscription. The source subscription placemen is alwayas applied.
+	updated := false
+
+	if !reflect.DeepEqual(sub.GetLabels(), targetSub.GetLabels()) {
+		klog.V(1).Infof("old label: %#v, new label: %#v", sub.GetLabels(), targetSub.GetLabels())
+		sub.SetLabels(targetSub.GetLabels())
+
+		updated = true
 	}
 
-	//compare template
-	org := &unstructured.Unstructured{}
-	err := json.Unmarshal(dpl.Spec.Template.Raw, org)
+	if !reflect.DeepEqual(sub.Spec.Overrides, targetSub.Spec.Overrides) {
+		klog.V(1).Infof("old override: %#v, new override: %#v", sub.Spec.Overrides, targetSub.Spec.Overrides)
+		sub.Spec.Overrides = targetSub.Spec.Overrides
 
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
-		return true, err
+		updated = true
 	}
 
-	fnd := &unstructured.Unstructured{}
-	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
+	if !reflect.DeepEqual(sub.Spec.Channel, targetSub.Spec.Channel) {
+		klog.V(1).Infof("old channel: %#v, new channel: %#v", sub.Spec.Channel, targetSub.Spec.Channel)
+		sub.Spec.Channel = targetSub.Spec.Channel
 
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
-		return true, err
+		updated = true
 	}
 
-	if targetDpl != nil {
-		target := &unstructured.Unstructured{}
-		err = json.Unmarshal(targetDpl.Spec.Template.Raw, target)
+	if !reflect.DeepEqual(sub.Spec.Package, targetSub.Spec.Package) {
+		klog.V(1).Infof("old Package: %#v, new Package: %#v", sub.Spec.Package, targetSub.Spec.Package)
+		sub.Spec.Package = targetSub.Spec.Package
 
+		updated = true
+	}
+
+	if !reflect.DeepEqual(sub.Spec.PackageFilter, targetSub.Spec.PackageFilter) {
+		klog.V(1).Infof("old PackageFilter: %#v, new PackageFilter: %#v", sub.Spec.PackageFilter, targetSub.Spec.PackageFilter)
+		sub.Spec.PackageFilter = targetSub.Spec.PackageFilter
+
+		updated = true
+	}
+
+	if !reflect.DeepEqual(sub.Spec.PackageOverrides, targetSub.Spec.PackageOverrides) {
+		klog.V(1).Infof("old PackageOverrides: %#v, new PackageOverrides: %#v", sub.Spec.PackageOverrides, targetSub.Spec.PackageOverrides)
+		sub.Spec.PackageOverrides = targetSub.Spec.PackageOverrides
+
+		updated = true
+	}
+
+	if !reflect.DeepEqual(sub.Spec.TimeWindow, targetSub.Spec.TimeWindow) {
+		klog.V(1).Infof("old TimeWindow: %#v, new TimeWindow: %#v", sub.Spec.TimeWindow, targetSub.Spec.TimeWindow)
+		sub.Spec.TimeWindow = targetSub.Spec.TimeWindow
+
+		updated = true
+	}
+
+	if updated {
+		err := r.Update(context.TODO(), sub)
 		if err != nil {
-			klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(targetDpl.Spec.Template.Raw))
-			return true, err
+			klog.Infof("Updating Subscription to its target failed. subscription: %#v, error: %#v", sub, err)
+			return targetSub, updated, err
 		}
-
-		if !reflect.DeepEqual(target, fnd) {
-			klog.V(1).Infof("rolling update different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(targetDpl.Spec.Template.Raw))
-			return false, nil
-		}
-	} else if !reflect.DeepEqual(org, fnd) {
-		klog.V(1).Infof("different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
-		return false, nil
 	}
 
-	return true, nil
+	return targetSub, updated, nil
 }
 
 //setFoundDplAnnotation set target dpl annotation to the source dpl annoation
@@ -688,34 +711,9 @@ func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dp
 }
 
 // createTargetDplForRollingUpdate create a new deployable to contain the target subscription
-func (r *ReconcileSubscription) createTargetDplForRollingUpdate(sub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
-	annotations := sub.GetAnnotations()
-
-	if annotations == nil || annotations[appv1alpha1.AnnotationRollingUpdateTarget] == "" {
-		klog.V(5).Info("Empty annotation or No rolling update target in annotations", annotations)
-
-		err := r.clearSubscriptionTargetDpl(sub)
-
-		return nil, err
-	}
-
-	targetSub := &appv1alpha1.Subscription{}
-	targetSubKey := types.NamespacedName{
-		Namespace: sub.Namespace,
-		Name:      annotations[appv1alpha1.AnnotationRollingUpdateTarget],
-	}
-	err := r.Get(context.TODO(), targetSubKey, targetSub)
-
-	if err != nil {
-		if errors.IsNotFound(err) {
-			klog.Infof("target Subscription is gone: %#v.", targetSubKey)
-
-			return nil, nil
-		}
-		// Error reading the object - requeue the request.
-		klog.Infof("fetching target Subscription failed: %#v.", err)
-
-		return nil, err
+func (r *ReconcileSubscription) createTargetDplForRollingUpdate(sub, targetSub *appv1alpha1.Subscription) (*dplv1alpha1.Deployable, error) {
+	if targetSub == nil {
+		return nil, nil
 	}
 
 	targetSubDpl, err := r.prepareDeployableForSubscription(targetSub, sub)
