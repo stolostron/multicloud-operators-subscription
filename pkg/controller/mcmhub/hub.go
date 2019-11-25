@@ -46,10 +46,16 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	r.UpdateDeployablesAnnotation(sub)
+	updateSubDplAnno := r.UpdateDeployablesAnnotation(sub)
+
+	klog.V(1).Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
+
+	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)
+	if err != nil {
+		return err
+	}
 
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
-
 	if err != nil {
 		return err
 	}
@@ -71,7 +77,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	err = r.Get(context.TODO(), dplkey, found)
 
 	if err != nil && errors.IsNotFound(err) {
-		klog.V(5).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
+		klog.V(1).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
 		err = r.Create(context.TODO(), dpl)
 
 		//record events
@@ -85,7 +91,9 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateTargetAnno := checkRollingUpdateAnno(found, targetDpl, dpl)
 
-	if updateSub || updateTargetAnno {
+	updateSubDpl := checkSubDeployables(found, dpl)
+
+	if updateSub || updateSubDpl || updateTargetAnno {
 		klog.V(1).Infof("updateSub: %v, updateTargetAnno: %v", updateSub, updateTargetAnno)
 
 		if targetDpl != nil {
@@ -114,6 +122,72 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	return err
+}
+
+// update subscription  rolling update target subscription changes or subscription deployable list changes
+func (r *ReconcileSubscription) setNewSubscription(sub *appv1alpha1.Subscription, updateSub, updateSubDplAnno bool) error {
+	if updateSub || updateSubDplAnno {
+		err := r.Update(context.TODO(), sub)
+		if err != nil {
+			klog.Infof("Updating Subscription failed. subscription: %#v, error: %#v", sub, err)
+			return err
+		}
+
+		newSub := &appv1alpha1.Subscription{}
+		subKey := types.NamespacedName{
+			Namespace: sub.Namespace,
+			Name:      sub.Name,
+		}
+		err = r.Get(context.TODO(), subKey, newSub)
+
+		if err != nil {
+			klog.Infof("Feching new Subscription failed. new subscription: %#v, error: %#v", newSub, err)
+			return err
+		}
+
+		klog.V(1).Infof("new Subscription updated: %#v", newSub)
+		sub = newSub
+	}
+
+	return nil
+}
+
+//checkSubDeployables check differences between existing subscription dpl (found) and new subscription dpl (dpl)
+// This is caused by end-user updates on the orignal subscription.
+func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
+	if !reflect.DeepEqual(found.Spec.Overrides, dpl.Spec.Overrides) {
+		klog.V(1).Infof("different override, found: %#v, dpl: %#v", found.Spec.Overrides, dpl.Spec.Overrides)
+		return true
+	}
+
+	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
+		klog.V(1).Infof("different placement: found: %v, dpl: %v", found.Spec.Placement, dpl.Spec.Placement)
+		return true
+	}
+
+	//compare template difference
+	org := &unstructured.Unstructured{}
+	err := json.Unmarshal(dpl.Spec.Template.Raw, org)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(dpl.Spec.Template.Raw))
+		return false
+	}
+
+	fnd := &unstructured.Unstructured{}
+	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
+
+	if err != nil {
+		klog.V(5).Info("Error in unmarshall, err:", err, " |template: ", string(found.Spec.Template.Raw))
+		return false
+	}
+
+	if !reflect.DeepEqual(org, fnd) {
+		klog.V(1).Infof("different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
+		return true
+	}
+
+	return false
 }
 
 // if there exists target subscription, update the source subscription basd on its target subscription.
@@ -199,14 +273,6 @@ func (r *ReconcileSubscription) updateSubscriptionToTarget(sub *appv1alpha1.Subs
 		sub.Spec.TimeWindow = targetSub.Spec.TimeWindow
 
 		updated = true
-	}
-
-	if updated {
-		err := r.Update(context.TODO(), sub)
-		if err != nil {
-			klog.Infof("Updating Subscription to its target failed. subscription: %#v, error: %#v", sub, err)
-			return targetSub, updated, err
-		}
 	}
 
 	return targetSub, updated, nil
@@ -399,13 +465,6 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 
 		subanno[appv1alpha1.AnnotationDeployables] = dplstr
 		sub.SetAnnotations(subanno)
-
-		err := r.Update(context.TODO(), sub)
-		if err != nil {
-			klog.Infof("Updating Subscription annotation app.ibm.com/Deployables failed. subscription: %#v, error: %#v", sub, err)
-		}
-	} else {
-		klog.V(5).Info("subscription update, same spec, Skipping ", sub.Namespace, "/", sub.Name)
 	}
 
 	return updated
