@@ -96,8 +96,10 @@ func (se *SubscriptionExtension) SetHostToObject(obj metav1.Object, host types.N
 		objanno = make(map[string]string)
 	}
 
-	objanno[appv1alpha1.AnnotationHosting] = host.String()
-	obj.SetAnnotations(objanno)
+	if objanno[appv1alpha1.AnnotationHosting] == "" {
+		objanno[appv1alpha1.AnnotationHosting] = host.String()
+		obj.SetAnnotations(objanno)
+	}
 
 	return se.SetSynchronizerToObject(obj, syncid)
 }
