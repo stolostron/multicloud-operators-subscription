@@ -18,5 +18,5 @@ import "github.com/IBM/multicloud-operators-subscription/pkg/controller/mcmhub"
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, mcmhub.Add)
+	AddHubToManagerFuncs = append(AddHubToManagerFuncs, mcmhub.Add)
 }
