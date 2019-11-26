@@ -72,12 +72,6 @@ func RunManager(sig <-chan struct{}) {
 	}
 
 	ctx := context.TODO()
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "multicloud-operators-subscription-lock")
-	if err != nil {
-		klog.Error(err, "")
-		os.Exit(1)
-	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
@@ -118,6 +112,12 @@ func RunManager(sig <-chan struct{}) {
 	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+		// Become the leader before proceeding
+		err = leader.Become(ctx, "multicloud-operators-subscription-lock")
+		if err != nil {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
