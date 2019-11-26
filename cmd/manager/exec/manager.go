@@ -133,6 +133,14 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(1)
 	}
 
+	// Setup all Hub Controllers
+	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+		if err := controller.AddHubToManager(mgr); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+	}
+
 	if err = serveCRMetrics(cfg); err != nil {
 		klog.Info("Could not generate and serve custom resource metrics", "error", err.Error())
 	}
