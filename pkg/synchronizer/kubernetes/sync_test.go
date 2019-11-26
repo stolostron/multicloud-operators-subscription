@@ -145,6 +145,7 @@ func TestRegisterDeRegister(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	anno := map[string]string{
+		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		appv1alpha1.AnnotationSyncSource: source,
 	}
@@ -379,7 +380,7 @@ func TestHarvestExisting(t *testing.T) {
 
 	// object should be havested back before source is found
 	resmap := sync.KubeResources[resgvk]
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())
@@ -431,8 +432,9 @@ func TestServiceResource(t *testing.T) {
 	source := sourceprefix + sharedkey.String()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable": sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationSyncSource: source,
+		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource:   source,
 	}
 
 	svc.SetAnnotations(anno)
@@ -462,7 +464,7 @@ func TestServiceResource(t *testing.T) {
 	reskey := sync.generateResourceMapKey(hostnn, dplnn)
 
 	// havest existing from cluster
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())
