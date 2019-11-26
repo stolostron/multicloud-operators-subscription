@@ -18,18 +18,20 @@ import (
 	pflag "github.com/spf13/pflag"
 )
 
-// PlacementRuleCMDOptions for command line flag parsing
-type PlacementRuleCMDOptions struct {
+// SubscriptionCMDOptions for command line flag parsing
+type SubscriptionCMDOptions struct {
 	MetricsAddr           string
 	ClusterName           string
 	ClusterNamespace      string
 	HubConfigFilePathName string
 	SyncInterval          int
+	Standalone            bool
 }
 
-var Options = PlacementRuleCMDOptions{
+var Options = SubscriptionCMDOptions{
 	MetricsAddr:  "",
 	SyncInterval: 60,
+	Standalone:   false,
 }
 
 // ProcessFlags parses command line parameters into Options
@@ -69,5 +71,12 @@ func ProcessFlags() {
 		"sync-interval",
 		Options.SyncInterval,
 		"The interval of housekeeping in seconds.",
+	)
+
+	flag.BoolVar(
+		&Options.Standalone,
+		"standalone",
+		Options.Standalone,
+		"Standalone mode.",
 	)
 }
