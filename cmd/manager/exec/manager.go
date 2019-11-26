@@ -115,27 +115,27 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(1)
 	}
 
-	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
-		klog.Error("Failed to initialize synchronizer with error:", err)
-		os.Exit(1)
-	}
-
-	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
-		klog.Error("Failed to initialize synchronizer with error:", err)
-		os.Exit(1)
-	}
-
-	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig); err != nil {
-		klog.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Setup all Hub Controllers
 	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+	} else {
+		// Setup Synchronizer
+		if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+			klog.Error("Failed to initialize synchronizer with error:", err)
+			os.Exit(1)
+		}
+
+		// Setup Subscribers
+		if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+			klog.Error("Failed to initialize synchronizer with error:", err)
+			os.Exit(1)
+		}
+
+		// Setup all Controllers
+		if err := controller.AddToManager(mgr, hubconfig); err != nil {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
