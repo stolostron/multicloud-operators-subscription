@@ -25,6 +25,9 @@ var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config) error
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
 
+// AddHubToManagerFuncs is a list of functions to add all Hub Controllers to the Manager
+var AddHubToManagerFuncs []func(manager.Manager) error
+
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, cfg *rest.Config) error {
 	for _, f := range AddToManagerFuncs {
@@ -35,6 +38,17 @@ func AddToManager(m manager.Manager, cfg *rest.Config) error {
 
 	for _, f := range AddToManagerMCMFuncs {
 		if err := f(m, cfg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddHubToManager adds all Hub Controllers to the Manager
+func AddHubToManager(m manager.Manager) error {
+	for _, f := range AddHubToManagerFuncs {
+		if err := f(m); err != nil {
 			return err
 		}
 	}
