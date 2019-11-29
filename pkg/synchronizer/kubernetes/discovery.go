@@ -123,11 +123,14 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 		return nil
 	}
 
-	if _, ok := sync.KubeResources[*valid]; !ok {
-		return nil
+	// return the right version of gv
+	for gvk := range sync.KubeResources {
+		if valid.GroupKind() == gvk.GroupKind() {
+			return &gvk
+		}
 	}
 
-	return valid
+	return nil
 }
 
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
