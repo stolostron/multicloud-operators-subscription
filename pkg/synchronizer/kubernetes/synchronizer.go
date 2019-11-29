@@ -289,11 +289,11 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 			if !reflect.DeepEqual(obj, tplunit.Unstructured.Object) {
 				newobj := tplunit.Unstructured.DeepCopy()
 				newobj.SetResourceVersion(obj.GetResourceVersion())
-				newobj, err = dl.Update(newobj, metav1.UpdateOptions{})
+				_, err = dl.Update(newobj, metav1.UpdateOptions{})
 				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 				sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
-					"Synchronizer updated resource "+tplunit.GetName()+"of gvk:"+newobj.GroupVersionKind().String()+" for retry", err)
+					"Synchronizer updated resource "+tplunit.GetName()+"of gvk:"+tplunit.GroupVersionKind().String()+" for retry", err)
 
 				if err == nil {
 					tplunit.ResourceUpdated = true
@@ -418,13 +418,13 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 		klog.V(4).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 
-		newobj, err = ri.Patch(obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+		_, err = ri.Patch(obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		newobj, err = ri.Update(newobj, metav1.UpdateOptions{})
+		_, err = ri.Update(newobj, metav1.UpdateOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
-		"Synchronizer updated resource for template "+tplunit.GetName()+" of gvk:"+newobj.GroupVersionKind().String(), err)
+		"Synchronizer updated resource for template "+tplunit.GetName()+" of gvk:"+tplunit.GroupVersionKind().String(), err)
 
 	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
