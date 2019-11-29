@@ -21,6 +21,7 @@ spec:
           command:
           - /usr/local/bin/multicloud-operators-subscription
           - --sync-interval=10
+          - --standalone
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

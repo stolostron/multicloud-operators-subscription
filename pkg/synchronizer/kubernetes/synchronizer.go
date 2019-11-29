@@ -292,8 +292,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 				newobj, err = dl.Update(newobj, metav1.UpdateOptions{})
 				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
-				newobj.SetGroupVersionKind(tplunit.GroupVersionKind())
-				sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
+				sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
 					"Synchronizer updated resource "+tplunit.GetName()+"of gvk:"+newobj.GroupVersionKind().String()+" for retry", err)
 
 				if err == nil {
@@ -424,8 +423,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		newobj, err = ri.Update(newobj, metav1.UpdateOptions{})
 	}
 
-	newobj.SetGroupVersionKind(tplunit.GroupVersionKind())
-	sync.eventrecorder.RecordEvent(newobj, "UpdateResource",
+	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
 		"Synchronizer updated resource for template "+tplunit.GetName()+" of gvk:"+newobj.GroupVersionKind().String(), err)
 
 	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
@@ -539,7 +537,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 
 					deletepolicy := metav1.DeletePropagationBackground
 					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
-					sync.eventrecorder.RecordEvent(tplunit, "DeleteResource",
+					sync.eventrecorder.RecordEvent(tplunit.Unstructured, "DeleteResource",
 						"Synchronizer deleted resource "+tplunit.GetName()+" of gvk:"+tplunit.GroupVersionKind().String()+" by deregister", err)
 
 					if err != nil {
