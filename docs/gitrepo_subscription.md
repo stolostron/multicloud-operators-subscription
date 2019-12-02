@@ -1,6 +1,6 @@
 # GitHub repository channel subscription
 
-You can subscribe to public or enterprise GitHub repositories containing kubernetes resource YAMLs and/or Helm charts. This document gives examples of connecting to a GitHub repository through a channel and subscribing to kubernetes resources and helm charts from the GitHub repository.
+You can subscribe to public or enterprise GitHub repositories that contain Kubernetes resource YAML files or Helm charts, or both. This document gives examples of connecting to a GitHub repository through a channel and subscribing to kubernetes resources and helm charts from the GitHub repository.
 
 ## Prerequisite
 
