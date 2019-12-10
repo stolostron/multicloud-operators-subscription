@@ -21,12 +21,10 @@ spec:
           command:
           - /usr/local/bin/multicloud-operators-subscription
           - --sync-interval=10
+          - --standalone
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
             - name: POD_NAME
               valueFrom:
                 fieldRef:
