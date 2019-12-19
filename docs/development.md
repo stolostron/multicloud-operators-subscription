@@ -98,7 +98,7 @@ export OPERATOR_NAME=multicloud-operators-subscription
 Use the following kubectl command to launch operator as a deployment in a Kubernetes cluster.
 
 ```shell
-% kubectl deploy -f deploy
+% kubectl apply -f deploy
 ```
 
 Verify the deployment and pods with following command:

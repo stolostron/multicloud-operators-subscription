@@ -112,6 +112,54 @@ func TestHouseKeeping(t *testing.T) {
 	sync.houseKeeping()
 }
 
+func TestGVKValidation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1beta1",
+		Kind:    "StatefulSet",
+	}
+	validgvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "StatefulSet",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1beta2",
+		Kind:    "StatefulSet",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "extensions",
+		Version: "v1beta1",
+		Kind:    "Deployment",
+	}
+	validgvk = schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "app.ibm.com",
+		Kind:    "Deployable",
+		Version: "v1alpha1",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.BeNil())
+}
+
 func TestRegisterDeRegister(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 

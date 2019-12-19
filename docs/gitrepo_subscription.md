@@ -1,84 +1,150 @@
 # GitHub repository channel subscription
 
-You can subscribe to public or enterprise GitHub repositories containing kubernetes resource YAMLs and/or Helm charts. This document gives examples of connecting to a GitHub repository through a channel and subscribing to kubernetes resources and helm charts from the GitHub repository.
+You can subscribe to public or enterprise GitHub repositories that contain Kubernetes resource YAML files or Helm charts, or both. This document gives examples of connecting to a GitHub repository through a channel and subscribing to Kubernetes resources and Helm charts from the GitHub repository.
 
 ## Prerequisite
 
-You should have a kubernetes cluster and this subscription operator running.
+Ensure that you have a Kubernetes cluster and this subscription operator running.
+Ensure that you have a Kubernetes cluster that include a running instance of this subscription operator.
 
 ## Subscribing to a Helm chart from a public GitHub repository
 
-In this example, we are going to create a channel that connects to a public IBM GitHub repository and subscribe to MongoDB helm chart.
+Use the following example to create a channel that connects to a public IBM GitHub repository and subscribes to a MongoDB Helm chart.
 
-1. Clone this subscription operator GitHub repository.
-1. In the cloned repository root, run `kubectl apply -f ./examples/github-channel/00-namespace.yaml` to create a namespace. This creates namespace `ibmcharts`.
-1. Run `kubectl apply -f ./examples/github-channel/01-channel.yaml` to create `ibm-charts-github` channel in `ibmcharts` namespace.
+1. Clone this `multicloud-operators-subscription` GitHub repository.
+1. In the root for your cloned repository, run the following command to create a namespace:
 
-    ```yaml
-    apiVersion: app.ibm.com/v1alpha1
-    kind: Channel
-    metadata:
-    name: ibm-charts-github
-    namespace: ibmcharts
-    spec:
-        type: GitHub
-        pathname: https://github.com/IBM/charts.git
-    ```
+   ```shell
+   kubectl apply -f ./examples/github-channel/00-namespace.yaml
+   ```
 
-    `pathname` is the GitHub repository HTTPS URL.
+   This command creates an `ibmcharts` namespace.
+1. Run the following command to create an `ibm-charts-github` channel within the `ibmcharts` namespace.
 
-1. Run `kubectl apply -f ./examples/github-channel/02-subscription.yaml` to subscribe to `ibm-charts-github` channel. Take a look at `./examples/github-channel/02-subscription.yaml`. `spec.packageFilter.filterRef` references this config map.
+   ```shell
+   kubectl apply -f ./examples/github-channel/01-channel.yaml
+   ```
 
-    ```yaml
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-    name: ibm-mongodb-dev-cm
-    data:
-        path: stable/ibm-mongodb-dev
-    ```
+   The following YAML content is used to define this `ibm-charts-github` channel:
 
-    `data.path` in this config map indicates that the subcription subscribes to all helm charts and kubernetes resources in `stable/ibm-mongodb-dev` directory of the GitHub repository that the channel
-1. Run `kubectl patch subscriptions.app.ibm.com github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'` to place the subscribed items into the local cluster. After a couple of minutes, run `kubectl get helmrelease.app.ibm.com --all-namespaces` to check a helmrelease.app.ibm.com CR is created for the MongoDB helm chart. Also run `kubectl get deployments` in the same namespace as the MongoDB helmrelease.app.ibm.com CR to find the deployment.
+   ```yaml
+   apiVersion: app.ibm.com/v1alpha1
+   kind: Channel
+   metadata:
+   name: ibm-charts-github
+   namespace: ibmcharts
+   spec:
+       type: GitHub
+       pathname: https://github.com/IBM/charts.git
+   ```
+
+   The value for the `pathname` field is the GitHub repository HTTPS URL.
+1. Run the following command to subscribe to the `ibm-charts-github` channel:
+
+   ```shell
+   kubectl apply -f ./examples/github-channel/02-subscription.yaml
+   ```
+
+   When you review the `./examples/github-channel/02-subscription.yaml` file, the `spec.packageFilter.filterRef` field references the following ConfigMap:
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+   name: ibm-mongodb-dev-cm
+   data:
+       path: stable/ibm-mongodb-dev
+   ```
+
+   The `data.path` field indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the GitHub repository channel.
+1. Run the following command to place the subscribed resources onto the local cluster:
+
+   ```shell
+   kubectl patch subscriptions.app.ibm.com github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   ```
+
+   After a couple of minutes, run the following command to check whether a `helmrelease.app.ibm.com` CR is created for the MongoDB Helm chart:
+
+   ```shell
+   kubectl get helmrelease.app.ibm.com --all-namespaces
+   ```
+
+   Then, run the following command in the same namespace as the MongoDB helmrelease.app.ibm.com CR to find the deployment:
+
+   ```shell
+   kubectl get deployments
+   ```
 
 ## Subscribing to Kubernetes resources from a GitHub repository
 
-In this example, we are going to create a channel that connects to this GitHub repository and subscribe to the sample nginx deployment YAML `examples/github-channel/sample-deployment.yaml`.
+In the following example, you create a channel that connects to a GitHub repository and subscribes to a sample nginx deployment `examples/github-channel/sample-deployment.yaml` YAML file.
 
-1. Clone this subscription operator GitHub repository.
-1. Run `kubectl apply -f ./examples/github-channel/10-namespace.yaml` to create `kuberesources` namespace.
-1. Run `kubectl apply -f ./examples/github-channel/11-channel.yaml` to create `sample-kube-resources-github` channel in `kuberesources` namespace.
+1. Clone this `multicloud-operators-subscription` GitHub repository.
+1. Run the following command to create a `kuberesources`namespace:
 
-    ```yaml
-    apiVersion: app.ibm.com/v1alpha1
-    kind: Channel
-    metadata:
-      name: sample-kube-resources-github
-      namespace: kuberesources
-    spec:
-        type: GitHub
-        pathname: https://github.com/IBM/multicloud-operators-subscription.git
-    ```
+   ```shell
+   kubectl apply -f ./examples/github-channel/10-namespace.yaml
+   ```
 
-    `pathname` is the GitHub repository HTTPS URL.
+1. Run the following command to create a `sample-kube-resources-github` channel in the `kuberesources` namespace:
 
-1. Run `kubectl apply -f ./examples/github-channel/12-subscription.yaml` to subscribe to `sample-kube-resources-github` channel. Take a look at `./examples/github-channel/12-subscription.yaml`. `spec.packageFilter.filterRef` references this config map.
+   ```shell
+   kubectl apply -f ./examples/github-channel/11-channel.yaml
+   ```
 
-    ```yaml
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-      name: resource-filter-configmap
-    data:
-        path: examples/github-channel
-    ```
+   The following YAML content is used to define this `sample-kube-resources-github` channel:
 
-    `data.path` in this config map indicates that the subcription subscribes to all helm charts and kubernetes resource in `stable/ibm-mongodb-dev` directory of the GitHub repository that the channel points to. In examples/github-channel, there are multiple YAML files but only `sample-deployment.yaml` will be applied because the `.kubernetesignore` file in the directory defined by `path` indicates to ignore all files except `sample-deployment.yaml`. The subscription will only apply this file to the cluster.
-1. Run `kubectl patch subscriptions.app.ibm.com sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'` to place the subscribed items into the local cluster. After a couple of minutes, run `kubectl get deployment --all-namespaces` to check `sample-nginx-deployment` deployment is created.
+   ```yaml
+   apiVersion: app.ibm.com/v1alpha1
+   kind: Channel
+   metadata:
+     name: sample-kube-resources-github
+     namespace: kuberesources
+   spec:
+       type: GitHub
+       pathname: https://github.com/IBM/multicloud-operators-subscription.git
+   ```
 
-## Subscribing to a Helm chart from an enterprise GitHub repository requiring authentication
+   The value for the `pathname` field is the GitHub repository HTTPS URL.
+1. Run the following command to subscribe to the `sample-kube-resources-github` channel:
 
-In the previous example, the GitHub repository that the channel connects to is a public repository so it does not require authentication. If a GitHub repository requires authentication, you need to associate a channel with a kubernetes secret. Currently the `channel` and `subscription` supports only basic authentication. Set `user` with a GitHub user ID and `accessToken` with a GitHub personal access token.
+   ```shell
+   kubectl apply -f ./examples/github-channel/12-subscription.yaml
+   ```
+
+   When you review the `./examples/github-channel/12-subscription.yaml` file, the `spec.packageFilter.filterRef` field references the following ConfigMap:
+
+   ```yaml
+   apiVersion: v1
+   kind: ConfigMap
+   metadata:
+     name: resource-filter-configmap
+   data:
+       path: examples/github-channel
+   ```
+
+   The `data.path` field indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory of the GitHub repository channel.
+
+     In `examples/github-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+1. Run the following command to place the subscribed resources onto the local cluster:
+
+   ```shell
+   kubectl patch subscriptions.app.ibm.com sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   ```
+
+   After a couple of minutes, run the following command to check whether a `sample-nginx-deployment` deployment is created:
+
+   ```shell
+   kubectl get deployment --all-namespaces
+   ```
+
+## Subscribing to a Helm chart from an enterprise GitHub repository that requires authentication
+
+In the previous examples, the GitHub repository that the channel connects to is a public repository and did not require authentication. If a GitHub repository does require authentication to connect to the repository, you need to associate the channel with a Kubernetes secret.
+
+The `channel` and `subscription` resources support only basic authentication.
+
+Update you channel resource to reference a Kubernetes secret and define the YAML content to create the secret. Within your YAML content, set the `user` field to be a GitHub user ID and the `accessToken` field to be a GitHub personal access token.
 
 ```yaml
 apiVersion: v1
@@ -104,24 +170,32 @@ spec:
 
 ## .kubernetesignore file
 
-In a GitHub repository root or in the `data.path` directory which is specified in the config map of `spec.packageFilter.filterRef` described above, you can have `.kubernetesignore` file to specify patterns of files and/or subdirectories to ignore when the subscription processes and applies Kubernetes resource from the repository. You can use the `.kubernetesignore` as fine-grain filters to selectively apply Kubernetes resources. The pattern format of the `.kubernetesignore` is the same as `.gitignore`. If `data.path` is not defined in the config map of `spec.packageFilter.filterRef`, the subscription looks for `.kubernetesignore` in the reporitory root. If `data.path` is defined, it looks for `.kubernetesignore` in the `data.path` directory. It currently does not support `.kubernetesignore` in any other directory.
+You can include a `.kubernetesignore` file within your GitHub repository root directory, or within the `data.path` directory that is specified in the ConfigMap that is defined for your subscription `spec.packageFilter.filterRef` field.
+
+You can use this `.kubernetesignore` file to specify patterns of files or subdirectories, or both, to ignore when the subscription processes and applies Kubernetes resource from the repository.
+
+You can also use the `.kubernetesignore` file for fine-grain filtering to selectively apply Kubernetes resources. The pattern format of the `.kubernetesignore` file is the same as a `.gitignore` file.
+
+If the `data.path` field is not defined in the ConfigMap that is set for the subscription `spec.packageFilter.filterRef` field, the subscription looks for a `.kubernetesignore` file in the repository root directory. If the `data.path` field is defined, the subscription looks for the `.kubernetesignore` file in the `data.path` directory. Subscriptions do not, searching any other directory for a `.kubernetesignore` file.
 
 ## Subscribing to a specific branch
 
-This subscription operator subscribes to `master` branch of the GitHub repository by default. If you want to subscribe to a different branch, specify the branch name in the configmap of `spec.packageFilter.filterRef`. For example,
+The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a GitHub repository by default. If you want to subscribe to a different branch, you need to specify the branch name within the ConfigMap that is specified in the subscription `spec.packageFilter.filterRef` field.
 
-    ```yaml
-    apiVersion: v1
-    kind: ConfigMap
-    metadata:
-    name: ibm-mongodb-dev-cm
-    data:
-        path: stable/ibm-mongodb-dev
-        branch: mybranch
-    ```
+The following example ConfigMap YAML shows how to specify a different branch:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+name: ibm-mongodb-dev-cm
+data:
+    path: stable/ibm-mongodb-dev
+    branch: mybranch
+```
 
 ## Limitations
 
-* If subscribing to a Kubernetes resource configuration YAML files, one YAML should contain only one Kubernetes resource configuration. If there are multiple Kubernetes resource configurations, only the first one will get applied.
+* If you are subscribing to Kubernetes resource configuration YAML files, include only one Kubernetes resource definition in each YAML file. If a file includes multiple resource definitions, only the first definition is applied.
 
-* Subscribing to a specific commit of a branch is not supported.
+* You cannot subscribe to a specific commit of a branch.
