@@ -160,9 +160,12 @@ func DplArrayToDplPointers(dplList []dplv1alpha1.Deployable) []*dplv1alpha1.Depl
 // IsDeployableInVersionSet - check if deployable is in version
 func IsDeployableInVersionSet(vMap map[string]VersionRep, dpl *dplv1alpha1.Deployable) bool {
 	vdplKey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
+	dplAnno := dpl.GetAnnotations()
+
+	_, versionField := dplAnno[dplv1alpha1.AnnotationDeployableVersion]
 
 	dplGroup := dpl.GetGenerateName()
-	if dplGroup == "" {
+	if dplGroup == "" || !versionField {
 		dplGroup = dpl.GetName()
 	}
 
