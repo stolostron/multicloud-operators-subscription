@@ -162,6 +162,8 @@ func IsDeployableInVersionSet(vMap map[string]VersionRep, dpl *dplv1alpha1.Deplo
 	vdplKey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
 	dplAnno := dpl.GetAnnotations()
 
+	klog.V(5).Infof("version map %v, dplkey %v", vMap, vdplKey)
+
 	_, versionField := dplAnno[dplv1alpha1.AnnotationDeployableVersion]
 
 	dplGroup := dpl.GetGenerateName()
