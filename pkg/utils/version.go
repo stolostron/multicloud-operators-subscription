@@ -142,6 +142,7 @@ func emptyVersionsField(curDpl *dplv1alpha1.Deployable, vset map[string]VersionR
 			}
 		}
 	}
+
 	return vset
 }
 

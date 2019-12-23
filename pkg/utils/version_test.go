@@ -21,8 +21,9 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	"github.com/google/go-cmp/cmp"
+
+	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 )
 
 type versionTest struct {
@@ -143,7 +144,7 @@ func TestGenerateVersionSetWithVersionInfo(t *testing.T) {
 	}
 }
 
-//While version info is empty, we will treat them as seperate resouces, in which
+//While version info is empty, we will treat them as separate resouces, in which
 // we will use the name instead of the generate name for the key of the version set
 func TestGenerateVersionSetWithEmptyVersionInfo(t *testing.T) {
 	groupA := "A"
@@ -168,10 +169,10 @@ func TestGenerateVersionSetWithEmptyVersionInfo(t *testing.T) {
 			dpls:    []*dplv1alpha1.Deployable{&dpl4, &dpl5, &dpl4b, &dpl5b},
 			vstring: "",
 			versionSet: map[string]VersionRep{
-				"dpl4":  VersionRep{DplKey: "/dpl4", Vrange: ">0.0.0"},
-				"dpl5":  VersionRep{DplKey: "/dpl5", Vrange: ">0.0.0"},
-				"dpl4b": VersionRep{DplKey: "/dpl4b", Vrange: ">0.0.0"},
-				"dpl5b": VersionRep{DplKey: "/dpl5b", Vrange: ">0.0.0"},
+				"dpl4":  {DplKey: "/dpl4", Vrange: ">0.0.0"},
+				"dpl5":  {DplKey: "/dpl5", Vrange: ">0.0.0"},
+				"dpl4b": {DplKey: "/dpl4b", Vrange: ">0.0.0"},
+				"dpl5b": {DplKey: "/dpl5b", Vrange: ">0.0.0"},
 			},
 		},
 		{
@@ -179,10 +180,10 @@ func TestGenerateVersionSetWithEmptyVersionInfo(t *testing.T) {
 			dpls:    []*dplv1alpha1.Deployable{&dpl4, &dpl4b, &dpl2, &dpl2b},
 			vstring: "",
 			versionSet: map[string]VersionRep{
-				"dpl4":  VersionRep{DplKey: "/dpl4", Vrange: ">0.0.0"},
-				"dpl4b": VersionRep{DplKey: "/dpl4b", Vrange: ">0.0.0"},
-				groupA:  VersionRep{DplKey: "/dpl2", Vrange: ">2.0.0"},
-				"dpl2b": VersionRep{DplKey: "/dpl2b", Vrange: ">2.0.0"},
+				"dpl4":  {DplKey: "/dpl4", Vrange: ">0.0.0"},
+				"dpl4b": {DplKey: "/dpl4b", Vrange: ">0.0.0"},
+				groupA:  {DplKey: "/dpl2", Vrange: ">2.0.0"},
+				"dpl2b": {DplKey: "/dpl2b", Vrange: ">2.0.0"},
 			},
 		},
 	}
@@ -196,7 +197,6 @@ func TestGenerateVersionSetWithEmptyVersionInfo(t *testing.T) {
 }
 
 func assertVersionSet(t *testing.T, got, want map[string]VersionRep) {
-
 	if diff := cmp.Diff(got, want); diff != "" {
 		t.Errorf("GenerateVersionSet got error: got %v, want %v", got, want)
 		t.Errorf("MakeGatewayInfo() mismatch (-want +got):\n%s", diff)
