@@ -167,7 +167,6 @@ func IsDeployableInVersionSet(vMap map[string]VersionRep, dpl *dplv1alpha1.Deplo
 
 	versionField := dplAnno[dplv1alpha1.AnnotationDeployableVersion]
 
-	klog.Info(dplAnno)
 	dplGroup := dpl.GetGenerateName()
 	if dplGroup == "" || versionField == "" {
 		dplGroup = dpl.GetName()
@@ -175,9 +174,5 @@ func IsDeployableInVersionSet(vMap map[string]VersionRep, dpl *dplv1alpha1.Deplo
 
 	klog.V(5).Infof("dplGroup %v, versionField %v", dplGroup, versionField)
 
-	if vMap[dplGroup].DplKey != vdplKey {
-		return false
-	}
-
-	return true
+	return vMap[dplGroup].DplKey != vdplKey
 }
