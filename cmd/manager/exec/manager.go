@@ -40,6 +40,7 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/controller"
 	"github.com/IBM/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/IBM/multicloud-operators-subscription/pkg/synchronizer"
+	"github.com/IBM/multicloud-operators-subscription/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -137,6 +138,12 @@ func RunManager(sig <-chan struct{}) {
 		// Setup all Controllers
 		if err := controller.AddToManager(mgr, hubconfig); err != nil {
 			klog.Error(err, "")
+			os.Exit(1)
+		}
+
+		// Setup Webhook listner
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
+			klog.Error("Failed to initialize WebHook listner with error:", err)
 			os.Exit(1)
 		}
 	}
