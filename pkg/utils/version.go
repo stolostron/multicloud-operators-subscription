@@ -62,7 +62,7 @@ func SemverCheck(vSubStr, vDplStr string) bool {
 // VersionRep represent version
 type VersionRep struct {
 	DplKey string
-	vrange string
+	Vrange string
 }
 
 //GenerateVersionSet produce a map, key: dpl.GetGenerateName(), value: dpl.NamespacedName.String()
@@ -72,6 +72,14 @@ func GenerateVersionSet(dplPointers []*dplv1alpha1.Deployable, vsub string) map[
 
 	for _, curDpl := range dplPointers {
 		vcurDpl := curDpl.GetAnnotations()[dplv1alpha1.AnnotationDeployableVersion]
+
+		// if the deployable doesn't have a version string, then treat it a the base verion of it's own
+		// version group, meaning using the dpl name as group key
+		if len(vcurDpl) == 0 {
+			vset = emptyVersionsField(curDpl, vset)
+			continue
+		}
+
 		vmatch := SemverCheck(vsub, vcurDpl)
 
 		if !vmatch {
@@ -88,25 +96,49 @@ func GenerateVersionSet(dplPointers []*dplv1alpha1.Deployable, vsub string) map[
 		}
 
 		r := "%s%s"
-		// if the deployable doesn't have a version string, then treat it a the base verion
-		if len(vcurDpl) == 0 {
-			vcurDpl = "0.0.0"
-		}
 
 		vrangestr := fmt.Sprintf(r, ">", vcurDpl)
 
 		if preDpl, ok := vset[DplGroupName]; !ok {
 			vset[DplGroupName] = VersionRep{
 				DplKey: curDplKey,
-				vrange: vrangestr,
+				Vrange: vrangestr,
 			}
 		} else {
-			preRange := preDpl.vrange
+			preRange := preDpl.Vrange
 			if SemverCheck(preRange, vcurDpl) {
 				vset[DplGroupName] = VersionRep{
 					DplKey: curDplKey,
-					vrange: vrangestr,
+					Vrange: vrangestr,
 				}
+			}
+		}
+	}
+
+	return vset
+}
+
+func emptyVersionsField(curDpl *dplv1alpha1.Deployable, vset map[string]VersionRep) map[string]VersionRep {
+	DplGroupName := curDpl.GetName()
+
+	r := "%s%s"
+	// if the deployable doesn't have a version string, then treat it a the base verion
+	vcurDpl := "0.0.0"
+
+	vrangestr := fmt.Sprintf(r, ">", vcurDpl)
+	curDplKey := types.NamespacedName{Name: curDpl.Name, Namespace: curDpl.Namespace}.String()
+
+	if preDpl, ok := vset[DplGroupName]; !ok {
+		vset[DplGroupName] = VersionRep{
+			DplKey: curDplKey,
+			Vrange: vrangestr,
+		}
+	} else {
+		preRange := preDpl.Vrange
+		if SemverCheck(preRange, vcurDpl) {
+			vset[DplGroupName] = VersionRep{
+				DplKey: curDplKey,
+				Vrange: vrangestr,
 			}
 		}
 	}
@@ -129,15 +161,18 @@ func DplArrayToDplPointers(dplList []dplv1alpha1.Deployable) []*dplv1alpha1.Depl
 // IsDeployableInVersionSet - check if deployable is in version
 func IsDeployableInVersionSet(vMap map[string]VersionRep, dpl *dplv1alpha1.Deployable) bool {
 	vdplKey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
+	dplAnno := dpl.GetAnnotations()
+
+	klog.V(5).Infof("version map %v, dplkey %v", vMap, vdplKey)
+
+	versionField := dplAnno[dplv1alpha1.AnnotationDeployableVersion]
 
 	dplGroup := dpl.GetGenerateName()
-	if dplGroup == "" {
+	if dplGroup == "" || versionField == "" {
 		dplGroup = dpl.GetName()
 	}
 
-	if vMap[dplGroup].DplKey != vdplKey {
-		return false
-	}
+	klog.V(5).Infof("dplGroup %v, versionField %v", dplGroup, versionField)
 
-	return true
+	return vMap[dplGroup].DplKey == vdplKey
 }
