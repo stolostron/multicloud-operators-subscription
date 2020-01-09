@@ -122,30 +122,9 @@ func RunManager(sig <-chan struct{}) {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
-	} else {
-		// Setup Synchronizer
-		if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
-			klog.Error("Failed to initialize synchronizer with error:", err)
-			os.Exit(1)
-		}
-
-		// Setup Subscribers
-		if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
-			klog.Error("Failed to initialize synchronizer with error:", err)
-			os.Exit(1)
-		}
-
-		// Setup all Controllers
-		if err := controller.AddToManager(mgr, hubconfig); err != nil {
-			klog.Error(err, "")
-			os.Exit(1)
-		}
-
-		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
-			klog.Error("Failed to initialize WebHook listner with error:", err)
-			os.Exit(1)
-		}
+	} else if err := setupStandalone(mgr, hubconfig, id); err != nil {
+		klog.Error("Failed to setup standalone subscription, error:", err)
+		os.Exit(1)
 	}
 
 	if err = serveCRMetrics(cfg); err != nil {
@@ -194,6 +173,34 @@ func RunManager(sig <-chan struct{}) {
 		klog.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
+}
+
+func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName) error {
+	// Setup Synchronizer
+	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+		klog.Error("Failed to initialize synchronizer with error:", err)
+		return err
+	}
+
+	// Setup Subscribers
+	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+		klog.Error("Failed to initialize synchronizer with error:", err)
+		return err
+	}
+
+	// Setup all Controllers
+	if err := controller.AddToManager(mgr, hubconfig); err != nil {
+		klog.Error(err, "")
+		return err
+	}
+
+	// Setup Webhook listner
+	if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
+		klog.Error("Failed to initialize WebHook listner with error:", err)
+		return err
+	}
+
+	return nil
 }
 
 // serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.

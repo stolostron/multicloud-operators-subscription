@@ -62,7 +62,7 @@ var webhookListner *WebhookListner
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
-	klog.V(4).Info("Setting up webhook listner ...")
+	klog.V(2).Info("Setting up webhook listner ...")
 
 	var err error
 	webhookListner, err = CreateWebhookListner(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
@@ -157,7 +157,7 @@ func CreateWebhookListner(config, remoteConfig *rest.Config, scheme *runtime.Sch
 }
 
 func (listner *WebhookListner) handleWebhook(w http.ResponseWriter, r *http.Request) {
-	klog.V(4).Info("handleWebhook headers: ", r.Header)
+	klog.V(5).Info("handleWebhook headers: ", r.Header)
 
 	var body []byte
 
@@ -184,7 +184,7 @@ func (listner *WebhookListner) handleWebhook(w http.ResponseWriter, r *http.Requ
 
 	// Loop through all subscriptions
 	for _, sub := range subList.Items {
-		klog.V(4).Info("Evaluating subscription: " + sub.GetName())
+		klog.V(2).Info("Evaluating subscription: " + sub.GetName())
 
 		chNamespace := ""
 		chName := ""
@@ -219,7 +219,7 @@ func (listner *WebhookListner) handleWebhook(w http.ResponseWriter, r *http.Requ
 		// If these conditions are not met, skip to the next subscription.
 
 		if !strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
-			klog.V(4).Infof("The channel type is %s. Skipping to process this subscription.", chType)
+			klog.V(2).Infof("The channel type is %s. Skipping to process this subscription.", chType)
 			continue
 		}
 
