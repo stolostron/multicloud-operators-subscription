@@ -28,7 +28,7 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-func (listner *WebhookListner) handleGithubWebhook(r *http.Request) {
+func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 	var body []byte
 
 	var signature string

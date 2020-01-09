@@ -15,10 +15,10 @@
 package webhook
 
 import (
-	"github.com/IBM/multicloud-operators-subscription/pkg/webhook/listner"
+	"github.com/IBM/multicloud-operators-subscription/pkg/webhook/listener"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, listner.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, listener.Add)
 }

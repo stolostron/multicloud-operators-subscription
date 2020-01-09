@@ -21,8 +21,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
-
-	"gopkg.in/yaml.v2"
+	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 
 	"github.com/google/go-github/v28/github"
@@ -46,8 +45,8 @@ const (
 	signatureHeader  = "X-Hub-Signature"
 )
 
-// WebhookListner is a generic webhook event listner
-type WebhookListner struct {
+// WebhookListener is a generic webhook event listener
+type WebhookListener struct {
 	localConfig   *rest.Config
 	LocalClient   client.Client
 	RemoteClient  client.Client
@@ -56,25 +55,25 @@ type WebhookListner struct {
 	TLSCrtFile    string
 }
 
-var webhookListner *WebhookListner
+var webhookListener *WebhookListener
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
-	klog.V(2).Info("Setting up webhook listner ...")
+	klog.V(2).Info("Setting up webhook listener ...")
 
 	var err error
-	webhookListner, err = CreateWebhookListner(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
+	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer. error: ", err)
 		return err
 	}
 
-	return mgr.Add(webhookListner)
+	return mgr.Add(webhookListener)
 }
 
-// Start the GutHub WebHook event listner
-func (listner *WebhookListner) Start(l <-chan struct{}) error {
+// Start the GutHub WebHook event listener
+func (listener *WebhookListener) Start(l <-chan struct{}) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -82,25 +81,25 @@ func (listner *WebhookListner) Start(l <-chan struct{}) error {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	http.HandleFunc("/webhook", listner.handleWebhook)
+	http.HandleFunc("/webhook", listener.handleWebhook)
 
-	if listner.TLSKeyFile != "" && listner.TLSCrtFile != "" {
-		klog.Info("Starting the WebHook listner on port 8443 with TLS key and cert files: " + listner.TLSKeyFile + " " + listner.TLSCrtFile)
-		klog.Fatal(http.ListenAndServeTLS(":8443", listner.TLSCrtFile, listner.TLSKeyFile, nil))
+	if listener.TLSKeyFile != "" && listener.TLSCrtFile != "" {
+		klog.Info("Starting the WebHook listener on port 8443 with TLS key and cert files: " + listener.TLSKeyFile + " " + listener.TLSCrtFile)
+		klog.Fatal(http.ListenAndServeTLS(":8443", listener.TLSCrtFile, listener.TLSKeyFile, nil))
 	} else {
-		klog.Info("Starting the WebHook listner on port 8443 with no TLS.")
+		klog.Info("Starting the WebHook listener on port 8443 with no TLS.")
 		klog.Fatal(http.ListenAndServe(":8443", nil))
 	}
 
-	klog.Info("the WebHook listner started on port 8443.")
+	klog.Info("the WebHook listener started on port 8443.")
 
 	<-l
 
 	return nil
 }
 
-// CreateWebhookListner creates a WebHook Listner instance
-func CreateWebhookListner(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string) (*WebhookListner, error) {
+// CreateWebhooklistener creates a WebHook listener instance
+func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string) (*WebhookListener, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -112,7 +111,7 @@ func CreateWebhookListner(config, remoteConfig *rest.Config, scheme *runtime.Sch
 
 	dynamicClient := dynamic.NewForConfigOrDie(config)
 
-	l := &WebhookListner{
+	l := &WebhookListener{
 		DynamicClient: dynamicClient,
 		localConfig:   config,
 	}
@@ -154,16 +153,16 @@ func CreateWebhookListner(config, remoteConfig *rest.Config, scheme *runtime.Sch
 	return l, err
 }
 
-func (listner *WebhookListner) handleWebhook(w http.ResponseWriter, r *http.Request) {
+func (listener *WebhookListener) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	klog.V(2).Info("handleWebhook headers: ", r.Header)
 
 	if r.Header.Get("X-Github-Event") != "" {
 		// This is an event from a GitHub repository.
-		listner.handleGithubWebhook(r)
+		listener.handleGithubWebhook(r)
 	}
 }
 
-func (listner *WebhookListner) updateSubscription(sub appv1alpha1.Subscription) {
+func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription) {
 	klog.V(2).Info("Updating annotations in subscription: " + sub.GetName())
 	subAnnotations := sub.GetAnnotations()
 
@@ -181,13 +180,13 @@ func (listner *WebhookListner) updateSubscription(sub appv1alpha1.Subscription) 
 	sub.SetAnnotations(subAnnotations)
 	newsub := sub.DeepCopy()
 
-	err := listner.LocalClient.Update(context.TODO(), newsub)
+	err := listener.LocalClient.Update(context.TODO(), newsub)
 	if err != nil {
 		klog.Error("Failed to update subscription annotations. error: ", err)
 	}
 }
 
-func (listner *WebhookListner) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
+func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
 	secret := ""
 	ret = true
 	// Get GitHub WebHook secret from the channel annotations
@@ -199,9 +198,9 @@ func (listner *WebhookListner) validateSecret(signature string, annotations map[
 		seckey := types.NamespacedName{Name: annotations["webhook-secret"], Namespace: chNamespace}
 		secobj := &corev1.Secret{}
 
-		err := listner.RemoteClient.Get(context.TODO(), seckey, secobj)
+		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
 		if err != nil {
-			klog.Info("Failed to get secret for channel webhook listner, error: ", err)
+			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
 			ret = false
 		}
 
