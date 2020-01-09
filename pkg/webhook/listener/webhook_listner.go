@@ -21,6 +21,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+
 	"github.com/ghodss/yaml"
 	corev1 "k8s.io/api/core/v1"
 
@@ -98,7 +99,7 @@ func (listener *WebhookListener) Start(l <-chan struct{}) error {
 	return nil
 }
 
-// CreateWebhooklistener creates a WebHook listener instance
+// CreateWebhookListener creates a WebHook listener instance
 func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string) (*WebhookListener, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
@@ -159,6 +160,9 @@ func (listener *WebhookListener) handleWebhook(w http.ResponseWriter, r *http.Re
 	if r.Header.Get("X-Github-Event") != "" {
 		// This is an event from a GitHub repository.
 		listener.handleGithubWebhook(r)
+	} else {
+		klog.Info("handleWebhook headers: ", r.Header)
+		klog.Info("Unsupported webhook event type.")
 	}
 }
 

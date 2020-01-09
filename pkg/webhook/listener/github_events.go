@@ -28,7 +28,7 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
+func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
 	var body []byte
 
 	var signature string
@@ -46,7 +46,7 @@ func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 	subList := &appv1alpha1.SubscriptionList{}
 	listopts := &client.ListOptions{}
 
-	err = listner.LocalClient.List(context.TODO(), subList, listopts)
+	err = listener.LocalClient.List(context.TODO(), subList, listopts)
 	if err != nil {
 		klog.Error("Failed to get subscriptions. error: ", err)
 		return
@@ -73,7 +73,7 @@ func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 
 		chkey := types.NamespacedName{Name: chName, Namespace: chNamespace}
 		chobj := &chnv1alpha1.Channel{}
-		err := listner.RemoteClient.Get(context.TODO(), chkey, chobj)
+		err := listener.RemoteClient.Get(context.TODO(), chkey, chobj)
 
 		if err == nil {
 			chType = string(chobj.Spec.Type)
@@ -94,7 +94,7 @@ func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 		}
 
 		if signature != "" {
-			if !listner.validateSecret(signature, chobj.GetAnnotations(), chNamespace, body) {
+			if !listener.validateSecret(signature, chobj.GetAnnotations(), chNamespace, body) {
 				continue
 			}
 		}
@@ -106,7 +106,7 @@ func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 				chobj.Spec.PathName == e.GetRepo().GetURL() ||
 				strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
 				klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
-				listner.updateSubscription(sub)
+				listener.updateSubscription(sub)
 			}
 		case *github.PushEvent:
 			if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
@@ -114,7 +114,7 @@ func (listner *WebhookListener) handleGithubWebhook(r *http.Request) {
 				chobj.Spec.PathName == e.GetRepo().GetURL() ||
 				strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
 				klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
-				listner.updateSubscription(sub)
+				listener.updateSubscription(sub)
 			}
 		default:
 			klog.Infof("Unhandled event type %s\n", github.WebHookType(r))
