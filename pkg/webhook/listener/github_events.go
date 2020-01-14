@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,10 +16,15 @@ package listener
 
 import (
 	"context"
+	"errors"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	"github.com/google/go-github/v28/github"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,7 +33,14 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
+const (
+	defaultKeyFile   = "/etc/subscription/tls.key"
+	defaultCrtFile   = "/etc/subscription/tls.crt"
+	payloadFormParam = "payload"
+	signatureHeader  = "X-Hub-Signature"
+)
+
+func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
 	var body []byte
 
 	var signature string
@@ -37,10 +49,10 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
 
 	var err error
 
-	body, signature, event, err = parseRequest(r)
+	body, signature, event, err = listener.ParseRequest(r)
 	if err != nil {
 		klog.Error("Failed to parse the request. error:", err)
-		return
+		return err
 	}
 
 	subList := &appv1alpha1.SubscriptionList{}
@@ -49,7 +61,7 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
 	err = listener.LocalClient.List(context.TODO(), subList, listopts)
 	if err != nil {
 		klog.Error("Failed to get subscriptions. error: ", err)
-		return
+		return err
 	}
 
 	// Loop through all subscriptions
@@ -79,7 +91,7 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
 			chType = string(chobj.Spec.Type)
 		} else {
 			klog.Error("Failed to get subscription's channel. error: ", err)
-			return
+			continue
 		}
 
 		// This WebHook event is applicable for this subscription if:
@@ -121,4 +133,86 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) {
 			continue
 		}
 	}
+
+	return nil
+}
+
+// ParseRequest parses incoming WebHook event request
+func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, signature string, event interface{}, err error) {
+	var payload []byte
+
+	switch contentType := r.Header.Get("Content-Type"); contentType {
+	case "application/json":
+		if body, err = ioutil.ReadAll(r.Body); err != nil {
+			klog.Error("Failed to read the request body. error: ", err)
+			return nil, "", nil, err
+		}
+
+		payload = body //the JSON payload
+	case "application/x-www-form-urlencoded":
+		if body, err = ioutil.ReadAll(r.Body); err != nil {
+			klog.Error("Failed to read the request body. error: ", err)
+			return nil, "", nil, err
+		}
+
+		form, err := url.ParseQuery(string(body))
+		if err != nil {
+			klog.Error("Failed to parse the request body. error: ", err)
+			return nil, "", nil, err
+		}
+
+		payload = []byte(form.Get(payloadFormParam))
+	default:
+		klog.Warningf("Webhook request has unsupported Content-Type %q", contentType)
+		return nil, "", nil, errors.New("Unsupported Content-Type: " + contentType)
+	}
+
+	defer r.Body.Close()
+
+	signature = r.Header.Get(signatureHeader)
+
+	event, err = github.ParseWebHook(github.WebHookType(r), payload)
+	if err != nil {
+		klog.Error("could not parse webhook. error:", err)
+		return nil, "", nil, err
+	}
+
+	return body, signature, event, nil
+}
+
+func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
+	secret := ""
+	ret = true
+	// Get GitHub WebHook secret from the channel annotations
+	if annotations["webhook-secret"] == "" {
+		klog.Info("No webhook secret found in annotations")
+
+		ret = false
+	} else {
+		seckey := types.NamespacedName{Name: annotations["webhook-secret"], Namespace: chNamespace}
+		secobj := &corev1.Secret{}
+
+		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
+		if err != nil {
+			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
+			ret = false
+		}
+
+		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
+		if err != nil {
+			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
+			ret = false
+		} else if secret == "" {
+			klog.Info("Failed to get secret from the webhook secret. Skip this subscription, error: ", err)
+			ret = false
+		}
+	}
+	// Using the channel's webhook secret, validate it against the request's body
+	if err := github.ValidateSignature(signature, body, []byte(secret)); err != nil {
+		klog.Info("Failed to validate webhook event signature, error: ", err)
+		// If validation fails, this webhook event is not for this subscription. Skip.
+		ret = false
+	}
+
+	return ret
 }

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,18 +16,11 @@ package listener
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 
-	"github.com/ghodss/yaml"
-	corev1 "k8s.io/api/core/v1"
-
-	"github.com/google/go-github/v28/github"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -37,13 +30,6 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-)
-
-const (
-	defaultKeyFile   = "/etc/subscription/tls.key"
-	defaultCrtFile   = "/etc/subscription/tls.crt"
-	payloadFormParam = "payload"
-	signatureHeader  = "X-Hub-Signature"
 )
 
 // WebhookListener is a generic webhook event listener
@@ -82,7 +68,7 @@ func (listener *WebhookListener) Start(l <-chan struct{}) error {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	http.HandleFunc("/webhook", listener.handleWebhook)
+	http.HandleFunc("/webhook", listener.HandleWebhook)
 
 	if listener.TLSKeyFile != "" && listener.TLSCrtFile != "" {
 		klog.Info("Starting the WebHook listener on port 8443 with TLS key and cert files: " + listener.TLSKeyFile + " " + listener.TLSCrtFile)
@@ -154,23 +140,40 @@ func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Sc
 	return l, err
 }
 
-func (listener *WebhookListener) handleWebhook(w http.ResponseWriter, r *http.Request) {
+// HandleWebhook handles incoming webhook events
+func (listener *WebhookListener) HandleWebhook(w http.ResponseWriter, r *http.Request) {
 	klog.V(2).Info("handleWebhook headers: ", r.Header)
 
 	if r.Header.Get("X-Github-Event") != "" {
 		// This is an event from a GitHub repository.
-		listener.handleGithubWebhook(r)
+		err := listener.handleGithubWebhook(r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(err.Error()))
+
+			if err != nil {
+				klog.Error(err.Error())
+			}
+		}
 	} else {
 		klog.Info("handleWebhook headers: ", r.Header)
 		klog.Info("Unsupported webhook event type.")
+		w.WriteHeader(http.StatusBadRequest)
+		_, err := w.Write([]byte("Unsupported webhook event type."))
+		if err != nil {
+			klog.Error(err.Error())
+		}
 	}
 }
 
-func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription) {
+func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription) *appv1alpha1.Subscription {
 	klog.V(2).Info("Updating annotations in subscription: " + sub.GetName())
 	subAnnotations := sub.GetAnnotations()
 
-	if subAnnotations["webhook-event"] == "" {
+	if subAnnotations == nil {
+		subAnnotations = make(map[string]string)
+		subAnnotations["webhook-event"] = "0"
+	} else if subAnnotations["webhook-event"] == "" {
 		subAnnotations["webhook-event"] = "0"
 	} else {
 		eventCounter, err := strconv.Atoi(subAnnotations["webhook-event"])
@@ -188,83 +191,6 @@ func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription
 	if err != nil {
 		klog.Error("Failed to update subscription annotations. error: ", err)
 	}
-}
 
-func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
-	secret := ""
-	ret = true
-	// Get GitHub WebHook secret from the channel annotations
-	if annotations["webhook-secret"] == "" {
-		klog.Info("No webhook secret found in annotations")
-
-		ret = false
-	} else {
-		seckey := types.NamespacedName{Name: annotations["webhook-secret"], Namespace: chNamespace}
-		secobj := &corev1.Secret{}
-
-		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
-		if err != nil {
-			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
-			ret = false
-		}
-
-		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
-		if err != nil {
-			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		} else if secret == "" {
-			klog.Info("Failed to get secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		}
-	}
-	// Using the channel's webhook secret, validate it against the request's body
-	if err := github.ValidateSignature(signature, body, []byte(secret)); err != nil {
-		klog.Info("Failed to validate webhook event signature, error: ", err)
-		// If validation fails, this webhook event is not for this subscription. Skip.
-		ret = false
-	}
-
-	return ret
-}
-
-func parseRequest(r *http.Request) (body []byte, signature string, event interface{}, err error) {
-	var payload []byte
-
-	switch contentType := r.Header.Get("Content-Type"); contentType {
-	case "application/json":
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
-			klog.Error("Failed to read the request body. error: ", err)
-			return nil, "", nil, err
-		}
-
-		payload = body //the JSON payload
-	case "application/x-www-form-urlencoded":
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
-			klog.Error("Failed to read the request body. error: ", err)
-			return nil, "", nil, err
-		}
-
-		form, err := url.ParseQuery(string(body))
-		if err != nil {
-			klog.Error("Failed to parse the request body. error: ", err)
-			return nil, "", nil, err
-		}
-
-		payload = []byte(form.Get(payloadFormParam))
-	default:
-		klog.Warningf("Webhook request has unsupported Content-Type %q", contentType)
-		return
-	}
-
-	defer r.Body.Close()
-
-	signature = r.Header.Get(signatureHeader)
-
-	event, err = github.ParseWebHook(github.WebHookType(r), payload)
-	if err != nil {
-		klog.Error("could not parse webhook. error:", err)
-		return nil, "", nil, err
-	}
-
-	return body, signature, event, nil
+	return newsub
 }
