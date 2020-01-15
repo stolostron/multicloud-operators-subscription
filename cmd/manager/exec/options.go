@@ -26,6 +26,8 @@ type SubscriptionCMDOptions struct {
 	HubConfigFilePathName string
 	SyncInterval          int
 	Standalone            bool
+	TLSKeyFilePathName    string
+	TLSCrtFilePathName    string
 }
 
 var Options = SubscriptionCMDOptions{
@@ -78,5 +80,19 @@ func ProcessFlags() {
 		"standalone",
 		Options.Standalone,
 		"Standalone mode.",
+	)
+
+	flag.StringVar(
+		&Options.TLSKeyFilePathName,
+		"tls-key-file",
+		Options.TLSKeyFilePathName,
+		"WebHook event listener TLS key file path.",
+	)
+
+	flag.StringVar(
+		&Options.TLSCrtFilePathName,
+		"tls-crt-file",
+		Options.TLSCrtFilePathName,
+		"WebHook event listener TLS cert file path.",
 	)
 }

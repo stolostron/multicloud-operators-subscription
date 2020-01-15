@@ -10,6 +10,8 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20180820084758-c7ce16629ff4
 	github.com/go-openapi/spec v0.19.0
 	github.com/google/go-cmp v0.3.1
+	github.com/google/go-github v17.0.0+incompatible
+	github.com/google/go-github/v28 v28.1.1
 	github.com/onsi/gomega v1.5.0
 	github.com/operator-framework/operator-sdk v0.12.0
 	github.com/prometheus/common v0.4.1
@@ -18,6 +20,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gopkg.in/yaml.v2 v2.2.2
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0
