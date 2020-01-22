@@ -8,13 +8,8 @@ spec:
   placement:
     local: false
   packageFilter:
-    labelSelector:
-      matchLabels:
-        environment: Dev
     filterRef:
       name: ibm-mongodb-dev-cm
-      kind: ConfigMap
-      apiVersion: v1
   packageOverrides:
   - packageName: ibm-mongodb-dev
     packageOverrides:
