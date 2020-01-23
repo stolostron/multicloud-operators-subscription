@@ -364,3 +364,45 @@ func TestValidateSecret(t *testing.T) {
 	ret = listener.validateSecret("", annotations, "default", []byte("test"))
 	g.Expect(ret).To(gomega.BeFalse())
 }
+
+func TestValidateChannel(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	channel := &chnv1alpha1.Channel{}
+	err = yaml.Unmarshal([]byte(channelYAML), &channel)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ret := listener.validateChannel(channel, "", "", []byte(""))
+	g.Expect(ret).To(gomega.BeFalse())
+
+	channel.Spec.Type = chnv1alpha1.ChannelTypeHelmRepo
+	ret = listener.validateChannel(channel, "", "", []byte(""))
+	g.Expect(ret).To(gomega.BeFalse())
+
+	channel.Spec.Type = chnv1alpha1.ChannelTypeGitHub
+	newAnnotations := make(map[string]string)
+	newAnnotations["webhookenabled"] = "false"
+	channel.SetAnnotations(newAnnotations)
+	ret = listener.validateChannel(channel, "", "", []byte(""))
+	g.Expect(ret).To(gomega.BeFalse())
+
+	newAnnotations["webhookenabled"] = "true"
+	channel.SetAnnotations(newAnnotations)
+	ret = listener.validateChannel(channel, "", "", []byte(""))
+	g.Expect(ret).To(gomega.BeTrue())
+}
