@@ -18,6 +18,8 @@ spec:
       containers:
         - name: multicloud-operators-subscription
           image: quay.io/multicloudlab/multicloud-operators-subscription
+          ports:
+          - containerPort: 8443
           command:
           - /usr/local/bin/multicloud-operators-subscription
           - --standalone
