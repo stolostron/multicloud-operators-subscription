@@ -54,7 +54,6 @@ metadata:
           },
           "spec": {
             "chartName": "nginx-ingress",
-            "releaseName": "nginx-ingress",
             "source": {
               "helmRepo": {
                 "urls": [

@@ -16,8 +16,11 @@ package utils
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 
@@ -33,6 +36,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+)
+
+const (
+	//Max is 52 chars but as helm add behind the scene extension -delete-registrations for some objects
+	//The new limit is 31 chars
+	maxNameLength = 52 - len("-delete-registrations")
+	randomLength  = 5
+	//minus 1 because we add a dash
+	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
 // SubscriptionPredicateFunctions filters status update
@@ -369,4 +381,26 @@ func LabelsChecker(labelSelector *metav1.LabelSelector, ls map[string]string) bo
 	}
 
 	return clSelector.Matches(labels.Set(ls))
+}
+
+// GetReleaseName alters the given name in a deterministic way if the length exceed the maximum character
+func GetReleaseName(base string) (string, error) {
+	if len(base) > maxNameLength {
+		h := sha1.New()
+		_, err := h.Write([]byte(base))
+
+		if err != nil {
+			klog.Error("Failed to generate sha1 hash for: ", base, " error: ", err)
+			return "", err
+		}
+
+		sha1Hash := hex.EncodeToString(h.Sum(nil))
+
+		//minus 1 because adding "-"
+		base = base[:maxGeneratedNameLength]
+
+		return fmt.Sprintf("%s-%s", base, sha1Hash[:randomLength]), nil
+	}
+
+	return base, nil
 }
