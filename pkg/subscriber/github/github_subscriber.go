@@ -94,7 +94,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
-	//ghssubitem.commitID = ""
 
 	ghs.itemmap[itemkey] = ghssubitem
 
@@ -103,6 +102,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()["webhookenabled"], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		err := ghssubitem.doSubscription()
+
 		if err != nil {
 			klog.Error(err, "Subscription error.")
 		}

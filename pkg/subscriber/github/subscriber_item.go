@@ -94,6 +94,7 @@ func (ghsi *SubscriberItem) Start() {
 	ghsi.stopch = make(chan struct{})
 
 	klog.Info("Polling on SubscriberItem ", ghsi.Subscription.Name)
+
 	go wait.Until(func() {
 		tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
 		if tw != nil {
