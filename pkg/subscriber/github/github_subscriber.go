@@ -16,6 +16,7 @@ package github
 
 import (
 	"errors"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -93,11 +94,21 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
-	ghssubitem.commitID = ""
 
 	ghs.itemmap[itemkey] = ghssubitem
 
-	ghssubitem.Start()
+	// If the channel has annotation webhookenabled="true", do not poll the repo.
+	// Do subscription only on webhook events.
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()["webhookenabled"], "true") {
+		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		err := ghssubitem.doSubscription()
+
+		if err != nil {
+			klog.Error(err, "Subscription error.")
+		}
+	} else {
+		ghssubitem.Start()
+	}
 
 	return nil
 }
