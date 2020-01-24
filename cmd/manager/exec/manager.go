@@ -122,6 +122,12 @@ func RunManager(sig <-chan struct{}) {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
+
+		// Setup Webhook listner
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
+			klog.Error("Failed to initialize WebHook listener with error:", err)
+			os.Exit(1)
+		}
 	} else if err := setupStandalone(mgr, hubconfig, id); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
@@ -184,13 +190,13 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 
 	// Setup Subscribers
 	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
-		klog.Error("Failed to initialize synchronizer with error:", err)
+		klog.Error("Failed to initialize subscriber with error:", err)
 		return err
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr, hubconfig); err != nil {
-		klog.Error(err, "")
+		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}
 

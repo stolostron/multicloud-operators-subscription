@@ -49,6 +49,8 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
 
 	var err error
 
+	eventType := github.WebHookType(r)
+
 	body, signature, event, err = listener.ParseRequest(r)
 	if err != nil {
 		klog.Error("Failed to parse the request. error:", err)
@@ -64,77 +66,102 @@ func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
 		return err
 	}
 
-	// Loop through all subscriptions
-	for _, sub := range subList.Items {
-		klog.V(2).Info("Evaluating subscription: " + sub.GetName())
-
-		chNamespace := ""
-		chName := ""
-		chType := ""
-
-		if sub.Spec.Channel != "" {
-			strs := strings.Split(sub.Spec.Channel, "/")
-			if len(strs) == 2 {
-				chNamespace = strs[0]
-				chName = strs[1]
-			} else {
-				klog.Info("Failed to get channel namespace and name.")
+	if strings.EqualFold(eventType, "push") || strings.EqualFold(eventType, "pull") {
+		// Loop through all subscriptions
+		for _, sub := range subList.Items {
+			if !listener.processSubscription(sub, event, signature, eventType, body) {
 				continue
 			}
 		}
-
-		chkey := types.NamespacedName{Name: chName, Namespace: chNamespace}
-		chobj := &chnv1alpha1.Channel{}
-		err := listener.RemoteClient.Get(context.TODO(), chkey, chobj)
-
-		if err == nil {
-			chType = string(chobj.Spec.Type)
-		} else {
-			klog.Error("Failed to get subscription's channel. error: ", err)
-			continue
-		}
-
-		// This WebHook event is applicable for this subscription if:
-		// 		1. channel type is github
-		// 		2. AND ValidateSignature is true with the channel's secret token
-		// 		3. AND channel path contains the repo full name from the event
-		// If these conditions are not met, skip to the next subscription.
-
-		if !strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
-			klog.V(2).Infof("The channel type is %s. Skipping to process this subscription.", chType)
-			continue
-		}
-
-		if signature != "" {
-			if !listener.validateSecret(signature, chobj.GetAnnotations(), chNamespace, body) {
-				continue
-			}
-		}
-
-		switch e := event.(type) {
-		case *github.PullRequestEvent:
-			if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
-				chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
-				chobj.Spec.PathName == e.GetRepo().GetURL() ||
-				strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
-				klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
-				listener.updateSubscription(sub)
-			}
-		case *github.PushEvent:
-			if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
-				chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
-				chobj.Spec.PathName == e.GetRepo().GetURL() ||
-				strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
-				klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
-				listener.updateSubscription(sub)
-			}
-		default:
-			klog.Infof("Unhandled event type %s\n", github.WebHookType(r))
-			continue
-		}
+	} else {
+		klog.V(2).Infof("Unhandled webhook event type %s\n", eventType)
 	}
 
 	return nil
+}
+
+func (listener *WebhookListener) processSubscription(sub appv1alpha1.Subscription, event interface{}, signature, eventType string, body []byte) bool {
+	klog.V(2).Info("Evaluating subscription: " + sub.GetName())
+
+	chNamespace := ""
+	chName := ""
+
+	if sub.Spec.Channel != "" {
+		strs := strings.Split(sub.Spec.Channel, "/")
+		if len(strs) == 2 {
+			chNamespace = strs[0]
+			chName = strs[1]
+		} else {
+			klog.Error("Failed to get channel namespace and name.")
+			return false
+		}
+	}
+
+	chkey := types.NamespacedName{Name: chName, Namespace: chNamespace}
+	chobj := &chnv1alpha1.Channel{}
+	err := listener.RemoteClient.Get(context.TODO(), chkey, chobj)
+
+	if err != nil {
+		klog.Error("Failed to get subscription's channel. error: ", err)
+		return false
+	}
+
+	if !listener.validateChannel(chobj, signature, chNamespace, body) {
+		return false
+	}
+
+	switch e := event.(type) {
+	case *github.PullRequestEvent:
+		if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
+			chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
+			chobj.Spec.PathName == e.GetRepo().GetURL() ||
+			strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
+			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
+			listener.updateSubscription(sub)
+		}
+	case *github.PushEvent:
+		if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
+			chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
+			chobj.Spec.PathName == e.GetRepo().GetURL() ||
+			strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
+			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
+			listener.updateSubscription(sub)
+		}
+	default:
+		klog.Infof("Unhandled webhook event type %s\n", eventType)
+		return false
+	}
+
+	return true
+}
+
+func (listener *WebhookListener) validateChannel(chobj *chnv1alpha1.Channel, signature, chNamespace string, body []byte) bool {
+	// This WebHook event is applicable for this subscription if:
+	// 		1. channel type is github
+	// 		2. AND ValidateSignature is true with the channel's secret token
+	// 		3. AND channel path contains the repo full name from the event
+	//      4. AND channel has annotation webhookenabled="true"
+	// If these conditions are not met, skip to the next subscription.
+	chType := string(chobj.Spec.Type)
+
+	if !strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
+		klog.V(2).Infof("The channel type is %s. Skipping to process this subscription.", chType)
+		return false
+	}
+
+	if !strings.EqualFold(chobj.GetAnnotations()["webhookenabled"], "true") {
+		klog.V(2).Infof("WebHook event listening is not enabled on the channel. Skipping to process this subscription.")
+		return false
+	}
+
+	if signature != "" {
+		if !listener.validateSecret(signature, chobj.GetAnnotations(), chNamespace, body) {
+			klog.V(2).Infof("WebHook secret validation failed. Skipping to process this subscription.")
+			return false
+		}
+	}
+
+	return true
 }
 
 // ParseRequest parses incoming WebHook event request
