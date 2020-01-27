@@ -198,4 +198,6 @@ data:
 
 * If you are subscribing to Kubernetes resource configuration YAML files, include only one Kubernetes resource definition in each YAML file. If a file includes multiple resource definitions, only the first definition is applied.
 
+* A kubernetes resource YAML file cannot start with `---` line.
+
 * You cannot subscribe to a specific commit of a branch.

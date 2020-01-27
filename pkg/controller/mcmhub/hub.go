@@ -536,6 +536,12 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 
 	subepanno := make(map[string]string)
 
+	origsubanno := sub.GetAnnotations()
+	// Keep webhook event related annotations from the source subscription.
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
+		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
+	}
+
 	if rootSub == nil {
 		subep.Name = sub.GetName()
 		subepanno[dplv1alpha1.AnnotationSubscription] = subep.Namespace + "/" + subep.Name

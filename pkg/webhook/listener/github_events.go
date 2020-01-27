@@ -149,7 +149,7 @@ func (listener *WebhookListener) validateChannel(chobj *chnv1alpha1.Channel, sig
 		return false
 	}
 
-	if !strings.EqualFold(chobj.GetAnnotations()["webhookenabled"], "true") {
+	if !strings.EqualFold(chobj.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
 		klog.V(2).Infof("WebHook event listening is not enabled on the channel. Skipping to process this subscription.")
 		return false
 	}
@@ -211,12 +211,12 @@ func (listener *WebhookListener) validateSecret(signature string, annotations ma
 	secret := ""
 	ret = true
 	// Get GitHub WebHook secret from the channel annotations
-	if annotations["webhook-secret"] == "" {
+	if annotations[appv1alpha1.AnnotationWebhookSecret] == "" {
 		klog.Info("No webhook secret found in annotations")
 
 		ret = false
 	} else {
-		seckey := types.NamespacedName{Name: annotations["webhook-secret"], Namespace: chNamespace}
+		seckey := types.NamespacedName{Name: annotations[appv1alpha1.AnnotationWebhookSecret], Namespace: chNamespace}
 		secobj := &corev1.Secret{}
 
 		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)

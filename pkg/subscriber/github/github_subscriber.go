@@ -99,7 +99,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	// If the channel has annotation webhookenabled="true", do not poll the repo.
 	// Do subscription only on webhook events.
-	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()["webhookenabled"], "true") {
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		err := ghssubitem.doSubscription()
 

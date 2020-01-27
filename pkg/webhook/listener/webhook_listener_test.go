@@ -164,7 +164,7 @@ func TestWebhookHandler2(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subAnnotations := subscription2.GetAnnotations()
-	g.Expect(subAnnotations["webhook-event"]).To(gomega.BeEmpty())
+	g.Expect(subAnnotations[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.BeEmpty())
 
 	err = c.Delete(context.TODO(), subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -227,7 +227,7 @@ func TestWebhookHandler3(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subAnnotations := subscription2.GetAnnotations()
-	g.Expect(subAnnotations["webhook-event"]).To(gomega.BeEmpty())
+	g.Expect(subAnnotations[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.BeEmpty())
 
 	err = c.Delete(context.TODO(), subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -264,7 +264,7 @@ func TestUpdateSubscription(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subAnnotations := subscription.GetAnnotations()
-	g.Expect(subAnnotations["webhook-event"]).To(gomega.BeEmpty())
+	g.Expect(subAnnotations[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.BeEmpty())
 
 	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -272,12 +272,12 @@ func TestUpdateSubscription(t *testing.T) {
 	// Test that webhook-event=0 annotation gets added when there is no annotation.
 	updatedSubscription := listener.updateSubscription(*subscription)
 	subAnnotations2 := updatedSubscription.GetAnnotations()
-	g.Expect(subAnnotations2["webhook-event"]).To(gomega.Equal("0"))
+	g.Expect(subAnnotations2[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("0"))
 
 	// Test that webhook-event annotation gets incremented on subsequent updates.
 	updatedSubscription2 := listener.updateSubscription(*updatedSubscription)
 	subAnnotations3 := updatedSubscription2.GetAnnotations()
-	g.Expect(subAnnotations3["webhook-event"]).To(gomega.Equal("1"))
+	g.Expect(subAnnotations3[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("1"))
 
 	// Test that webhook-event=0 annotation gets added when there are other annotations except webhook-event.
 	newAnnotations := make(map[string]string)
@@ -285,15 +285,15 @@ func TestUpdateSubscription(t *testing.T) {
 	updatedSubscription2.SetAnnotations(newAnnotations)
 	updatedSubscription3 := listener.updateSubscription(*updatedSubscription2)
 	subAnnotations4 := updatedSubscription3.GetAnnotations()
-	g.Expect(subAnnotations4["webhook-event"]).To(gomega.Equal("0"))
+	g.Expect(subAnnotations4[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("0"))
 
 	// Test that webhook-event=0 annotation gets added when it fails to parse and increment existing webhook-event annotation.
 	newAnnotations = make(map[string]string)
-	newAnnotations["webhook-event"] = "abc"
+	newAnnotations[appv1alpha1.AnnotationWebhookEventCount] = "abc"
 	updatedSubscription3.SetAnnotations(newAnnotations)
 	updatedSubscription4 := listener.updateSubscription(*updatedSubscription3)
 	subAnnotations5 := updatedSubscription4.GetAnnotations()
-	g.Expect(subAnnotations5["webhook-event"]).To(gomega.Equal("0"))
+	g.Expect(subAnnotations5[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("0"))
 
 	err = c.Delete(context.TODO(), subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -360,7 +360,7 @@ func TestValidateSecret(t *testing.T) {
 
 	g.Expect(ret).To(gomega.BeFalse())
 
-	annotations["webhook-secret"] = "test"
+	annotations[appv1alpha1.AnnotationWebhookSecret] = "test"
 	ret = listener.validateSecret("", annotations, "default", []byte("test"))
 	g.Expect(ret).To(gomega.BeFalse())
 }
@@ -396,12 +396,12 @@ func TestValidateChannel(t *testing.T) {
 
 	channel.Spec.Type = chnv1alpha1.ChannelTypeGitHub
 	newAnnotations := make(map[string]string)
-	newAnnotations["webhookenabled"] = "false"
+	newAnnotations[appv1alpha1.AnnotationWebhookEnabled] = "false"
 	channel.SetAnnotations(newAnnotations)
 	ret = listener.validateChannel(channel, "", "", []byte(""))
 	g.Expect(ret).To(gomega.BeFalse())
 
-	newAnnotations["webhookenabled"] = "true"
+	newAnnotations[appv1alpha1.AnnotationWebhookEnabled] = "true"
 	channel.SetAnnotations(newAnnotations)
 	ret = listener.validateChannel(channel, "", "", []byte(""))
 	g.Expect(ret).To(gomega.BeTrue())

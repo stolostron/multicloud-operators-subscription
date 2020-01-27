@@ -38,6 +38,12 @@ var (
 	AnnotationHosting = SchemeGroupVersion.Group + "/hosting-subscription"
 	// AnnotationChannelGeneration defines the channel generation
 	AnnotationChannelGeneration = SchemeGroupVersion.Group + "/channel-generation"
+	// AnnotationWebhookEnabled indicates webhook event notification is enabled
+	AnnotationWebhookEnabled = SchemeGroupVersion.Group + "/webhook-enabled"
+	// AnnotationWebhookEventCount gets incremented by an incoming webhook event notification
+	AnnotationWebhookEventCount = SchemeGroupVersion.Group + "/webhook-event-count"
+	// AnnotationWebhookSecret defines webhook secret
+	AnnotationWebhookSecret = SchemeGroupVersion.Group + "/webhook-secret"
 )
 
 const (
