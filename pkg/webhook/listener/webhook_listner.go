@@ -172,15 +172,15 @@ func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription
 
 	if subAnnotations == nil {
 		subAnnotations = make(map[string]string)
-		subAnnotations["webhook-event"] = "0"
-	} else if subAnnotations["webhook-event"] == "" {
-		subAnnotations["webhook-event"] = "0"
+		subAnnotations[appv1alpha1.AnnotationWebhookEventCount] = "0"
+	} else if subAnnotations[appv1alpha1.AnnotationWebhookEventCount] == "" {
+		subAnnotations[appv1alpha1.AnnotationWebhookEventCount] = "0"
 	} else {
-		eventCounter, err := strconv.Atoi(subAnnotations["webhook-event"])
+		eventCounter, err := strconv.Atoi(subAnnotations[appv1alpha1.AnnotationWebhookEventCount])
 		if err != nil {
-			subAnnotations["webhook-event"] = "0"
+			subAnnotations[appv1alpha1.AnnotationWebhookEventCount] = "0"
 		} else {
-			subAnnotations["webhook-event"] = strconv.Itoa(eventCounter + 1)
+			subAnnotations[appv1alpha1.AnnotationWebhookEventCount] = strconv.Itoa(eventCounter + 1)
 		}
 	}
 
