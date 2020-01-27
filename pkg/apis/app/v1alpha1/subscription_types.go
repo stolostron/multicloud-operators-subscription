@@ -76,8 +76,8 @@ type TimeWindow struct {
 	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	Location string `json:"location,omitempty"`
 	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
-	Weekdays []string    `json:"weekdays,omitempty"`
-	Hours    []HourRange `json:"hours,omitempty"`
+	Daysofweek []string    `json:"daysofweek,omitempty"`
+	Hours      []HourRange `json:"hours,omitempty"`
 }
 
 //Time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
