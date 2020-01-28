@@ -43,3 +43,17 @@ spec:
               limits:
                 cpu: 500m
                 memory: 512Mi
+          volumeMounts:
+          - name: multicloud-operators-subscription-tls
+            readOnly: true
+            mountPath: "/etc/subscription"
+      volumes:
+        - name: multicloud-operators-subscription-tls
+          secret:
+            defaultMode: 420
+            secretName: multicloud-operators-subscription
+            items:
+            - key: tls.crt
+              path: tls.crt
+            - key: tls.key
+              path: tls.key
