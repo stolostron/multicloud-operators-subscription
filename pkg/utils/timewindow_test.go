@@ -38,8 +38,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: 0,
 		},
@@ -52,8 +52,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: time.Minute * 50,
 		},
@@ -66,8 +66,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "America/Toronto",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "America/Toronto",
 			},
 			want: time.Minute*50 + time.Hour*5,
 		},
@@ -81,8 +81,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "1:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: 44*time.Hour + 9*time.Minute,
 		},
@@ -96,8 +96,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Minute*20 + time.Hour*38,
@@ -112,8 +112,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{},
-				Location: "",
+				Daysofweek: []string{},
+				Location:   "",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Hour * 1,
@@ -125,7 +125,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
 				Hours:      []appv1alpha1.HourRange{},
-				Weekdays:   []string{},
+				Daysofweek: []string{},
 				Location:   "",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
@@ -138,7 +138,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
 				Hours:      []appv1alpha1.HourRange{},
-				Weekdays:   []string{"Monday"},
+				Daysofweek: []string{"Monday"},
 				Location:   "",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
@@ -153,7 +153,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 		// 		Hours: []appv1alpha1.HourRange{
 		// 			{Start: "10:30AM", End: "1:30PM"},
 		// 		},
-		// 		Weekdays: []string{},
+		// 		Daysofweek: []string{},
 		// 		Location: "America/Toronto",
 		// 	},
 		// 	//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
@@ -168,7 +168,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 		// 		Hours: []appv1alpha1.HourRange{
 		// 			{Start: "1:30PM", End: "10:30AM"},
 		// 		},
-		// 		Weekdays: []string{},
+		// 		Daysofweek: []string{},
 		// 		Location: "America/Toronto",
 		// 	},
 		// 	//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
@@ -350,7 +350,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	}
 }
 
-func TestParseTimeWithKicFormat(t *testing.T) {
+func TestParseTimeWithKicthenFormat(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		tstr   string
