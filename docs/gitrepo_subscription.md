@@ -194,6 +194,61 @@ data:
     branch: mybranch
 ```
 
+## Enabling GitHub WebHook
+
+By default, a GitHub channel subscription clones the GitHub repository specified in the channel every minute and applies changes when the commit ID has changed. Alternatively, you can configure your subscription to apply changes only when the GitHub repository sends repo PUSH and PULL webhook event notifications.
+
+In order to configure webhook in a GitHub repository, you need a target webhook payload URL and optionally a secret.
+
+### Payload URL
+
+Create a route (ingress) to expose the subscription operator's webhook event listener service where `<operator namespace>` is the namespace where the subscription operator runs in.
+
+  ```shell
+  oc create route passthrough --service=multicloud-operators-subscription -n <operator namespace>
+  ```
+
+Then, use `oc get route multicloud-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
+
+### WebHook secret
+
+WebHook secret is optional. Create a Kubernetes secret in the channel namespace. The secret must contain `data.secret`. For example,
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-github-webhook-secret
+data:
+  secret: cm9rZWpAY2EuaWJtLmNvbQo=
+```
+
+The value of `data.secret` is the base-64 encoded WebHook secret you are going to use.
+
+* Using a unique secret per GitHub repository is recommended.
+
+### Configuring WebHook in GitHub repository
+
+Use the payload URL and webhook secret to configure WebHook in your GitHub repository.
+
+### Enable WebHook event notification in channel
+
+Annotate the subscription's channel.
+
+```shell
+oc annotate channel.app.ibm.com <channel name> app.ibm.com/webhook-enabled="true"
+```
+
+If you used a secret to configure WebHook, annotate the channel with this as well where `<the secret name>` is the kubernetes secret name containing webhook secret.
+
+```shell
+oc annotate channel.app.ibm.com <channel name> app.ibm.com/webhook-secret="<the secret name>"
+```
+
+### Subscriptions of webhook-enabled channel
+
+No webhook specific configuration is needed in subscriptions.
+
 ## Limitations
 
 * If you are subscribing to Kubernetes resource configuration YAML files, include only one Kubernetes resource definition in each YAML file. If a file includes multiple resource definitions, only the first definition is applied.

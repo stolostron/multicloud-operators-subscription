@@ -4,6 +4,8 @@ metadata:
   labels:
     name: multicloud-operators-subscription
   name: multicloud-operators-subscription
+  annotations:
+    service.alpha.openshift.io/serving-cert-secret-name: multicloud-operators-subscription
 spec:
   ports:
   - port: 8443
