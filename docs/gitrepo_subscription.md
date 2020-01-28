@@ -239,10 +239,10 @@ Annotate the subscription's channel.
 oc annotate channel.app.ibm.com <channel name> app.ibm.com/webhook-enabled="true"
 ```
 
-If you used a secret to configure WebHook, annotate the channel with this as well where `<the secret name>` is the kubernetes secret name containing webhook secret.
+If you used a secret to configure WebHook, annotate the channel with this as well where `<the_secret_name>` is the kubernetes secret name containing webhook secret.
 
 ```shell
-oc annotate channel.app.ibm.com <channel name> app.ibm.com/webhook-secret="<the secret name>"
+oc annotate channel.app.ibm.com <channel name> app.ibm.com/webhook-secret="<the_secret_name>"
 ```
 
 ### Subscriptions of webhook-enabled channel
