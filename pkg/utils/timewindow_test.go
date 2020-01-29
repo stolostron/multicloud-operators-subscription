@@ -30,6 +30,15 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 		want    time.Duration
 	}{
 		{
+			desc:    "default form of timewindow on UI",
+			curTime: "Sun Nov  3 10:40:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "America/Toronto",
+			},
+			want: 0,
+		},
+		{
 			desc:    "the time is within the time windows",
 			curTime: "Sun Nov  3 10:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
