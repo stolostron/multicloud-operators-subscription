@@ -81,7 +81,6 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			want: time.Minute*50 + time.Hour*5,
 		},
 		{
-			desc: "wait over days",
 			// weekday == 6
 			curTime: "Wed Nov  6 14:21:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
@@ -124,7 +123,6 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Daysofweek: []string{},
 				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Hour * 1,
 		},
 		{
@@ -137,24 +135,21 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Daysofweek: []string{"Monday"},
 				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Hour * 15,
 		},
-		{
-			desc: "reversion order of incoming hours",
-			//this is sunday
-			curTime: "Thu Nov  7 14:00:00 EST 2019",
-			windows: &appv1alpha1.TimeWindow{
-				WindowType: "active",
-				Hours: []appv1alpha1.HourRange{
-					{Start: "1:30PM", End: "10:30AM"},
-				},
-				Daysofweek: []string{"friday"},
-				Location:   "America/Toronto",
-			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
-			want: time.Hour*20 + time.Minute*30,
-		},
+		// {
+		// 	desc:    "reversion order of incoming hours",
+		// 	curTime: "Thu Nov  7 14:00:00 EST 2019",
+		// 	windows: &appv1alpha1.TimeWindow{
+		// 		WindowType: "active",
+		// 		Hours: []appv1alpha1.HourRange{
+		// 			{Start: "1:30PM", End: "10:30AM"},
+		// 		},
+		// 		Daysofweek: []string{"friday"},
+		// 		Location:   "America/Toronto",
+		// 	},
+		// 	want: time.Hour*20 + time.Minute*30,
+		// },
 	}
 
 	for _, tC := range testCases {
