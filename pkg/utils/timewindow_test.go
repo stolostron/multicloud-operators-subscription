@@ -149,7 +149,7 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Hours: []appv1alpha1.HourRange{
 					{Start: "1:30PM", End: "10:30AM"},
 				},
-				Daysofweek: []string{},
+				Daysofweek: []string{"friday"},
 				Location:   "America/Toronto",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
