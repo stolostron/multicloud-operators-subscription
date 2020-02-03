@@ -86,7 +86,7 @@ type TimeWindow struct {
 	Hours      []HourRange `json:"hours,omitempty"`
 }
 
-//Time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
+//HourRange time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
 type HourRange struct {
 	Start string `json:"start,omitempty"`
 	End   string `json:"end,omitempty"`
@@ -204,7 +204,8 @@ type SubscriptionList struct {
 }
 
 // +k8s:deepcopy-gen:nonpointer-interfaces=true
-// SubsriberItem defines subscriber item to share subscribers with different channel types
+
+// SubscriberItem defines subscriber item to share subscribers with different channel types
 type SubscriberItem struct {
 	Subscription          *Subscription
 	SubscriptionConfigMap *corev1.ConfigMap

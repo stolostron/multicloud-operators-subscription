@@ -107,7 +107,7 @@ var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
 const timeout = time.Second * 2
 
-func TestReconcile(t *testing.T) {
+func TestReconcileWithoutTimeWindowStatusFlow(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -214,4 +214,152 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	g.Expect(c.Update(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
 
 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+}
+
+type testClock struct {
+	timestamp string
+}
+
+func (c *testClock) now() time.Time {
+	t, err := time.Parse(time.RFC1123, c.timestamp)
+	if err != nil {
+		time.Now()
+	}
+	return t
+}
+
+func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	curTime := "Sun Nov  3 10:40:00 UTC 2019"
+	tClk := &testClock{curTime}
+
+	rec := spyReconciler(mgr, mgr.GetClient(), nil, tClk.now)
+	recFn, reconciliation := ReconcilerSpy(rec)
+
+	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	chn := channel.DeepCopy()
+	chn.Spec.SecretRef = nil
+	chn.Spec.ConfigMapRef = nil
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chn)
+
+	// Create the Subscription object and expect the Reconcile and Deployment to be created
+	var tests = []struct {
+		name                    string
+		curTime                 string
+		given                   *appv1alpha1.Subscription
+		expectedReconcileResult Reconciliation
+		expectedSubMsg          string
+	}{
+		{
+			name: "without time window",
+			given: &appv1alpha1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subkey.Name,
+					Namespace: subkey.Namespace,
+				},
+				Spec: appv1alpha1.SubscriptionSpec{
+					Channel: chnkey.String(),
+				},
+			},
+			expectedReconcileResult: Reconciliation{
+				request: reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      subkey.Name,
+						Namespace: subkey.Namespace,
+					},
+				},
+			},
+			expectedSubMsg: subscriptionActive,
+		},
+		{
+			name:    "within time window",
+			curTime: "Sun Nov  3 11:00:00 UTC 2019",
+			given: &appv1alpha1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subkey.Name,
+					Namespace: subkey.Namespace,
+				},
+				Spec: appv1alpha1.SubscriptionSpec{
+					Channel: chnkey.String(),
+					TimeWindow: &appv1alpha1.TimeWindow{
+						WindowType: "active",
+						Daysofweek: []string{},
+						Hours: []appv1alpha1.HourRange{
+							appv1alpha1.HourRange{Start: "10:00AM", End: "5:00PM"},
+						},
+					},
+				},
+			},
+			expectedReconcileResult: Reconciliation{
+				request: reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      subkey.Name,
+						Namespace: subkey.Namespace,
+					},
+				},
+				result: reconcile.Result{
+					RequeueAfter: 6*time.Hour + 1*time.Minute,
+				},
+			},
+			expectedSubMsg: subscriptionBlock,
+		},
+		//		{
+		//			name:    "outside time window",
+		//			curTime: "Sun Nov  3 09:00:00 UTC 2019",
+		//			given: &appv1alpha1.Subscription{
+		//				ObjectMeta: metav1.ObjectMeta{
+		//					Name:      subkey.Name,
+		//					Namespace: subkey.Namespace,
+		//				},
+		//				Spec: appv1alpha1.SubscriptionSpec{
+		//					Channel: chnkey.String(),
+		//					TimeWindow: &appv1alpha1.TimeWindow{
+		//						WindowType: "active",
+		//						Daysofweek: []string{},
+		//						Hours: []appv1alpha1.HourRange{
+		//							appv1alpha1.HourRange{Start: "10:00AM", End: "5:00PM"},
+		//						},
+		//					},
+		//				},
+		//			},
+		//			expectedReconcileResult: reconcile.Result{RequeueAfter: 1*time.Hour + 1*time.Minute},
+		//			expectedSubPhase:        appv1alpha1.SubscriptionActive,
+		//		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			g.Expect(c.Create(context.TODO(), tt.given)).NotTo(gomega.HaveOccurred())
+			defer c.Delete(context.TODO(), tt.given)
+
+			g.Eventually(reconciliation, timeout).Should(gomega.Receive(gomega.Equal(tt.expectedReconcileResult)))
+
+			got := &appv1alpha1.Subscription{}
+			givenObjKey := types.NamespacedName{Name: tt.given.GetName(), Namespace: tt.given.GetNamespace()}
+			g.Expect(c.Get(context.TODO(), givenObjKey, got)).NotTo(gomega.HaveOccurred())
+			gotMsg := got.Status.Message
+			if gotMsg != tt.expectedSubMsg {
+				t.Errorf("(%v): expected %s, actual %s", tt.given, tt.expectedSubMsg, gotMsg)
+			}
+		})
+	}
 }

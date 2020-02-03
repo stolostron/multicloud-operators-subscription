@@ -44,6 +44,11 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
+const (
+	subscriptionActive string = "Active"
+	subscriptionBlock  string = "Blocked"
+)
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -82,6 +87,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 		scheme:      mgr.GetScheme(),
 		hubclient:   hubclient,
 		subscribers: subscribers,
+		clk:         time.Now,
 	}
 
 	return rec
@@ -107,6 +113,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileSubscription{}
 
+type clock func() time.Time
+
 // ReconcileSubscription reconciles a Subscription object
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -115,6 +123,7 @@ type ReconcileSubscription struct {
 	hubclient   client.Client
 	scheme      *runtime.Scheme
 	subscribers map[string]appv1alpha1.Subscriber
+	clk         clock
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -124,6 +133,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance := &appv1alpha1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
+
+	nextStatusUpateAt := utils.NextStatusReconcile(r.clk(), instance.Spec.TimeWindow)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -148,10 +159,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				klog.Errorf("Had error %v while processing the referred secert", err)
 			}
 
-			return reconcile.Result{}, nil
+			return reconcile.Result{RequeueAfter: nextStatusUpateAt}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{}, err
+		return reconcile.Result{RequeueAfter: nextStatusUpateAt}, err
 	}
 
 	pl := instance.Spec.Placement
@@ -182,9 +193,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
+	if instance.Spec.TimeWindow == nil {
+		instance.Status.Message = subscriptionActive
+	} else {
+		instance.Status.Message = subscriptionBlock
+	}
+
 	err = r.Status().Update(context.TODO(), instance)
 
-	result := reconcile.Result{}
+	result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
 
 	if err != nil {
 		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")

@@ -220,7 +220,7 @@ func TestMergeHourRanges(t *testing.T) {
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			got := MergeHourRanges(tC.rg)
+			got := mergeHourRanges(tC.rg)
 			if !isEqualRanges(got, tC.wanted) {
 				t.Errorf("wanted %v got %v", tC.wanted, got)
 			}
@@ -278,7 +278,7 @@ func TestReverseRange(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			got := ReverseRange(tC.rg)
+			got := reverseRange(tC.rg)
 			if !reflect.DeepEqual(got, tC.wanted) {
 				t.Errorf("got %v, want %v", got, tC.wanted)
 			}
@@ -318,7 +318,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.t)
-			got := tC.rd.DurationToNextRunableWeekday(tt)
+			got := tC.rd.durationToNextRunableWeekday(tt)
 			if got != tC.wanted {
 				t.Errorf("wanted %v, however got %v", tC.wanted, got)
 			}

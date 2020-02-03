@@ -32,6 +32,13 @@ type RunHourRanges []appv1alpha1.HourRange
 // thie field is actually int
 type runDays []time.Weekday
 
+func NextStatusReconcile(t time.Time, tw *appv1alpha1.TimeWindow) time.Duration {
+	if tw == nil {
+		return 0 * time.Second
+	}
+	return 6*time.Hour + 1*time.Minute
+}
+
 //NextStartPoint will map the container's time to the location time specified by user
 // then it will handle the window type as will the hour ange and daysofweek
 // for hour range and daysofweek, it will handle as the following
@@ -50,7 +57,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 
 	if tw.WindowType != "" && tw.WindowType != "active" {
 		// reverse slots
-		rvevHr := ReverseRange(vHr)
+		rvevHr := reverseRange(vHr)
 		return GenerateNextPoint(rvevHr, rveDays, uniTime)
 	}
 
@@ -94,7 +101,7 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 		}
 	}
 
-	h = MergeHourRanges(h)
+	h = mergeHourRanges(h)
 
 	return h
 }
@@ -164,10 +171,10 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 		timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
 
 		if len(rdays) == 0 {
-			return rdays.DurationToNextRunableWeekday(uniTime)
+			return rdays.durationToNextRunableWeekday(uniTime)
 		}
 
-		return MIDNIGHT.Sub(timeByHour) + rdays.DurationToNextRunableWeekday(uniTime)
+		return MIDNIGHT.Sub(timeByHour) + rdays.durationToNextRunableWeekday(uniTime)
 	}
 
 	slots := sortRangeByStartTime(vhours)
@@ -179,7 +186,7 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 
 	if lastSlot.Before(timeByHour) {
 		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
-		dayOffsets := rdays.DurationToNextRunableWeekday(uniTime)
+		dayOffsets := rdays.durationToNextRunableWeekday(uniTime)
 
 		// Hour difference is from curret day to midnight, then midnight to slot[0]
 		// Current time to the next day's midnight
@@ -207,7 +214,7 @@ func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) t
 	return time.Duration(-1)
 }
 
-func MaxHour(a, b string) string {
+func maxHour(a, b string) string {
 	if parseTimeWithKitchenFormat(a).Before(parseTimeWithKitchenFormat(b)) {
 		return b
 	}
@@ -215,7 +222,7 @@ func MaxHour(a, b string) string {
 	return a
 }
 
-func MergeHourRanges(in RunHourRanges) RunHourRanges {
+func mergeHourRanges(in RunHourRanges) RunHourRanges {
 	if len(in) < 2 {
 		return in
 	}
@@ -229,7 +236,7 @@ func MergeHourRanges(in RunHourRanges) RunHourRanges {
 
 		e, s := parseTimeWithKitchenFormat(l.End), parseTimeWithKitchenFormat(r.Start)
 		if e.Sub(s) >= 0 {
-			m := MaxHour(l.End, r.End)
+			m := maxHour(l.End, r.End)
 			out[len(out)-1].End = m
 		} else {
 			out = append(out, in[i])
@@ -241,7 +248,7 @@ func MergeHourRanges(in RunHourRanges) RunHourRanges {
 	return out
 }
 
-func ReverseRange(in RunHourRanges) RunHourRanges {
+func reverseRange(in RunHourRanges) RunHourRanges {
 	if len(in) == 0 {
 		return in
 	}
@@ -280,7 +287,7 @@ func (r runDays) Len() int           { return len(r) }
 func (r runDays) Less(i, j int) bool { return r[i] < r[j] }
 func (r runDays) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
-func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
+func (r runDays) durationToNextRunableWeekday(t time.Time) time.Duration {
 	// if daysofweek is sorted, we want the next day with is greater than the t.Weekday
 	// the daysofweek is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
