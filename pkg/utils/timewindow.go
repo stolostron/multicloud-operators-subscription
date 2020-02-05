@@ -40,19 +40,19 @@ func IsInWindow(tw *appv1alpha1.TimeWindow, t time.Time) bool {
 		return true
 	}
 
-	vrang := validateHourRange(tw.Hours, getLoc(tw.Location))
-
-	for _, slot := range vrang {
-		if t.After(slot.start) && t.Before(slot.end) {
-			return true
-		}
-	}
-
-	return false
+	return NextStartPoint(tw, t) == 0
 }
 
 // NextStatusReconcile generate a duartion for the reconcile to requeue after
 func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
+	if IsInWindow(tw, t) {
+		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
+		_, rveDays := validateDaysofweekSlice(tw.Daysofweek)
+		rvevHr := reverseRange(vHr, getLoc(tw.Location))
+
+		return generateNextPoint(rvevHr, rveDays, UnifyTimeZone(tw, t)) + 1*time.Minute
+	}
+
 	return NextStartPoint(tw, t) + 1*time.Minute
 }
 
