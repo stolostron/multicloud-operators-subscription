@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -37,6 +38,17 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Location:   "America/Toronto",
 			},
 			want: 0,
+		},
+		{
+			desc:    "nil timewindow",
+			curTime: "Sun Nov  3 10:40:00 UTC 2019",
+			want:    0,
+		},
+		{
+			desc:    "empty timewindow",
+			curTime: "Sun Nov  3 10:40:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{},
+			want:    0,
 		},
 		{
 			desc:    "run on current time without DaysofWeek",
@@ -338,6 +350,159 @@ func TestParseTimeWithKicthenFormat(t *testing.T) {
 			if p != g {
 				t.Errorf("parsed time %v, wanted %v", p, g)
 			}
+		})
+	}
+}
+
+func getTime(t string) time.Time {
+	tt, _ := time.Parse(time.UnixDate, t)
+	return tt
+}
+
+func PrintTimeSlot(ss []hourRangesInTime, cur time.Time) {
+	for _, s := range ss {
+		fmt.Printf("start: %v, end: %v\n", s.start.String(), s.end.String())
+	}
+	fmt.Println(cur.String())
+}
+
+func TestNextStatusReconcile(t *testing.T) {
+	var tests = []struct {
+		name     string
+		expected time.Duration
+		giventw  *appv1alpha1.TimeWindow
+		giventm  time.Time
+	}{
+		{
+			name:     "empty time window",
+			expected: time.Duration(0),
+			giventw:  &appv1alpha1.TimeWindow{},
+			giventm:  getTime("Sat Jan  1 10:30:00 UTC 0000"),
+		},
+		{
+			name:     "empty time window",
+			expected: time.Duration(0),
+			giventm:  getTime("Sat Jan  1 10:30:00 UTC 0000"),
+		},
+		{
+			name:     "empty time window",
+			expected: time.Duration(0),
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Hours:      []appv1alpha1.HourRange{},
+			},
+			giventm: getTime("Sat Jan  1 10:30:00 UTC 0000"),
+		},
+		{
+			name:     "time window only have hours",
+			expected: time.Minute * 31,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 10:30:00 UTC 0000"),
+		},
+		{
+			name:     "time window only have daysofweek",
+			expected: time.Hour*48 + time.Minute*1,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday"},
+				Hours:      []appv1alpha1.HourRange{},
+			},
+			giventm: getTime("Sat Jan  1 00:00:00 UTC 0000"),
+		},
+		{
+			name:     "time window with hour range and daysofweek-happy path outside timewindow",
+			expected: time.Hour*59 + time.Minute*1,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 00:00:00 UTC 0000"),
+		},
+		{
+			name:     "time window have hour range and daysofweek-time on edge",
+			expected: time.Minute * 1,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday", "saturday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 11:00:00 UTC 0000"),
+		},
+		{
+			name:     "time window with hour range and daysofweek-happy path within timewindow",
+			expected: time.Minute * 31,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday", "saturday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
+		},
+		{
+			name:     "block time window with hour range and daysofweek-happy path outside timewindow",
+			expected: time.Hour*48 + time.Minute*1,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 00:00:00 UTC 0000"),
+		},
+		{
+			name:     "block time window have hour range and daysofweek-time on edge",
+			expected: time.Minute * 1,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday", "saturday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 11:00:00 UTC 0000"),
+		},
+		{
+			name:     "block time window with hour range and daysofweek-happy path within timewindow",
+			expected: time.Minute * 31,
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Location:   "UTC",
+				Daysofweek: []string{"monday", "friday", "saturday"},
+				Hours: []appv1alpha1.HourRange{
+					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+				},
+			},
+			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := NextStatusReconcile(tt.giventw, tt.giventm)
+			if actual != tt.expected {
+				t.Errorf("(%#v): expected %v, actual %v", tt.giventw, tt.expected, actual)
+			}
+
 		})
 	}
 }

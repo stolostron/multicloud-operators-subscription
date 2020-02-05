@@ -45,15 +45,24 @@ func IsInWindow(tw *appv1alpha1.TimeWindow, t time.Time) bool {
 
 // NextStatusReconcile generate a duartion for the reconcile to requeue after
 func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
-	if IsInWindow(tw, t) {
-		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
-		_, rveDays := validateDaysofweekSlice(tw.Daysofweek)
-		rvevHr := reverseRange(vHr, getLoc(tw.Location))
+	if tw == nil {
+		return time.Duration(0)
+	}
+	uniCurTime := UnifyTimeZone(tw, t)
 
-		return generateNextPoint(rvevHr, rveDays, UnifyTimeZone(tw, t)) + 1*time.Minute
+	if len(tw.Daysofweek) == 0 && len(tw.Hours) == 0 {
+		return time.Duration(0)
 	}
 
-	return NextStartPoint(tw, t) + 1*time.Minute
+	if IsInWindow(tw, uniCurTime) {
+		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
+		vdays, _ := validateDaysofweekSlice(tw.Daysofweek)
+		rvevHr := reverseRange(vHr, getLoc(tw.Location))
+
+		return generateNextPoint(rvevHr, vdays, uniCurTime) + 1*time.Minute
+	}
+
+	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
 }
 
 //NextStartPoint will map the container's time to the location time specified by user
@@ -62,6 +71,9 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 // if hour range is empty and weekday is empty then retrun 0
 // if hour range is empty and weekday is not then return nextday durtion(here the window type will be considered again)
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
+	if tw == nil {
+		return time.Duration(0)
+	}
 	// convert current time to the location time defined within the timewindow
 	uniCurTime := UnifyTimeZone(tw, t)
 
@@ -127,6 +139,10 @@ func validateHourRange(rg []appv1alpha1.HourRange, loc *time.Location) []hourRan
 }
 
 func validateDaysofweekSlice(wds []string) (runDays, runDays) {
+	if len(wds) == 0 {
+		return runDays{}, runDays{}
+	}
+
 	vwds := runDays{}
 
 	weekdayMap := map[string]int{
@@ -193,7 +209,7 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 	}
 
 	if rdays.durationToNextRunableWeekday(uniCurTime.Weekday()) == 0 {
-		return tillNextSlot(slots, uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+		return tillNextSlot(slots, uniCurTime)
 	}
 
 	return timeLeftTillNextMidNight(uniCurTime) + tillNextSlot(slots, uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
