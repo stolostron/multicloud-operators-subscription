@@ -134,8 +134,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	instance := &appv1alpha1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
-	nextStatusUpateAt := utils.NextStatusReconcile(r.clk(), instance.Spec.TimeWindow)
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
@@ -159,10 +157,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				klog.Errorf("Had error %v while processing the referred secert", err)
 			}
 
-			return reconcile.Result{RequeueAfter: nextStatusUpateAt}, nil
+			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		return reconcile.Result{RequeueAfter: nextStatusUpateAt}, err
+		return reconcile.Result{}, err
 	}
 
 	pl := instance.Spec.Placement
@@ -193,10 +191,18 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
+	// calculate the requeue time for updating the timewindow status
+	var nextStatusUpateAt time.Duration
+
 	if instance.Spec.TimeWindow == nil {
 		instance.Status.Message = subscriptionActive
 	} else {
-		instance.Status.Message = subscriptionBlock
+		if utils.IsInWindow(instance.Spec.TimeWindow, r.clk()) {
+			instance.Status.Message = subscriptionActive
+		} else {
+			instance.Status.Message = subscriptionBlock
+		}
+		nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
 	}
 
 	err = r.Status().Update(context.TODO(), instance)

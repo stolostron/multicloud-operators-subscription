@@ -39,32 +39,27 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			want: 0,
 		},
 		{
-			desc:    "run on certain days-current time within window",
-			curTime: "Sun Nov  3 10:40:00 UTC 2019",
+			desc:    "run on current time without DaysofWeek",
+			curTime: "Sun Nov  3 09:00:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
 				Hours: []appv1alpha1.HourRange{
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Daysofweek: []string{"Sunday", "monday", "friday"},
-				Location:   "",
+				Location: "",
 			},
-			want: 0,
+			want: time.Hour*1 + time.Minute*30,
 		},
 		{
-			desc:    "run on certain days-current time without window",
-			curTime: "Sun Nov  3 09:40:00 UTC 2019",
+			desc:    "run on certain days-current time without hour ranges",
+			curTime: "Sun Nov  3 09:00:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
-				Hours: []appv1alpha1.HourRange{
-					{Start: "10:30AM", End: "11:30AM"},
-					{Start: "12:30PM", End: "8:30PM"},
-				},
-				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Daysofweek: []string{"monday", "friday"},
 				Location:   "",
 			},
-			want: time.Minute * 50,
+			want: time.Hour * 15,
 		},
 		{
 			desc:    "run on certain days with location offset",
@@ -81,23 +76,9 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			want: time.Minute*50 + time.Hour*5,
 		},
 		{
-			// weekday == 6
-			curTime: "Wed Nov  6 14:21:00 UTC 2019",
-			windows: &appv1alpha1.TimeWindow{
-				WindowType: "active",
-				Hours: []appv1alpha1.HourRange{
-					{Start: "10:30AM", End: "11:30AM"},
-					{Start: "12:30PM", End: "1:30PM"},
-				},
-				Daysofweek: []string{"Sunday", "monday", "friday"},
-				Location:   "",
-			},
-			want: 44*time.Hour + 9*time.Minute,
-		},
-		{
 			desc: "block certain time return next active time",
 			//this is sunday
-			curTime: "Sun Nov  3 09:40:00 UTC 2019",
+			curTime: "Sun Nov  3 09:30:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "block",
 				Hours: []appv1alpha1.HourRange{
@@ -107,23 +88,8 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Daysofweek: []string{"Sunday", "monday", "friday"},
 				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
-			want: time.Minute*20 + time.Hour*38,
-		},
-		{
-			desc: "run each day on certain time",
-			//this is sunday
-			curTime: "Sun Nov  3 09:30:00 UTC 2019",
-			windows: &appv1alpha1.TimeWindow{
-				WindowType: "active",
-				Hours: []appv1alpha1.HourRange{
-					{Start: "10:30AM", End: "11:30AM"},
-					{Start: "12:30PM", End: "8:30PM"},
-				},
-				Daysofweek: []string{},
-				Location:   "",
-			},
-			want: time.Hour * 1,
+			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.30
+			want: time.Minute*30 + time.Hour*14 + time.Hour*24,
 		},
 		{
 			desc: "run only on Monday",
@@ -137,19 +103,19 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Hour * 15,
 		},
-		// {
-		// 	desc:    "reversion order of incoming hours",
-		// 	curTime: "Thu Nov  7 14:00:00 EST 2019",
-		// 	windows: &appv1alpha1.TimeWindow{
-		// 		WindowType: "active",
-		// 		Hours: []appv1alpha1.HourRange{
-		// 			{Start: "1:30PM", End: "10:30AM"},
-		// 		},
-		// 		Daysofweek: []string{"friday"},
-		// 		Location:   "America/Toronto",
-		// 	},
-		// 	want: time.Hour*20 + time.Minute*30,
-		// },
+		{
+			desc:    "reversion order of incoming hours",
+			curTime: "Thu Nov  7 14:00:00 EST 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "1:30PM", End: "10:30AM"},
+				},
+				Daysofweek: []string{"friday"},
+				Location:   "America/Toronto",
+			},
+			want: time.Hour*20 + time.Minute*30,
+		},
 	}
 
 	for _, tC := range testCases {
@@ -164,121 +130,139 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 	}
 }
 
-func TestMergeHourRanges(t *testing.T) {
+func TestValidateHours(t *testing.T) {
+	f := func(ts, l string) time.Time {
+		t, _ := time.ParseInLocation(time.Kitchen, ts, getLoc(l))
+		return t
+	}
+
+	loc := "America/Toronto"
+
 	testCases := []struct {
-		desc   string
-		rg     RunHourRanges
-		wanted RunHourRanges
+		desc     string
+		rg       []appv1alpha1.HourRange
+		location string
+		wanted   []hourRangesInTime
 	}{
 		{
-			desc: "",
+			desc: "time range without location",
 			rg: []appv1alpha1.HourRange{
 				{Start: "10:30AM", End: "11:30AM"},
 				{Start: "12:30PM", End: "1:30PM"},
 			},
-
-			wanted: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "11:30AM"},
-				{Start: "12:30PM", End: "1:30PM"},
+			wanted: []hourRangesInTime{
+				{start: f("10:30AM", ""), end: f("11:30AM", "")},
+				{start: f("12:30PM", ""), end: f("1:30PM", "")},
 			},
 		},
 		{
-			desc: "",
+			desc: "time overlapped with location",
 			rg: []appv1alpha1.HourRange{
 				{Start: "10:30AM", End: "11:30AM"},
 				{Start: "11:10AM", End: "1:30PM"},
 			},
-
-			wanted: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "1:30PM"},
+			location: loc,
+			wanted: []hourRangesInTime{
+				{start: f("10:30AM", loc), end: f("1:30PM", loc)},
 			},
 		},
 		{
-			desc: "",
+			desc: "time overlapped with location",
 			rg: []appv1alpha1.HourRange{
 				{Start: "10:30AM", End: "11:30AM"},
 				{Start: "11:30AM", End: "1:30PM"},
 			},
+			location: loc,
 
-			wanted: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "1:30PM"},
+			wanted: []hourRangesInTime{
+				{start: f("10:30AM", loc), end: f("1:30PM", loc)},
 			},
 		},
 		{
-			desc: "",
+			desc: "multi-timewindow with location",
 			rg: []appv1alpha1.HourRange{
 				{Start: "10:30AM", End: "11:30AM"},
 				{Start: "11:40AM", End: "5:30PM"},
 				{Start: "12:40AM", End: "4:30PM"},
+				{Start: "6:40PM", End: "6:30PM"},
 			},
-			wanted: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "11:30AM"},
-				{Start: "11:40AM", End: "5:30PM"},
+			location: loc,
+			wanted: []hourRangesInTime{
+				{start: f("12:40AM", loc), end: f("5:30PM", loc)},
+				{start: f("6:30PM", loc), end: f("6:40PM", loc)},
 			},
 		},
 	}
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			got := mergeHourRanges(tC.rg)
-			if !isEqualRanges(got, tC.wanted) {
-				t.Errorf("wanted %v got %v", tC.wanted, got)
-			}
+			got := validateHourRange(tC.rg, getLoc(tC.location))
+			assertHourRangesInTime(t, got, tC.wanted)
 		})
 	}
 }
 
-func isEqualRanges(a, b RunHourRanges) bool {
-	if len(a) != len(b) {
-		return false
+func assertHourRangesInTime(t *testing.T, got, wanted []hourRangesInTime) {
+	if len(got) != len(wanted) {
+		t.Fatalf("validateHourRange length is wrong, got %v, wanted %v", len(got), len(wanted))
 	}
 
-	for i := 0; i < len(a); i++ {
-		if a[i].Start != b[i].Start {
-			return false
+	for i := 0; i < len(got); i++ {
+		if got[i].start.Equal(wanted[i].start) == false {
+			t.Errorf("item idx %v got %v, wanted %v", i, got[i].start.String(), wanted[i].start.String())
 		}
 
-		if a[i].End != b[i].End {
-			return false
+		if got[i].end.Equal(wanted[i].end) == false {
+			t.Errorf("item idx %v got %v, wanted %v", i, got[i].end.String(), wanted[i].end.String())
 		}
 	}
-
-	return true
 }
 
 func TestReverseRange(t *testing.T) {
+	loc := "America/Toronto"
+	f := func(ts, l string) time.Time {
+		t, _ := time.ParseInLocation(time.Kitchen, ts, getLoc(l))
+		return t
+	}
+
+	lastMidnight := parseTimeWithKitchenFormat(MIDNIGHT, getLoc(loc))
+	nextMidngith := lastMidnight.Add(time.Hour * 24)
+
 	testCases := []struct {
-		desc   string
-		rg     RunHourRanges
-		wanted RunHourRanges
+		desc     string
+		location string
+		rg       []hourRangesInTime
+		wanted   []hourRangesInTime
 	}{
 		{
-			desc: "",
-			rg: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "11:30AM"},
-				{Start: "11:40AM", End: "4:30PM"},
+			desc:     "",
+			location: loc,
+			rg: []hourRangesInTime{
+				{start: f("10:30AM", loc), end: f("11:30AM", loc)},
+				{start: f("11:40AM", loc), end: f("4:30PM", loc)},
 			},
-			wanted: []appv1alpha1.HourRange{
-				{Start: "12:00AM", End: "10:30AM"},
-				{Start: "11:30AM", End: "11:40AM"},
-				{Start: "4:30PM", End: "12:00AM"},
+			wanted: []hourRangesInTime{
+				{start: f("12:00AM", loc), end: f("10:30AM", loc)},
+				{start: f("11:30AM", loc), end: f("11:40AM", loc)},
+				{start: f("4:30PM", loc), end: nextMidngith},
 			},
 		},
 
 		{
-			desc: "",
-			rg: []appv1alpha1.HourRange{
-				{Start: "10:30AM", End: "11:30AM"},
+			desc:     "",
+			location: loc,
+			rg: []hourRangesInTime{
+				{start: f("10:30AM", loc), end: f("11:30AM", loc)},
 			},
-			wanted: []appv1alpha1.HourRange{
-				{Start: "12:00AM", End: "10:30AM"},
-				{Start: "11:30AM", End: "12:00AM"},
+			wanted: []hourRangesInTime{
+				{start: f("12:00AM", loc), end: f("10:30AM", loc)},
+				{start: f("11:30AM", loc), end: nextMidngith},
 			},
 		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			got := reverseRange(tC.rg)
+			got := reverseRange(tC.rg, getLoc(tC.location))
 			if !reflect.DeepEqual(got, tC.wanted) {
 				t.Errorf("got %v, want %v", got, tC.wanted)
 			}
@@ -318,7 +302,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.t)
-			got := tC.rd.durationToNextRunableWeekday(tt)
+			got := tC.rd.durationToNextRunableWeekday(tt.Weekday())
 			if got != tC.wanted {
 				t.Errorf("wanted %v, however got %v", tC.wanted, got)
 			}
@@ -330,24 +314,26 @@ func TestParseTimeWithKicthenFormat(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		tstr   string
+		loc    string
 		wanted string
 	}{
 		{
 			desc:   "legal format parsed to UTC",
 			tstr:   "10:30AM",
+			loc:    "America/Toronto",
 			wanted: "Sat Jan  1 10:30:00 UTC 0000",
 		},
 		{
 			desc:   "illegal format",
 			tstr:   "10:30am",
-			wanted: time.Now().Local().Format(time.UnixDate),
+			wanted: time.Now().UTC().Format(time.UnixDate),
 		},
 	}
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.wanted)
-			pTime := parseTimeWithKitchenFormat(tC.tstr)
+			pTime := parseTimeWithKitchenFormat(tC.tstr, getLoc(tC.loc))
 			p, g := pTime.Format(time.Kitchen), tt.Format(time.Kitchen)
 			if p != g {
 				t.Errorf("parsed time %v, wanted %v", p, g)

@@ -84,8 +84,10 @@ func ReconcilerSpy(inner reconcile.Reconciler) (reconcile.Reconciler, chan Recon
 			result:  result,
 			err:     err,
 		}
+
 		return result, err
 	})
+
 	return fn, requests
 }
 
@@ -97,6 +99,7 @@ func spyReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 		subscribers: subscribers,
 		clk:         clk,
 	}
+
 	return rec
 }
 

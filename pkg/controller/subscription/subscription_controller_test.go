@@ -225,6 +225,7 @@ func (c *testClock) now() time.Time {
 	if err != nil {
 		time.Now()
 	}
+
 	return t
 }
 
@@ -303,7 +304,7 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 						WindowType: "active",
 						Daysofweek: []string{},
 						Hours: []appv1alpha1.HourRange{
-							appv1alpha1.HourRange{Start: "10:00AM", End: "5:00PM"},
+							{Start: "10:00AM", End: "5:00PM"},
 						},
 					},
 				},
