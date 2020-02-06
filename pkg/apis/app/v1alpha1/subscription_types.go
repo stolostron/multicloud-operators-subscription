@@ -78,6 +78,7 @@ type Overrides struct {
 // TimeWindow defines a time window for subscription to run or be blocked
 type TimeWindow struct {
 	// active time window or not, if timewindow is active, then deploy will only applies during these windows
+	// +kubebuilder:validation:Enum=active,blocked,Active,Blocked
 	WindowType string `json:"windowtype,omitempty"`
 	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	Location string `json:"location,omitempty"`
@@ -183,8 +184,8 @@ type SubscriptionStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="subscription status"
+// +kubebuilder:printcolumn:name="Time window status",type="string",JSONPath=".status.message",description="subscription time window status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
-// +kubebuilder:resource:scope=Namespaced
 // +kubebuilder:resource:shortName=appsub
 type Subscription struct {
 	metav1.TypeMeta   `json:",inline"`
@@ -214,7 +215,7 @@ type SubscriberItem struct {
 	ChannelConfigMap      *corev1.ConfigMap
 }
 
-// Subsriber defines common interface of different channel types
+// Subscriber efines common interface of different channel types
 type Subscriber interface {
 	SubscribeItem(*SubscriberItem) error
 	UnsubscribeItem(types.NamespacedName) error
