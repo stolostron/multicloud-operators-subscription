@@ -112,6 +112,54 @@ func TestHouseKeeping(t *testing.T) {
 	sync.houseKeeping()
 }
 
+func TestGVKValidation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+
+	sync, err := CreateSynchronizer(cfg, cfg, scheme.Scheme, &host, 2, nil)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	gvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1beta1",
+		Kind:    "StatefulSet",
+	}
+	validgvk := schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "StatefulSet",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1beta2",
+		Kind:    "StatefulSet",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "extensions",
+		Version: "v1beta1",
+		Kind:    "Deployment",
+	}
+	validgvk = schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "Deployment",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "app.ibm.com",
+		Kind:    "Deployable",
+		Version: "v1alpha1",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.BeNil())
+}
+
 func TestRegisterDeRegister(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -145,6 +193,7 @@ func TestRegisterDeRegister(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	anno := map[string]string{
+		appv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		dplv1alpha1.AnnotationHosting:    sharedkey.Namespace + "/" + sharedkey.Name,
 		appv1alpha1.AnnotationSyncSource: source,
 	}
@@ -379,7 +428,7 @@ func TestHarvestExisting(t *testing.T) {
 
 	// object should be havested back before source is found
 	resmap := sync.KubeResources[resgvk]
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())
@@ -431,8 +480,9 @@ func TestServiceResource(t *testing.T) {
 	source := sourceprefix + sharedkey.String()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable": sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationSyncSource: source,
+		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource:   source,
 	}
 
 	svc.SetAnnotations(anno)
@@ -462,7 +512,7 @@ func TestServiceResource(t *testing.T) {
 	reskey := sync.generateResourceMapKey(hostnn, dplnn)
 
 	// havest existing from cluster
-	g.Expect(sync.checkServerObjects(resmap)).NotTo(gomega.HaveOccurred())
+	g.Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(gomega.HaveOccurred())
 
 	tplunit, ok := resmap.TemplateMap[reskey]
 	g.Expect(ok).Should(gomega.BeTrue())

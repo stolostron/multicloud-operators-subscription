@@ -33,8 +33,8 @@ type RunHourRanges []appv1alpha1.HourRange
 type runDays []time.Weekday
 
 //NextStartPoint will map the container's time to the location time specified by user
-// then it will handle the window type as will the hour ange and weekdays
-// for hour range and weekdays, it will handle as the following
+// then it will handle the window type as will the hour ange and daysofweek
+// for hour range and daysofweek, it will handle as the following
 // if hour range is empty and weekday is empty then retrun 0
 // if hour range is empty and weekday is not then return nextday durtion(here the window type will be considered again)
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
@@ -46,7 +46,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	// also there's no overlap between 2 ranges
 	vHr := validateHourRange(tw.Hours)
 
-	rDays, rveDays := validateWeekDaysSlice(tw.Weekdays)
+	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
 	if tw.WindowType != "" && tw.WindowType != "active" {
 		// reverse slots
@@ -99,7 +99,7 @@ func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
 	return h
 }
 
-func validateWeekDaysSlice(wds []string) (runDays, runDays) {
+func validateDaysofweekSlice(wds []string) (runDays, runDays) {
 	vwds := runDays{}
 
 	weekdayMap := map[string]int{
@@ -156,7 +156,7 @@ func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
 }
 
 // next time will be:
-// if current time is bigger than the last time point of the window, nextTime will be weekdays offset + the hour offset
+// if current time is bigger than the last time point of the window, nextTime will be daysofweek offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
 //slot start point or a 0(if current time is within a time window)
 func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) time.Duration {
@@ -281,8 +281,8 @@ func (r runDays) Less(i, j int) bool { return r[i] < r[j] }
 func (r runDays) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
 
 func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
-	// if weekdays is sorted, we want the next day with is greater than the t.Weekday
-	// the weekdays is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
+	// if daysofweek is sorted, we want the next day with is greater than the t.Weekday
+	// the daysofweek is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
 	if r.Len() == 0 {
 		// this mean you will wait for less than a day.

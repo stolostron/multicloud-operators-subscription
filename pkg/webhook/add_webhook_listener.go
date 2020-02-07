@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package webhook
 
-import "github.com/IBM/multicloud-operators-subscription/pkg/controller/mcmhub"
+import (
+	"github.com/IBM/multicloud-operators-subscription/pkg/webhook/listener"
+)
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddHubToManagerFuncs = append(AddHubToManagerFuncs, mcmhub.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, listener.Add)
 }

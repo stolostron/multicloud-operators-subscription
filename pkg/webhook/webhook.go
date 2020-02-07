@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,43 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package webhook
 
 import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
-var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config) error
-
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager) error
-
-// AddHubToManagerFuncs is a list of functions to add all Hub Controllers to the Manager
-var AddHubToManagerFuncs []func(manager.Manager) error
+var AddToManagerFuncs []func(manager.Manager, *rest.Config, string, string) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config) error {
+func AddToManager(m manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m); err != nil {
-			return err
-		}
-	}
-
-	for _, f := range AddToManagerMCMFuncs {
-		if err := f(m, cfg); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// AddHubToManager adds all Hub Controllers to the Manager
-func AddHubToManager(m manager.Manager) error {
-	for _, f := range AddHubToManagerFuncs {
-		if err := f(m); err != nil {
+		if err := f(m, hubconfig, tlsKeyFile, tlsCrtFile); err != nil {
 			return err
 		}
 	}

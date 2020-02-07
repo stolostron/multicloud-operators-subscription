@@ -38,6 +38,12 @@ var (
 	AnnotationHosting = SchemeGroupVersion.Group + "/hosting-subscription"
 	// AnnotationChannelGeneration defines the channel generation
 	AnnotationChannelGeneration = SchemeGroupVersion.Group + "/channel-generation"
+	// AnnotationWebhookEnabled indicates webhook event notification is enabled
+	AnnotationWebhookEnabled = SchemeGroupVersion.Group + "/webhook-enabled"
+	// AnnotationWebhookEventCount gets incremented by an incoming webhook event notification
+	AnnotationWebhookEventCount = SchemeGroupVersion.Group + "/webhook-event-count"
+	// AnnotationWebhookSecret defines webhook secret
+	AnnotationWebhookSecret = SchemeGroupVersion.Group + "/webhook-secret"
 )
 
 const (
@@ -76,8 +82,8 @@ type TimeWindow struct {
 	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	Location string `json:"location,omitempty"`
 	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
-	Weekdays []string    `json:"weekdays,omitempty"`
-	Hours    []HourRange `json:"hours,omitempty"`
+	Daysofweek []string    `json:"daysofweek,omitempty"`
+	Hours      []HourRange `json:"hours,omitempty"`
 }
 
 //Time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants

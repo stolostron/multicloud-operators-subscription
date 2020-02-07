@@ -30,7 +30,16 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 		want    time.Duration
 	}{
 		{
-			desc:    "the time is within the time windows",
+			desc:    "default form of timewindow on UI-run all the time",
+			curTime: "Sun Nov  3 10:40:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Location:   "America/Toronto",
+			},
+			want: 0,
+		},
+		{
+			desc:    "run on certain days-current time within window",
 			curTime: "Sun Nov  3 10:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
@@ -38,13 +47,13 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: 0,
 		},
 		{
-			desc:    "the time is within the time windows",
+			desc:    "run on certain days-current time without window",
 			curTime: "Sun Nov  3 09:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
@@ -52,13 +61,13 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: time.Minute * 50,
 		},
 		{
-			desc:    "the time is within the time windows, with location",
+			desc:    "run on certain days with location offset",
 			curTime: "Sun Nov  3 09:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
@@ -66,13 +75,12 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "America/Toronto",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "America/Toronto",
 			},
 			want: time.Minute*50 + time.Hour*5,
 		},
 		{
-			desc: "the time out of the range, need to offset by day",
 			// weekday == 6
 			curTime: "Wed Nov  6 14:21:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
@@ -81,13 +89,13 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "1:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			want: 44*time.Hour + 9*time.Minute,
 		},
 		{
-			desc: "the time is within the time windows",
+			desc: "block certain time return next active time",
 			//this is sunday
 			curTime: "Sun Nov  3 09:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
@@ -96,14 +104,14 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{"Sunday", "monday", "friday"},
-				Location: "",
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
 			},
 			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Minute*20 + time.Hour*38,
 		},
 		{
-			desc: "only weekdays is empty",
+			desc: "run each day on certain time",
 			//this is sunday
 			curTime: "Sun Nov  3 09:30:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
@@ -112,66 +120,34 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 					{Start: "10:30AM", End: "11:30AM"},
 					{Start: "12:30PM", End: "8:30PM"},
 				},
-				Weekdays: []string{},
-				Location: "",
+				Daysofweek: []string{},
+				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Hour * 1,
 		},
 		{
-			desc: "both empty hour and weekdays",
-			//this is sunday
-			curTime: "Sun Nov  3 09:30:00 UTC 2019",
-			windows: &appv1alpha1.TimeWindow{
-				WindowType: "active",
-				Hours:      []appv1alpha1.HourRange{},
-				Weekdays:   []string{},
-				Location:   "",
-			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
-			want: 0,
-		},
-		{
-			desc: "empty hours only",
+			desc: "run only on Monday",
 			//this is sunday
 			curTime: "Sun Nov  3 09:00:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
 				WindowType: "active",
 				Hours:      []appv1alpha1.HourRange{},
-				Weekdays:   []string{"Monday"},
+				Daysofweek: []string{"Monday"},
 				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 			want: time.Hour * 15,
 		},
 		// {
-		// 	desc: "only weekdays is empty",
-		// 	//this is sunday
-		// 	curTime: "Thu Nov  7 14:00:00 EST 2019",
-		// 	windows: &appv1alpha1.TimeWindow{
-		// 		WindowType: "active",
-		// 		Hours: []appv1alpha1.HourRange{
-		// 			{Start: "10:30AM", End: "1:30PM"},
-		// 		},
-		// 		Weekdays: []string{},
-		// 		Location: "America/Toronto",
-		// 	},
-		// 	//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
-		// 	want: time.Hour*20 + time.Minute*30,
-		// },
-		// {
-		// 	desc: "reversion order of incoming hours",
-		// 	//this is sunday
+		// 	desc:    "reversion order of incoming hours",
 		// 	curTime: "Thu Nov  7 14:00:00 EST 2019",
 		// 	windows: &appv1alpha1.TimeWindow{
 		// 		WindowType: "active",
 		// 		Hours: []appv1alpha1.HourRange{
 		// 			{Start: "1:30PM", End: "10:30AM"},
 		// 		},
-		// 		Weekdays: []string{},
-		// 		Location: "America/Toronto",
+		// 		Daysofweek: []string{"friday"},
+		// 		Location:   "America/Toronto",
 		// 	},
-		// 	//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.20
 		// 	want: time.Hour*20 + time.Minute*30,
 		// },
 	}
@@ -350,7 +326,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	}
 }
 
-func TestParseTimeWithKicFormat(t *testing.T) {
+func TestParseTimeWithKicthenFormat(t *testing.T) {
 	testCases := []struct {
 		desc   string
 		tstr   string

@@ -69,7 +69,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 
 	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
-	subs["github"] = ghsub.GetDefaultSubscriber()
+	subs[chnv1alpha1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))

@@ -254,12 +254,6 @@ spec:
             timewindow:
               description: help user control when the subscription will take affect
               properties:
-                daysofweek:
-                  description: weekdays defined the day of the week for this time
-                    window https://golang.org/pkg/time/#Weekday
-                  items:
-                    type: string
-                  type: array
                 hours:
                   items:
                     description: Time format for each time will be Kitchen format,
@@ -274,6 +268,12 @@ spec:
                 location:
                   description: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
                   type: string
+                weekdays:
+                  description: weekdays defined the day of the week for this time
+                    window https://golang.org/pkg/time/#Weekday
+                  items:
+                    type: string
+                  type: array
                 windowtype:
                   description: active time window or not, if timewindow is active,
                     then deploy will only applies during these windows

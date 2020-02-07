@@ -83,7 +83,7 @@ type kubeResource struct {
 	Kind       string `yaml:"kind"`
 }
 
-// Start subscribes a subscriber item with namespace channel
+// Start subscribes a subscriber item with github channel
 func (ghsi *SubscriberItem) Start() {
 	// do nothing if already started
 	if ghsi.stopch != nil {
@@ -92,6 +92,8 @@ func (ghsi *SubscriberItem) Start() {
 	}
 
 	ghsi.stopch = make(chan struct{})
+
+	klog.Info("Polling on SubscriberItem ", ghsi.Subscription.Name)
 
 	go wait.Until(func() {
 		tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -119,6 +121,7 @@ func (ghsi *SubscriberItem) Stop() {
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
+	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
@@ -127,7 +130,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	if commitID != ghsi.commitID {
-		klog.V(4).Info("The commit ID is different. Process the cloned repo")
+		klog.V(2).Info("The commit ID is different. Process the cloned repo")
 
 		err := ghsi.sortClonedGitRepo()
 		if err != nil {
@@ -171,7 +174,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		ghsi.otherFiles = nil
 		ghsi.indexFile = nil
 	} else {
-		klog.V(4).Info("The commit ID is same as before. Skip processing the cloned repo")
+		klog.V(2).Info("The commit ID is same as before. Skip processing the cloned repo")
 	}
 
 	return nil
@@ -394,9 +397,17 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		//Compose release name
-		releaseCRName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
-		releaseName := packageName
+		releaseCRName := packageName
+		subUID := string(ghsi.Subscription.UID)
+
+		if len(subUID) >= 5 {
+			releaseCRName += "-" + subUID[:5]
+		}
+
+		releaseCRName, err := utils.GetReleaseName(releaseCRName)
+		if err != nil {
+			return err
+		}
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		err = ghsi.synchronizer.LocalClient.Get(context.TODO(),
@@ -434,7 +445,6 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
 						SecretRef:    ghsi.Channel.Spec.SecretRef,
 						ChartName:    packageName,
-						ReleaseName:  releaseName,
 						Version:      chartVersions[0].GetVersion(),
 					},
 				}
@@ -459,12 +469,11 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 				ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
 				SecretRef:    ghsi.Channel.Spec.SecretRef,
 				ChartName:    packageName,
-				ReleaseName:  releaseName,
 				Version:      chartVersions[0].GetVersion(),
 			}
 		}
 
-		err := ghsi.override(helmRelease)
+		err = ghsi.override(helmRelease)
 
 		if err != nil {
 			klog.Error("Failed to override ", helmRelease.Name, " err:", err)
