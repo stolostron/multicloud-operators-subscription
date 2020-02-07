@@ -138,6 +138,8 @@ spec:
               items:
                 description: Overrides field in deployable
                 properties:
+                  packageAlias:
+                    type: string
                   packageName:
                     type: string
                   packageOverrides:
