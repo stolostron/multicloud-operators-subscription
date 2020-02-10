@@ -1,0 +1,57 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-helm
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skip-cert-verify
+  namespace: ch-helm
+data:
+  insecureSkipVerify: "true"
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: helm
+  namespace: ch-helm
+spec:
+  type: HelmRepo
+  pathname: https://ianzhang366.github.io/guestbook-chart/
+  configRef: 
+    name: skip-cert-verify
+    apiVersion: v1
+    kind: ConfigMap
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: helm-sub-ns
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: PlacementRule
+metadata:
+  name: towhichcluster
+  namespace: helm-sub-ns
+spec:
+  clusterReplicas: 1
+  clusterLabels:
+    matchLabels:
+      name: gamp
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: helm-sub
+  namespace: helm-sub-ns
+spec:
+  channel: ch-helm/helm
+  name: gbapp
+  packageFilter:
+    version: "0.1.0"
+  placement:
+    placementRef: 
+      name: towhichcluster
+      kind: PlacementRule
