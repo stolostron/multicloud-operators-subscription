@@ -47,15 +47,15 @@ metadata:
           }
         }
       ]
-    capabilities: Basic Install
+    capabilities: Seamless Upgrades
     categories: "Integration & Delivery,OpenShift Optional"
     certified: 'false'
-    containerImage: quay.io/multicloudlab/multicloud-operators-subscription:latest
-    createdAt: 2019-12-16T11:59:59Z
+    containerImage: quay.io/multicloudlab/multicloud-operators-subscription:b2aa45c1
+    createdAt: 2020-02-02T11:59:59Z
     description: An operator to subscribe resources from a channel
     repository: https://github.com/IBM/multicloud-operators-subscription
     support: IBM
-  name: multicloud-operators-subscription.v0.1.0
+  name: multicloud-operators-subscription.v0.1.1
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -282,7 +282,7 @@ spec:
                       fieldPath: metadata.name
                 - name: OPERATOR_NAME
                   value: multicloud-operators-subscription
-                image: quay.io/multicloudlab/multicloud-operators-subscription
+                image: quay.io/multicloudlab/multicloud-operators-subscription:b2aa45c1
                 imagePullPolicy: Always
                 name: multicloud-operators-subscription
                 resources:
@@ -323,4 +323,5 @@ spec:
   selector:
     matchLabels:
       name: multicloud-operators-subscription
-  version: 0.1.0
+  replaces: multicloud-operators-subscription.v0.1.0
+  version: 0.1.1
