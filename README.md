@@ -108,6 +108,7 @@ Spec:
   Channel:  dev/dev-helmrepo
   Name:     nginx-ingress
   Package Overrides:
+    Package Alias:  nginx-ingress-alias
     Package Name:  nginx-ingress
     Package Overrides:
       Path:   spec.values
