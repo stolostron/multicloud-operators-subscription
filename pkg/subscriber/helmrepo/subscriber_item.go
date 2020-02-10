@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/helm/pkg/repo"
@@ -47,15 +46,6 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-)
-
-const (
-	//Max is 52 chars but as helm add behind the scene extension -delete-registrations for some objects
-	//The new limit is 31 chars
-	maxNameLength = 52 - len("-delete-registrations")
-	randomLength  = 5
-	//minus 1 because we add a dash
-	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
 // SubscriberItem - defines the unit of namespace subscription
@@ -488,6 +478,20 @@ func (hrsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrid
 	return dploverrides
 }
 
+func (hrsi *SubscriberItem) getPackageAlias(packageName string) string {
+	for _, overrides := range hrsi.Subscription.Spec.PackageOverrides {
+		if overrides.PackageName == packageName {
+			klog.Infof("Overrides for package %s found", packageName)
+
+			if overrides.PackageAlias != "" {
+				return overrides.PackageAlias
+			}
+		}
+	}
+
+	return ""
+}
+
 func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL string) error {
 	var err error
 
@@ -499,8 +503,20 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		releaseCRName := packageName + "-" + hrsi.Subscription.Name + "-" + hrsi.Subscription.Namespace
-		releaseName := packageName
+		releaseCRName := hrsi.getPackageAlias(packageName)
+		if releaseCRName == "" {
+			releaseCRName = packageName
+			subUID := string(hrsi.Subscription.UID)
+
+			if len(subUID) >= 5 {
+				releaseCRName += "-" + subUID[:5]
+			}
+		}
+
+		releaseCRName, err := utils.GetReleaseName(releaseCRName)
+		if err != nil {
+			return err
+		}
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		//Create a new helrmReleases
@@ -553,7 +569,6 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 						ConfigMapRef: hrsi.Channel.Spec.ConfigMapRef,
 						SecretRef:    hrsi.Channel.Spec.SecretRef,
 						ChartName:    packageName,
-						ReleaseName:  getReleaseName(releaseName),
 						Version:      chartVersions[0].GetVersion(),
 					},
 				}
@@ -576,12 +591,11 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 				ConfigMapRef: hrsi.Channel.Spec.ConfigMapRef,
 				SecretRef:    hrsi.Channel.Spec.SecretRef,
 				ChartName:    packageName,
-				ReleaseName:  releaseName,
 				Version:      chartVersions[0].GetVersion(),
 			}
 		}
 
-		err := hrsi.override(helmRelease)
+		err = hrsi.override(helmRelease)
 
 		if err != nil {
 			klog.Error("Failed to override ", helmRelease.Name, " err:", err)
@@ -640,16 +654,6 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	}
 
 	return err
-}
-
-func getReleaseName(base string) string {
-	if len(base) > maxNameLength {
-		//minus 1 because adding "-"
-		base = base[:maxGeneratedNameLength]
-		return fmt.Sprintf("%s-%s", base, utilrand.String(randomLength))
-	}
-
-	return base
 }
 
 func (hrsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {

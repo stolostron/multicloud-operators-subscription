@@ -36,11 +36,6 @@ spec:
               description: Configuration parameters to access the helm-repo defined
                 in the CatalogSource
               type: object
-            releaseName:
-              description: ReleaseName is the Name of the release given to Tiller.
-                Defaults to namespace-name. Must not be changed after initial object
-                creation.
-              type: string
             secretRef:
               description: Secret to use to access the helm-repo defined in the CatalogSource.
               type: object

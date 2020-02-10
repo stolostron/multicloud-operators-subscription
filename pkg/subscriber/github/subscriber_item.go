@@ -397,9 +397,20 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		//Compose release name
-		releaseCRName := packageName + "-" + ghsi.Subscription.Name + "-" + ghsi.Subscription.Namespace
-		releaseName := packageName
+		releaseCRName := ghsi.getPackageAlias(packageName)
+		if releaseCRName == "" {
+			releaseCRName = packageName
+			subUID := string(ghsi.Subscription.UID)
+
+			if len(subUID) >= 5 {
+				releaseCRName += "-" + subUID[:5]
+			}
+		}
+
+		releaseCRName, err := utils.GetReleaseName(releaseCRName)
+		if err != nil {
+			return err
+		}
 
 		helmRelease := &releasev1alpha1.HelmRelease{}
 		err = ghsi.synchronizer.LocalClient.Get(context.TODO(),
@@ -437,7 +448,6 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
 						SecretRef:    ghsi.Channel.Spec.SecretRef,
 						ChartName:    packageName,
-						ReleaseName:  releaseName,
 						Version:      chartVersions[0].GetVersion(),
 					},
 				}
@@ -462,12 +472,11 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 				ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
 				SecretRef:    ghsi.Channel.Spec.SecretRef,
 				ChartName:    packageName,
-				ReleaseName:  releaseName,
 				Version:      chartVersions[0].GetVersion(),
 			}
 		}
 
-		err := ghsi.override(helmRelease)
+		err = ghsi.override(helmRelease)
 
 		if err != nil {
 			klog.Error("Failed to override ", helmRelease.Name, " err:", err)
@@ -822,6 +831,20 @@ func (ghsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrid
 	}
 
 	return dploverrides
+}
+
+func (ghsi *SubscriberItem) getPackageAlias(packageName string) string {
+	for _, overrides := range ghsi.Subscription.Spec.PackageOverrides {
+		if overrides.PackageName == packageName {
+			klog.Infof("Overrides for package %s found", packageName)
+
+			if overrides.PackageAlias != "" {
+				return overrides.PackageAlias
+			}
+		}
+	}
+
+	return ""
 }
 
 func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {

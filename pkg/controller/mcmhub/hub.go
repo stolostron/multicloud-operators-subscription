@@ -713,10 +713,26 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 	return allDpls
 }
 
+func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
+	dpltemplate := &unstructured.Unstructured{}
+
+	if dpl.Spec.Template != nil {
+		err := json.Unmarshal(dpl.Spec.Template.Raw, dpltemplate)
+		if err == nil {
+			dplPkgName := dpltemplate.GetName()
+			if sub.Spec.Package != "" && sub.Spec.Package != dplPkgName {
+				klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", dplPkgName)
+				return false
+			}
+		}
+	}
+
+	return true
+}
+
 func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.Package != "" && sub.Spec.Package != dpl.Name {
-			klog.V(5).Info("Name does not match, skiping:", sub.Spec.Package, "|", dpl.Name)
+		if !checkDplPackageName(sub, dpl) {
 			return false
 		}
 
