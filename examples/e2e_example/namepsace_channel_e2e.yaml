@@ -1,21 +1,21 @@
-#--- 
-#apiVersion: app.ibm.com/v1alpha1
-#kind: Deployable
-#metadata: 
-#  name: payload-cfg-namespace-channel
-#  annotations: 
-#    app.ibm.com/is-local-deployable: "false"
-#  namespace: default
-#spec: 
-#  channels: 
-#  - ns
-#  template: 
-#    apiVersion: v1
-#    data: 
-#      database: mongodb
-#    kind: ConfigMap
-#    metadata: 
-#      name: cfg-from-ch-qa
+--- 
+apiVersion: app.ibm.com/v1alpha1
+kind: Deployable
+metadata: 
+  name: payload-cfg-namespace-channel
+  annotations: 
+    app.ibm.com/is-local-deployable: "false"
+  namespace: default
+spec: 
+  channels: 
+  - ns
+  template: 
+    apiVersion: v1
+    data: 
+      database: mongodb
+    kind: ConfigMap
+    metadata: 
+      name: cfg-from-ch-qa
 ---
 apiVersion: v1
 kind: Namespace
@@ -64,5 +64,7 @@ spec:
     windowtype: "active"
     location: "America/Toronto"
     hours:
-      - start: "11:00AM"
-        end: "4:35PM"
+      - start: "09:00AM"
+        end: "10:00AM"
+      - start: "10:10AM"
+        end: "10:30AM"

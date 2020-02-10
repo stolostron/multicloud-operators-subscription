@@ -17,7 +17,7 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,6 +31,7 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	"github.com/pkg/errors"
 )
 
 // DeployableReconciler reconciles a Deployable object of Nmespace channel
@@ -42,12 +43,41 @@ type DeployableReconciler struct {
 	itemkey    types.NamespacedName
 }
 
+// making sure the update subscription deployable from hub is respected even the current time window is blocked
+func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Request) bool {
+	dpl := &dplv1alpha1.Deployable{}
+	r.Client.Get(context.TODO(), request.NamespacedName, dpl)
+
+	subkey := r.itemkey
+
+	dplTpl := &unstructured.Unstructured{}
+
+	if dpl.Spec.Template == nil {
+		klog.Error(errors.New(fmt.Sprintf("%v deployable without template", dpl.Name)))
+
+		return false
+	}
+
+	err := json.Unmarshal(dpl.Spec.Template.Raw, dplTpl)
+	if err != nil {
+		klog.Error(errors.Wrap(err, "unable to unmarshal deployable  template"))
+
+		return false
+	}
+
+	if dplTpl.GetName() == subkey.Name && dplTpl.GetNamespace() == subkey.Namespace {
+		return true
+	}
+
+	return false
+}
+
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Info("Deployable Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
 
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
-	if tw != nil {
+	if !r.isUpdateLinkedSubscription(request) && tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		klog.V(5).Infof(time.Now().String())
 		klog.V(5).Infof("Reconciling deployable %v, for subscription %v, with tw %v having nextRun time %v",

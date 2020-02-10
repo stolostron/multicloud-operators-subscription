@@ -184,7 +184,6 @@ type SubscriptionStatus struct {
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="subscription status"
-// +kubebuilder:printcolumn:name="Time window status",type="string",JSONPath=".status.message",description="subscription time window status"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=appsub
 type Subscription struct {
