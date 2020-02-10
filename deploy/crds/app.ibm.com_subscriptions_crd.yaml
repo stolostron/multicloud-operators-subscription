@@ -81,6 +81,8 @@ spec:
                 local input
               items:
                 properties:
+                  packageAlias:
+                    type: string
                   packageName:
                     type: string
                   packageOverrides:

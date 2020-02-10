@@ -70,7 +70,8 @@ type PackageOverride struct {
 
 // Overrides field in deployable
 type Overrides struct {
-	PackageName string `json:"packageName"`
+	PackageAlias string `json:"packageAlias,omitempty"`
+	PackageName  string `json:"packageName"`
 	// +kubebuilder:validation:MinItems=1
 	PackageOverrides []PackageOverride `json:"packageOverrides"` // To be added
 }

@@ -478,6 +478,20 @@ func (hrsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrid
 	return dploverrides
 }
 
+func (hrsi *SubscriberItem) getPackageAlias(packageName string) string {
+	for _, overrides := range hrsi.Subscription.Spec.PackageOverrides {
+		if overrides.PackageName == packageName {
+			klog.Infof("Overrides for package %s found", packageName)
+
+			if overrides.PackageAlias != "" {
+				return overrides.PackageAlias
+			}
+		}
+	}
+
+	return ""
+}
+
 func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL string) error {
 	var err error
 
@@ -489,11 +503,14 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		releaseCRName := packageName
-		subUID := string(hrsi.Subscription.UID)
+		releaseCRName := hrsi.getPackageAlias(packageName)
+		if releaseCRName == "" {
+			releaseCRName = packageName
+			subUID := string(hrsi.Subscription.UID)
 
-		if len(subUID) >= 5 {
-			releaseCRName += "-" + subUID[:5]
+			if len(subUID) >= 5 {
+				releaseCRName += "-" + subUID[:5]
+			}
 		}
 
 		releaseCRName, err := utils.GetReleaseName(releaseCRName)
