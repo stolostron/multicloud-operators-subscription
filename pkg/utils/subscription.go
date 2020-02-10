@@ -84,7 +84,7 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 	},
 }
 
-// GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
+// GetSourceFromObject extract the namespacedname of subscription hosting the object resource
 func GetSourceFromObject(obj metav1.Object) string {
 	if obj == nil {
 		return ""
@@ -330,7 +330,12 @@ func prepareOverrides(pkgName string, instance *appv1alpha1.Subscription) []dplv
 	return overrides
 }
 
-func FiltePackageOut(filter *appv1alpha1.PackageFilter, dpl *dplv1alpha1.Deployable) bool {
+type objAnno interface {
+	GetAnnotations() map[string]string
+}
+
+// FilterPackageOut process the package filter logic
+func FilterPackageOut(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
 	if filter == nil {
 		return false
 	}
@@ -340,14 +345,14 @@ func FiltePackageOut(filter *appv1alpha1.PackageFilter, dpl *dplv1alpha1.Deploya
 	matched := true
 
 	if filter.Annotations != nil {
-		dplanno := dpl.GetAnnotations()
-		if dplanno == nil {
-			dplanno = make(map[string]string)
+		objAnno := obj.GetAnnotations()
+		if objAnno == nil {
+			objAnno = make(map[string]string)
 		}
 
 		for k, v := range filter.Annotations {
-			if dplanno[k] != v {
-				klog.V(10).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, dplanno)
+			if objAnno[k] != v {
+				klog.V(10).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, objAnno)
 
 				matched = false
 

@@ -102,7 +102,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	if subitem.Subscription.Spec.PackageFilter != nil && subitem.Subscription.Spec.PackageFilter.LabelSelector != nil {
 		clSelector, err := utils.ConvertLabels(subitem.Subscription.Spec.PackageFilter.LabelSelector)
 		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", subitem.Subscription.Spec.PackageFilter.LabelSelector, " err:", err)
+			klog.Error("Failed to pasrse label selector of subscrption:", subitem.Subscription.Spec.PackageFilter.LabelSelector, " err:", err)
 		}
 
 		listOptions.LabelSelector = clSelector
@@ -185,7 +185,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 		return nil, nil, errors.New(errmsg)
 	}
 
-	if utils.FiltePackageOut(subitem.Subscription.Spec.PackageFilter, dpl) {
+	if utils.FilterPackageOut(subitem.Subscription.Spec.PackageFilter, dpl) {
 		errmsg := "Filte out by package filter " + dpl.Name
 		klog.Info(errmsg)
 

@@ -24,8 +24,6 @@ import (
 	"k8s.io/klog"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	"github.com/IBM/multicloud-operators-deployable/pkg/utils"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 //PackageSecert put the secret to the deployable template
@@ -52,40 +50,6 @@ func PackageSecert(s v1.Secret) *dplv1alpha1.Deployable {
 	klog.V(10).Infof("Retived Dpl: %v", dpl)
 
 	return dpl
-}
-
-//ApplyFilters will apply the subscription level filters to the secret
-func ApplyFilters(secret v1.Secret, sub *appv1alpha1.Subscription) (v1.Secret, bool) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	secret = CleanUpObject(secret)
-
-	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.Package != "" && sub.Spec.Package != secret.GetName() {
-			klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", secret.GetName())
-			return secret, false
-		}
-
-		subAnno := sub.GetAnnotations()
-		klog.V(10).Info("checking annotations filter:", subAnno)
-
-		if subAnno != nil {
-			secretsAnno := secret.GetAnnotations()
-			for k, v := range subAnno {
-				if secretsAnno[k] != v {
-					klog.Info("Annotation filter does not match:", k, "|", v, "|", secretsAnno[k])
-					return secret, false
-				}
-			}
-		}
-	}
-
-	return secret, true
 }
 
 //CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template

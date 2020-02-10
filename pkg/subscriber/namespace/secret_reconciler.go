@@ -17,13 +17,15 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"time"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+
+	"github.com/pkg/errors"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-//SecretRecondiler defined a info collection for query secret resource
+//SecretReconciler defined a info collection for query secret resource
 type SecretReconciler struct {
 	Subscriber *Subscriber
 	Clt        client.Client
@@ -63,8 +65,8 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
-
-	tw := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.TimeWindow
+	curSubItem := s.Subscriber.itemmap[s.Itemkey]
+	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		if nextRun > time.Duration(0) {
@@ -74,15 +76,17 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// we only care the secret changes of the target namespace
-	if request.Namespace != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
+	if request.Namespace != curSubItem.Channel.GetNamespace() {
 		return reconcile.Result{}, nil
 	}
 
 	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
+	// list by label filter
 	srts, err := s.GetSecrets(request.NamespacedName)
 
 	if err != nil || srts == nil {
+		klog.Error(err)
 		return reconcile.Result{}, nil
 	}
 
@@ -95,10 +99,10 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 
 		klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
-
-		srtNew, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, utils.PackageSecert(srtNew))
+		packageFilter := curSubItem.Subscription.Spec.PackageFilter
+		nSrt := utils.CleanUpObject(srt)
+		if utils.FilterPackageOut(packageFilter, &nSrt) {
+			dpls = append(dpls, utils.PackageSecert(nSrt))
 		}
 	}
 
@@ -107,10 +111,21 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
-//GetSecret get the Secert from all the suscribed channel
+//GetSecrets get the Secert from all the suscribed channel
 func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretList, error) {
-	srts := &v1.SecretList{}
+	pfilter := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
 	opts := &client.ListOptions{Namespace: srtKey.Namespace}
+
+	if pfilter != nil && pfilter.LabelSelector != nil {
+		clSelector, err := utils.ConvertLabels(pfilter.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+
+		opts.LabelSelector = clSelector
+	}
+
+	srts := &v1.SecretList{}
 	err := s.Clt.List(context.TODO(), srts, opts)
 
 	if err != nil {
@@ -183,7 +198,7 @@ func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 		validgvk := kubesync.GetValidatedGVK(orggvk)
 
 		if validgvk == nil {
-			gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
+			gvkerr := errors.New(fmt.Sprintf("resource %v is not supported", orggvk.String()))
 			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
 
 			if err != nil {
