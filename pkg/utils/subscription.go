@@ -347,7 +347,7 @@ func CanPassPackageFilter(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
 	klog.V(5).Info("checking annotations package filter: ", filter)
 
 	objAnno := obj.GetAnnotations()
-	if objAnno == nil || len(objAnno) == 0 {
+	if len(objAnno) == 0 {
 		return false
 	}
 
@@ -356,12 +356,10 @@ func CanPassPackageFilter(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
 			klog.V(5).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, objAnno)
 
 			return false
-
 		}
 	}
 
 	return true
-
 }
 
 //KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array

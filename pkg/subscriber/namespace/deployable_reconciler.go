@@ -172,7 +172,7 @@ func (r *DeployableReconciler) doSubscription() error {
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
-		return nil, nil, errors.Errorf("package name does not match, skiping pacakge: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
+		return nil, nil, errors.Errorf("package name does not match, skiping package: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
 	}
 
 	if !utils.CanPassPackageFilter(subitem.Subscription.Spec.PackageFilter, dpl) {

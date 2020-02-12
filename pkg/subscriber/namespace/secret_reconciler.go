@@ -77,7 +77,9 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
+
 	curSubItem := s.Subscriber.itemmap[s.Itemkey]
+
 	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
@@ -112,6 +114,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		packageFilter := curSubItem.Subscription.Spec.PackageFilter
 		nSrt := cleanUpSecretObject(srt)
+
 		if utils.CanPassPackageFilter(packageFilter, &nSrt) {
 			dpls = append(dpls, packageSecertIntoDeployable(nSrt))
 		}
@@ -167,9 +170,11 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 	// subscribed k8s resource
 
 	kubesync := s.sSync
+
 	if s.sSync == nil {
 		kubesync = s.Subscriber.synchronizer
 	}
+
 	kvalid := kubesync.CreateValiadtor(syncsource)
 
 	pkgMap := make(map[string]bool)
