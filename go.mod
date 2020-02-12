@@ -16,12 +16,17 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.4.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
+	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/testify v1.4.0
+	golang.org/x/mod v0.2.0 // indirect
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
-	golang.org/x/tools v0.0.0-20200204151227-34c67990bfe7 // indirect
-	golang.org/x/tools/gopls v0.3.0 // indirect
+	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
+	golang.org/x/tools v0.0.0-20200211003209-0bc66720f334 // indirect
+	golang.org/x/tools/gopls v0.3.1 // indirect
+	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gopkg.in/yaml.v2 v2.2.4
 	k8s.io/api v0.0.0
 	k8s.io/apiextensions-apiserver v0.0.0
 	k8s.io/apimachinery v0.0.0

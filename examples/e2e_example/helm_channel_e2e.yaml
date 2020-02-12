@@ -39,7 +39,7 @@ spec:
   clusterReplicas: 1
   clusterLabels:
     matchLabels:
-      name: gamp
+      environment: Dev
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: Subscription

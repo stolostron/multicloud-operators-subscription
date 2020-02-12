@@ -12,13 +12,8 @@ metadata:
 spec:
   type: GitHub
   pathname: https://github.com/IBM/charts.git
-  #  configRef:
-  #    name: ibm-mongodb-dev-cm
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: git-sub-ns
+  configRef:
+    name: ibm-mongodb-dev-cm
 ---
 apiVersion: v1
 data:
@@ -26,7 +21,12 @@ data:
 kind: ConfigMap
 metadata:
   name: ibm-mongodb-dev-cm
-  namespace: git-sub-ns
+  namespace: ch-git
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git-sub-ns
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: PlacementRule
@@ -37,7 +37,7 @@ spec:
   clusterReplicas: 1
   clusterLabels:
     matchLabels:
-      name: gamp
+      environment: Dev
 ---
 apiVersion: app.ibm.com/v1alpha1
 kind: Subscription

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,17 +75,17 @@ func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Requ
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.V(1).Info("Deployable Reconciling: ", request.NamespacedName, " deployable for subitem ", r.itemkey)
+	klog.V(1).Infof("deployable reconciling: %v deployable for subitem %v", request.NamespacedName, r.itemkey.String())
 
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
 	if !r.isUpdateLinkedSubscription(request) && tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		klog.V(5).Infof(time.Now().String())
-		klog.V(5).Infof("Reconciling deployable %v, for subscription %v, with tw %v having nextRun time %v",
+		klog.V(5).Infof("reconciling deployable %v, for subscription %v, with tw %v having nextRun time %v",
 			request.NamespacedName.String(), r.subscriber.itemmap[r.itemkey].Subscription.GetName(), tw, nextRun)
 
 		if nextRun > time.Duration(0) {
-			klog.V(1).Infof("Subcription %v will run after %v", request.NamespacedName.String(), nextRun)
+			klog.V(1).Infof("subcription %v will run after %v", request.NamespacedName.String(), nextRun)
 			return reconcile.Result{RequeueAfter: nextRun}, nil
 		}
 	}
@@ -95,7 +96,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	if err != nil {
 		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.Interval*5) * time.Second
 
-		klog.Error("Failed to reconcile deployable for namespace subscriber with error:", err)
+		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %v", err)
 	}
 
 	return result, nil
@@ -107,11 +108,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	subitem, ok := r.subscriber.itemmap[r.itemkey]
 
 	if !ok {
-		errmsg := "Failed to locate subscription item " + r.itemkey.String() + " in existing map"
-
-		klog.Error(errmsg)
-
-		return errors.New(errmsg)
+		return errors.Errorf("failed to locate subscription item %v in existing map", r.itemkey.String())
 	}
 
 	klog.V(5).Info("Processing subscriptions: ", r.itemkey)
@@ -120,11 +117,7 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	subNamespace := subitem.Channel.Spec.PathName
 	if subNamespace == "" {
-		errmsg := "channel namespace should not be empty in channel resource of subitem " + r.itemkey.String()
-
-		klog.Error(errmsg)
-
-		return errors.New(errmsg)
+		return errors.Errorf("channel pathName should not be empty in channel resource of subitem: %v ", r.itemkey.String())
 	}
 
 	listOptions := &client.ListOptions{Namespace: subNamespace}
@@ -132,7 +125,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	if subitem.Subscription.Spec.PackageFilter != nil && subitem.Subscription.Spec.PackageFilter.LabelSelector != nil {
 		clSelector, err := utils.ConvertLabels(subitem.Subscription.Spec.PackageFilter.LabelSelector)
 		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", subitem.Subscription.Spec.PackageFilter.LabelSelector, " err:", err)
+			return errors.Wrap(err, fmt.Sprintf("failed to parse label selector of subscrption %v", subitem.Subscription.Spec.PackageFilter.LabelSelector))
 		}
 
 		listOptions.LabelSelector = clSelector
@@ -143,7 +136,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	klog.V(2).Info("Got ", len(dpllist.Items), " deployable list for process from namespace ", subNamespace, " with list option:", listOptions.LabelSelector)
 
 	if err != nil {
-		klog.Error("Failed to list objecrts from namespace ", subNamespace, " err:", err)
+		return errors.Wrapf(err, "failed to list objects from namespace %v ", subNamespace)
 	}
 
 	hostkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
@@ -187,7 +180,7 @@ func (r *DeployableReconciler) doSubscription() error {
 
 			pkgMap[dpltosync.GetName()] = true
 
-			return nil
+			return errors.Wrap(err, "failed to update subscription status")
 		}
 
 		dplkey := types.NamespacedName{
@@ -209,51 +202,31 @@ func (r *DeployableReconciler) doSubscription() error {
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
-		errmsg := "Name does not match, skiping:" + subitem.Subscription.Spec.Package + "|" + dpl.Name
-		klog.V(3).Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+		return nil, nil, errors.Errorf("package name does not match, skiping package: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
 	}
 
-	if utils.FiltePackageOut(subitem.Subscription.Spec.PackageFilter, dpl) {
-		errmsg := "Filte out by package filter " + dpl.Name
-		klog.Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+	if !utils.CanPassPackageFilter(subitem.Subscription.Spec.PackageFilter, dpl) {
+		return nil, nil, errors.Errorf("failed to pass package filter-annotations filter, deployable %v", dpl.Name)
 	}
 
 	if !utils.IsDeployableInVersionSet(versionMap, dpl) {
-		errmsg := "Filte out by version map " + dpl.Name
-		klog.Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+		return nil, nil, errors.Errorf("failed to pass package filter-version filter, deployable %v", dpl.Name)
 	}
 
 	template := &unstructured.Unstructured{}
 
 	if dpl.Spec.Template == nil {
-		errmsg := "Processing local deployable without template:" + dpl.Name
-		klog.Error(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+		return nil, nil, errors.Errorf("processing local deployable %v without template", dpl.Name)
 	}
 
 	err := json.Unmarshal(dpl.Spec.Template.Raw, template)
 	if err != nil {
-		errmsg := "Processing local deployable with template: " + dpl.Name + " with error " + err.Error()
-
-		klog.Error(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+		return nil, nil, errors.Wrapf(err, "processing local deployable %v", dpl.Name)
 	}
 
 	template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), subitem.Subscription)
 	if err != nil {
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), err, nil)
-		if err != nil {
-			klog.Info("error in overriding for package: ", err)
-		}
-
 		pkgMap[dpl.GetName()] = true
 
 		return nil, nil, err
@@ -263,10 +236,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	if !subitem.clusterscoped {
 		err = controllerutil.SetControllerReference(subitem.Subscription, template, r.subscriber.scheme)
 		if err != nil {
-			errmsg := "Adding owner reference to template, got error:" + err.Error()
-			klog.Error(errmsg)
-
-			return nil, nil, errors.New(errmsg)
+			return nil, nil, errors.Wrap(err, "failed to add ower reference")
 		}
 	}
 
@@ -274,7 +244,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	validgvk := r.subscriber.synchronizer.GetValidatedGVK(orggvk)
 
 	if validgvk == nil {
-		gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
+		gvkerr := errors.Errorf("resource %v is not supported", orggvk.String())
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), gvkerr, nil)
 
 		if err != nil {
@@ -296,7 +266,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 
 	if err != nil {
 		klog.Warning("Mashaling template, got error:", err)
-		return nil, nil, err
+		return nil, nil, errors.Wrap(err, "failed to mashaling template")
 	}
 
 	annotations := dpl.GetAnnotations()

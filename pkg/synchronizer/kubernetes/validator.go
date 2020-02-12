@@ -50,6 +50,10 @@ func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsourc
 	}
 }
 
+func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) bool {
+	return sync.KubeResources[gvk].Namespaced
+}
+
 // CreateValiadtor returns initialized validator struct
 func (sync *KubeSynchronizer) CreateValiadtor(syncsource string) *Validator {
 	return &Validator{

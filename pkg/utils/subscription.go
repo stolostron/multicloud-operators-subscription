@@ -84,7 +84,7 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 	},
 }
 
-// GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
+// GetSourceFromObject extract the namespacedname of subscription hosting the object resource
 func GetSourceFromObject(obj metav1.Object) string {
 	if obj == nil {
 		return ""
@@ -330,37 +330,36 @@ func prepareOverrides(pkgName string, instance *appv1alpha1.Subscription) []dplv
 	return overrides
 }
 
-func FiltePackageOut(filter *appv1alpha1.PackageFilter, dpl *dplv1alpha1.Deployable) bool {
+type objAnno interface {
+	GetAnnotations() map[string]string
+}
+
+// FilterPackageOut process the package filter logic
+func CanPassPackageFilter(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
 	if filter == nil {
+		return true
+	}
+
+	if filter.Annotations == nil || len(filter.Annotations) == 0 {
+		return true
+	}
+
+	klog.V(5).Info("checking annotations package filter: ", filter)
+
+	objAnno := obj.GetAnnotations()
+	if len(objAnno) == 0 {
 		return false
 	}
 
-	klog.V(10).Info("checking annotations package filter: ", filter)
+	for k, v := range filter.Annotations {
+		if objAnno[k] != v {
+			klog.V(5).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, objAnno)
 
-	matched := true
-
-	if filter.Annotations != nil {
-		dplanno := dpl.GetAnnotations()
-		if dplanno == nil {
-			dplanno = make(map[string]string)
-		}
-
-		for k, v := range filter.Annotations {
-			if dplanno[k] != v {
-				klog.V(10).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, dplanno)
-
-				matched = false
-
-				break
-			}
-		}
-
-		if !matched {
-			return true
+			return false
 		}
 	}
 
-	return !matched
+	return true
 }
 
 //KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array
