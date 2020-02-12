@@ -335,37 +335,33 @@ type objAnno interface {
 }
 
 // FilterPackageOut process the package filter logic
-func FilterPackageOut(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
+func CanPassPackageFilter(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
 	if filter == nil {
+		return true
+	}
+
+	if filter.Annotations == nil || len(filter.Annotations) == 0 {
+		return true
+	}
+
+	klog.V(5).Info("checking annotations package filter: ", filter)
+
+	objAnno := obj.GetAnnotations()
+	if objAnno == nil || len(objAnno) == 0 {
 		return false
 	}
 
-	klog.V(10).Info("checking annotations package filter: ", filter)
+	for k, v := range filter.Annotations {
+		if objAnno[k] != v {
+			klog.V(5).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, objAnno)
 
-	matched := true
+			return false
 
-	if filter.Annotations != nil {
-		objAnno := obj.GetAnnotations()
-		if objAnno == nil {
-			objAnno = make(map[string]string)
-		}
-
-		for k, v := range filter.Annotations {
-			if objAnno[k] != v {
-				klog.V(10).Infof("Annotation filter does not match. Sub annotation is: %v; Dpl annotation value is %v;", filter.Annotations, objAnno)
-
-				matched = false
-
-				break
-			}
-		}
-
-		if !matched {
-			return true
 		}
 	}
 
-	return !matched
+	return true
+
 }
 
 //KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array

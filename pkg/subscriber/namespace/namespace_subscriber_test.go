@@ -243,7 +243,7 @@ func TestSecretReconcile(t *testing.T) {
 
 	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
 	// pointing to a namespace type of channel
-	srtRec := newSecertReconciler(defaultSubscriber, mgr, subkey).(*SecretReconciler)
+	srtRec := newSecretReconciler(defaultSubscriber, mgr, subkey, nil).(*SecretReconciler)
 
 	// Create secrets at the channel namespace
 
@@ -256,7 +256,7 @@ func TestSecretReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), noneDplSrt)
 
 	dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
-	g.Expect(srtRec.GetSecrets(dplSrtKey)).ShouldNot(gomega.BeNil())
+	g.Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(gomega.BeNil())
 	//check up if the target secert is deployed at the subscriptions namespace
 	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
 
