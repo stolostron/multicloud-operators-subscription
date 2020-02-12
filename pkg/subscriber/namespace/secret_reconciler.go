@@ -17,17 +17,21 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"errors"
+	"fmt"
 	"time"
 
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+
+	"github.com/pkg/errors"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,20 +40,30 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-//SecretRecondiler defined a info collection for query secret resource
+type spySync interface {
+	CreateValiadtor(string) *synckube.Validator
+	ApplyValiadtor(*synckube.Validator)
+	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
+	RegisterTemplate(types.NamespacedName, *dplv1alpha1.Deployable, string) error
+	IsResourceNamespaced(schema.GroupVersionKind) bool
+}
+
+//SecretReconciler defined a info collection for query secret resource
 type SecretReconciler struct {
 	Subscriber *Subscriber
 	Clt        client.Client
 	Schema     *runtime.Scheme
 	Itemkey    types.NamespacedName
+	sSync      spySync
 }
 
-func newSecertReconciler(subscriber *Subscriber, mgr manager.Manager, subItemKey types.NamespacedName) reconcile.Reconciler {
+func newSecretReconciler(subscriber *Subscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync spySync) reconcile.Reconciler {
 	rec := &SecretReconciler{
 		Subscriber: subscriber,
 		Clt:        mgr.GetClient(),
 		Schema:     mgr.GetScheme(),
 		Itemkey:    subItemKey,
+		sSync:      sSync,
 	}
 
 	return rec
@@ -64,7 +78,9 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
-	tw := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.TimeWindow
+	curSubItem := s.Subscriber.itemmap[s.Itemkey]
+
+	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		if nextRun > time.Duration(0) {
@@ -74,16 +90,18 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	// we only care the secret changes of the target namespace
-	if request.Namespace != s.Subscriber.itemmap[s.Itemkey].Channel.GetNamespace() {
-		return reconcile.Result{}, nil
+	if request.Namespace != curSubItem.Channel.GetNamespace() {
+		return reconcile.Result{}, errors.New("failed to reconcile due to untargeted namespace")
 	}
 
 	klog.V(1).Info("Reconciling: ", request.NamespacedName, " sercet for subitem ", s.Itemkey)
 
-	srts, err := s.GetSecrets(request.NamespacedName)
+	// list by label filter
+	srts, err := s.getSecretsBySubLabel(request.NamespacedName.Namespace)
 
-	if err != nil || srts == nil {
-		return reconcile.Result{}, nil
+	if err != nil {
+		klog.Error(err)
+		return reconcile.Result{}, err
 	}
 
 	var dpls []*dplv1alpha1.Deployable
@@ -94,26 +112,35 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 			continue
 		}
 
-		klog.Infof("reconciler %v, got secret %v to process,  with error %v", request.NamespacedName, srt, err)
+		packageFilter := curSubItem.Subscription.Spec.PackageFilter
+		nSrt := cleanUpSecretObject(srt)
 
-		srtNew, ok := utils.ApplyFilters(srt, s.Subscriber.itemmap[s.Itemkey].Subscription)
-		if ok {
-			dpls = append(dpls, utils.PackageSecert(srtNew))
+		if utils.CanPassPackageFilter(packageFilter, &nSrt) {
+			dpls = append(dpls, packageSecertIntoDeployable(nSrt))
 		}
 	}
 
-	s.RegisterToResourceMap(dpls)
+	s.registerToResourceMap(dpls)
 
 	return reconcile.Result{}, nil
 }
 
-//GetSecret get the Secert from all the suscribed channel
-func (s *SecretReconciler) GetSecrets(srtKey types.NamespacedName) (*v1.SecretList, error) {
-	srts := &v1.SecretList{}
-	opts := &client.ListOptions{Namespace: srtKey.Namespace}
-	err := s.Clt.List(context.TODO(), srts, opts)
+//GetSecrets get the Secert from all the suscribed channel
+func (s *SecretReconciler) getSecretsBySubLabel(srtNs string) (*v1.SecretList, error) {
+	pfilter := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
+	opts := &client.ListOptions{Namespace: srtNs}
 
-	if err != nil {
+	if pfilter != nil && pfilter.LabelSelector != nil {
+		clSelector, err := utils.ConvertLabels(pfilter.LabelSelector)
+		if err != nil {
+			return nil, err
+		}
+
+		opts.LabelSelector = clSelector
+	}
+
+	srts := &v1.SecretList{}
+	if err := s.Clt.List(context.TODO(), srts, opts); err != nil {
 		return nil, err
 	}
 
@@ -134,14 +161,22 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 	return true
 }
 
-//RegisterToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable) {
+//registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
+func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable) {
 	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
 	// subscribed k8s resource
-	kvalid := s.Subscriber.synchronizer.CreateValiadtor(syncsource)
+
+	kubesync := s.sSync
+
+	if s.sSync == nil {
+		kubesync = s.Subscriber.synchronizer
+	}
+
+	kvalid := kubesync.CreateValiadtor(syncsource)
+
 	pkgMap := make(map[string]bool)
 
 	for _, dpl := range dpls {
@@ -177,13 +212,11 @@ func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			continue
 		}
 
-		kubesync := s.Subscriber.synchronizer
-
 		orggvk := template.GetObjectKind().GroupVersionKind()
 		validgvk := kubesync.GetValidatedGVK(orggvk)
 
 		if validgvk == nil {
-			gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
+			gvkerr := errors.New(fmt.Sprintf("resource %v is not supported", orggvk.String()))
 			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
 
 			if err != nil {
@@ -195,7 +228,7 @@ func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			continue
 		}
 
-		if kubesync.KubeResources[*validgvk].Namespaced {
+		if kubesync.IsResourceNamespaced(*validgvk) {
 			template.SetNamespace(subscription.Namespace)
 		}
 
@@ -241,5 +274,43 @@ func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 		klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	s.Subscriber.synchronizer.ApplyValiadtor(kvalid)
+	kubesync.ApplyValiadtor(kvalid)
+}
+
+//PackageSecert put the secret to the deployable template
+func packageSecertIntoDeployable(s v1.Secret) *dplv1alpha1.Deployable {
+	dpl := &dplv1alpha1.Deployable{}
+	dpl.Name = s.GetName()
+	dpl.Namespace = s.GetNamespace()
+	dpl.Spec.Template = &runtime.RawExtension{}
+
+	sRaw, err := json.Marshal(s)
+	dpl.Spec.Template.Raw = sRaw
+
+	if err != nil {
+		klog.Error("Failed to unmashall ", s.GetNamespace(), "/", s.GetName(), " err:", err)
+	}
+
+	klog.V(10).Infof("Retived Dpl: %v", dpl)
+
+	return dpl
+}
+
+//CleanUpObject is used to reset the sercet fields in order to put the secret into deployable template
+func cleanUpSecretObject(s v1.Secret) v1.Secret {
+	s.SetResourceVersion("")
+
+	t := types.UID("")
+
+	s.SetUID(t)
+
+	s.SetSelfLink("")
+
+	gvk := schema.GroupVersionKind{
+		Kind:    "Secret",
+		Version: "v1",
+	}
+	s.SetGroupVersionKind(gvk)
+
+	return s
 }
