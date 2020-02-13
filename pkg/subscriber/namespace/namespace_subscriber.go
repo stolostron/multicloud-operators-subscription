@@ -75,7 +75,7 @@ var (
 	}
 )
 
-var (
+const (
 	deployablesyncsource = "subnsdpl-"
 	secretsyncsource     = "subnssec-"
 )
@@ -101,7 +101,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		return err
 	}
 
-	defaultSubscriber = CreateNamespaceSubsriber(hubconfig, mgr.GetScheme(), mgr, sync)
+	defaultSubscriber = CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
 	if defaultSubscriber == nil {
 		errmsg := "failed to create default namespace subscriber"
 
@@ -324,8 +324,8 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
 
-// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
-func CreateNamespaceSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) *Subscriber {
+// CreateNamespaceSubscriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+func CreateNamespaceSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) *Subscriber {
 	if config == nil || kubesync == nil {
 		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
 		return nil
