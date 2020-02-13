@@ -86,7 +86,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 
 	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
-	if tw.WindowType != "" && strings.EqualFold(tw.WindowType, "active") {
+	if tw.WindowType != "" && !strings.EqualFold(tw.WindowType, "active") {
 		// reverse slots
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 		return generateNextPoint(rvevHr, rveDays, uniCurTime)
