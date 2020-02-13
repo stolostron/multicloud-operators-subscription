@@ -46,7 +46,11 @@ type DeployableReconciler struct {
 // making sure the update subscription deployable from hub is respected even the current time window is blocked
 func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Request) bool {
 	dpl := &dplv1alpha1.Deployable{}
-	r.Client.Get(context.TODO(), request.NamespacedName, dpl)
+
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, dpl); err != nil {
+		klog.Errorf("failed to get deployable from hub, err: %v", err)
+		return false
+	}
 
 	subkey := r.itemkey
 

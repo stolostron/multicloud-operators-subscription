@@ -15,7 +15,6 @@
 package utils
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -359,13 +358,6 @@ func getTime(t string) time.Time {
 	return tt
 }
 
-func PrintTimeSlot(ss []hourRangesInTime, cur time.Time) {
-	for _, s := range ss {
-		fmt.Printf("start: %v, end: %v\n", s.start.String(), s.end.String())
-	}
-	fmt.Println(cur.String())
-}
-
 func TestNextStatusReconcile(t *testing.T) {
 	var tests = []struct {
 		name     string
@@ -401,7 +393,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				WindowType: "active",
 				Location:   "UTC",
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 10:30:00 UTC 0000"),
@@ -425,7 +417,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 00:00:00 UTC 0000"),
@@ -438,7 +430,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday", "saturday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 11:00:00 UTC 0000"),
@@ -451,7 +443,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday", "saturday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
@@ -464,7 +456,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 00:00:00 UTC 0000"),
@@ -477,7 +469,7 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday", "saturday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 11:00:00 UTC 0000"),
@@ -490,19 +482,19 @@ func TestNextStatusReconcile(t *testing.T) {
 				Location:   "UTC",
 				Daysofweek: []string{"monday", "friday", "saturday"},
 				Hours: []appv1alpha1.HourRange{
-					appv1alpha1.HourRange{Start: "11:00AM", End: "12:00PM"},
+					{Start: "11:00AM", End: "12:00PM"},
 				},
 			},
 			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := NextStatusReconcile(tt.giventw, tt.giventm)
 			if actual != tt.expected {
 				t.Errorf("(%#v): expected %v, actual %v", tt.giventw, tt.expected, actual)
 			}
-
 		})
 	}
 }

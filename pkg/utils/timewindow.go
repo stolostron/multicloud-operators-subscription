@@ -48,6 +48,7 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 	if tw == nil {
 		return time.Duration(0)
 	}
+
 	uniCurTime := UnifyTimeZone(tw, t)
 
 	if len(tw.Daysofweek) == 0 && len(tw.Hours) == 0 {
@@ -85,7 +86,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 
 	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
-	if tw.WindowType != "" && strings.ToLower(tw.WindowType) != "active" {
+	if tw.WindowType != "" && strings.EqualFold(tw.WindowType, "active") {
 		// reverse slots
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 		return generateNextPoint(rvevHr, rveDays, uniCurTime)
