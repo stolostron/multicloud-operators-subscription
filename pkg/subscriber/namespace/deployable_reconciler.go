@@ -32,7 +32,6 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-	"github.com/pkg/errors"
 )
 
 // DeployableReconciler reconciles a Deployable object of Nmespace channel

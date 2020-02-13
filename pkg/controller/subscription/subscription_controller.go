@@ -233,20 +233,6 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		return err
 	}
 
-	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
-		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
-		subcfgkey := types.NamespacedName{
-			Name:      instance.Spec.PackageFilter.FilterRef.Name,
-			Namespace: instance.Namespace,
-		}
-
-		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		if err != nil {
-			klog.Error("Failed to get secret of subsciption, error: ", err)
-			return err
-		}
-	}
-
 	if subitem.Channel.Spec.SecretRef != nil {
 		subitem.ChannelSecret = &corev1.Secret{}
 		chnseckey := types.NamespacedName{
@@ -293,6 +279,20 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 		if err != nil {
 			klog.Errorf("Can't deploy referred configmap %v for subscription %v due to %v", obj.GetName(), instance.GetName(), err)
+		}
+	}
+
+	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
+		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
+		subcfgkey := types.NamespacedName{
+			Name:      instance.Spec.PackageFilter.FilterRef.Name,
+			Namespace: instance.Namespace,
+		}
+
+		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		if err != nil {
+			klog.Error("Failed to get secret of subsciption, error: ", err)
+			return err
 		}
 	}
 

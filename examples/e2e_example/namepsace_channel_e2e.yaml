@@ -66,5 +66,5 @@ spec:
     hours:
       - start: "09:00AM"
         end: "10:00AM"
-      - start: "10:10AM"
-        end: "10:30AM"
+      - start: "2:10PM"
+        end: "10:30PM"
