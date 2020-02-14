@@ -63,9 +63,8 @@ type NamespaceSubscriber struct {
 	synchronizer *kubesynchronizer.KubeSynchronizer
 }
 
-var defaultSubscriber *NamespaceSubscriber
-
 var (
+	defaultNsSubscriber *NamespaceSubscriber
 	defaultSubscription = &appv1alpha1.Subscription{}
 	defaultChannel      = &chnv1alpha1.Channel{}
 	defaultitem         = &appv1alpha1.SubscriberItem{
@@ -93,17 +92,16 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		sync = kubesynchronizer.GetDefaultSynchronizer()
 	}
 
-	defaultSubscriber, err := CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
+	nssubscriber, err := CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
 	if err != nil {
 		return errors.New("failed to create default namespace subscriber")
 	}
 
+	defaultNsSubscriber = nssubscriber
+
 	if syncid.String() != "/" {
 		defaultitem.Channel.Namespace = syncid.Namespace
-		defaultitem.Channel.Spec.PathName = syncid.Namespace
-		err = defaultSubscriber.SubscribeNamespaceItem(defaultitem, true)
-
-		if err != nil {
+		if err := defaultNsSubscriber.SubscribeNamespaceItem(defaultitem, true); err != nil {
 			klog.Error("failed to initialize default channel to cluster namespace")
 			return err
 		}
@@ -292,13 +290,13 @@ func (ns *NamespaceSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 	return nil
 }
 
-// GetDefaultSubscriber - returns the default namespace subscriber
-func GetDefaultSubscriber() appv1alpha1.Subscriber {
-	if defaultSubscriber == nil {
+// GetdefaultNsSubscriber - returns the default namespace subscriber
+func GetdefaultNsSubscriber() appv1alpha1.Subscriber {
+	if defaultNsSubscriber == nil {
 		return nil
 	}
 
-	return defaultSubscriber
+	return defaultNsSubscriber
 }
 
 // CreateNamespaceSubscriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster

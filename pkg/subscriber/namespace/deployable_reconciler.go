@@ -39,7 +39,7 @@ type DeployableReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	subscriber *Subscriber
+	subscriber *NamespaceSubscriber
 	itemkey    types.NamespacedName
 }
 
@@ -169,7 +169,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	return retryerr
 }
 
-func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
+func (r *DeployableReconciler) doSubscribeDeployable(subitem *NamespaceSubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
 		return nil, nil, errors.Errorf("package name does not match, skiping package: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
