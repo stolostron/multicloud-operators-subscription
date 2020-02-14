@@ -17,8 +17,7 @@ package namespace
 import (
 	"reflect"
 
-	"errors"
-
+	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,7 +39,7 @@ import (
 )
 
 // SubscriberItem - defines the unit of namespace subscription
-type SubscriberItem struct {
+type NamespaceSubscriberItem struct {
 	appv1alpha1.SubscriberItem
 	cache                cache.Cache
 	deployablecontroller controller.Controller
@@ -51,10 +50,10 @@ type SubscriberItem struct {
 	srtrecondiler        *SecretReconciler
 }
 
-type itemmap map[types.NamespacedName]*SubscriberItem
+type itemmap map[types.NamespacedName]*NamespaceSubscriberItem
 
 // Subscriber - information to run namespace subscription
-type Subscriber struct {
+type NamespaceSubscriber struct {
 	itemmap
 	// hub cluster
 	config *rest.Config
@@ -64,7 +63,7 @@ type Subscriber struct {
 	synchronizer *kubesynchronizer.KubeSynchronizer
 }
 
-var defaultSubscriber *Subscriber
+var defaultSubscriber *NamespaceSubscriber
 
 var (
 	defaultSubscription = &appv1alpha1.Subscription{}
@@ -83,29 +82,20 @@ const (
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
-	var err error
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
-		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
-		if err != nil {
-			klog.Error("Failed to initialize synchronizer for default namespace channel with error:", err)
+		if err := kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval); err != nil {
+			klog.Error("failed to initialize synchronizer for default namespace channel with error:", err)
 			return err
 		}
 
 		sync = kubesynchronizer.GetDefaultSynchronizer()
 	}
 
+	defaultSubscriber, err := CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
 	if err != nil {
-		klog.Error("Failed to create synchronizer for subscriber with error:", err)
-		return err
-	}
-
-	defaultSubscriber = CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
-	if defaultSubscriber == nil {
-		errmsg := "failed to create default namespace subscriber"
-
-		return errors.New(errmsg)
+		return errors.New("failed to create default namespace subscriber")
 	}
 
 	if syncid.String() != "/" {
@@ -114,22 +104,22 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		err = defaultSubscriber.SubscribeNamespaceItem(defaultitem, true)
 
 		if err != nil {
-			klog.Error("Failed to initialize default channel to cluster namespace")
+			klog.Error("failed to initialize default channel to cluster namespace")
 			return err
 		}
 
-		klog.Info("Default namespace subscriber with id:", syncid)
+		klog.Info("default namespace subscriber with id:", syncid)
 	}
 
-	klog.V(1).Info("Done setup namespace subscriber")
+	klog.Info("Done setup namespace subscriber")
 
 	return nil
 }
 
 // SubscribeNamespaceItem adds namespace subscribe item to subscriber
-func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem, isClusterScoped bool) error {
+func (ns *NamespaceSubscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem, isClusterScoped bool) error {
 	if ns.itemmap == nil {
-		ns.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+		ns.itemmap = make(map[types.NamespacedName]*NamespaceSubscriberItem)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
@@ -138,17 +128,14 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 	nssubitem, ok := ns.itemmap[itemkey]
 
 	if !ok {
-		err := ns.initializeSubscriber(nssubitem, itemkey, subitem, isClusterScoped)
-		if err != nil {
+		if err := ns.initializeSubscriber(nssubitem, itemkey, subitem, isClusterScoped); err != nil {
 			return err
 		}
 	} else if !reflect.DeepEqual(nssubitem.SubscriberItem, subitem) {
 		subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 		ns.itemmap[itemkey] = nssubitem
 
-		err := syncUpWithChannel(nssubitem)
-		if err != nil {
-			klog.V(5).Infof("Having error %v while sync up with channel", err)
+		if err := syncUpWithChannel(nssubitem); err != nil {
 			return err
 		}
 	}
@@ -156,7 +143,7 @@ func (ns *Subscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem
 	return nil
 }
 
-func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
+func (ns *NamespaceSubscriber) initializeSubscriber(nssubitem *NamespaceSubscriberItem,
 	itemkey types.NamespacedName,
 	subitem *appv1alpha1.SubscriberItem,
 	isClusterScoped bool) error {
@@ -164,20 +151,18 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 
 	klog.V(1).Info("Built cache for namespace: ", subitem.Channel.Namespace)
 
-	nssubitem = &SubscriberItem{}
+	nssubitem = &NamespaceSubscriberItem{}
 	nssubitem.clusterscoped = isClusterScoped
 	nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
 
 	if err != nil {
-		klog.Error("Failed to create cache for Namespace subscriber item with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to create cache for namespace subscriber item")
 	}
 
 	hubclient, err := client.New(ns.config, client.Options{})
 
 	if err != nil {
-		klog.Error("Failed to create client for Namespace subscriber item with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to create client for namespace subscriber item")
 	}
 
 	reconciler := &DeployableReconciler{
@@ -188,15 +173,13 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 	nssubitem.deployablecontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: reconciler})
 
 	if err != nil {
-		klog.Error("Failed to create controller for Namespace subscriber item with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to create deployable controller for namespace subscriber item")
 	}
 
 	ifm, err := nssubitem.cache.GetInformer(&dplv1alpha1.Deployable{})
 
 	if err != nil {
-		klog.Error("Failed to get informer from cache with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to get informer for deployable from cache")
 	}
 
 	src := &source.Informer{Informer: ifm}
@@ -204,31 +187,30 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 	err = nssubitem.deployablecontroller.Watch(src, &handler.EnqueueRequestForObject{}, dplutils.DeployablePredicateFunc)
 
 	if err != nil {
-		klog.Error("Failed to watch deployable with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to watch deployable")
 	}
 
 	// adding secret reconciler
 
-	secretreconciler := &SecretReconciler{
-		Clt:        hubclient,
-		Subscriber: ns,
-		Itemkey:    itemkey,
-		Schema:     ns.scheme,
-	}
+	//	secretreconciler := &SecretReconciler{
+	//		Clt:        hubclient,
+	//		Subscriber: ns,
+	//		Itemkey:    itemkey,
+	//		Schema:     ns.scheme,
+	//	}
+
+	secretreconciler := newSecretReconciler(ns, ns.manager, itemkey, ns.synchronizer)
 
 	nssubitem.secretcontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
 
 	if err != nil {
-		klog.Error("Failed to create controller for Namespace subscriber item with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to create secret controller for namespace subscriber item")
 	}
 
 	sifm, err := nssubitem.cache.GetInformer(&v1.Secret{})
 
 	if err != nil {
-		klog.Error("Failed to get informer from cache with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to get informer for secret from cache")
 	}
 
 	ssrc := &source.Informer{Informer: sifm}
@@ -236,8 +218,7 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 	err = nssubitem.secretcontroller.Watch(ssrc, &handler.EnqueueRequestForObject{})
 
 	if err != nil {
-		klog.Error("Failed to watch deployable with error: ", err)
-		return err
+		return errors.Wrap(err, "failed to watch secret")
 	}
 
 	nssubitem.stopch = make(chan struct{})
@@ -245,21 +226,21 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 	go func() {
 		err := nssubitem.cache.Start(nssubitem.stopch)
 		if err != nil {
-			klog.Error("Failed to start cache for Namespace subscriber item with error: ", err)
+			klog.Error("failed to start cache for Namespace subscriber item with error: ", err)
 		}
 	}()
 
 	go func() {
 		err := nssubitem.deployablecontroller.Start(nssubitem.stopch)
 		if err != nil {
-			klog.Error("Failed to start controller for Namespace subscriber item with error: ", err)
+			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
 		}
 	}()
 
 	go func() {
 		err := nssubitem.secretcontroller.Start(nssubitem.stopch)
 		if err != nil {
-			klog.Error("Failed to start controller for Namespace subscriber item with error: ", err)
+			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
 		}
 	}()
 
@@ -272,14 +253,14 @@ func (ns *Subscriber) initializeSubscriber(nssubitem *SubscriberItem,
 	return nil
 }
 
-func syncUpWithChannel(nssubitem *SubscriberItem) error {
+func syncUpWithChannel(nssubitem *NamespaceSubscriberItem) error {
 	fakeKey := types.NamespacedName{Namespace: nssubitem.Subscription.GetNamespace()}
 	rq := reconcile.Request{NamespacedName: fakeKey}
 
 	_, err := nssubitem.dplreconciler.Reconcile(rq)
 
 	if err != nil {
-		klog.Errorf("Failed to do subscription %v, due to %v", nssubitem.Subscription.GetName(), err)
+		return errors.Wrapf(err, "failed to do reconcile on deployable on subscription %v", nssubitem.Subscription.GetName())
 	}
 
 	fakeKey = types.NamespacedName{Namespace: nssubitem.Channel.GetNamespace()}
@@ -287,20 +268,16 @@ func syncUpWithChannel(nssubitem *SubscriberItem) error {
 
 	_, err = nssubitem.srtrecondiler.Reconcile(rq)
 
-	if err != nil {
-		klog.Errorf("Failed to do subscription %v, due to %v", nssubitem.Subscription.GetName(), err)
-	}
-
-	return nil
+	return errors.Wrapf(err, "failed to do subscription %v", nssubitem.Subscription.GetName())
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel
-func (ns *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
+func (ns *NamespaceSubscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	return ns.SubscribeNamespaceItem(subitem, false)
 }
 
 // UnsubscribeItem unsubscribes a namespace subscriber item
-func (ns *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
+func (ns *NamespaceSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 	klog.V(2).Info("UnsubscribeItem ", key)
 
 	nssubitem, ok := ns.itemmap[key]
@@ -325,20 +302,19 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 }
 
 // CreateNamespaceSubscriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
-func CreateNamespaceSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) *Subscriber {
+func CreateNamespaceSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) (*NamespaceSubscriber, error) {
 	if config == nil || kubesync == nil {
-		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
-		return nil
+		return nil, errors.Errorf("cant create namespace subscriber with config %v kubenetes synchronizer %v", config, kubesync)
 	}
 
-	nssubscriber := &Subscriber{
+	nssubscriber := &NamespaceSubscriber{
 		config:       config,
 		scheme:       scheme,
 		manager:      mgr,
 		synchronizer: kubesync,
 	}
 
-	nssubscriber.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+	nssubscriber.itemmap = make(map[types.NamespacedName]*NamespaceSubscriberItem)
 
-	return nssubscriber
+	return nssubscriber, nil
 }

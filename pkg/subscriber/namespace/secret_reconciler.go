@@ -40,7 +40,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type spySync interface {
+type syncSource interface {
 	CreateValiadtor(string) *synckube.Validator
 	ApplyValiadtor(*synckube.Validator)
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
@@ -50,20 +50,20 @@ type spySync interface {
 
 //SecretReconciler defined a info collection for query secret resource
 type SecretReconciler struct {
-	Subscriber *Subscriber
-	Clt        client.Client
-	Schema     *runtime.Scheme
-	Itemkey    types.NamespacedName
-	sSync      spySync
+	*NamespaceSubscriber
+	Clt     client.Client
+	Schema  *runtime.Scheme
+	Itemkey types.NamespacedName
+	sSync   syncSource
 }
 
-func newSecretReconciler(subscriber *Subscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync spySync) reconcile.Reconciler {
+func newSecretReconciler(subscriber *NamespaceSubscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync syncSource) *SecretReconciler {
 	rec := &SecretReconciler{
-		Subscriber: subscriber,
-		Clt:        mgr.GetClient(),
-		Schema:     mgr.GetScheme(),
-		Itemkey:    subItemKey,
-		sSync:      sSync,
+		NamespaceSubscriber: subscriber,
+		Clt:                 mgr.GetClient(),
+		Schema:              mgr.GetScheme(),
+		Itemkey:             subItemKey,
+		sSync:               sSync,
 	}
 
 	return rec
@@ -78,7 +78,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
-	curSubItem := s.Subscriber.itemmap[s.Itemkey]
+	curSubItem := s.NamespaceSubscriber.itemmap[s.Itemkey]
 
 	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
@@ -127,7 +127,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 //GetSecrets get the Secert from all the suscribed channel
 func (s *SecretReconciler) getSecretsBySubLabel(srtNs string) (*v1.SecretList, error) {
-	pfilter := s.Subscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
+	pfilter := s.NamespaceSubscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
 	opts := &client.ListOptions{Namespace: srtNs}
 
 	if pfilter != nil && pfilter.LabelSelector != nil {
@@ -163,7 +163,7 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 
 //registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
 func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable) {
-	subscription := s.Subscriber.itemmap[s.Itemkey].Subscription
+	subscription := s.NamespaceSubscriber.itemmap[s.Itemkey].Subscription
 
 	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
@@ -172,7 +172,7 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 	kubesync := s.sSync
 
 	if s.sSync == nil {
-		kubesync = s.Subscriber.synchronizer
+		kubesync = s.NamespaceSubscriber.synchronizer
 	}
 
 	kvalid := kubesync.CreateValiadtor(syncsource)

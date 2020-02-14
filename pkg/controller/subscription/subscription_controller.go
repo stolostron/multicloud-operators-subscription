@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -148,7 +149,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				klog.Errorf("Had error %v while processing the referred secert", err)
 			}
 
-			return reconcile.Result{}, nil
+			return reconcile.Result{}, err
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
@@ -162,6 +163,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			instance.Status.Phase = appv1alpha1.SubscriptionFailed
 			instance.Status.Reason = err.Error()
+			klog.Errorf("doReconcile got error %+v", err)
 		}
 	} else {
 		// no longer local
@@ -187,12 +189,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	result := reconcile.Result{}
 
 	if err != nil {
-		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
+		klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
 
 		result.RequeueAfter = 1 * time.Second
 	}
 
-	return result, nil
+	return result, err
 }
 
 func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
@@ -206,8 +208,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 
 	if err != nil {
-		klog.Error("Failed to get channel of subscription:", instance)
-		return err
+		return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
 	}
 
 	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
@@ -217,10 +218,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: instance.Namespace,
 		}
 
-		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		if err != nil {
-			klog.Error("Failed to get secret of subsciption, error: ", err)
-			return err
+		if err := r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap); err != nil {
+			return gerr.Wrapf(err, "failed to get secret of of subsciption %v", instance.Name)
 		}
 	}
 
@@ -231,10 +230,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: subitem.Channel.Namespace,
 		}
 
-		err = r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret)
-		if err != nil {
-			klog.Error("Failed to get secret of channel, error: ", err)
-			return err
+		if err := r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret); err != nil {
+			return gerr.Wrap(err, "failed to get secret from channel")
 		}
 	}
 
@@ -245,10 +242,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: subitem.Channel.Namespace,
 		}
 
-		err = r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap)
-		if err != nil {
-			klog.Error("Failed to get configmap of channel, error: ", err)
-			return err
+		if err := r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap); err != nil {
+			return gerr.Wrap(err, "failed to get configmap from channel")
 		}
 	}
 
@@ -256,9 +251,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		obj := subitem.ChannelSecret
 
 		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
-		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 
-		if err != nil {
+		if err := r.ListAndDeployReferredObject(instance, gvk, obj); err != nil {
 			klog.Errorf("Can't deploy referred secret %v for subscription %v due to %v", subitem.ChannelSecret.GetName(), instance.GetName(), err)
 		}
 	}
@@ -278,18 +272,15 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
 		if k != subtype {
-			err = sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace})
-
-			if err != nil {
-				klog.Error("Failed to unsubscribe with subscriber ", k, " error:", err)
+			if err := sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}); err != nil {
+				klog.Errorf("failed to unsubscribe with subscriber %v error %+v", k, err)
 			}
 		}
 	}
 
 	if sub, ok := r.subscribers[subtype]; ok {
-		err = sub.SubscribeItem(subitem)
-		if err != nil {
-			klog.Error("Failed to subscribe with subscriber ", subtype, " error:", err)
+		if err := sub.SubscribeItem(subitem); err != nil {
+			klog.Errorf("failed to subscribe with subscriber %v, error %+v", subtype, err)
 		}
 	}
 
