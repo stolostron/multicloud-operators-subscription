@@ -1,0 +1,73 @@
+--- 
+apiVersion: app.ibm.com/v1alpha1
+kind: Deployable
+metadata: 
+  name: payload-cfg-obj-channel
+  annotations: 
+    app.ibm.com/is-local-deployable: "false"
+  namespace: default
+spec: 
+  channels: 
+  - dev
+  template: 
+    apiVersion: v1
+    data: 
+      database: mongodb
+    kind: ConfigMap
+    metadata: 
+      name: cfg-from-ch-qa
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-obj
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: dev
+  namespace: ch-obj
+spec:
+  type: ObjectBucket
+  pathname: http://9.21.110.232:9000/dev
+  sourceNamespaces:
+    - default
+  secretRef:
+    name: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev
+  namespace: ch-obj
+data:
+  AccessKeyID: YWRtaW4=
+  SecretAccessKey: cGFzc3dvcmRhZG1pbg==
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: obj-sub-ns
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: PlacementRule
+metadata:
+  name: towhichcluster
+  namespace: obj-sub-ns
+spec:
+  clusterReplicas: 1
+  clusterLabels:
+    matchLabels:
+      environment: Dev
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: obj-sub
+  namespace: obj-sub-ns
+spec:
+  channel: ch-obj/dev
+  placement:
+    placementRef: 
+      name: towhichcluster
+      kind: PlacementRule

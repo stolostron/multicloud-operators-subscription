@@ -44,6 +44,11 @@ import (
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 )
 
+const (
+	subscriptionActive string = "Active"
+	subscriptionBlock  string = "Blocked"
+)
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -82,6 +87,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 		scheme:      mgr.GetScheme(),
 		hubclient:   hubclient,
 		subscribers: subscribers,
+		clk:         time.Now,
 	}
 
 	return rec
@@ -107,6 +113,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileSubscription{}
 
+type clock func() time.Time
+
 // ReconcileSubscription reconciles a Subscription object
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -115,6 +123,7 @@ type ReconcileSubscription struct {
 	hubclient   client.Client
 	scheme      *runtime.Scheme
 	subscribers map[string]appv1alpha1.Subscriber
+	clk         clock
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -182,9 +191,23 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	instance.Status.LastUpdateTime = metav1.Now()
 
+	// calculate the requeue time for updating the timewindow status
+	var nextStatusUpateAt time.Duration
+
+	if instance.Spec.TimeWindow == nil {
+		instance.Status.Message = subscriptionActive
+	} else {
+		if utils.IsInWindow(instance.Spec.TimeWindow, r.clk()) {
+			instance.Status.Message = subscriptionActive
+		} else {
+			instance.Status.Message = subscriptionBlock
+		}
+		nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
+	}
+
 	err = r.Status().Update(context.TODO(), instance)
 
-	result := reconcile.Result{}
+	result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
 
 	if err != nil {
 		klog.Error("Failed to update status for subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
@@ -208,20 +231,6 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	if err != nil {
 		klog.Error("Failed to get channel of subscription:", instance)
 		return err
-	}
-
-	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
-		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
-		subcfgkey := types.NamespacedName{
-			Name:      instance.Spec.PackageFilter.FilterRef.Name,
-			Namespace: instance.Namespace,
-		}
-
-		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		if err != nil {
-			klog.Error("Failed to get secret of subsciption, error: ", err)
-			return err
-		}
 	}
 
 	if subitem.Channel.Spec.SecretRef != nil {
@@ -270,6 +279,20 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 		if err != nil {
 			klog.Errorf("Can't deploy referred configmap %v for subscription %v due to %v", obj.GetName(), instance.GetName(), err)
+		}
+	}
+
+	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
+		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
+		subcfgkey := types.NamespacedName{
+			Name:      instance.Spec.PackageFilter.FilterRef.Name,
+			Namespace: instance.Namespace,
+		}
+
+		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		if err != nil {
+			klog.Error("Failed to get secret of subsciption, error: ", err)
+			return err
 		}
 	}
 

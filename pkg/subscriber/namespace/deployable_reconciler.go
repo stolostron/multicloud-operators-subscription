@@ -43,12 +43,45 @@ type DeployableReconciler struct {
 	itemkey    types.NamespacedName
 }
 
+// making sure the update subscription deployable from hub is respected even the current time window is blocked
+func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Request) bool {
+	dpl := &dplv1alpha1.Deployable{}
+
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, dpl); err != nil {
+		klog.Errorf("failed to get deployable from hub, err: %v", err)
+		return false
+	}
+
+	subkey := r.itemkey
+
+	dplTpl := &unstructured.Unstructured{}
+
+	if dpl.Spec.Template == nil {
+		klog.Error(errors.New(fmt.Sprintf("%v deployable without template", dpl.Name)))
+
+		return false
+	}
+
+	err := json.Unmarshal(dpl.Spec.Template.Raw, dplTpl)
+	if err != nil {
+		klog.Error(errors.Wrap(err, "unable to unmarshal deployable  template"))
+
+		return false
+	}
+
+	if dplTpl.GetName() == subkey.Name && dplTpl.GetNamespace() == subkey.Namespace {
+		return true
+	}
+
+	return false
+}
+
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Infof("deployable reconciling: %v deployable for subitem %v", request.NamespacedName, r.itemkey.String())
 
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
-	if tw != nil {
+	if !r.isUpdateLinkedSubscription(request) && tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		klog.V(5).Infof(time.Now().String())
 		klog.V(5).Infof("reconciling deployable %v, for subscription %v, with tw %v having nextRun time %v",
