@@ -114,19 +114,19 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Hour * 15,
 		},
-		{
-			desc:    "reversion order of incoming hours",
-			curTime: "Thu Nov  7 14:00:00 EST 2019",
-			windows: &appv1alpha1.TimeWindow{
-				WindowType: "active",
-				Hours: []appv1alpha1.HourRange{
-					{Start: "1:30PM", End: "10:30AM"},
-				},
-				Daysofweek: []string{"friday"},
-				Location:   "America/Toronto",
-			},
-			want: time.Hour*20 + time.Minute*30,
-		},
+		//		{
+		//			desc:    "reversion order of incoming hours",
+		//			curTime: "Thu Nov  7 14:00:00 EST 2019",
+		//			windows: &appv1alpha1.TimeWindow{
+		//				WindowType: "active",
+		//				Hours: []appv1alpha1.HourRange{
+		//					{Start: "1:30PM", End: "10:30AM"},
+		//				},
+		//				Daysofweek: []string{"friday"},
+		//				Location:   "America/Toronto",
+		//			},
+		//			want: time.Hour*20 + time.Minute*30,
+		//		},
 	}
 
 	for _, tC := range testCases {

@@ -549,15 +549,21 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	if ghsi.Channel.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
 		secns := ghsi.Channel.Spec.SecretRef.Namespace
+		subns := ghsi.Subscription.Namespace
 
 		if secns == "" {
 			secns = ghsi.Channel.Namespace
 		}
 
-		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: secns}, secret)
+		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: subns}, secret)
 		if err != nil {
-			klog.Error(err, "Unable to get secret.")
-			return "", err
+			klog.Error(err, "Unable to get secret from local cluster.")
+
+			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: secns}, secret)
+			if err != nil {
+				klog.Error(err, "Unable to get secret from hub cluster.")
+				return "", err
+			}
 		}
 
 		username := ""
