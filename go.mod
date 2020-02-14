@@ -23,8 +23,8 @@ require (
 	golang.org/x/mod v0.2.0 // indirect
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e // indirect
-	golang.org/x/tools v0.0.0-20200213153358-0abbfa5d31cd // indirect
-	golang.org/x/tools/gopls v0.2.0 // indirect
+	golang.org/x/tools v0.0.0-20200213224642-88e652f7a869 // indirect
+	golang.org/x/tools/gopls v0.3.2 // indirect
 	golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gopkg.in/yaml.v2 v2.2.4
@@ -35,7 +35,6 @@ require (
 	k8s.io/helm v2.15.1+incompatible
 	k8s.io/klog v0.3.3
 	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
-	mvdan.cc/xurls/v2 v2.1.0 // indirect
 	sigs.k8s.io/controller-runtime v0.3.0
 )
 
