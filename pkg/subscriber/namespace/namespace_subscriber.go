@@ -98,6 +98,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	defaultNsSubscriber = nssubscriber
 
+	//set up bootstrap logic for manged cluster
 	if syncid.String() != "/" {
 		defaultitem.Channel.Namespace = syncid.Namespace
 		if err := defaultNsSubscriber.SubscribeNamespaceItem(defaultitem, true); err != nil {

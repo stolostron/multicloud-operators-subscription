@@ -30,8 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
@@ -146,6 +148,7 @@ func TestSecretReconcileSpySync(t *testing.T) {
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is find id
 	subkey := types.NamespacedName{Name: "secret-sub", Namespace: "test-sub-namespace"}
+	chkey := types.NamespacedName{Name: "secret-ch", Namespace: "default"}
 
 	sub := &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
@@ -153,7 +156,7 @@ func TestSecretReconcileSpySync(t *testing.T) {
 			Namespace: subkey.Namespace,
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: id.String(),
+			Channel: chkey.String(),
 			PackageFilter: &appv1alpha1.PackageFilter{
 				FilterRef: subRef,
 			},
@@ -164,7 +167,7 @@ func TestSecretReconcileSpySync(t *testing.T) {
 	dplSrt = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dplSrtName,
-			Namespace:   id.Namespace,
+			Namespace:   chkey.Namespace,
 			Annotations: map[string]string{appv1alpha1.AnnotationDeployables: "true"},
 		},
 	}
@@ -173,21 +176,24 @@ func TestSecretReconcileSpySync(t *testing.T) {
 	noneDplSrt = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      noneDplSrtName,
-			Namespace: id.Namespace,
+			Namespace: chkey.Namespace,
 		},
 	}
 
-	defaultitem = &appv1alpha1.SubscriberItem{
-		Subscription: sub,
-		Channel:      channel,
+	channel = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      chkey.Name,
+			Namespace: chkey.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type: chnv1alpha1.ChannelTypeNamespace,
+		},
 	}
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -196,10 +202,18 @@ func TestSecretReconcileSpySync(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	tSubscriber, _ := CreateNsSubscriber(cfg, mgr.GetScheme(), mgr, &kubesynchronizer.KubeSynchronizer{Interval: 2})
+
+	tSubscriber.itemmap[subkey] = &NsSubscriberItem{
+		SubscriberItem: appv1alpha1.SubscriberItem{
+			Subscription: sub,
+			Channel:      channel,
+		},
+	}
 	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
 	// pointing to a namespace type of channel
 	spySync := &fakeSynchronizer{}
-	srtRec := newSecretReconciler(defaultNsSubscriber, mgr, subkey, spySync)
+	srtRec := newSecretReconciler(tSubscriber, mgr, subkey, spySync)
 
 	// Create secrets at the channel namespace
 	g.Expect(c.Create(context.TODO(), sub)).NotTo(gomega.HaveOccurred())
