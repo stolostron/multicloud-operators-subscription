@@ -50,20 +50,20 @@ type syncSource interface {
 
 //SecretReconciler defined a info collection for query secret resource
 type SecretReconciler struct {
-	*NamespaceSubscriber
+	*NsSubscriber
 	Clt     client.Client
 	Schema  *runtime.Scheme
 	Itemkey types.NamespacedName
 	sSync   syncSource
 }
 
-func newSecretReconciler(subscriber *NamespaceSubscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync syncSource) *SecretReconciler {
+func newSecretReconciler(subscriber *NsSubscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync syncSource) *SecretReconciler {
 	rec := &SecretReconciler{
-		NamespaceSubscriber: subscriber,
-		Clt:                 mgr.GetClient(),
-		Schema:              mgr.GetScheme(),
-		Itemkey:             subItemKey,
-		sSync:               sSync,
+		NsSubscriber: subscriber,
+		Clt:          mgr.GetClient(),
+		Schema:       mgr.GetScheme(),
+		Itemkey:      subItemKey,
+		sSync:        sSync,
 	}
 
 	return rec
@@ -78,7 +78,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
 
-	curSubItem := s.NamespaceSubscriber.itemmap[s.Itemkey]
+	curSubItem := s.NsSubscriber.itemmap[s.Itemkey]
 
 	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
@@ -120,14 +120,20 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		}
 	}
 
-	s.registerToResourceMap(dpls)
+	//handle secret lifecycle by registering packaged secret to synchronizer
+	kubesync := s.sSync
+	if kubesync == nil {
+		kubesync = s.NsSubscriber.synchronizer
+	}
+
+	registerToResourceMap(s.Schema, s.NsSubscriber.itemmap[s.Itemkey].Subscription, kubesync, dpls)
 
 	return reconcile.Result{}, nil
 }
 
 //GetSecrets get the Secert from all the suscribed channel
 func (s *SecretReconciler) getSecretsBySubLabel(srtNs string) (*v1.SecretList, error) {
-	pfilter := s.NamespaceSubscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
+	pfilter := s.NsSubscriber.itemmap[s.Itemkey].Subscription.Spec.PackageFilter
 	opts := &client.ListOptions{Namespace: srtNs}
 
 	if pfilter != nil && pfilter.LabelSelector != nil {
@@ -162,24 +168,16 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 }
 
 //registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable) {
-	subscription := s.NamespaceSubscriber.itemmap[s.Itemkey].Subscription
-
-	hostkey := types.NamespacedName{Name: subscription.Name, Namespace: subscription.Namespace}
+func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription, kubesync syncSource, pDpls []*dplv1alpha1.Deployable) {
+	hostkey := types.NamespacedName{Name: pSubscription.Name, Namespace: pSubscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
-	// subscribed k8s resource
 
-	kubesync := s.sSync
-
-	if s.sSync == nil {
-		kubesync = s.NamespaceSubscriber.synchronizer
-	}
-
+	// create a validator when
 	kvalid := kubesync.CreateValiadtor(syncsource)
 
 	pkgMap := make(map[string]bool)
 
-	for _, dpl := range dpls {
+	for _, dpl := range pDpls {
 		template := &unstructured.Unstructured{}
 
 		if dpl.Spec.Template == nil {
@@ -187,16 +185,14 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 			continue
 		}
 
-		err := json.Unmarshal(dpl.Spec.Template.Raw, template)
-		if err != nil {
+		if err := json.Unmarshal(dpl.Spec.Template.Raw, template); err != nil {
 			klog.Warning("Processing local deployable with error template:", dpl, err)
 			continue
 		}
 
-		template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), subscription)
+		template, err := utils.OverrideResourceBySubscription(template, dpl.GetName(), pSubscription)
 		if err != nil {
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), err, nil)
-			if err != nil {
+			if err := utils.SetInClusterPackageStatus(&(pSubscription.Status), dpl.GetName(), err, nil); err != nil {
 				klog.Info("error in overriding for package: ", err)
 			}
 
@@ -205,9 +201,7 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 			continue
 		}
 
-		err = controllerutil.SetControllerReference(subscription, template, s.Schema)
-
-		if err != nil {
+		if err := controllerutil.SetControllerReference(pSubscription, template, sch); err != nil {
 			klog.Warning("Adding owner reference to template, got error:", err)
 			continue
 		}
@@ -217,9 +211,8 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 
 		if validgvk == nil {
 			gvkerr := errors.New(fmt.Sprintf("resource %v is not supported", orggvk.String()))
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpl.GetName(), gvkerr, nil)
 
-			if err != nil {
+			if err := utils.SetInClusterPackageStatus(&(pSubscription.Status), dpl.GetName(), gvkerr, nil); err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
 
@@ -229,7 +222,7 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 		}
 
 		if kubesync.IsResourceNamespaced(*validgvk) {
-			template.SetNamespace(subscription.Namespace)
+			template.SetNamespace(pSubscription.Namespace)
 		}
 
 		dpltosync := dpl.DeepCopy()
@@ -249,11 +242,8 @@ func (s *SecretReconciler) registerToResourceMap(dpls []*dplv1alpha1.Deployable)
 		annotations[dplv1alpha1.AnnotationLocal] = "true"
 		dpltosync.SetAnnotations(annotations)
 
-		err = kubesync.RegisterTemplate(hostkey, dpltosync, syncsource)
-
-		if err != nil {
-			err = utils.SetInClusterPackageStatus(&(subscription.Status), dpltosync.GetName(), err, nil)
-			if err != nil {
+		if err := kubesync.RegisterTemplate(hostkey, dpltosync, syncsource); err != nil {
+			if err := utils.SetInClusterPackageStatus(&(pSubscription.Status), dpltosync.GetName(), err, nil); err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
 

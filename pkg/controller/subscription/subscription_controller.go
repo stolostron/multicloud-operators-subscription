@@ -66,14 +66,14 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 
 	subs := make(map[string]appv1alpha1.Subscriber)
 
-	if nssub.GetDefaultSubscriber() == nil {
+	if nssub.GetdefaultNsSubscriber() == nil {
 		errmsg := "default namespace subscriber is not initialized"
 		klog.Error(errmsg)
 
 		return errors.NewServiceUnavailable(errmsg)
 	}
 
-	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetDefaultSubscriber()
+	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
 	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()

@@ -38,8 +38,8 @@ import (
 	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
-// SubscriberItem - defines the unit of namespace subscription
-type NamespaceSubscriberItem struct {
+// NsSubscriberItem  defines the unit of namespace subscription
+type NsSubscriberItem struct {
 	appv1alpha1.SubscriberItem
 	cache                cache.Cache
 	deployablecontroller controller.Controller
@@ -50,10 +50,10 @@ type NamespaceSubscriberItem struct {
 	srtrecondiler        *SecretReconciler
 }
 
-type itemmap map[types.NamespacedName]*NamespaceSubscriberItem
+type itemmap map[types.NamespacedName]*NsSubscriberItem
 
-// Subscriber - information to run namespace subscription
-type NamespaceSubscriber struct {
+// NsSubscriber  information to run namespace subscription
+type NsSubscriber struct {
 	itemmap
 	// hub cluster
 	config *rest.Config
@@ -64,7 +64,7 @@ type NamespaceSubscriber struct {
 }
 
 var (
-	defaultNsSubscriber *NamespaceSubscriber
+	defaultNsSubscriber *NsSubscriber
 	defaultSubscription = &appv1alpha1.Subscription{}
 	defaultChannel      = &chnv1alpha1.Channel{}
 	defaultitem         = &appv1alpha1.SubscriberItem{
@@ -81,7 +81,6 @@ const (
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	// No polling, use cache. Add default one for cluster namespace
-
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
 		if err := kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval); err != nil {
@@ -92,7 +91,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		sync = kubesynchronizer.GetDefaultSynchronizer()
 	}
 
-	nssubscriber, err := CreateNamespaceSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
+	nssubscriber, err := CreateNsSubscriber(hubconfig, mgr.GetScheme(), mgr, sync)
 	if err != nil {
 		return errors.New("failed to create default namespace subscriber")
 	}
@@ -115,9 +114,9 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 }
 
 // SubscribeNamespaceItem adds namespace subscribe item to subscriber
-func (ns *NamespaceSubscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem, isClusterScoped bool) error {
+func (ns *NsSubscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberItem, isClusterScoped bool) error {
 	if ns.itemmap == nil {
-		ns.itemmap = make(map[types.NamespacedName]*NamespaceSubscriberItem)
+		ns.itemmap = make(map[types.NamespacedName]*NsSubscriberItem)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
@@ -141,7 +140,7 @@ func (ns *NamespaceSubscriber) SubscribeNamespaceItem(subitem *appv1alpha1.Subsc
 	return nil
 }
 
-func (ns *NamespaceSubscriber) initializeSubscriber(nssubitem *NamespaceSubscriberItem,
+func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 	itemkey types.NamespacedName,
 	subitem *appv1alpha1.SubscriberItem,
 	isClusterScoped bool) error {
@@ -149,7 +148,7 @@ func (ns *NamespaceSubscriber) initializeSubscriber(nssubitem *NamespaceSubscrib
 
 	klog.V(1).Info("Built cache for namespace: ", subitem.Channel.Namespace)
 
-	nssubitem = &NamespaceSubscriberItem{}
+	nssubitem = &NsSubscriberItem{}
 	nssubitem.clusterscoped = isClusterScoped
 	nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
 
@@ -187,15 +186,6 @@ func (ns *NamespaceSubscriber) initializeSubscriber(nssubitem *NamespaceSubscrib
 	if err != nil {
 		return errors.Wrap(err, "failed to watch deployable")
 	}
-
-	// adding secret reconciler
-
-	//	secretreconciler := &SecretReconciler{
-	//		Clt:        hubclient,
-	//		Subscriber: ns,
-	//		Itemkey:    itemkey,
-	//		Schema:     ns.scheme,
-	//	}
 
 	secretreconciler := newSecretReconciler(ns, ns.manager, itemkey, ns.synchronizer)
 
@@ -251,7 +241,7 @@ func (ns *NamespaceSubscriber) initializeSubscriber(nssubitem *NamespaceSubscrib
 	return nil
 }
 
-func syncUpWithChannel(nssubitem *NamespaceSubscriberItem) error {
+func syncUpWithChannel(nssubitem *NsSubscriberItem) error {
 	fakeKey := types.NamespacedName{Namespace: nssubitem.Subscription.GetNamespace()}
 	rq := reconcile.Request{NamespacedName: fakeKey}
 
@@ -270,12 +260,12 @@ func syncUpWithChannel(nssubitem *NamespaceSubscriberItem) error {
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel
-func (ns *NamespaceSubscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
+func (ns *NsSubscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	return ns.SubscribeNamespaceItem(subitem, false)
 }
 
 // UnsubscribeItem unsubscribes a namespace subscriber item
-func (ns *NamespaceSubscriber) UnsubscribeItem(key types.NamespacedName) error {
+func (ns *NsSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 	klog.V(2).Info("UnsubscribeItem ", key)
 
 	nssubitem, ok := ns.itemmap[key]
@@ -299,20 +289,23 @@ func GetdefaultNsSubscriber() appv1alpha1.Subscriber {
 	return defaultNsSubscriber
 }
 
-// CreateNamespaceSubscriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
-func CreateNamespaceSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager, kubesync *kubesynchronizer.KubeSynchronizer) (*NamespaceSubscriber, error) {
+// CreateNsSubscriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+func CreateNsSubscriber(
+	config *rest.Config, scheme *runtime.Scheme,
+	mgr manager.Manager,
+	kubesync *kubesynchronizer.KubeSynchronizer) (*NsSubscriber, error) {
 	if config == nil || kubesync == nil {
 		return nil, errors.Errorf("cant create namespace subscriber with config %v kubenetes synchronizer %v", config, kubesync)
 	}
 
-	nssubscriber := &NamespaceSubscriber{
+	nssubscriber := &NsSubscriber{
 		config:       config,
 		scheme:       scheme,
 		manager:      mgr,
 		synchronizer: kubesync,
 	}
 
-	nssubscriber.itemmap = make(map[types.NamespacedName]*NamespaceSubscriberItem)
+	nssubscriber.itemmap = make(map[types.NamespacedName]*NsSubscriberItem)
 
 	return nssubscriber, nil
 }
