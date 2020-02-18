@@ -215,13 +215,6 @@ func TestSecretReconcileSpySync(t *testing.T) {
 	spySync := &fakeSynchronizer{}
 	srtRec := newSecretReconciler(tSubscriber, mgr, subkey, spySync)
 
-	// Create secrets at the channel namespace
-	g.Expect(c.Create(context.TODO(), sub)).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), sub)
-
-	time.Sleep(EnvTestTimeout)
-
 	g.Expect(c.Create(context.TODO(), dplSrt)).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), dplSrt)
