@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"fmt"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -46,7 +47,7 @@ func TestMain(m *testing.M) {
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
+		stdlog.Fatal(fmt.Errorf("got error while start up the envtest, err: %v", err))
 	}
 
 	code := m.Run()

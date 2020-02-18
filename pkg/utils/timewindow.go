@@ -24,13 +24,47 @@ import (
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
-var CURDAY, _ = time.Parse(time.UnixDate, "Sat Jan  1 00:00:00 UTC 0000")
-var MIDNIGHT, _ = time.Parse(time.UnixDate, "Sun Jan  2 00:00:00 UTC 0000")
+const (
+	//MIDNIGHT define the midnight format
+	MIDNIGHT        = "12:00AM"
+	originYear      = 0
+	originMonth     = 1
+	originDay       = 1
+	debuglevel      = klog.Level(5)
+	totaldaysofweek = 7
+)
 
-type RunHourRanges []appv1alpha1.HourRange
+// IsInWindow returns true if the give time is within a timewindow
+func IsInWindow(tw *appv1alpha1.TimeWindow, t time.Time) bool {
+	if tw == nil {
+		return true
+	}
 
-// thie field is actually int
-type runDays []time.Weekday
+	return NextStartPoint(tw, t) == 0
+}
+
+// NextStatusReconcile generate a duartion for the reconcile to requeue after
+func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
+	if tw == nil {
+		return time.Duration(0)
+	}
+
+	uniCurTime := UnifyTimeZone(tw, t)
+
+	if len(tw.Daysofweek) == 0 && len(tw.Hours) == 0 {
+		return time.Duration(0)
+	}
+
+	if IsInWindow(tw, uniCurTime) {
+		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
+		vdays, _ := validateDaysofweekSlice(tw.Daysofweek)
+		rvevHr := reverseRange(vHr, getLoc(tw.Location))
+
+		return generateNextPoint(rvevHr, vdays, uniCurTime) + 1*time.Minute
+	}
+
+	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
+}
 
 //NextStartPoint will map the container's time to the location time specified by user
 // then it will handle the window type as will the hour ange and daysofweek
@@ -38,68 +72,78 @@ type runDays []time.Weekday
 // if hour range is empty and weekday is empty then retrun 0
 // if hour range is empty and weekday is not then return nextday durtion(here the window type will be considered again)
 func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
+	if tw == nil {
+		return time.Duration(0)
+	}
 	// convert current time to the location time defined within the timewindow
-	uniTime := UnifyTimeZone(tw, t)
-	klog.V(5).Infof("Time window checking at %v", uniTime.String())
+	uniCurTime := UnifyTimeZone(tw, t)
+
+	klog.V(debuglevel).Infof("Time window checking at %v", uniCurTime.String())
 
 	// valid hour ranges, meaning the each hour range's start time is earlier than the end time
 	// also there's no overlap between 2 ranges
-	vHr := validateHourRange(tw.Hours)
+	vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
 
 	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
-	if tw.WindowType != "" && tw.WindowType != "active" {
+	if tw.WindowType != "" && !strings.EqualFold(tw.WindowType, "active") {
 		// reverse slots
-		rvevHr := ReverseRange(vHr)
-		return GenerateNextPoint(rvevHr, rveDays, uniTime)
+		rvevHr := reverseRange(vHr, getLoc(tw.Location))
+		return generateNextPoint(rvevHr, rveDays, uniCurTime)
 	}
 
 	// generate the duration for t
-	return GenerateNextPoint(vHr, rDays, uniTime)
+	return generateNextPoint(vHr, rDays, uniCurTime)
 }
 
+// UnifyTimeZone convert a given time to the timewindow time zone, if the time window doesn't sepcifiy a
+// time zone, then the running machine's time zone will be used
 func UnifyTimeZone(tw *appv1alpha1.TimeWindow, t time.Time) time.Time {
-	loc := getLoc(tw.Location)
-	return t.In(loc)
+	lptr := getLoc(tw.Location)
+	return t.In(lptr)
 }
 
 func getLoc(loc string) *time.Location {
 	l, err := time.LoadLocation(loc)
 	if err != nil {
-		local, err := time.LoadLocation("Local")
-		klog.Errorf("Error %v while parsing the location string %v, will use the current loc %v ", err, loc, local)
-
-		return local
+		klog.Errorf("Error %v while parsing the location string \"%v\", will UTC as location reference %v ", err, loc, l)
 	}
 
 	return l
 }
 
-func validateHourRange(rg []appv1alpha1.HourRange) RunHourRanges {
+type hourRangesInTime struct {
+	start time.Time
+	end   time.Time
+}
+
+// return will be sorted and marged hour ranges
+func validateHourRange(rg []appv1alpha1.HourRange, loc *time.Location) []hourRangesInTime {
 	if len(rg) == 0 {
-		return rg
+		return []hourRangesInTime{}
 	}
 
-	h := RunHourRanges{}
+	h := make([]hourRangesInTime, 0)
 
 	for _, r := range rg {
-		s, e := parseTimeWithKitchenFormat(r.Start), parseTimeWithKitchenFormat(r.End)
-		klog.V(5).Infof("start time paresed as %v, end time %v", s.Format(time.Kitchen), e.Format(time.Kitchen))
+		s, e := parseTimeWithKitchenFormat(r.Start, loc), parseTimeWithKitchenFormat(r.End, loc)
+		klog.V(debuglevel).Infof("start time paresed as %v, end time %v", s.Format(time.Kitchen), e.Format(time.Kitchen))
 
 		if s.Before(e) {
-			h = append(h, r)
+			h = append(h, hourRangesInTime{start: s, end: e})
 		} else {
-			r.Start, r.End = r.End, r.Start
-			h = append(h, r)
+			h = append(h, hourRangesInTime{start: e, end: s})
 		}
 	}
 
-	h = MergeHourRanges(h)
-
-	return h
+	return mergeHourRanges(h)
 }
 
 func validateDaysofweekSlice(wds []string) (runDays, runDays) {
+	if len(wds) == 0 {
+		return runDays{}, runDays{}
+	}
+
 	vwds := runDays{}
 
 	weekdayMap := map[string]int{
@@ -136,11 +180,11 @@ func validateDaysofweekSlice(wds []string) (runDays, runDays) {
 	return vwds, rwds
 }
 
-func parseTimeWithKitchenFormat(tstr string) time.Time {
-	t, err := time.Parse(time.Kitchen, tstr)
+func parseTimeWithKitchenFormat(tstr string, loc *time.Location) time.Time {
+	t, err := time.ParseInLocation(time.Kitchen, tstr, loc)
 	if err != nil {
-		curTime := time.Now().Local()
-		klog.Errorf("Error: %v, while parsing time string %v with the time.Kitchen format, will use the current time %v instead", err, tstr, curTime.String())
+		curTime := time.Now().UTC()
+		klog.Errorf("can't paser the time %v, err: %v, will use the current time %v instead", tstr, err, curTime.String())
 
 		return curTime
 	}
@@ -148,163 +192,164 @@ func parseTimeWithKitchenFormat(tstr string) time.Time {
 	return t
 }
 
-func sortRangeByStartTime(twHr RunHourRanges) RunHourRanges {
-	rh := twHr
-	sort.Sort(rh)
-
-	return rh
-}
-
 // next time will be:
 // if current time is bigger than the last time point of the window, nextTime will be daysofweek offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
 //slot start point or a 0(if current time is within a time window)
-func GenerateNextPoint(vhours RunHourRanges, rdays runDays, uniTime time.Time) time.Duration {
-	if len(vhours) == 0 {
-		timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
-
-		if len(rdays) == 0 {
-			return rdays.DurationToNextRunableWeekday(uniTime)
-		}
-
-		return MIDNIGHT.Sub(timeByHour) + rdays.DurationToNextRunableWeekday(uniTime)
+func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.Time) time.Duration {
+	if len(slots) == 0 && len(rdays) == 0 {
+		return time.Duration(0)
 	}
 
-	slots := sortRangeByStartTime(vhours)
-	timeByHour := parseTimeWithKitchenFormat(uniTime.Format(time.Kitchen))
+	if len(slots) == 0 && len(rdays) != 0 {
+		return timeLeftTillNextMidNight(uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+	}
+
+	if len(slots) != 0 && len(rdays) == 0 {
+		return tillNextSlot(slots, uniCurTime)
+	}
+
+	if rdays.durationToNextRunableWeekday(uniCurTime.Weekday()) == 0 {
+		return tillNextSlot(slots, uniCurTime)
+	}
+
+	return timeLeftTillNextMidNight(uniCurTime) + tillNextSlot(slots, uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+}
+
+func timeLeftTillNextMidNight(cur time.Time) time.Duration {
+	lastMidnight := parseTimeWithKitchenFormat(MIDNIGHT, cur.Location())
+	nextMidngiht := lastMidnight.Add(time.Hour * 24)
+
+	gt := time.Date(originYear, originMonth, originDay, cur.Hour(), cur.Minute(), 0, 0, cur.Location())
+
+	return nextMidngiht.Sub(gt)
+}
+
+func tillNextSlot(slots []hourRangesInTime, cur time.Time) time.Duration {
+	lastMidnight := parseTimeWithKitchenFormat(MIDNIGHT, cur.Location())
+	gt := time.Date(originYear, originMonth, originDay, cur.Hour(), cur.Minute(), 0, 0, cur.Location())
 	// t is greater than todays window
 	// eg t is 11pm
 	// slots [1, 3 pm]
-	lastSlot := parseTimeWithKitchenFormat(slots[len(slots)-1].End)
+	lastSlot := slots[len(slots)-1].end
 
-	if lastSlot.Before(timeByHour) {
-		nxtStart := parseTimeWithKitchenFormat(slots[0].Start)
-		dayOffsets := rdays.DurationToNextRunableWeekday(uniTime)
-
+	if lastSlot.Before(gt) {
+		nxtStart := slots[0].start
 		// Hour difference is from curret day to midnight, then midnight to slot[0]
 		// Current time to the next day's midnight
-		return MIDNIGHT.Sub(timeByHour) + nxtStart.Sub(CURDAY) + dayOffsets
+		return timeLeftTillNextMidNight(gt) + nxtStart.Sub(lastMidnight)
 	}
 
-	// t is at time range
 	for _, slot := range slots {
-		slotStart := parseTimeWithKitchenFormat(slot.Start)
-
-		var slotEnd time.Time
-		if slot.End == "12:00AM" {
-			slotEnd = MIDNIGHT
-		} else {
-			slotEnd = parseTimeWithKitchenFormat(slot.End)
-		}
-
-		if timeByHour.Sub(slotStart) < 0 {
-			return slotStart.Sub(timeByHour)
-		} else if timeByHour.Sub(slotStart) > 0 && timeByHour.Sub(slotEnd) < 0 {
+		st, ed := slot.start, slot.end
+		if gt.Sub(st) <= 0 {
+			return st.Sub(gt)
+		} else if gt.Sub(st) > 0 && gt.Sub(ed) <= 0 {
 			return time.Duration(0)
 		}
 	}
 
-	return time.Duration(-1)
+	return time.Duration(0)
 }
 
-func MaxHour(a, b string) string {
-	if parseTimeWithKitchenFormat(a).Before(parseTimeWithKitchenFormat(b)) {
+func maxHour(a, b time.Time) time.Time {
+	if a.Before(b) {
 		return b
 	}
 
 	return a
 }
 
-func MergeHourRanges(in RunHourRanges) RunHourRanges {
+func mergeHourRanges(in []hourRangesInTime) []hourRangesInTime {
 	if len(in) < 2 {
 		return in
 	}
 
-	out := make(RunHourRanges, 0)
+	sort.Slice(in, func(i int, j int) bool { return in[i].start.Before(in[j].start) })
+
+	out := make([]hourRangesInTime, 0)
 	out = append(out, in[0])
 
-	for i := 1; i < len(in); i++ {
-		l := out[len(out)-1]
-		r := in[i]
+	l := 0
 
-		e, s := parseTimeWithKitchenFormat(l.End), parseTimeWithKitchenFormat(r.Start)
-		if e.Sub(s) >= 0 {
-			m := MaxHour(l.End, r.End)
-			out[len(out)-1].End = m
+	for i := 1; i < len(in); i++ {
+		ed := out[l].end
+		s := in[i].start
+
+		if s.Before(ed) || s.Equal(ed) {
+			m := maxHour(ed, in[i].end)
+			out[l].end = m
 		} else {
 			out = append(out, in[i])
+			l++
 		}
-
-		l = out[len(out)-1]
 	}
 
 	return out
 }
 
-func ReverseRange(in RunHourRanges) RunHourRanges {
+func isThereGap(st, ed time.Time) bool {
+	return ed.Sub(st) != 0
+}
+
+func reverseRange(in []hourRangesInTime, loc *time.Location) []hourRangesInTime {
 	if len(in) == 0 {
 		return in
 	}
 
-	out := make(RunHourRanges, 0)
+	out := make([]hourRangesInTime, 0)
 
-	tmp := appv1alpha1.HourRange{}
-	tmp.Start = CURDAY.Format(time.Kitchen)
-	tmp.End = in[0].Start
-	out = append(out, tmp)
+	lastMidnight := parseTimeWithKitchenFormat(MIDNIGHT, loc)
 
-	if len(in) == 1 {
-		tmp.Start = in[0].End
-		tmp.End = MIDNIGHT.Format(time.Kitchen)
-		out = append(out, tmp)
+	sp := lastMidnight
 
-		return out
+	for _, slot := range in {
+		if isThereGap(sp, slot.start) {
+			out = append(out, hourRangesInTime{start: sp, end: slot.start})
+		}
+
+		sp = slot.end
 	}
 
-	for i := 0; i < len(in)-1; i++ {
-		tmp.Start = in[i].End
-		tmp.End = in[i+1].Start
-		out = append(out, tmp)
+	nextMidngith := lastMidnight.Add(time.Hour * 24)
+	if isThereGap(sp, nextMidngith) {
+		out = append(out, hourRangesInTime{start: sp, end: nextMidngith})
 	}
-
-	tmp.Start = in[len(in)-1].End
-	tmp.End = MIDNIGHT.Format(time.Kitchen)
-	out = append(out, tmp)
 
 	return out
 }
 
+// thie field is actually int
+type runDays []time.Weekday
+
 // type runDays []time.Weekday
-
-func (r runDays) Len() int           { return len(r) }
-func (r runDays) Less(i, j int) bool { return r[i] < r[j] }
-func (r runDays) Swap(i, j int)      { r[i], r[j] = r[j], r[i] }
-
-func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
+func (r runDays) durationToNextRunableWeekday(curWeekday time.Weekday) time.Duration {
 	// if daysofweek is sorted, we want the next day with is greater than the t.Weekday
 	// the daysofweek is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
-	if r.Len() == 0 {
+	if len(r) == 0 {
 		// this mean you will wait for less than a day.
 		return time.Duration(0)
 	}
 
-	tc := t.Weekday()
-
-	sort.Sort(r)
+	sort.Slice(r, func(i, j int) bool { return r[i] < r[j] })
 
 	var days int
 
 	//if the current weekday is later than the latest weekday in the time window,
 	//then we find the days left till first runable weekday
-	if tc > r[len(r)-1] {
-		daysLeftOfThisWeek := 7 - int(tc)
+	if curWeekday > r[len(r)-1] {
+		daysLeftOfThisWeek := totaldaysofweek - int(curWeekday)
 		mostRecentWeekday := int(r[0])
 		days = daysLeftOfThisWeek + mostRecentWeekday
 	} else {
 		for _, d := range r {
-			if tc < d {
-				days = int(d - tc)
+			if curWeekday == d {
+				return time.Duration(0)
+			}
+
+			if curWeekday < d {
+				days = int(d - curWeekday)
 				break
 			}
 		}
@@ -312,12 +357,3 @@ func (r runDays) DurationToNextRunableWeekday(t time.Time) time.Duration {
 
 	return time.Duration(days-1) * time.Hour * 24
 }
-
-func (rh RunHourRanges) Len() int { return len(rh) }
-func (rh RunHourRanges) Less(i, j int) bool {
-	s := parseTimeWithKitchenFormat(rh[i].Start)
-	e := parseTimeWithKitchenFormat(rh[j].Start)
-
-	return e.After(s)
-}
-func (rh RunHourRanges) Swap(i, j int) { rh[i], rh[j] = rh[j], rh[i] }
