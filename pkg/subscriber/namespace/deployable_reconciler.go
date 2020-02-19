@@ -43,6 +43,14 @@ type DeployableReconciler struct {
 	itemkey    types.NamespacedName
 }
 
+func NewNsDeployableReconciler(hub client.Client, nsSubscribe *NsSubscriber, ikey types.NamespacedName) *DeployableReconciler {
+	return &DeployableReconciler{
+		Client:     hub,
+		subscriber: nsSubscribe,
+		itemkey:    ikey,
+	}
+}
+
 // making sure the update subscription deployable from hub is respected even the current time window is blocked
 func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Request) bool {
 	dpl := &dplv1alpha1.Deployable{}
@@ -97,7 +105,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	err := r.doSubscription()
 
 	if err != nil {
-		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.Interval*5) * time.Second
+		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
 
 		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %v", err)
 	}
@@ -259,7 +267,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, 
 		return dpl, nil, gvkerr
 	}
 
-	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {
+	if r.subscriber.synchronizer.IsResourceNamespaced(*validgvk) {
 		if !subitem.clusterscoped || template.GetNamespace() == "" {
 			template.SetNamespace(subitem.Subscription.Namespace)
 		}

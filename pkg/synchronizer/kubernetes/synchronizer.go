@@ -212,6 +212,10 @@ func (sync *KubeSynchronizer) houseKeeping() {
 	}
 }
 
+func (sync *KubeSynchronizer) GetInterval() int {
+	return sync.Interval
+}
+
 func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, res *ResourceMap) error {
 	if res == nil {
 		errmsg := "Checking server objects with nil map"

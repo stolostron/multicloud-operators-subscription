@@ -33,12 +33,7 @@ import (
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-)
-
-const (
-	EnvTestTimeout = time.Second * 5
 )
 
 func TestSecretReconcile(t *testing.T) {
@@ -68,7 +63,7 @@ func TestSecretReconcile(t *testing.T) {
 
 	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
 	// pointing to a namespace type of channel
-	srtRec := newSecretReconciler(defaultNsSubscriber, mgr, subkey, nil)
+	srtRec := newSecretReconciler(defaultNsSubscriber, mgr, subkey)
 
 	// Create secrets at the channel namespace
 
@@ -99,8 +94,9 @@ func TestSecretReconcile(t *testing.T) {
 }
 
 type fakeSynchronizer struct {
-	Store map[schema.GroupVersionKind]map[string]bool
-	name  string
+	Store    map[schema.GroupVersionKind]map[string]bool
+	name     string
+	interval int
 }
 
 func (f *fakeSynchronizer) CreateValiadtor(s string) *synckube.Validator {
@@ -132,6 +128,12 @@ func (f *fakeSynchronizer) RegisterTemplate(nKey types.NamespacedName, pDpl *dpl
 
 func (f *fakeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) bool {
 	return true
+}
+
+func (f *fakeSynchronizer) CleanupByHost(key types.NamespacedName, s string) {}
+
+func (f *fakeSynchronizer) GetInterval() int {
+	return f.interval
 }
 
 func (f *fakeSynchronizer) assertTemplateRegistry(nKey types.NamespacedName, gvk schema.GroupVersionKind) bool {
@@ -202,7 +204,8 @@ func TestSecretReconcileSpySync(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	tSubscriber, _ := CreateNsSubscriber(cfg, mgr.GetScheme(), mgr, &kubesynchronizer.KubeSynchronizer{Interval: 2})
+	spySync := &fakeSynchronizer{}
+	tSubscriber, _ := CreateNsSubscriber(cfg, mgr.GetScheme(), mgr, spySync)
 
 	tSubscriber.itemmap[subkey] = &NsSubscriberItem{
 		SubscriberItem: appv1alpha1.SubscriberItem{
@@ -212,8 +215,7 @@ func TestSecretReconcileSpySync(t *testing.T) {
 	}
 	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
 	// pointing to a namespace type of channel
-	spySync := &fakeSynchronizer{}
-	srtRec := newSecretReconciler(tSubscriber, mgr, subkey, spySync)
+	srtRec := newSecretReconciler(tSubscriber, mgr, subkey)
 
 	g.Expect(c.Create(context.TODO(), dplSrt)).NotTo(gomega.HaveOccurred())
 

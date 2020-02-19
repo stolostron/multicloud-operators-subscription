@@ -23,7 +23,6 @@ import (
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
 
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
 
 	"github.com/pkg/errors"
@@ -40,30 +39,20 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-type syncSource interface {
-	CreateValiadtor(string) *synckube.Validator
-	ApplyValiadtor(*synckube.Validator)
-	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
-	RegisterTemplate(types.NamespacedName, *dplv1alpha1.Deployable, string) error
-	IsResourceNamespaced(schema.GroupVersionKind) bool
-}
-
 //SecretReconciler defined a info collection for query secret resource
 type SecretReconciler struct {
 	*NsSubscriber
 	Clt     client.Client
 	Schema  *runtime.Scheme
 	Itemkey types.NamespacedName
-	sSync   syncSource
 }
 
-func newSecretReconciler(subscriber *NsSubscriber, mgr manager.Manager, subItemKey types.NamespacedName, sSync syncSource) *SecretReconciler {
+func newSecretReconciler(subscriber *NsSubscriber, mgr manager.Manager, subItemKey types.NamespacedName) *SecretReconciler {
 	rec := &SecretReconciler{
 		NsSubscriber: subscriber,
 		Clt:          mgr.GetClient(),
 		Schema:       mgr.GetScheme(),
 		Itemkey:      subItemKey,
-		sSync:        sSync,
 	}
 
 	return rec
@@ -121,10 +110,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	//handle secret lifecycle by registering packaged secret to synchronizer
-	kubesync := s.sSync
-	if kubesync == nil {
-		kubesync = s.NsSubscriber.synchronizer
-	}
+	kubesync := s.NsSubscriber.synchronizer
 
 	registerToResourceMap(s.Schema, s.NsSubscriber.itemmap[s.Itemkey].Subscription, kubesync, dpls)
 
@@ -168,7 +154,7 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 }
 
 //registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription, kubesync syncSource, pDpls []*dplv1alpha1.Deployable) {
+func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription, kubesync nssubscriberSyncSource, pDpls []*dplv1alpha1.Deployable) {
 	hostkey := types.NamespacedName{Name: pSubscription.Name, Namespace: pSubscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
 

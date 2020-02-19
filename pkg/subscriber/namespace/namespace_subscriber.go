@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -36,6 +37,7 @@ import (
 	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
 	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 // NsSubscriberItem  defines the unit of namespace subscription
@@ -47,10 +49,20 @@ type NsSubscriberItem struct {
 	clusterscoped        bool
 	stopch               chan struct{}
 	dplreconciler        *DeployableReconciler
-	srtrecondiler        *SecretReconciler
+	srtreconciler        *SecretReconciler
 }
 
 type itemmap map[types.NamespacedName]*NsSubscriberItem
+
+type nssubscriberSyncSource interface {
+	CreateValiadtor(string) *synckube.Validator
+	ApplyValiadtor(*synckube.Validator)
+	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
+	RegisterTemplate(types.NamespacedName, *dplv1alpha1.Deployable, string) error
+	IsResourceNamespaced(schema.GroupVersionKind) bool
+	CleanupByHost(types.NamespacedName, string)
+	GetInterval() int
+}
 
 // NsSubscriber  information to run namespace subscription
 type NsSubscriber struct {
@@ -60,7 +72,7 @@ type NsSubscriber struct {
 	scheme *runtime.Scheme
 	// endpoint cluster
 	manager      manager.Manager
-	synchronizer *kubesynchronizer.KubeSynchronizer
+	synchronizer nssubscriberSyncSource
 }
 
 var (
@@ -163,12 +175,9 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to create client for namespace subscriber item")
 	}
 
-	reconciler := &DeployableReconciler{
-		Client:     hubclient,
-		subscriber: ns,
-		itemkey:    itemkey,
-	}
-	nssubitem.deployablecontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: reconciler})
+	dplReconciler := NewNsDeployableReconciler(hubclient, ns, itemkey)
+
+	nssubitem.deployablecontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: dplReconciler})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to create deployable controller for namespace subscriber item")
@@ -188,7 +197,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to watch deployable")
 	}
 
-	secretreconciler := newSecretReconciler(ns, ns.manager, itemkey, ns.synchronizer)
+	secretreconciler := newSecretReconciler(ns, ns.manager, itemkey)
 
 	nssubitem.secretcontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
 
@@ -233,8 +242,8 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		}
 	}()
 
-	nssubitem.dplreconciler = reconciler
-	nssubitem.srtrecondiler = secretreconciler
+	nssubitem.dplreconciler = dplReconciler
+	nssubitem.srtreconciler = secretreconciler
 
 	subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 	ns.itemmap[itemkey] = nssubitem
@@ -255,7 +264,7 @@ func syncUpWithChannel(nssubitem *NsSubscriberItem) error {
 	fakeKey = types.NamespacedName{Namespace: nssubitem.Channel.GetNamespace()}
 	rq = reconcile.Request{NamespacedName: fakeKey}
 
-	_, err = nssubitem.srtrecondiler.Reconcile(rq)
+	_, err = nssubitem.srtreconciler.Reconcile(rq)
 
 	return errors.Wrapf(err, "failed to do subscription %v", nssubitem.Subscription.GetName())
 }
@@ -294,7 +303,7 @@ func GetdefaultNsSubscriber() appv1alpha1.Subscriber {
 func CreateNsSubscriber(
 	config *rest.Config, scheme *runtime.Scheme,
 	mgr manager.Manager,
-	kubesync *kubesynchronizer.KubeSynchronizer) (*NsSubscriber, error) {
+	kubesync nssubscriberSyncSource) (*NsSubscriber, error) {
 	if config == nil || kubesync == nil {
 		return nil, errors.Errorf("cant create namespace subscriber with config %v kubenetes synchronizer %v", config, kubesync)
 	}
