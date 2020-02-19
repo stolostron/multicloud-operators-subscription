@@ -107,7 +107,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	if err != nil {
 		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
 
-		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %v", err)
+		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %+v", err)
 	}
 
 	return result, nil
@@ -127,7 +127,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	dpllist := &dplv1alpha1.DeployableList{}
 
 	subNamespace := subitem.Channel.Spec.PathName
-	if subNamespace == "" {
+	if subNamespace == "" && r.itemkey.String() != "/" {
 		return errors.Errorf("channel pathName should not be empty in channel resource of subitem: %v ", r.itemkey.String())
 	}
 
