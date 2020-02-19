@@ -17,13 +17,16 @@ spec:
       serviceAccountName: multicloud-operators
       containers:
         - name: multicloud-operators-subscription
-          image: quay.io/multicloudlab/multicloud-operators-subscription
+          image: docker.io/rokejungibm/multicloud-operators-subscription:0212a
           ports:
           - containerPort: 8443
+          args:
+          - --alsologtostderr
+          - --cluster-name=ocp-cluster-1
+          - --cluster-namespace=ocp-cluster-1
+          - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
           command:
           - /usr/local/bin/multicloud-operators-subscription
-          - --sync-interval=10
-          - --standalone
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -44,6 +47,8 @@ spec:
           - name: multicloud-operators-subscription-tls
             readOnly: true
             mountPath: "/etc/subscription"
+          - mountPath: /var/run/klusterlet
+            name: klusterlet-config
       volumes:
         - name: multicloud-operators-subscription-tls
           secret:
@@ -54,3 +59,7 @@ spec:
               path: tls.crt
             - key: tls.key
               path: tls.key
+        - name: klusterlet-config
+          secret:
+            defaultMode: 420
+            secretName: endpoint-connmgr-hub-kubeconfig
