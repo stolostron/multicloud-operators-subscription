@@ -110,10 +110,13 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	defaultNsSubscriber = nssubscriber
 
-	//set up bootstrap logic for manged cluster
+	//set up bootstrap logic for manged cluster, normally if this controller is runnning
+	// on managed cluster, then the syncid would be <cluster_name/cluster_namespace> such as,
+	//heathen/heathen
 	if syncid.String() != "/" {
 		defaultitem.Channel.Namespace = syncid.Namespace
 		defaultitem.Channel.Spec.PathName = syncid.Namespace
+
 		if err := defaultNsSubscriber.SubscribeNamespaceItem(defaultitem, true); err != nil {
 			klog.Error("failed to initialize default channel to cluster namespace")
 			return err
