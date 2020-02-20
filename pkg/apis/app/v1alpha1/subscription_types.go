@@ -70,10 +70,9 @@ type PackageOverride struct {
 
 // Overrides field in deployable
 type Overrides struct {
-	PackageAlias string `json:"packageAlias,omitempty"`
-	PackageName  string `json:"packageName"`
-	// +kubebuilder:validation:MinItems=1
-	PackageOverrides []PackageOverride `json:"packageOverrides"` // To be added
+	PackageAlias     string            `json:"packageAlias,omitempty"`
+	PackageName      string            `json:"packageName"`
+	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"` // To be added
 }
 
 // TimeWindow defines a time window for subscription to run or be blocked
