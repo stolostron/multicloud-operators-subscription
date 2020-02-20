@@ -107,7 +107,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	if err != nil {
 		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
 
-		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %+v", err)
+		klog.Errorf("failed to reconcile deployable %v for namespace subscriber with error: %+v", request.String(), err)
 	}
 
 	return result, nil
@@ -255,7 +255,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, 
 	validgvk := r.subscriber.synchronizer.GetValidatedGVK(orggvk)
 
 	if validgvk == nil {
-		gvkerr := errors.Errorf("resource %v is not supported", orggvk.String())
+		gvkerr := errors.Errorf("orggvk resource %v is not supported", orggvk.String())
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), gvkerr, nil)
 
 		if err != nil {
