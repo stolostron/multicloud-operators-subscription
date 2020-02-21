@@ -39,8 +39,16 @@ type DeployableReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	subscriber *Subscriber
+	subscriber *NsSubscriber
 	itemkey    types.NamespacedName
+}
+
+func NewNsDeployableReconciler(hub client.Client, nsSubscribe *NsSubscriber, ikey types.NamespacedName) *DeployableReconciler {
+	return &DeployableReconciler{
+		Client:     hub,
+		subscriber: nsSubscribe,
+		itemkey:    ikey,
+	}
 }
 
 // making sure the update subscription deployable from hub is respected even the current time window is blocked
@@ -97,9 +105,9 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	err := r.doSubscription()
 
 	if err != nil {
-		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.Interval*5) * time.Second
+		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
 
-		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %v", err)
+		klog.Errorf("failed to reconcile deployable %v for namespace subscriber with error: %+v", request.String(), err)
 	}
 
 	return result, nil
@@ -119,7 +127,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	dpllist := &dplv1alpha1.DeployableList{}
 
 	subNamespace := subitem.Channel.Spec.PathName
-	if subNamespace == "" {
+	if subNamespace == "" && r.itemkey.String() != "/" {
 		return errors.Errorf("channel pathName should not be empty in channel resource of subitem: %v ", r.itemkey.String())
 	}
 
@@ -202,7 +210,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	return retryerr
 }
 
-func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
+func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
 		return nil, nil, errors.Errorf("package name does not match, skiping package: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
@@ -247,7 +255,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	validgvk := r.subscriber.synchronizer.GetValidatedGVK(orggvk)
 
 	if validgvk == nil {
-		gvkerr := errors.Errorf("resource %v is not supported", orggvk.String())
+		gvkerr := errors.Errorf("orggvk resource %v is not supported", orggvk.String())
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), gvkerr, nil)
 
 		if err != nil {
@@ -259,7 +267,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 		return dpl, nil, gvkerr
 	}
 
-	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {
+	if r.subscriber.synchronizer.IsResourceNamespaced(*validgvk) {
 		if !subitem.clusterscoped || template.GetNamespace() == "" {
 			template.SetNamespace(subitem.Subscription.Namespace)
 		}
