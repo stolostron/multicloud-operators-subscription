@@ -79,7 +79,9 @@ type Overrides struct {
 // TimeWindow defines a time window for subscription to run or be blocked
 type TimeWindow struct {
 	// active time window or not, if timewindow is active, then deploy will only applies during these windows
-	// +kubebuilder:validation:Enum=active,blocked,Active,Blocked
+	// Note, if you want to generation crd with operator-sdk v0.10.0, then the following line should be:
+	// <+kubebuilder:validation:Enum=active,blocked,Active,Blocked>
+	// +kubebuilder:validation:Enum={active,blocked,Active,Blocked}
 	WindowType string `json:"windowtype,omitempty"`
 	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	Location string `json:"location,omitempty"`
