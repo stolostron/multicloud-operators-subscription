@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-git
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Channel
+metadata:
+  name: git
+  namespace: ch-git
+spec:
+  type: GitHub
+  pathname: https://github.com/IBM/charts.git
+  configRef:
+    name: ibm-mongodb-dev-cm
+---
+apiVersion: v1
+data:
+  path: stable/ibm-mongodb-dev
+kind: ConfigMap
+metadata:
+  name: ibm-mongodb-dev-cm
+  namespace: ch-git
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git-sub-ns
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: PlacementRule
+metadata:
+  name: towhichcluster
+  namespace: git-sub-ns
+spec:
+  clusterReplicas: 1
+  clusterLabels:
+    matchLabels:
+      environment: Dev
+---
+apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: git-sub
+  namespace: git-sub-ns
+spec:
+  channel: ch-git/git
+  placement:
+    placementRef: 
+      name: towhichcluster
+      kind: PlacementRule
+  packageFilter:
+    filterRef:
+      name: ibm-mongodb-dev-cm
+  packageOverrides:
+  - packageName: ibm-mongodb-dev
+    packageOverrides:
+    - path: spec
+      value:
+        persistence:
+          enabled: false
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 100m
+          limits:
+            cpu: 200m
+            memory: 500Mi

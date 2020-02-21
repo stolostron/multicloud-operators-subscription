@@ -14,6 +14,7 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: HelmRelease is the Schema for the subscriptionreleases API
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -27,7 +28,8 @@ spec:
           type: string
         metadata:
           type: object
-        spec:
+        repo:
+          description: HelmReleaseRepo defines the repository of HelmRelease
           properties:
             chartName:
               description: ChartName is the name of the chart within the repo
@@ -35,9 +37,75 @@ spec:
             configMapRef:
               description: Configuration parameters to access the helm-repo defined
                 in the CatalogSource
+              properties:
+                apiVersion:
+                  description: API version of the referent.
+                  type: string
+                fieldPath:
+                  description: 'If referring to a piece of an object instead of an
+                    entire object, this string should contain a valid JSON/Go field
+                    access statement, such as desiredState.manifest.containers[2].
+                    For example, if the object reference is to a container within
+                    a pod, this would take on a value like: "spec.containers{name}"
+                    (where "name" refers to the name of the container that triggered
+                    the event) or if no container name is specified "spec.containers[2]"
+                    (container with index 2 in this pod). This syntax is chosen only
+                    to have some well-defined way of referencing a part of an object.
+                    TODO: this design is not final and this field is subject to change
+                    in the future.'
+                  type: string
+                kind:
+                  description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+                resourceVersion:
+                  description: 'Specific resourceVersion to which this reference is
+                    made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                  type: string
+                uid:
+                  description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                  type: string
               type: object
             secretRef:
               description: Secret to use to access the helm-repo defined in the CatalogSource.
+              properties:
+                apiVersion:
+                  description: API version of the referent.
+                  type: string
+                fieldPath:
+                  description: 'If referring to a piece of an object instead of an
+                    entire object, this string should contain a valid JSON/Go field
+                    access statement, such as desiredState.manifest.containers[2].
+                    For example, if the object reference is to a container within
+                    a pod, this would take on a value like: "spec.containers{name}"
+                    (where "name" refers to the name of the container that triggered
+                    the event) or if no container name is specified "spec.containers[2]"
+                    (container with index 2 in this pod). This syntax is chosen only
+                    to have some well-defined way of referencing a part of an object.
+                    TODO: this design is not final and this field is subject to change
+                    in the future.'
+                  type: string
+                kind:
+                  description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                  type: string
+                name:
+                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                  type: string
+                namespace:
+                  description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                  type: string
+                resourceVersion:
+                  description: 'Specific resourceVersion to which this reference is
+                    made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                  type: string
+                uid:
+                  description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                  type: string
               type: object
             source:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
@@ -47,6 +115,8 @@ spec:
                 Source holds the url toward the helm-chart'
               properties:
                 github:
+                  description: GitHub provides the parameters to access the helm-chart
+                    located in a github repo
                   properties:
                     branch:
                       type: string
@@ -58,6 +128,7 @@ spec:
                       type: array
                   type: object
                 helmRepo:
+                  description: HelmRepo provides the urls to retrieve the helm-chart
                   properties:
                     urls:
                       items:
@@ -65,29 +136,46 @@ spec:
                       type: array
                   type: object
                 type:
+                  description: SourceTypeEnum types of sources
                   type: string
               type: object
-            values:
-              description: Values is a string containing (unparsed) YAML values
-              type: string
             version:
               description: Version is the chart version
               type: string
           type: object
+        spec: {}
         status:
           properties:
-            lastUpdate:
-              format: date-time
-              type: string
-            message:
-              type: string
-            phase:
-              type: string
-            reason:
-              type: string
+            conditions:
+              items:
+                properties:
+                  lastTransitionTime:
+                    format: date-time
+                    type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
+            deployedRelease:
+              properties:
+                manifest:
+                  type: string
+                name:
+                  type: string
+              type: object
           required:
-          - lastUpdate
+          - conditions
           type: object
+      type: object
   version: v1alpha1
   versions:
   - name: v1alpha1

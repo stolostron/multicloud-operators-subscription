@@ -39,8 +39,49 @@ type DeployableReconciler struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	subscriber *Subscriber
+	subscriber *NsSubscriber
 	itemkey    types.NamespacedName
+}
+
+func NewNsDeployableReconciler(hub client.Client, nsSubscribe *NsSubscriber, ikey types.NamespacedName) *DeployableReconciler {
+	return &DeployableReconciler{
+		Client:     hub,
+		subscriber: nsSubscribe,
+		itemkey:    ikey,
+	}
+}
+
+// making sure the update subscription deployable from hub is respected even the current time window is blocked
+func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Request) bool {
+	dpl := &dplv1alpha1.Deployable{}
+
+	if err := r.Client.Get(context.TODO(), request.NamespacedName, dpl); err != nil {
+		klog.Errorf("failed to get deployable from hub, err: %v", err)
+		return false
+	}
+
+	subkey := r.itemkey
+
+	dplTpl := &unstructured.Unstructured{}
+
+	if dpl.Spec.Template == nil {
+		klog.Error(errors.New(fmt.Sprintf("%v deployable without template", dpl.Name)))
+
+		return false
+	}
+
+	err := json.Unmarshal(dpl.Spec.Template.Raw, dplTpl)
+	if err != nil {
+		klog.Error(errors.Wrap(err, "unable to unmarshal deployable  template"))
+
+		return false
+	}
+
+	if dplTpl.GetName() == subkey.Name && dplTpl.GetNamespace() == subkey.Namespace {
+		return true
+	}
+
+	return false
 }
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
@@ -48,7 +89,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	klog.V(1).Infof("deployable reconciling: %v deployable for subitem %v", request.NamespacedName, r.itemkey.String())
 
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
-	if tw != nil {
+	if !r.isUpdateLinkedSubscription(request) && tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
 		klog.V(5).Infof(time.Now().String())
 		klog.V(5).Infof("reconciling deployable %v, for subscription %v, with tw %v having nextRun time %v",
@@ -64,9 +105,9 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	err := r.doSubscription()
 
 	if err != nil {
-		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.Interval*5) * time.Second
+		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
 
-		klog.Errorf("failed to reconcile deployable for namespace subscriber with error: %v", err)
+		klog.Errorf("failed to reconcile deployable %v for namespace subscriber with error: %+v", request.String(), err)
 	}
 
 	return result, nil
@@ -86,7 +127,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	dpllist := &dplv1alpha1.DeployableList{}
 
 	subNamespace := subitem.Channel.Spec.PathName
-	if subNamespace == "" {
+	if subNamespace == "" && r.itemkey.String() != "/" {
 		return errors.Errorf("channel pathName should not be empty in channel resource of subitem: %v ", r.itemkey.String())
 	}
 
@@ -169,7 +210,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	return retryerr
 }
 
-func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dpl *dplv1alpha1.Deployable,
+func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, dpl *dplv1alpha1.Deployable,
 	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
 	if subitem.Subscription.Spec.Package != "" && subitem.Subscription.Spec.Package != dpl.Name {
 		return nil, nil, errors.Errorf("package name does not match, skiping package: %v on deployable %v", subitem.Subscription.Spec.Package, dpl.Name)
@@ -214,7 +255,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 	validgvk := r.subscriber.synchronizer.GetValidatedGVK(orggvk)
 
 	if validgvk == nil {
-		gvkerr := errors.Errorf("resource %v is not supported", orggvk.String())
+		gvkerr := errors.Errorf("orggvk resource %v is not supported", orggvk.String())
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), gvkerr, nil)
 
 		if err != nil {
@@ -226,7 +267,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 		return dpl, nil, gvkerr
 	}
 
-	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {
+	if r.subscriber.synchronizer.IsResourceNamespaced(*validgvk) {
 		if !subitem.clusterscoped || template.GetNamespace() == "" {
 			template.SetNamespace(subitem.Subscription.Namespace)
 		}

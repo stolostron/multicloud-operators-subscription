@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
 	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
@@ -214,57 +213,4 @@ func TestDefaultSubscriber(t *testing.T) {
 	g.Expect(c.Get(context.TODO(), defaultworkloadkey, cfgmap)).To(gomega.HaveOccurred())
 
 	c.Delete(context.TODO(), ns)
-}
-
-func TestSecretReconcile(t *testing.T) {
-	// set up the reconcile
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is find id
-
-	defaultitem = &appv1alpha1.SubscriberItem{
-		Subscription: subscription,
-		Channel:      channel,
-	}
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
-	// pointing to a namespace type of channel
-	srtRec := newSecretReconciler(defaultSubscriber, mgr, subkey, nil).(*SecretReconciler)
-
-	// Create secrets at the channel namespace
-
-	g.Expect(c.Create(context.TODO(), dplSrt)).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), dplSrt)
-
-	g.Expect(c.Create(context.TODO(), noneDplSrt)).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), noneDplSrt)
-
-	dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
-	g.Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(gomega.BeNil())
-	//check up if the target secert is deployed at the subscriptions namespace
-	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
-
-	time.Sleep(4 * time.Second)
-
-	//checked up if the secret is deployed at the subscription namespace
-
-	// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
-	//checking if the reconcile has any error
-	g.Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(gomega.BeNil())
 }

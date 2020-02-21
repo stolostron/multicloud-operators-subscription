@@ -10,7 +10,7 @@ spec:
   packageOverrides:
   - packageName: nginx-ingress
     packageOverrides:
-    - path: spec.values
-      value: |
+    - path: spec
+      value:
         defaultBackend:
           replicaCount: 3

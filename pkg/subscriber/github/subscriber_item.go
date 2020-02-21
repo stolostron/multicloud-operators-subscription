@@ -436,7 +436,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 							UID:        ghsi.Subscription.UID,
 						}},
 					},
-					Spec: releasev1alpha1.HelmReleaseSpec{
+					Repo: releasev1alpha1.HelmReleaseRepo{
 						Source: &releasev1alpha1.Source{
 							SourceType: releasev1alpha1.GitHubSourceType,
 							GitHub: &releasev1alpha1.GitHub{
@@ -459,8 +459,8 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			// set kind and apiversion, coz it is not in the resource get from k8s
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
-			klog.V(4).Infof("Update helmRelease spec %s", helmRelease.Name)
-			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
+			klog.V(4).Infof("Update helmRelease repo %s", helmRelease.Name)
+			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.GitHubSourceType,
 					GitHub: &releasev1alpha1.GitHub{
@@ -855,7 +855,7 @@ func (ghsi *SubscriberItem) getPackageAlias(packageName string) string {
 
 func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {
 	//Overrides with the values provided in the subscription for that package
-	overrides := ghsi.getOverrides(helmRelease.Spec.ChartName)
+	overrides := ghsi.getOverrides(helmRelease.Repo.ChartName)
 	data, err := yaml.Marshal(helmRelease)
 
 	if err != nil {

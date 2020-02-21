@@ -13,8 +13,8 @@ spec:
   packageOverrides:
   - packageName: ibm-mongodb-dev
     packageOverrides:
-    - path: spec.values
-      value: |
+    - path: spec
+      value:
         persistence:
           enabled: false
         resources:
