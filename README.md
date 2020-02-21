@@ -111,7 +111,7 @@ Spec:
     Package Alias:  nginx-ingress-alias
     Package Name:  nginx-ingress
     Package Overrides:
-      Path:   spec.values
+      Path:   spec
       Value:  defaultBackend:
   replicaCount: 3
 

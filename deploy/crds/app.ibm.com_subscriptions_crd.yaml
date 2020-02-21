@@ -146,11 +146,9 @@ spec:
                     items:
                       description: PackageOverride describes rules for override
                       type: object
-                    minItems: 1
                     type: array
                 required:
                 - packageName
-                - packageOverrides
                 type: object
               type: array
             placement:

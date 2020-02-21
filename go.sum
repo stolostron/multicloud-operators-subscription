@@ -23,6 +23,8 @@ github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99
 github.com/IBM/multicloud-operators-placementrule v0.0.0-20191106021205-80eeda99597f/go.mod h1:7cCjoormsMG/S1lDlmCjqRs4uwjCdsj9m5AwZHKQ0PQ=
 github.com/IBM/multicloud-operators-subscription-release v0.0.0-20200127192841-d79fb0fd582b h1:AXpg8toM7w/DOF9lBIV7mQFIWSd+aJGpE9w4V9buOp8=
 github.com/IBM/multicloud-operators-subscription-release v0.0.0-20200127192841-d79fb0fd582b/go.mod h1:KJfNoP7lqOC/uVh7z1oyz+EAdf+Iyqv29BG/JdaC7KU=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20200219205414-fb087c03b470 h1:J4FSrXp0XmlZ/DLVpCzu51NOike79N0Kb/SQDnjxWM0=
+github.com/IBM/multicloud-operators-subscription-release v0.0.0-20200219205414-fb087c03b470/go.mod h1:KJfNoP7lqOC/uVh7z1oyz+EAdf+Iyqv29BG/JdaC7KU=
 github.com/JeffAshton/win_pdh v0.0.0-20161109143554-76bb4ee9f0ab/go.mod h1:3VYc5hodBMJ5+l/7J4xAyMeuM2PNuepvHlGs8yilUCA=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd h1:sjQovDkwrZp8u+gxLtPgKGjk5hCxuy2hrRejBTA9xFU=
 github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd/go.mod h1:64YHyfSL2R96J44Nlwm39UHepQbyR5q10x7iYa1ks2E=
