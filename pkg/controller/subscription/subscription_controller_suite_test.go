@@ -24,11 +24,13 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
+	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
 )
 
 var cfg *rest.Config
@@ -59,12 +61,46 @@ func TestMain(m *testing.M) {
 func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
 	requests := make(chan reconcile.Request)
 	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		result, err := inner.Reconcile(req)
+		res, err := inner.Reconcile(req)
 		requests <- req
+		return res, err
+	})
+
+	return fn, requests
+}
+
+type Reconciliation struct {
+	request reconcile.Request
+	result  reconcile.Result
+	err     error
+}
+
+func ReconcilerSpy(inner reconcile.Reconciler) (reconcile.Reconciler, chan Reconciliation) {
+	requests := make(chan Reconciliation)
+	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
+		result, err := inner.Reconcile(req)
+		requests <- Reconciliation{
+			request: req,
+			result:  result,
+			err:     err,
+		}
+
 		return result, err
 	})
 
 	return fn, requests
+}
+
+func spyReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber, clk clock) reconcile.Reconciler {
+	rec := &ReconcileSubscription{
+		Client:      mgr.GetClient(),
+		scheme:      mgr.GetScheme(),
+		hubclient:   hubclient,
+		subscribers: subscribers,
+		clk:         clk,
+	}
+
+	return rec
 }
 
 // StartTestManager adds recFn

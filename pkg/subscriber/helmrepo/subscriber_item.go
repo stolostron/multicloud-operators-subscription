@@ -559,7 +559,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 							UID:        hrsi.Subscription.UID,
 						}},
 					},
-					Spec: releasev1alpha1.HelmReleaseSpec{
+					Repo: releasev1alpha1.HelmReleaseRepo{
 						Source: &releasev1alpha1.Source{
 							SourceType: releasev1alpha1.HelmRepoSourceType,
 							HelmRepo: &releasev1alpha1.HelmRepo{
@@ -580,8 +580,8 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			// set kind and apiversion, coz it is not in the resource get from k8s
 			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
 			helmRelease.Kind = "HelmRelease"
-			klog.V(2).Infof("Update helmRelease spec %s", helmRelease.Name)
-			helmRelease.Spec = releasev1alpha1.HelmReleaseSpec{
+			klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
+			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.HelmRepoSourceType,
 					HelmRepo: &releasev1alpha1.HelmRepo{
@@ -658,7 +658,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 func (hrsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {
 	//Overrides with the values provided in the subscription for that package
-	overrides := hrsi.getOverrides(helmRelease.Spec.ChartName)
+	overrides := hrsi.getOverrides(helmRelease.Repo.ChartName)
 	data, err := yaml.Marshal(helmRelease)
 
 	if err != nil {

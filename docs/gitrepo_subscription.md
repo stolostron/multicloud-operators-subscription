@@ -63,13 +63,13 @@ Use the following example to create a channel that connects to a public IBM GitH
    kubectl patch subscriptions.app.ibm.com github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
    ```
 
-   After a couple of minutes, run the following command to check whether a `helmrelease.app.ibm.com` CR is created for the MongoDB Helm chart:
+   After a couple of minutes, run the following command to check whether a `helmreleases.app.ibm.com` CR is created for the MongoDB Helm chart:
 
    ```shell
-   kubectl get helmrelease.app.ibm.com --all-namespaces
+   kubectl get helmreleases.app.ibm.com --all-namespaces
    ```
 
-   Then, run the following command in the same namespace as the MongoDB helmrelease.app.ibm.com CR to find the deployment:
+   Then, run the following command in the same namespace as the MongoDB helmreleases.app.ibm.com CR to find the deployment:
 
    ```shell
    kubectl get deployments

@@ -113,7 +113,7 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 
 	gk := schema.GroupKind{Group: valid.Group, Kind: valid.Kind}
 
-	klog.V(5).Info("gk: ", gk, "valid:", valid)
+	klog.V(5).Infof("gk: %#v, valid: %#v ", gk, valid)
 
 	if _, ok := internalIgnoredGroupKind[gk]; ok {
 		return nil

@@ -146,11 +146,9 @@ spec:
                     items:
                       description: PackageOverride describes rules for override
                       type: object
-                    minItems: 1
                     type: array
                 required:
                 - packageName
-                - packageOverrides
                 type: object
               type: array
             placement:
@@ -264,8 +262,8 @@ spec:
                   type: array
                 hours:
                   items:
-                    description: Time format for each time will be Kitchen format,
-                      defined at https://golang.org/pkg/time/#pkg-constants
+                    description: HourRange time format for each time will be Kitchen
+                      format, defined at https://golang.org/pkg/time/#pkg-constants
                     properties:
                       end:
                         type: string
@@ -277,8 +275,15 @@ spec:
                   description: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
                   type: string
                 windowtype:
-                  description: active time window or not, if timewindow is active,
-                    then deploy will only applies during these windows
+                  description: 'active time window or not, if timewindow is active,
+                    then deploy will only applies during these windows Note, if you
+                    want to generation crd with operator-sdk v0.10.0, then the following
+                    line should be: <+kubebuilder:validation:Enum=active,blocked,Active,Blocked>'
+                  enum:
+                  - active
+                  - blocked
+                  - Active
+                  - Blocked
                   type: string
               type: object
           required:

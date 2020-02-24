@@ -41,8 +41,8 @@ spec:
   packageOverrides:
   - packageName: nginx-ingress
     packageOverrides:
-    - path: spec.values
-      value: |
+    - path: spec
+      value:
         defaultBackend:
           replicaCount: 2
   placement:
@@ -74,8 +74,8 @@ spec:
   packageOverrides:
   - packageName: nginx-ingress2
     packageOverrides:
-    - path: spec.values
-      value: |
+    - path: spec
+      value:
         defaultBackend:
           replicaCount: 3
   overrides:
