@@ -15,6 +15,7 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -37,9 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/cli-runtime/pkg/kustomize"
 	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
+	"sigs.k8s.io/kustomize/pkg/fs"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -72,6 +75,7 @@ type SubscriberItem struct {
 	repoRoot              string
 	commitID              string
 	chartDirs             map[string]string
+	kustomizeDirs         map[string]string
 	crdsAndNamespaceFiles []string
 	rbacFiles             []string
 	otherFiles            []string
@@ -155,6 +159,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.otherFiles)
 
+		klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
+
+		ghsi.subscribeKustomizations(hostkey, syncsource, kvalid, rscPkgMap)
+
 		ghsi.synchronizer.ApplyValiadtor(kvalid)
 
 		klog.V(4).Info("Applying helm charts..")
@@ -169,6 +177,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		ghsi.commitID = commitID
 
 		ghsi.chartDirs = nil
+		ghsi.kustomizeDirs = nil
 		ghsi.crdsAndNamespaceFiles = nil
 		ghsi.rbacFiles = nil
 		ghsi.otherFiles = nil
@@ -202,6 +211,130 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 	return kubeIgnore
 }
 
+func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName,
+	syncsource string,
+	kvalid *kubesynchronizer.Validator,
+	pkgMap map[string]bool) {
+	for _, kustomizeDir := range ghsi.kustomizeDirs {
+		klog.Info("Applying kustomization ", kustomizeDir)
+
+		relativePath := kustomizeDir
+
+		if len(strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")) > 1 {
+			relativePath = strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")[1]
+		}
+
+		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
+			if strings.HasSuffix(ov.PackageName, "kustomization.yaml") || strings.HasSuffix(ov.PackageName, "kustomization.yml") {
+				ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
+				if !strings.EqualFold(ovKustomizeDir, relativePath) {
+					continue
+				} else {
+					klog.Info("Overriding kustomization ", kustomizeDir)
+					pov := ov.PackageOverrides[0]
+					err := ghsi.overrideKustomize(pov, kustomizeDir)
+					if err != nil {
+						klog.Error("Failed to override kustomization.")
+						break
+					}
+				}
+			}
+		}
+
+		fSys := fs.MakeRealFS()
+
+		var out bytes.Buffer
+
+		err := kustomize.RunKustomizeBuild(&out, fSys, kustomizeDir)
+		if err != nil {
+			klog.Error("Failed to applying kustomization, error: ", err.Error())
+		}
+		// Split the output of kustomize build output into individual kube resource YAML files
+		resources := strings.Split(out.String(), "---")
+		for _, resource := range resources {
+			resourceFile := []byte(strings.Trim(resource, "\t \n"))
+
+			t := kubeResource{}
+			err := yaml.Unmarshal(resourceFile, &t)
+
+			if err != nil {
+				klog.Error(err, "Failed to unmarshal YAML file")
+				continue
+			}
+
+			if t.APIVersion == "" || t.Kind == "" {
+				klog.Info("Not a Kubernetes resource")
+			} else {
+				err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resourceFile, pkgMap)
+				if err != nil {
+					klog.Error("Failed to apply a resource, error: ", err)
+				}
+			}
+		}
+	}
+}
+
+func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, kustomizeDir string) error {
+	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
+	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
+
+	if err != nil {
+		klog.Error("Kustomize parse error: ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
+		return err
+	}
+
+	str := fmt.Sprintf("%v", ovuobj["value"])
+
+	var override map[string]interface{}
+
+	if err := yaml.Unmarshal([]byte(str), &override); err != nil {
+		klog.Error("Failed to override kustomize with error: ", err)
+		return err
+	}
+
+	var master map[string]interface{}
+
+	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
+
+	if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
+		kustomizeYamlFilePath = filepath.Join(kustomizeDir, "kustomization.yml")
+		if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
+			klog.Error("Kustomization file not found in ", kustomizeDir)
+			return err
+		}
+	}
+
+	bs, err := ioutil.ReadFile(kustomizeYamlFilePath)
+
+	if err != nil {
+		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
+		return err
+	}
+
+	if err := yaml.Unmarshal(bs, &master); err != nil {
+		klog.Error("Failed to unmarshal kustomize file ", " err: ", err)
+		return err
+	}
+
+	for k, v := range override {
+		master[k] = v
+	}
+
+	bs, err = yaml.Marshal(master)
+
+	if err != nil {
+		klog.Error("Failed to marshal kustomize file ", " err: ", err)
+		return err
+	}
+
+	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0644); err != nil {
+		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
+		return err
+	}
+
+	return nil
+}
+
 func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 	syncsource string,
 	kvalid *kubesynchronizer.Validator,
@@ -222,39 +355,51 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 		} else {
 			klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
 
-			dpltosync, validgvk, err := ghsi.subscribeResource(file, pkgMap)
+			err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, file, pkgMap)
 			if err != nil {
-				klog.Info("Skipping resource")
-				continue
+				klog.Error("Failed to apply a resource, error: ", err)
 			}
-			pkgMap[dpltosync.GetName()] = true
-
-			klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
-
-			err = ghsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
-			if err != nil {
-				err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
-
-				if err != nil {
-					klog.V(4).Info("error in setting in cluster package status :", err)
-				}
-
-				pkgMap[dpltosync.GetName()] = true
-
-				return
-			}
-
-			dplkey := types.NamespacedName{
-				Name:      dpltosync.Name,
-				Namespace: dpltosync.Namespace,
-			}
-			kvalid.AddValidResource(*validgvk, hostkey, dplkey)
-
-			pkgMap[dplkey.Name] = true
-
-			klog.V(4).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 		}
 	}
+}
+
+func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
+	syncsource string,
+	kvalid *kubesynchronizer.Validator,
+	file []byte,
+	pkgMap map[string]bool) error {
+	dpltosync, validgvk, err := ghsi.subscribeResource(file, pkgMap)
+	if err != nil {
+		klog.Info("Skipping resource")
+		return err
+	}
+
+	pkgMap[dpltosync.GetName()] = true
+
+	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
+
+	err = ghsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
+	if err != nil {
+		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
+
+		if err != nil {
+			klog.V(4).Info("error in setting in cluster package status :", err)
+		}
+
+		pkgMap[dpltosync.GetName()] = true
+
+		return err
+	}
+
+	dplkey := types.NamespacedName{
+		Name:      dpltosync.Name,
+		Namespace: dpltosync.Namespace,
+	}
+	kvalid.AddValidResource(*validgvk, hostkey, dplkey)
+
+	pkgMap[dplkey.Name] = true
+
+	return nil
 }
 
 func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
@@ -301,7 +446,9 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 
 			return nil, nil, errors.New(errMsg)
 		}
+	}
 
+	if ghsi.Subscription.Spec.PackageOverrides != nil {
 		rsc, err = utils.OverrideResourceBySubscription(rsc, rsc.GetName(), ghsi.Subscription)
 		if err != nil {
 			pkgMap[dpl.GetName()] = true
@@ -701,6 +848,9 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 	// In the cloned git repo root, find all helm chart directories
 	ghsi.chartDirs = make(map[string]string)
 
+	// In the cloned git repo root, find all kustomization directories
+	ghsi.kustomizeDirs = make(map[string]string)
+
 	// Apply CustomResourceDefinition and Namespace Kubernetes resources first
 	ghsi.crdsAndNamespaceFiles = []string{}
 	// Then apply ServiceAccount, ClusterRole and Role Kubernetes resources next
@@ -709,6 +859,7 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 	ghsi.otherFiles = []string{}
 
 	currentChartDir := "NONE"
+	currentKustomizeDir := "NONE"
 
 	kubeIgnore := ghsi.getKubeIgnore()
 
@@ -734,8 +885,19 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 							ghsi.chartDirs[path+"/"] = path + "/"
 							currentChartDir = path + "/"
 						}
+					} else if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
+						klog.V(4).Info("Found kustomization.yaml in ", path)
+						currentKustomizeDir = path
+						ghsi.kustomizeDirs[path+"/"] = path + "/"
+					} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
+						klog.V(4).Info("Found kustomization.yml in ", path)
+						currentKustomizeDir = path
+						ghsi.kustomizeDirs[path+"/"] = path + "/"
 					}
-				} else if !strings.HasPrefix(path, currentChartDir) && !strings.HasPrefix(path, repoRoot+"/.git") {
+				} else if !strings.HasPrefix(path, currentChartDir) &&
+					!strings.HasPrefix(path, repoRoot+"/.git") &&
+					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
+					// Do not process kubernetes YAML files under helm chart or kustomization directory
 					err = ghsi.sortKubeResources(path)
 					if err != nil {
 						return err
