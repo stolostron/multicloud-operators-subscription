@@ -1,0 +1,8 @@
+- op: add
+  path: "/spec/template/spec/containers/-"
+  value:
+    name: sidecar
+    image: busybox
+    args:
+    - sleep
+    - "3600"
