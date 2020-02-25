@@ -16,6 +16,9 @@ package github
 
 import (
 	"context"
+	"io"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -618,4 +621,99 @@ data:
 
 	githubsub.Spec.Package = ""
 	githubsub.Spec.PackageFilter = nil
+}
+
+func TestKustomize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	subscriptionYAML := `apiVersion: app.ibm.com/v1alpha1
+kind: Subscription
+metadata:
+  name: github-resource-subscription
+  namespace: default
+spec:
+  channel: github-ns/github-ch
+  placement:
+  local: true
+  packageOverrides:
+    - packageName: kustomize/overlays/production/kustomization.yaml
+      packageOverrides:
+      - value: |
+          namePrefix: production-testtest-
+          commonLabels:
+            org: acmeCorporation-roke
+          patchesStrategicMerge:
+          - deployment.yaml
+          - configMap.yaml`
+
+	subscription := &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ov := subscription.Spec.PackageOverrides[0]
+
+	subitem := &SubscriberItem{}
+	subitem.Subscription = subscription
+	subitem.Channel = githubchn
+
+	// Set the cloned Git repo root directory to this Git repository root.
+	subitem.repoRoot = "../../.."
+	kustomizeDir := filepath.Join(subitem.repoRoot, "test/github/kustomize/overlays/production")
+
+	subitem.kustomizeDirs = make(map[string]string)
+	subitem.kustomizeDirs[kustomizeDir+"/"] = kustomizeDir + "/"
+
+	// backup the original kustomization.yaml
+	orig := kustomizeDir + "/kustomization.yaml"
+	backup := kustomizeDir + "/kustomization.yaml.BAK"
+	err = copy(orig, backup)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	pov := ov.PackageOverrides[0]
+	err = subitem.overrideKustomize(pov, kustomizeDir)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = copy(backup, orig)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = os.Remove(backup)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func copy(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+
+	return out.Close()
 }

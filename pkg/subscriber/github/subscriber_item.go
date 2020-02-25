@@ -225,18 +225,16 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 		}
 
 		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
-			if strings.HasSuffix(ov.PackageName, "kustomization.yaml") || strings.HasSuffix(ov.PackageName, "kustomization.yml") {
-				ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
-				if !strings.EqualFold(ovKustomizeDir, relativePath) {
-					continue
-				} else {
-					klog.Info("Overriding kustomization ", kustomizeDir)
-					pov := ov.PackageOverrides[0]
-					err := ghsi.overrideKustomize(pov, kustomizeDir)
-					if err != nil {
-						klog.Error("Failed to override kustomization.")
-						break
-					}
+			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
+			if !strings.EqualFold(ovKustomizeDir, relativePath) {
+				continue
+			} else {
+				klog.Info("Overriding kustomization ", kustomizeDir)
+				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
+				err := ghsi.overrideKustomize(pov, kustomizeDir)
+				if err != nil {
+					klog.Error("Failed to override kustomization.")
+					break
 				}
 			}
 		}
@@ -292,8 +290,6 @@ func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, k
 		return err
 	}
 
-	var master map[string]interface{}
-
 	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
 
 	if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
@@ -303,6 +299,17 @@ func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, k
 			return err
 		}
 	}
+
+	err = mergeKustomization(kustomizeYamlFilePath, override)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
+	var master map[string]interface{}
 
 	bs, err := ioutil.ReadFile(kustomizeYamlFilePath)
 
