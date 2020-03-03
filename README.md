@@ -58,7 +58,7 @@ kubectl apply -f ./examples/helmrepo-channel
 - Subscribe!
 
 ```shell
-kubectl patch subscriptions.app.ibm.com simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+kubectl patch subscriptions.multicloud-apps.io simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
 ```
 
 Find the nginx pods deployed to current namespace, and the number of backend pods is overrided to 3
@@ -95,14 +95,14 @@ Name:         simple
 Namespace:    default
 Labels:       <none>
 Annotations:  kubectl.kubernetes.io/last-applied-configuration:
-                {"apiVersion":"app.ibm.com/v1alpha1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"ch...
-API Version:  app.ibm.com/v1alpha1
+                {"apiVersion":"multicloud-apps.io/v1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"ch...
+API Version:  multicloud-apps.io/v1
 Kind:         Subscription
 Metadata:
   Creation Timestamp:  2019-11-21T04:01:47Z
   Generation:          2
   Resource Version:    24045
-  Self Link:           /apis/app.ibm.com/v1alpha1/namespaces/default/subscriptions/simple
+  Self Link:           /apis/multicloud-apps.io/v1/namespaces/default/subscriptions/simple
   UID:                 a35b6ef5-0c13-11ea-b4e7-00000a100ef8
 Spec:
   Channel:  dev/dev-helmrepo

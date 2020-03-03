@@ -59,7 +59,7 @@ var (
 	chdpl = &dplv1alpha1.Deployable{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployable",
-			APIVersion: "app.ibm.com/v1alpha1",
+			APIVersion: "multicloud-apps.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "chdpl",
@@ -93,7 +93,7 @@ var (
 	defaultchdpl = &dplv1alpha1.Deployable{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployable",
-			APIVersion: "app.ibm.com/v1alpha1",
+			APIVersion: "multicloud-apps.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dftdpl",

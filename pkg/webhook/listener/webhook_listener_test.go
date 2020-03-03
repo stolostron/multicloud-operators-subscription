@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	channelYAML = `apiVersion: app.ibm.com/v1alpha1
+	channelYAML = `apiVersion: multicloud-apps.io/v1
 kind: Channel
 metadata:
   name: test-github-channel
@@ -41,7 +41,7 @@ spec:
   type: GitHub
   pathname: https://github.com/IBM/charts.git`
 
-	subscriptionYAML = `apiVersion: app.ibm.com/v1alpha1
+	subscriptionYAML = `apiVersion: multicloud-apps.io/v1
 kind: Subscription
 metadata:
   name: test-subscription

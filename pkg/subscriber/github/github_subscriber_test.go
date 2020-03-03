@@ -641,7 +641,7 @@ func TestKustomize(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	subscriptionYAML := `apiVersion: app.ibm.com/v1alpha1
+	subscriptionYAML := `apiVersion: multicloud-apps.io/v1
 kind: Subscription
 metadata:
   name: github-resource-subscription

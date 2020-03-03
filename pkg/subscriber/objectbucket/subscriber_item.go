@@ -38,7 +38,7 @@ import (
 	awsutils "github.com/IBM/multicloud-operators-subscription/pkg/utils/aws"
 )
 
-var SubscriptionGVK = schema.GroupVersionKind{Group: "app.ibm.com", Kind: "Subscription", Version: "v1alpha1"}
+var SubscriptionGVK = schema.GroupVersionKind{Group: "multicloud-apps.io", Kind: "Subscription", Version: "v1"}
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {

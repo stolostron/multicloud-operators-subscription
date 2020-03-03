@@ -546,14 +546,14 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "app.ibm.com/v1alpha1",
+						APIVersion: "multicloud-apps.io/v1",
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      releaseCRName,
 						Namespace: hrsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: "app.ibm.com/v1alpha1",
+							APIVersion: "multicloud-apps.io/v1",
 							Kind:       "Subscription",
 							Name:       hrsi.Subscription.Name,
 							UID:        hrsi.Subscription.UID,
@@ -578,7 +578,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			}
 		} else {
 			// set kind and apiversion, coz it is not in the resource get from k8s
-			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
+			helmRelease.APIVersion = "multicloud-apps.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
 			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{

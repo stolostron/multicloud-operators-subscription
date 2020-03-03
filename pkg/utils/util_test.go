@@ -50,7 +50,7 @@ func TestKubernetes(t *testing.T) {
 	}()
 
 	//Test:  create testfoo crd
-	err = CheckAndInstallCRD(cfg, "../../deploy/crds/app.ibm.com_subscriptions_crd.yaml")
+	err = CheckAndInstallCRD(cfg, "../../deploy/crds/multicloud-apps.io_subscriptions_crd.yaml")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 

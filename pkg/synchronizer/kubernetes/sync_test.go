@@ -153,9 +153,9 @@ func TestGVKValidation(t *testing.T) {
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
 
 	gvk = schema.GroupVersionKind{
-		Group:   "app.ibm.com",
+		Group:   "multicloud-apps.io",
 		Kind:    "Deployable",
-		Version: "v1alpha1",
+		Version: "v1",
 	}
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.BeNil())
 }

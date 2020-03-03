@@ -413,7 +413,7 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 	return strconv.FormatInt(chobj.Generation, 10), nil
 }
 
-// UpdateDeployablesAnnotation set all deployables subscribed by the subscription to the app.ibm.com/deployables annotation
+// UpdateDeployablesAnnotation set all deployables subscribed by the subscription to the multicloud-apps.io/deployables annotation
 func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Subscription) bool {
 	orgdplmap := make(map[string]bool)
 	organno := sub.GetAnnotations()
@@ -574,7 +574,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	dpl := &dplv1alpha1.Deployable{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployable",
-			APIVersion: "app.ibm.com/v1alpha1",
+			APIVersion: "multicloud-apps.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sub.Name + "-deployable",

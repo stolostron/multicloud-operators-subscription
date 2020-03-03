@@ -577,14 +577,14 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "app.ibm.com/v1alpha1",
+						APIVersion: "multicloud-apps.io/v1",
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      releaseCRName,
 						Namespace: ghsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: "app.ibm.com/v1alpha1",
+							APIVersion: "multicloud-apps.io/v1",
 							Kind:       "Subscription",
 							Name:       ghsi.Subscription.Name,
 							UID:        ghsi.Subscription.UID,
@@ -611,7 +611,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			}
 		} else {
 			// set kind and apiversion, coz it is not in the resource get from k8s
-			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
+			helmRelease.APIVersion = "multicloud-apps.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(4).Infof("Update helmRelease repo %s", helmRelease.Name)
 			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
