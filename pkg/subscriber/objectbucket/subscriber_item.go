@@ -30,15 +30,15 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
-	awsutils "github.com/IBM/multicloud-operators-subscription/pkg/utils/aws"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
 )
 
-var SubscriptionGVK = schema.GroupVersionKind{Group: "multicloud-apps.io", Kind: "Subscription", Version: "v1"}
+var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Kind: "Subscription", Version: "v1"}
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
@@ -99,7 +99,7 @@ func (obsi *SubscriberItem) initObjectStore() error {
 
 	awshandler := &awsutils.Handler{}
 
-	pathName := obsi.Channel.Spec.PathName
+	pathName := obsi.Channel.Spec.Pathname
 
 	if pathName == "" {
 		errmsg := "Empty Pathname in channel " + obsi.Channel.Name

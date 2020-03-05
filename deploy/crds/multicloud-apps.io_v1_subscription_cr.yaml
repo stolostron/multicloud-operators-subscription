@@ -1,7 +1,0 @@
-apiVersion: multicloud-apps.io/v1
-kind: Subscription
-metadata:
-  name: example-subscription
-spec:
-  # Add fields here
-  size: 3

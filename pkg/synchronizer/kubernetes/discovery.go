@@ -64,7 +64,7 @@ var (
 	}
 
 	dplgk = schema.GroupKind{
-		Group: "multicloud-apps.io",
+		Group: "apps.open-cluster-management.io",
 		Kind:  "Deployable",
 	}
 	internalIgnoredGroupKind = map[schema.GroupKind]bool{

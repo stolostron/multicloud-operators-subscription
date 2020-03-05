@@ -28,7 +28,7 @@ Use the following example to create a channel that connects to a public IBM GitH
    The following YAML content is used to define this `ibm-charts-github` channel:
 
    ```yaml
-   apiVersion: multicloud-apps.io/v1
+   apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
    name: ibm-charts-github
@@ -60,16 +60,16 @@ Use the following example to create a channel that connects to a public IBM GitH
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
-   kubectl patch subscriptions.multicloud-apps.io github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   kubectl patch subscriptions.apps.open-cluster-management.io github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
    ```
 
-   After a couple of minutes, run the following command to check whether a `helmreleases.multicloud-apps.io` CR is created for the MongoDB Helm chart:
+   After a couple of minutes, run the following command to check whether a `helmreleases.apps.open-cluster-management.io` CR is created for the MongoDB Helm chart:
 
    ```shell
-   kubectl get helmreleases.multicloud-apps.io --all-namespaces
+   kubectl get helmreleases.apps.open-cluster-management.io --all-namespaces
    ```
 
-   Then, run the following command in the same namespace as the MongoDB helmreleases.multicloud-apps.io CR to find the deployment:
+   Then, run the following command in the same namespace as the MongoDB helmreleases.apps.open-cluster-management.io CR to find the deployment:
 
    ```shell
    kubectl get deployments
@@ -95,14 +95,14 @@ In the following example, you create a channel that connects to a GitHub reposit
    The following YAML content is used to define this `sample-kube-resources-github` channel:
 
    ```yaml
-   apiVersion: multicloud-apps.io/v1
+   apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
      name: sample-kube-resources-github
      namespace: kuberesources
    spec:
        type: GitHub
-       pathname: https://github.com/IBM/multicloud-operators-subscription.git
+       pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
    ```
 
    The value for the `pathname` field is the GitHub repository HTTPS URL.
@@ -129,7 +129,7 @@ In the following example, you create a channel that connects to a GitHub reposit
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
-   kubectl patch subscriptions.multicloud-apps.io sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   kubectl patch subscriptions.apps.open-cluster-management.io sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
    ```
 
    After a couple of minutes, run the following command to check whether a `sample-nginx-deployment` deployment is created:
@@ -156,7 +156,7 @@ data:
   user: dXNlcgo=
   accessToken: cGFzc3dvcmQK
 ---
-apiVersion: multicloud-apps.io/v1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: ibm-charts-github
@@ -236,13 +236,13 @@ Use the payload URL and webhook secret to configure WebHook in your GitHub repos
 Annotate the subscription's channel.
 
 ```shell
-oc annotate channel.multicloud-apps.io <channel name> multicloud-apps.io/webhook-enabled="true"
+oc annotate channel.apps.open-cluster-management.io <channel name> apps.open-cluster-management.io/webhook-enabled="true"
 ```
 
 If you used a secret to configure WebHook, annotate the channel with this as well where `<the_secret_name>` is the kubernetes secret name containing webhook secret.
 
 ```shell
-oc annotate channel.multicloud-apps.io <channel name> multicloud-apps.io/webhook-secret="<the_secret_name>"
+oc annotate channel.apps.open-cluster-management.io <channel name> apps.open-cluster-management.io/webhook-secret="<the_secret_name>"
 ```
 
 ### Subscriptions of webhook-enabled channel

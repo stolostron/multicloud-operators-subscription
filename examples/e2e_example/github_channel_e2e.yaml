@@ -4,7 +4,7 @@ kind: Namespace
 metadata:
   name: ch-git
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: git
@@ -12,7 +12,7 @@ metadata:
 spec:
   type: GitHub
   pathname: https://github.com/IBM/charts.git
-  configRef:
+  configMapRef:
     name: ibm-mongodb-dev-cm
 ---
 apiVersion: v1
@@ -28,7 +28,7 @@ kind: Namespace
 metadata:
   name: git-sub-ns
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: towhichcluster
@@ -39,7 +39,7 @@ spec:
     matchLabels:
       environment: Dev
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: git-sub

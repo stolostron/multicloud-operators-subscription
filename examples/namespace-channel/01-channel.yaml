@@ -1,4 +1,4 @@
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: dev
@@ -7,7 +7,7 @@ spec:
     type: Namespace
     pathname: dev
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:
@@ -39,7 +39,7 @@ spec:
             ports:
             - containerPort: 80
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:
@@ -60,7 +60,7 @@ spec:
         plural: foos
       scope: Namespaced
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:

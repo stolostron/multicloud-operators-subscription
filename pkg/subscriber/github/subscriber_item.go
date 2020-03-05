@@ -48,12 +48,12 @@ import (
 
 	gitignore "github.com/sabhiram/go-gitignore"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
-	releasev1alpha1 "github.com/IBM/multicloud-operators-subscription-release/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
+	releasev1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -129,7 +129,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
-		klog.Error(err, "Unable to clone the git repo ", ghsi.Channel.Spec.PathName)
+		klog.Error(err, "Unable to clone the git repo ", ghsi.Channel.Spec.Pathname)
 		return err
 	}
 
@@ -577,14 +577,14 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "multicloud-apps.io/v1",
+						APIVersion: "apps.open-cluster-management.io/v1",
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      releaseCRName,
 						Namespace: ghsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: "multicloud-apps.io/v1",
+							APIVersion: "apps.open-cluster-management.io/v1",
 							Kind:       "Subscription",
 							Name:       ghsi.Subscription.Name,
 							UID:        ghsi.Subscription.UID,
@@ -594,7 +594,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 						Source: &releasev1alpha1.Source{
 							SourceType: releasev1alpha1.GitHubSourceType,
 							GitHub: &releasev1alpha1.GitHub{
-								Urls:      []string{ghsi.Channel.Spec.PathName},
+								Urls:      []string{ghsi.Channel.Spec.Pathname},
 								ChartPath: chartVersions[0].URLs[0],
 								Branch:    ghsi.getGitBranch().Short(),
 							},
@@ -611,14 +611,14 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			}
 		} else {
 			// set kind and apiversion, coz it is not in the resource get from k8s
-			helmRelease.APIVersion = "multicloud-apps.io/v1"
+			helmRelease.APIVersion = "apps.open-cluster-management.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(4).Infof("Update helmRelease repo %s", helmRelease.Name)
 			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
 				Source: &releasev1alpha1.Source{
 					SourceType: releasev1alpha1.GitHubSourceType,
 					GitHub: &releasev1alpha1.GitHub{
-						Urls:      []string{ghsi.Channel.Spec.PathName},
+						Urls:      []string{ghsi.Channel.Spec.Pathname},
 						ChartPath: chartVersions[0].URLs[0],
 						Branch:    ghsi.getGitBranch().Short(),
 					},
@@ -693,7 +693,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	options := &git.CloneOptions{
-		URL:               ghsi.Channel.Spec.PathName,
+		URL:               ghsi.Channel.Spec.Pathname,
 		Depth:             1,
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
@@ -762,7 +762,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
-	klog.V(4).Info("Cloning ", ghsi.Channel.Spec.PathName, " into ", ghsi.repoRoot)
+	klog.V(4).Info("Cloning ", ghsi.Channel.Spec.Pathname, " into ", ghsi.repoRoot)
 	r, err := git.PlainClone(ghsi.repoRoot, false, options)
 
 	if err != nil {

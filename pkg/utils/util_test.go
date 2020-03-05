@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 func TestKubernetes(t *testing.T) {
@@ -50,7 +50,7 @@ func TestKubernetes(t *testing.T) {
 	}()
 
 	//Test:  create testfoo crd
-	err = CheckAndInstallCRD(cfg, "../../deploy/crds/multicloud-apps.io_subscriptions_crd.yaml")
+	err = CheckAndInstallCRD(cfg, "../../deploy/crds/apps.open-cluster-management.io_subscriptions_crd.yaml")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 

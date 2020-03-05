@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 func TestTimeWindowDurationTillNextWindow(t *testing.T) {

@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 )
 
 var cfg *rest.Config

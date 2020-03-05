@@ -31,12 +31,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
-	plrv1alpha1 "github.com/IBM/multicloud-operators-placementrule/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	subutil "github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
+	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
@@ -413,7 +413,7 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 	return strconv.FormatInt(chobj.Generation, 10), nil
 }
 
-// UpdateDeployablesAnnotation set all deployables subscribed by the subscription to the multicloud-apps.io/deployables annotation
+// UpdateDeployablesAnnotation set all deployables subscribed by the subscription to the apps.open-cluster-management.io/deployables annotation
 func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Subscription) bool {
 	orgdplmap := make(map[string]bool)
 	organno := sub.GetAnnotations()
@@ -574,7 +574,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	dpl := &dplv1alpha1.Deployable{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployable",
-			APIVersion: "multicloud-apps.io/v1",
+			APIVersion: "apps.open-cluster-management.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sub.Name + "-deployable",
