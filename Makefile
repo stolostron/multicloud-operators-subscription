@@ -1,3 +1,4 @@
+  
 # Copyright 2019 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,13 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This repo is build locally for dev/test by default;
-# Override this variable in CI env.
-BUILD_LOCALLY ?= 1
+# This repo is build in Travis-ci by default;
+# Override this variable in local env.
+TRAVIS_BUILD  ?= 1
 
 # Image URL to use all building/pushing image targets;
 # Use your own docker registry and image name for dev/test by overridding the IMG and REGISTRY environment variable.
-IMG ?= multicloud-operators-subscription
+IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 REGISTRY ?= quay.io/open-cluster-management
 
 # Github host to use for checking the source tree;
@@ -36,8 +37,8 @@ export GOBIN ?= $(GOBIN_DEFAULT)
 TESTARGS_DEFAULT := "-v"
 export TESTARGS ?= $(TESTARGS_DEFAULT)
 DEST := $(GOPATH)/src/$(GIT_HOST)/$(BASE_DIR)
-VERSION ?= $(shell git describe --exact-match 2> /dev/null || \
-                 git describe --match=$(git rev-parse --short=8 HEAD) --always --dirty --abbrev=8)
+VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
+IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
@@ -50,11 +51,23 @@ else
     $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-all: fmt check test coverage build images
+.PHONY: fmt lint test coverage build build-images
 
 ifneq ("$(realpath $(DEST))", "$(realpath $(PWD))")
     $(error Please run 'make' from $(DEST). Current directory is $(PWD))
 endif
+
+
+# GITHUB_USER containing '@' char must be escaped with '%40'
+GITHUB_USER := $(shell echo $(GITHUB_USER) | sed 's/@/%40/g')
+GITHUB_TOKEN ?=
+
+ifeq ($(TRAVIS_BUILD),1)
+-include $(shell curl -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v4.raw' -L https://api.github.com/repos/open-cluster-management/build-harness-extensions/contents/templates/Makefile.build-harness-bootstrap -o .build-harness-bootstrap; echo .build-harness-bootstrap)
+endif
+
+default::
+	@echo "Build Harness Bootstrapped"
 
 include common/Makefile.common.mk
 
@@ -97,16 +110,9 @@ test:
 ############################################################
 # coverage section
 ############################################################
-
+ 
 coverage:
 	@common/scripts/codecov.sh
-
-############################################################
-# install operator sdk section
-############################################################
-
-install-operator-sdk: 
-	@operator-sdk version 2> /dev/null ; if [ $$? -ne 0 ]; then ./common/scripts/install-operator-sdk.sh; fi
 
 ############################################################
 # build section
@@ -122,21 +128,13 @@ local:
 # images section
 ############################################################
 
-images: build build-push-images
+build-images:
+	@operator-sdk build ${IMAGE_NAME_AND_VERSION}
+	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
-ifeq ($(BUILD_LOCALLY),0)
-    export CONFIG_DOCKER_TARGET = config-docker
-endif
-
-build-push-images: install-operator-sdk $(CONFIG_DOCKER_TARGET)
-	@operator-sdk build $(REGISTRY)/$(IMG):$(VERSION)
-	@docker tag $(REGISTRY)/$(IMG):$(VERSION) $(REGISTRY)/$(IMG)
-	@if [ $(BUILD_LOCALLY) -ne 1 ]; then docker push $(REGISTRY)/$(IMG):$(VERSION); docker push $(REGISTRY)/$(IMG); fi
 
 ############################################################
 # clean section
 ############################################################
-clean:
+clean::
 	rm -f build/_output/bin/$(IMG)
-
-.PHONY: all build check lint test coverage images
