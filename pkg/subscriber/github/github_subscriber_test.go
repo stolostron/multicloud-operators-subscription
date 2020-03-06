@@ -33,8 +33,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 const rsc1 = `apiVersion: v1
@@ -113,7 +113,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "GitHub",
-			PathName: "https://github.com/IBM/multicloud-operators-subscription.git",
+			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
 		},
 	}
 	githubsub = &appv1alpha1.Subscription{
@@ -641,7 +641,7 @@ func TestKustomize(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	subscriptionYAML := `apiVersion: app.ibm.com/v1alpha1
+	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: github-resource-subscription

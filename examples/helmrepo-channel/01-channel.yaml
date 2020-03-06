@@ -1,4 +1,4 @@
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: dev-helmrepo
@@ -6,7 +6,7 @@ metadata:
 spec:
     type: HelmRepo
     pathname: http://kubernetes-charts.storage.googleapis.com/
-    configRef: 
+    configMapRef: 
       name: skip-cert-verify
       apiVersion: v1
       kind: ConfigMap

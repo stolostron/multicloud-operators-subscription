@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package app contains app API versions.
-//
-// This file ensures Go source parsers acknowledge the app package
-// and any child packages. It can be removed if any other Go source files are
-// added to this package.
-package app
+// Package v1 contains API Schema definitions for the apps v1 API group
+// +k8s:deepcopy-gen=package,register
+// +groupName=apps.open-cluster-management.io
+package v1

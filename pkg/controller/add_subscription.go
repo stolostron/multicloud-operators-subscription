@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"github.com/IBM/multicloud-operators-subscription/pkg/controller/subscription"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
 )
 
 func init() {

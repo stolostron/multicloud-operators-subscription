@@ -1,4 +1,4 @@
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: dev
@@ -7,11 +7,11 @@ spec:
     type: Namespace
     pathname: dev
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:
-    app.ibm.com/is-local-deployable: "false"
+    apps.open-cluster-management.io/is-local-deployable: "false"
   name: sample-deployable-in-channel
   namespace: dev
 spec:
@@ -39,11 +39,11 @@ spec:
             ports:
             - containerPort: 80
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:
-    app.ibm.com/is-local-deployable: "false"
+    apps.open-cluster-management.io/is-local-deployable: "false"
   name: sample-crd
   namespace: dev
 spec:
@@ -60,11 +60,11 @@ spec:
         plural: foos
       scope: Namespaced
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata:
   annotations:
-    app.ibm.com/is-local-deployable: "false"
+    apps.open-cluster-management.io/is-local-deployable: "false"
   labels:
     pass-to-resource: "from-hosting-deployable"
   name: sample-cr-foo

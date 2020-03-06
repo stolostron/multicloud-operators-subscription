@@ -1,7 +1,7 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: subscriptions.app.ibm.com
+  name: subscriptions.apps.open-cluster-management.io
 spec:
   additionalPrinterColumns:
   - JSONPath: .status.phase
@@ -11,7 +11,7 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
-  group: app.ibm.com
+  group: apps.open-cluster-management.io
   names:
     kind: Subscription
     listKind: SubscriptionList
@@ -316,8 +316,8 @@ spec:
                 packagename, For hub, it aggregates all status, key is cluster name
           type: object
       type: object
-  version: v1alpha1
+  version: v1
   versions:
-  - name: v1alpha1
+  - name: v1
     served: true
     storage: true

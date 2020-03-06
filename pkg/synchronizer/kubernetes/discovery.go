@@ -64,7 +64,7 @@ var (
 	}
 
 	dplgk = schema.GroupKind{
-		Group: "app.ibm.com",
+		Group: "apps.open-cluster-management.io",
 		Kind:  "Deployable",
 	}
 	internalIgnoredGroupKind = map[schema.GroupKind]bool{
