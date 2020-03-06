@@ -4,6 +4,7 @@ service:
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
+  timeout: 20m
 
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
@@ -57,10 +58,6 @@ linters-settings:
   gofmt:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true
-  goimports:
-    # put imports beginning with prefix after 3rd-party packages;
-    # it's a comma-separated list of prefixes
-    local-prefixes: github.com/IBM/
   maligned:
     # print struct with more effective memory layout or not, false by default
     suggest-new: true
