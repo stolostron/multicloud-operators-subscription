@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 // DeployableReconciler reconciles a Deployable object of Nmespace channel
@@ -126,7 +126,7 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	dpllist := &dplv1alpha1.DeployableList{}
 
-	subNamespace := subitem.Channel.Spec.PathName
+	subNamespace := subitem.Channel.Spec.Pathname
 	if subNamespace == "" && r.itemkey.String() != "/" {
 		return errors.Errorf("channel pathName should not be empty in channel resource of subitem: %v ", r.itemkey.String())
 	}

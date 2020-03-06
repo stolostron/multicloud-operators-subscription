@@ -14,7 +14,7 @@
 
 package controller
 
-import "github.com/IBM/multicloud-operators-subscription/pkg/controller/mcmhub"
+import "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/mcmhub"
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.

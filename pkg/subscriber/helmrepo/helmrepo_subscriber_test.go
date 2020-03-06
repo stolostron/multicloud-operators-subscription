@@ -24,8 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var c client.Client
@@ -48,7 +48,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     chnv1alpha1.ChannelTypeHelmRepo,
-			PathName: repourl,
+			Pathname: repourl,
 		},
 	}
 	helmsub = &appv1alpha1.Subscription{

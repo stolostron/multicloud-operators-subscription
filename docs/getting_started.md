@@ -13,7 +13,7 @@
 
 ```shell
 
-cd $GOPATH/src/github.com/IBM/multicloud-operators-subscription
+cd $GOPATH/src/github.com/open-cluster-management/multicloud-operators-subscription
 
 # Setup environemnt for subscription operator
 # Set service account

@@ -36,11 +36,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/apis"
-	"github.com/IBM/multicloud-operators-subscription/pkg/controller"
-	"github.com/IBM/multicloud-operators-subscription/pkg/subscriber"
-	"github.com/IBM/multicloud-operators-subscription/pkg/synchronizer"
-	"github.com/IBM/multicloud-operators-subscription/pkg/webhook"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.

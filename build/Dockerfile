@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi7/ubi-minimal:7.7-98
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.1-398
 
 ENV OPERATOR=/usr/local/bin/multicloud-operators-subscription \
     USER_UID=1001 \

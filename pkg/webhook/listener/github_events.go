@@ -29,8 +29,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 const (
@@ -112,18 +112,18 @@ func (listener *WebhookListener) processSubscription(sub appv1alpha1.Subscriptio
 
 	switch e := event.(type) {
 	case *github.PullRequestEvent:
-		if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
-			chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
-			chobj.Spec.PathName == e.GetRepo().GetURL() ||
-			strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
+		if chobj.Spec.Pathname == e.GetRepo().GetCloneURL() ||
+			chobj.Spec.Pathname == e.GetRepo().GetHTMLURL() ||
+			chobj.Spec.Pathname == e.GetRepo().GetURL() ||
+			strings.Contains(chobj.Spec.Pathname, e.GetRepo().GetFullName()) {
 			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
 			listener.updateSubscription(sub)
 		}
 	case *github.PushEvent:
-		if chobj.Spec.PathName == e.GetRepo().GetCloneURL() ||
-			chobj.Spec.PathName == e.GetRepo().GetHTMLURL() ||
-			chobj.Spec.PathName == e.GetRepo().GetURL() ||
-			strings.Contains(chobj.Spec.PathName, e.GetRepo().GetFullName()) {
+		if chobj.Spec.Pathname == e.GetRepo().GetCloneURL() ||
+			chobj.Spec.Pathname == e.GetRepo().GetHTMLURL() ||
+			chobj.Spec.Pathname == e.GetRepo().GetURL() ||
+			strings.Contains(chobj.Spec.Pathname, e.GetRepo().GetFullName()) {
 			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
 			listener.updateSubscription(sub)
 		}

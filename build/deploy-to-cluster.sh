@@ -1,0 +1,5 @@
+#!/bin/bash
+
+echo "DEPLOY TO CLUSTER GOES HERE! IT SHOULD DO NOTHING RIGHT NOW!"
+
+exit 0;

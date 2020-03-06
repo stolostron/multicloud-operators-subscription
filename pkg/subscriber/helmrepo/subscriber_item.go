@@ -40,12 +40,12 @@ import (
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
-	releasev1alpha1 "github.com/IBM/multicloud-operators-subscription-release/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
+	releasev1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 // SubscriberItem - defines the unit of namespace subscription
@@ -92,7 +92,7 @@ func (hrsi *SubscriberItem) Stop() {
 
 func (hrsi *SubscriberItem) doSubscription() {
 	//Retrieve the helm repo
-	repoURL := hrsi.Channel.Spec.PathName
+	repoURL := hrsi.Channel.Spec.Pathname
 
 	httpClient, err := hrsi.getHelmRepoClient()
 
@@ -120,7 +120,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 }
 
 func (hrsi *SubscriberItem) processSubscription() error {
-	repoURL := hrsi.Channel.Spec.PathName
+	repoURL := hrsi.Channel.Spec.Pathname
 	klog.V(4).Info("Proecssing HelmRepo:", repoURL)
 
 	httpClient, err := hrsi.getHelmRepoClient()
@@ -546,14 +546,14 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 				helmRelease = &releasev1alpha1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "app.ibm.com/v1alpha1",
+						APIVersion: "apps.open-cluster-management.io/v1",
 						Kind:       "HelmRelease",
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      releaseCRName,
 						Namespace: hrsi.Subscription.Namespace,
 						OwnerReferences: []metav1.OwnerReference{{
-							APIVersion: "app.ibm.com/v1alpha1",
+							APIVersion: "apps.open-cluster-management.io/v1",
 							Kind:       "Subscription",
 							Name:       hrsi.Subscription.Name,
 							UID:        hrsi.Subscription.UID,
@@ -578,7 +578,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			}
 		} else {
 			// set kind and apiversion, coz it is not in the resource get from k8s
-			helmRelease.APIVersion = "app.ibm.com/v1alpha1"
+			helmRelease.APIVersion = "apps.open-cluster-management.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
 			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{

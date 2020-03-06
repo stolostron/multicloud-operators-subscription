@@ -35,14 +35,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	ghsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/github"
-	hrsub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/helmrepo"
-	nssub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/namespace"
-	ossub "github.com/IBM/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/github"
+	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
+	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
 
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (

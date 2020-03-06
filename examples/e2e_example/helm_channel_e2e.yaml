@@ -12,7 +12,7 @@ metadata:
 data:
   insecureSkipVerify: "true"
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: helm
@@ -20,7 +20,7 @@ metadata:
 spec:
   type: HelmRepo
   pathname: https://ianzhang366.github.io/guestbook-chart/
-  configRef: 
+  configMapRef: 
     name: skip-cert-verify
     apiVersion: v1
     kind: ConfigMap
@@ -30,7 +30,7 @@ kind: Namespace
 metadata:
   name: helm-sub-ns
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: towhichcluster
@@ -41,7 +41,7 @@ spec:
     matchLabels:
       environment: Dev
 ---
-apiVersion: app.ibm.com/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: helm-sub

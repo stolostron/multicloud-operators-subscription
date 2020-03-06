@@ -32,9 +32,9 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	"github.com/IBM/multicloud-operators-subscription/pkg/utils"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -153,9 +153,9 @@ func TestGVKValidation(t *testing.T) {
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
 
 	gvk = schema.GroupVersionKind{
-		Group:   "app.ibm.com",
+		Group:   "apps.open-cluster-management.io",
 		Kind:    "Deployable",
-		Version: "v1alpha1",
+		Version: "v1",
 	}
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.BeNil())
 }
@@ -480,9 +480,9 @@ func TestServiceResource(t *testing.T) {
 	source := sourceprefix + sharedkey.String()
 
 	var anno = map[string]string{
-		"app.ibm.com/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
-		"app.ibm.com/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
-		appv1alpha1.AnnotationSyncSource:   source,
+		"apps.open-cluster-management.io/hosting-deployable":   sharedkey.Namespace + "/" + sharedkey.Name,
+		"apps.open-cluster-management.io/hosting-subscription": sharedkey.Namespace + "/" + sharedkey.Name,
+		appv1alpha1.AnnotationSyncSource:                       source,
 	}
 
 	svc.SetAnnotations(anno)

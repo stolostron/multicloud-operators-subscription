@@ -12,13 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package synchronizer
-
-import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-)
-
-func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, kubernetes.Add)
-}
+// Package apps contains apps API versions.
+//
+// This file ensures Go source parsers acknowledge the apps package
+// and any child packages. It can be removed if any other Go source files are
+// added to this package.
+package apps

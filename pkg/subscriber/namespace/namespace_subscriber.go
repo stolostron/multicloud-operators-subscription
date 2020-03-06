@@ -32,12 +32,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	chnv1alpha1 "github.com/IBM/multicloud-operators-channel/pkg/apis/app/v1alpha1"
-	dplv1alpha1 "github.com/IBM/multicloud-operators-deployable/pkg/apis/app/v1alpha1"
-	dplutils "github.com/IBM/multicloud-operators-deployable/pkg/utils"
-	appv1alpha1 "github.com/IBM/multicloud-operators-subscription/pkg/apis/app/v1alpha1"
-	kubesynchronizer "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	synckube "github.com/IBM/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
+	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	synckube "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 // NsSubscriberItem  defines the unit of namespace subscription
@@ -115,7 +115,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	//heathen/heathen
 	if syncid.String() != "/" {
 		defaultitem.Channel.Namespace = syncid.Namespace
-		defaultitem.Channel.Spec.PathName = syncid.Namespace
+		defaultitem.Channel.Spec.Pathname = syncid.Namespace
 
 		if err := defaultNsSubscriber.SubscribeNamespaceItem(defaultitem, true); err != nil {
 			klog.Error("failed to initialize default channel to cluster namespace")
@@ -167,7 +167,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 
 	nssubitem = &NsSubscriberItem{}
 	nssubitem.clusterscoped = isClusterScoped
-	nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.PathName})
+	nssubitem.cache, err = cache.New(ns.config, cache.Options{Scheme: ns.scheme, Namespace: subitem.Channel.Spec.Pathname})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to create cache for namespace subscriber item")
