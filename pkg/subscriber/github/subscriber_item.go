@@ -754,13 +754,6 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 			return "", errors.New("failed to get accressToken from the secret")
 		}
 
-		klog.Info("************************************")
-		klog.Info("username = " + username)
-		klog.Info("accessToken = " + accessToken)
-		klog.Info("string(secret.Data[user] = " + string(secret.Data["user"]))
-		klog.Info("string(secret.Data[accessToken] = " + string(secret.Data["accessToken"]))
-		klog.Info("************************************")
-
 		options.Auth = &githttp.BasicAuth{
 			Username: username,
 			Password: accessToken,
