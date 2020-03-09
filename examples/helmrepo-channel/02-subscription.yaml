@@ -9,6 +9,7 @@ spec:
     local: false
   packageOverrides:
   - packageName: nginx-ingress
+    packageAlias: nginx-ingress-simple
     packageOverrides:
     - path: spec
       value:
