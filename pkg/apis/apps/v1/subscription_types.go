@@ -44,6 +44,8 @@ var (
 	AnnotationWebhookEventCount = SchemeGroupVersion.Group + "/webhook-event-count"
 	// AnnotationWebhookSecret defines webhook secret
 	AnnotationWebhookSecret = SchemeGroupVersion.Group + "/webhook-secret"
+	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
+	LabelSubscriptionPause = "subscription-pause"
 )
 
 const (
