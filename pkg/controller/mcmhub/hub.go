@@ -94,7 +94,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	updateSubDpl := checkSubDeployables(found, dpl)
 
 	if updateSub || updateSubDpl || updateTargetAnno {
-		klog.V(1).Infof("updateSub: %v, updateTargetAnno: %v", updateSub, updateTargetAnno)
+		klog.V(1).Infof("updateSub: %v, updateSubDpl: %v, updateTargetAnno: %v", updateSub, updateSubDpl, updateTargetAnno)
 
 		if targetDpl != nil {
 			klog.V(5).Infof("targetDpl: %#v", targetDpl)
@@ -105,6 +105,8 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 		foundanno := setFoundDplAnnotation(found, dpl, targetDpl, updateTargetAnno)
 		found.SetAnnotations(foundanno)
+
+		setFoundDplLabel(found, sub)
 
 		klog.V(5).Infof("Updating Deployable: %#v, ref dpl: %#v", found, dpl)
 
@@ -162,6 +164,11 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 
 	if !reflect.DeepEqual(found.Spec.Placement, dpl.Spec.Placement) {
 		klog.V(1).Infof("different placement: found: %v, dpl: %v", found.Spec.Placement, dpl.Spec.Placement)
+		return true
+	}
+
+	if !reflect.DeepEqual(found.GetLabels(), dpl.GetLabels()) {
+		klog.V(1).Infof("different label: found: %v, dpl: %v", found.GetLabels(), dpl.GetLabels())
 		return true
 	}
 
@@ -308,6 +315,23 @@ func setFoundDplAnnotation(found, dpl, targetDpl *dplv1alpha1.Deployable, update
 	}
 
 	return foundanno
+}
+
+//updateDplLabel update found dpl label subacription-pause
+func setFoundDplLabel(found *dplv1alpha1.Deployable, sub *appv1alpha1.Subscription) {
+	label := found.GetLabels()
+	if label == nil {
+		label = make(map[string]string)
+	}
+
+	labelPause := "false"
+	if subutil.GetPauseLabel(sub) {
+		labelPause = "true"
+	}
+
+	label[dplv1alpha1.LabelSubscriptionPause] = labelPause
+
+	found.SetLabels(label)
 }
 
 //SetTargetDplAnnotation set target dpl annotation to the source dpl annoation
@@ -571,6 +595,12 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 		return nil, err
 	}
 
+	// propagate subscription-pause label to the subscription deployable
+	labelPause := "false"
+	if subutil.GetPauseLabel(sub) {
+		labelPause = "true"
+	}
+
 	dpl := &dplv1alpha1.Deployable{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployable",
@@ -579,6 +609,9 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sub.Name + "-deployable",
 			Namespace: sub.Namespace,
+			Labels: map[string]string{
+				dplv1alpha1.LabelSubscriptionPause: labelPause,
+			},
 			Annotations: map[string]string{
 				dplv1alpha1.AnnotationLocal:       "false",
 				dplv1alpha1.AnnotationIsGenerated: "true",
