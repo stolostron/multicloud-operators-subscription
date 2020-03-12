@@ -178,6 +178,10 @@ You can also use the `.kubernetesignore` file for fine-grain filtering to select
 
 If the `data.path` field is not defined in the ConfigMap that is set for the subscription `spec.packageFilter.filterRef` field, the subscription looks for a `.kubernetesignore` file in the repository root directory. If the `data.path` field is defined, the subscription looks for the `.kubernetesignore` file in the `data.path` directory. Subscriptions do not, searching any other directory for a `.kubernetesignore` file.
 
+## Kustomize
+
+If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed GitHub folder, kustomize will be applied
+
 ## Subscribing to a specific branch
 
 The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a GitHub repository by default. If you want to subscribe to a different branch, you need to specify the branch name within the ConfigMap that is specified in the subscription `spec.packageFilter.filterRef` field.
