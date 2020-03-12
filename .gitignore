@@ -77,3 +77,12 @@ tags
 ### MacOs
 .DS_Store
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+
+.build-harness
+.build-harness-bootstrap
+OPENSOURCE.check
+
+# override build harness vendoring
+!vbh/.build-harness-vendorized
+!vbh/build-harness
+!vbh/build-harness-extensions
