@@ -255,7 +255,7 @@ spec:
               description: help user control when the subscription will take affect
               properties:
                 daysofweek:
-                  description: weekdays defined the day of the week for this time
+                  description: Defines the day of the week for the subscription timewindow
                     window https://golang.org/pkg/time/#Weekday
                   items:
                     type: string
