@@ -727,6 +727,8 @@ github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-202
 github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200304214605-e52bfdcb25bb/go.mod h1:mgU+3nfxS4FgPcywx9VpQiQosWY+o0XXHhBJiT3fr2o=
 github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200306151803-78ac58739ad0 h1:u1pJCoHXxBazpG0FOQBqJ/rwJOfjVgt05TBDz2lIUec=
 github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200306151803-78ac58739ad0/go.mod h1:33EO/osOAvc9or4dab/0f4XOQa999M+mxAdqpBMPVtk=
+github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200318154658-3b051e2f6a10 h1:rWlPjtDKMPCtQwxv2YzUCoemZzO+S/OabLfnfsD0d0E=
+github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200318154658-3b051e2f6a10/go.mod h1:Ua+3zLexDHkWbuLYunzU/1rnWyQLrp8lrTSMUCcHkTw=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
@@ -766,6 +768,8 @@ github.com/operator-framework/operator-sdk v0.12.0 h1:9eAD1L8e6pPCpFCAacBUVf2elo
 github.com/operator-framework/operator-sdk v0.12.0/go.mod h1:mW8isQxiXlLCVf2E+xqflkQAVLOTbiqjndKdkKIrR0M=
 github.com/operator-framework/operator-sdk v0.15.1-0.20200305193915-22b0724684a0 h1:cyoBNvC8kEnFjS8PT01w/tg1tTA4XSigx8cRnErUZ6M=
 github.com/operator-framework/operator-sdk v0.15.1-0.20200305193915-22b0724684a0/go.mod h1:1UykIjxOHX/Ltj/2Z0h0y0DZ7YGBYlcBI+ctaCjXVDk=
+github.com/operator-framework/operator-sdk v0.16.0 h1:+D61x7FjcITLzjVakzfzz5hqkkMDR+uEDMzXfyVZOw8=
+github.com/operator-framework/operator-sdk v0.16.0/go.mod h1:1UykIjxOHX/Ltj/2Z0h0y0DZ7YGBYlcBI+ctaCjXVDk=
 github.com/otiai10/copy v1.0.1/go.mod h1:8bMCJrAqOtN/d9oyh5HR7HhLQMvcGMpGdwRDYsfOCHc=
 github.com/otiai10/curr v0.0.0-20150429015615-9b4961190c95/go.mod h1:9qAhocn7zKJG+0mI8eUu6xqkFDYS2kb2saOteoSB3cE=
 github.com/otiai10/curr v0.0.0-20190513014714-f5a3d24e5776/go.mod h1:3HNVkVOU7vZeFXocWuvtcS0XSFLcf2XUSDHkq9t1jU4=
