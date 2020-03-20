@@ -57,6 +57,7 @@ jobs:
           make
           make component/build
           make component/push
+          make build-latest-community-operator
 
     - stage: unit-test
       name: "Run unit test"
@@ -87,3 +88,4 @@ jobs:
         - |
           make
           make pipeline-manifest/update PIPELINE_MANIFEST_COMPONENT_SHA256=${TRAVIS_COMMIT} PIPELINE_MANIFEST_COMPONENT_REPO=${TRAVIS_REPO_SLUG} PIPELINE_MANIFEST_BRANCH=${TRAVIS_BRANCH}
+          make release-community-operator
