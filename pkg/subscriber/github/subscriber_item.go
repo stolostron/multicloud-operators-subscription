@@ -637,6 +637,18 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			return err
 		}
 
+		if helmRelease.Spec == nil {
+			spec := make(map[string]interface{})
+
+			err := yaml.Unmarshal([]byte(""), &spec)
+			if err != nil {
+				klog.Error("Failed to create an empty spec for helm release", helmRelease)
+				return err
+			}
+
+			helmRelease.Spec = spec
+		}
+
 		dpl := &dplv1alpha1.Deployable{}
 		if ghsi.Channel == nil {
 			dpl.Name = ghsi.Subscription.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()

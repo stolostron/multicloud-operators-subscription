@@ -16,11 +16,11 @@ branches:
     - /^v[0-9]+\..*$/
     - /^release-[0-9]+\..*$/
 
-#addons:
-#  sonarcloud:
-#    organization: "open-cluster-management"
-#    token:
-#      secure: "DfEGb8eJmJJBLz8XH7R4clXgJ5eQPFqy4GMxuPMsWc//7IKH0sj1K8ynJldyQUJhZOUiYrFch3gnh7Oi1+bJu9eN3j+dN080sxX2aVQAVQZ5sFheVVO17cIrRNznpHHoo+g0VwyXVAGdSlin0Zdge5XY2Go16z6LYCIH1dH2Dg1JTornVnJp1WhnQepmLKQhJd/yNRNttcK2facD6XtCJfyw68Di4jGs3Trs0zL/2uRaHthvP204HUk9qXEzsMoZPjmkRa0PM8y0FKjOx1O+dRNRgyjdLgXe1Ph+3PVb9Kr58iB4UIUpfABz3mGpj5Tkf8cStYcKPiJ49M7w7QERuBKd2rQySIDxhJU+kk5u1JyflsE10wvFForowtBIiYjrn2pGAYIprj/11AsIFnFlZ+D4iuobeD+Q+XXzT2o="
+addons:
+  sonarcloud:
+    organization: "open-cluster-management"
+    token:
+      secure: "qSAVeXGoBhCpzepmanabUWxOcLnJEhMKRMYZ6iTS1DweOOYo6nW5yF0Gs1LV7RaWSgiZ1A74Oe1UiHedAiMuoHehIli0Ms5w07JgJMFxcpw1jKH0Y4cDgsyAohjKXRGgdNZTQcMPgg9AICWv3qBT1V0xXd8W+rS4QV0rkIo6qhbJe7ROyIq9AqbQNzuo2YMm4+UHUNT246JZkYxhuTVyWaPrkD1rbP2Rob5qmOth9MOqBRwegTWzINsbaKBCrueEfGjmbJJXbmM/b8n+sy9DtOgV/zcdGyHjy7vtPeMr0OkDJVHK95JvN+BshErWGoJKJI1DjlZDm28cik9HHXuqdYAs5N5Z39B6EeaxO183g7w0B74PKixPoUwmtKWykYQEeT6Ky6UBD+iazB/zccWbAh/W+rEVA0IKEtHQDtUfgCwwKLrwIGyYVDsRU+8xDzR1wg3rVllQBSN7LdnVHJOZeU+PHumohSmLMi4wVpZCpZB5uQGzsl2INi4FCi6DjuUu4tbfDKal4lOYIl70ZhcG71Qr+W3N7x3jrgMjJef+KwP3CpBCALoS7/OouII7KDeziKa9UE079J3r1TeYTNNPjuMYp81MLOw4LtSj67anllMbmFmVHmZFwnbiXm6PoKE9F+bR3RVeHtO891qUw5bQ4PY5XGlv6W7B3hgMeAMFxDk="
 
 env:
   global:
@@ -67,7 +67,7 @@ jobs:
         - |
           make
           make component/test/unit
-        #  make sonar/go
+          make sonar/go
 
     - stage: test-e2e
       name: "Deploy the image to a cluster and run e2e tests"

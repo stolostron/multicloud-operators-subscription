@@ -41,6 +41,7 @@ import (
 	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
 	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -162,6 +163,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	// if the subscription pause lable is true, stop subscription here.
+	if subutil.GetPauseLabel(instance) {
+		klog.Info("Subscription: ", request.NamespacedName, " is paused")
+		return reconcile.Result{}, nil
 	}
 
 	pl := instance.Spec.Placement
