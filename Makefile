@@ -124,6 +124,11 @@ build:
 local:
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 
+openapi:
+	openapi-gen -o . -i $(GIT_HOST)/$(BASE_DIR)/pkg/apis/apps/v1 \
+		-p pkg/apis/apps/v1 \
+		-h hack/boilerplate.go.txt -v 5
+
 ############################################################
 # images section
 ############################################################
