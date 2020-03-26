@@ -721,7 +721,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		matchLbls[chnv1alpha1.KeyChannel] = chName
 		matchLbls[chnv1alpha1.KeyChannelType] = chType
 		clSelector, err := dplutils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-		klog.Info("ROKEOKRE clSelector = ", clSelector)
+
 		if err != nil {
 			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err: ", err)
 			return nil
@@ -803,12 +803,12 @@ func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription,
 			}
 		}
 	}
+
 	return true
 }
 
 func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	if sub.Spec.PackageFilter != nil {
-
 		dplanno := dpl.GetAnnotations()
 
 		if !r.checkResourcePath(sub, dplanno) {
