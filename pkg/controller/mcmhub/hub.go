@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -385,7 +386,7 @@ func checkRollingUpdateAnno(found, targetDpl, subDpl *dplv1alpha1.Deployable) bo
 }
 
 //GetChannelNamespaceType get the channel namespace and channel type by the given subscription
-func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscription) (string, string) {
+func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscription) (string, string, string) {
 	chNameSpace := ""
 	chName := ""
 	chType := ""
@@ -408,7 +409,7 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 		chType = string(chobj.Spec.Type)
 	}
 
-	return chNameSpace, chType
+	return chNameSpace, chName, chType
 }
 
 // GetChannelGeneration get the channel generation
@@ -711,18 +712,36 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 
 	dplList := &dplv1alpha1.DeployableList{}
 
-	chNameSpace, _ := r.GetChannelNamespaceType(sub)
+	chNameSpace, chName, chType := r.GetChannelNamespaceType(sub)
 
 	dplListOptions := &client.ListOptions{Namespace: chNameSpace}
 
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
+		matchLbls := sub.Spec.PackageFilter.LabelSelector.MatchLabels
+		matchLbls[chnv1alpha1.KeyChannel] = chName
+		matchLbls[chnv1alpha1.KeyChannelType] = chType
 		clSelector, err := dplutils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
+
 		if err != nil {
 			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err: ", err)
 			return nil
 		}
 
 		dplListOptions.LabelSelector = clSelector
+	} else {
+		// Handle deployables from multiple channels in the same namespace
+		chLabel := make(map[string]string)
+		chLabel[chnv1alpha1.KeyChannel] = chName
+		chLabel[chnv1alpha1.KeyChannelType] = chType
+		labelSelector := &metav1.LabelSelector{
+			MatchLabels: chLabel,
+		}
+		chSelector, err := dplutils.ConvertLabels(labelSelector)
+		if err != nil {
+			klog.Error("Failed to set label selector. err: ", chSelector, " err: ", err)
+			return nil
+		}
+		dplListOptions.LabelSelector = chSelector
 	}
 
 	err := r.Client.List(context.TODO(), dplList, dplListOptions)
@@ -735,7 +754,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 	klog.V(5).Info("Hub Subscription found Deployables:", dplList.Items)
 
 	for _, dpl := range dplList.Items {
-		if !checkDeployableBySubcriptionPackageFilter(sub, dpl) {
+		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {
 			continue
 		}
 
@@ -763,18 +782,48 @@ func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployab
 	return true
 }
 
-func checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
+func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription, dplAnnotations map[string]string) bool {
+	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
+		subscriptionConfigMap := &corev1.ConfigMap{}
+		subcfgkey := types.NamespacedName{
+			Name:      sub.Spec.PackageFilter.FilterRef.Name,
+			Namespace: sub.Namespace,
+		}
+
+		err := r.Get(context.TODO(), subcfgkey, subscriptionConfigMap)
+		if err != nil {
+			klog.Error("Failed to get PackageFilter.FilterRef of subsciption, error: ", err)
+			return true
+		}
+
+		resourcePath := subscriptionConfigMap.Data["path"]
+		if resourcePath != "" {
+			if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
+				return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/")
+			}
+		}
+	}
+
+	return true
+}
+
+func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	if sub.Spec.PackageFilter != nil {
+		dplanno := dpl.GetAnnotations()
+
+		if !r.checkResourcePath(sub, dplanno) {
+			return false
+		}
+
+		if dplanno == nil {
+			dplanno = make(map[string]string)
+		}
+
 		if !checkDplPackageName(sub, dpl) {
 			return false
 		}
 
 		annotations := sub.Spec.PackageFilter.Annotations
-
-		dplanno := dpl.GetAnnotations()
-		if dplanno == nil {
-			dplanno = make(map[string]string)
-		}
 
 		//append deployable template annotations to deployable annotations only if they don't exist in the deployable annotations
 		dpltemplate := &unstructured.Unstructured{}
