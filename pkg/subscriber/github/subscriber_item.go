@@ -809,9 +809,18 @@ func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
 	if branchStr != "" {
 		if !strings.HasPrefix(branchStr, "refs/heads/") {
 			branchStr = "refs/heads/" + annotations[appv1alpha1.AnnotationGithubBranch]
+			branch = plumbing.ReferenceName(branchStr)
 		}
-
-		branch = plumbing.ReferenceName(branchStr)
+	} else {
+		if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+			if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
+				branchStr = ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
+				if !strings.HasPrefix(branchStr, "refs/heads/") {
+					branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
+				}
+				branch = plumbing.ReferenceName(branchStr)
+			}
+		}
 	}
 
 	klog.Info("Subscribing to branch: ", branch)
@@ -839,6 +848,8 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 
 	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
 		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
+	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
 
 	// chartDirs contains helm chart directories
