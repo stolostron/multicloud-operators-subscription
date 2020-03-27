@@ -192,8 +192,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 	resourcePath := ghsi.repoRoot
 
-	if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
+	annotations := ghsi.Subscription.GetAnnotations()
+
+	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
+		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
 	}
 
 	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
@@ -711,7 +713,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	}
 
-	options.ReferenceName = plumbing.ReferenceName("refs/heads/master")
+	options.ReferenceName = ghsi.getGitBranch()
 
 	if ghsi.Channel.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
@@ -801,18 +803,18 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
 	branch := plumbing.Master
 
-	if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-		if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
-			branchStr := ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-			if !strings.HasPrefix(branchStr, "refs/heads/") {
-				branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-			}
+	annotations := ghsi.Subscription.GetAnnotations()
 
-			branch = plumbing.ReferenceName(branchStr)
+	branchStr := annotations[appv1alpha1.AnnotationGithubBranch]
+	if branchStr != "" {
+		if !strings.HasPrefix(branchStr, "refs/heads/") {
+			branchStr = "refs/heads/" + annotations[appv1alpha1.AnnotationGithubBranch]
 		}
+
+		branch = plumbing.ReferenceName(branchStr)
 	}
 
-	klog.V(4).Info("Subscribing to branch: ", branch)
+	klog.Info("Subscribing to branch: ", branch)
 
 	return branch
 }
@@ -833,8 +835,10 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 
 	resourcePath := ghsi.repoRoot
 
-	if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
+	annotations := ghsi.Subscription.GetAnnotations()
+
+	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
+		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
 	}
 
 	// chartDirs contains helm chart directories
