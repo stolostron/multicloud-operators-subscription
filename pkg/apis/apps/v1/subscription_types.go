@@ -44,6 +44,10 @@ var (
 	AnnotationWebhookEventCount = SchemeGroupVersion.Group + "/webhook-event-count"
 	// AnnotationWebhookSecret defines webhook secret
 	AnnotationWebhookSecret = SchemeGroupVersion.Group + "/webhook-secret"
+	// AnnotationGithubPath defines webhook secret
+	AnnotationGithubPath = SchemeGroupVersion.Group + "/github-path"
+	// AnnotationGithubBranch defines webhook secret
+	AnnotationGithubBranch = SchemeGroupVersion.Group + "/github-branch"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 )

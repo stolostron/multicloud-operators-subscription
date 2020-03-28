@@ -562,9 +562,42 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()
-	// Keep webhook event related annotations from the source subscription.
+	// Keep GitHub related annotations from the source subscription.
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
 		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubBranch], "") {
+		subepanno[appv1alpha1.AnnotationGithubBranch] = origsubanno[appv1alpha1.AnnotationGithubBranch]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
+		subepanno[appv1alpha1.AnnotationGithubPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
+	}
+
+	// Add annotation for github path and branch
+	// It is recommended to define Gihub path and branch in subscription annotations but
+	// this code is to support those that already use ConfigMap.
+	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
+		subscriptionConfigMap := &corev1.ConfigMap{}
+		subcfgkey := types.NamespacedName{
+			Name:      sub.Spec.PackageFilter.FilterRef.Name,
+			Namespace: sub.Namespace,
+		}
+
+		err := r.Get(context.TODO(), subcfgkey, subscriptionConfigMap)
+		if err != nil {
+			klog.Error("Failed to get PackageFilter.FilterRef of subsciption, error: ", err)
+		} else {
+			gitPath := subscriptionConfigMap.Data["path"]
+			if gitPath != "" {
+				subepanno[appv1alpha1.AnnotationGithubPath] = gitPath
+			}
+			gitBranch := subscriptionConfigMap.Data["branch"]
+			if gitBranch != "" {
+				subepanno[appv1alpha1.AnnotationGithubBranch] = gitBranch
+			}
+		}
 	}
 
 	if rootSub == nil {
@@ -783,6 +816,8 @@ func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployab
 }
 
 func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription, dplAnnotations map[string]string) bool {
+	resourcePath := ""
+
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
 		subscriptionConfigMap := &corev1.ConfigMap{}
 		subcfgkey := types.NamespacedName{
@@ -796,11 +831,16 @@ func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription,
 			return true
 		}
 
-		resourcePath := subscriptionConfigMap.Data["path"]
-		if resourcePath != "" {
-			if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
-				return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/")
-			}
+		resourcePath = subscriptionConfigMap.Data["path"]
+	} else {
+		annotations := sub.GetAnnotations()
+		resourcePath = annotations[appv1alpha1.AnnotationGithubPath]
+	}
+
+	if resourcePath != "" {
+		if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
+			return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/") ||
+				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath)
 		}
 	}
 
@@ -808,13 +848,13 @@ func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription,
 }
 
 func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
+	dplanno := dpl.GetAnnotations()
+
+	if !r.checkResourcePath(sub, dplanno) {
+		return false
+	}
+
 	if sub.Spec.PackageFilter != nil {
-		dplanno := dpl.GetAnnotations()
-
-		if !r.checkResourcePath(sub, dplanno) {
-			return false
-		}
-
 		if dplanno == nil {
 			dplanno = make(map[string]string)
 		}
