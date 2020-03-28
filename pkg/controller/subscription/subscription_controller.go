@@ -180,9 +180,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if reconcileErr != nil {
 			instance.Status.Phase = appv1alpha1.SubscriptionFailed
 			instance.Status.Reason = reconcileErr.Error()
-			klog.Errorf("doReconcile got error %v", err)
-
-			return reconcile.Result{Requeue: true}, r.Status().Update(context.TODO(), instance)
+			klog.Errorf("doReconcile got error %v", reconcileErr)
+			r.Status().Update(context.TODO(), instance)
+			return reconcile.Result{}, reconcileErr
 		}
 	} else {
 		// no longer local
