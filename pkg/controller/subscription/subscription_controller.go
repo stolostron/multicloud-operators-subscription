@@ -179,7 +179,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			instance.Status.Phase = appv1alpha1.SubscriptionFailed
 			instance.Status.Reason = err.Error()
-			klog.Errorf("doReconcile got error %+v", err)
+			klog.Errorf("doReconcile got error %v", err)
+
+			// we might want to give the subscription time to wait till the reference configmap is available
+			return reconcile.Result{}, err
 		}
 	} else {
 		// no longer local
@@ -249,7 +252,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		}
 
 		if err := r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret); err != nil {
-			return gerr.Wrap(err, "failed to get secret from channel")
+			return gerr.Wrap(err, "failed to get reference secret from channel")
 		}
 	}
 
@@ -261,7 +264,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		}
 
 		if err := r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap); err != nil {
-			return gerr.Wrap(err, "failed to get configmap from channel")
+			return gerr.Wrap(err, "failed to get reference configmap from channel")
 		}
 	}
 
@@ -294,7 +297,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 
 		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
 		if err != nil {
-			klog.Error("Failed to get secret of subsciption, error: ", err)
+			klog.Error("Failed to get reference configMap of subsciption, error: ", err)
 			return err
 		}
 	}
