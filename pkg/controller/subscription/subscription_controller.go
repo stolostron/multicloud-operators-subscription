@@ -177,11 +177,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		reconcileErr = r.doReconcile(instance)
 
 		instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
-		if err != nil {
+		if reconcileErr != nil {
 			instance.Status.Phase = appv1alpha1.SubscriptionFailed
-			instance.Status.Reason = err.Error()
+			instance.Status.Reason = reconcileErr.Error()
 			klog.Errorf("doReconcile got error %v", err)
 
+			return reconcile.Result{Requeue: true}, r.Status().Update(context.TODO(), instance)
 		}
 	} else {
 		// no longer local
@@ -226,10 +227,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		result.RequeueAfter = 1 * time.Second
 
 		return result, err
-	}
-
-	if reconcileErr != nil {
-		return reconcile.Result{}, reconcileErr
 	}
 
 	return reconcile.Result{}, nil
