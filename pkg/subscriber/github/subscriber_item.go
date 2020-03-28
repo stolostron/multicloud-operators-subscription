@@ -196,6 +196,8 @@ func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
 
 	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
 		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
+	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
 
 	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
@@ -811,15 +813,13 @@ func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
 			branchStr = "refs/heads/" + annotations[appv1alpha1.AnnotationGithubBranch]
 			branch = plumbing.ReferenceName(branchStr)
 		}
-	} else {
-		if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-			if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
-				branchStr = ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-				if !strings.HasPrefix(branchStr, "refs/heads/") {
-					branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-				}
-				branch = plumbing.ReferenceName(branchStr)
+	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
+		if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
+			branchStr = ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
+			if !strings.HasPrefix(branchStr, "refs/heads/") {
+				branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
 			}
+			branch = plumbing.ReferenceName(branchStr)
 		}
 	}
 

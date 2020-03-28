@@ -839,7 +839,8 @@ func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription,
 
 	if resourcePath != "" {
 		if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
-			return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/")
+			return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/") ||
+				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath)
 		}
 	}
 

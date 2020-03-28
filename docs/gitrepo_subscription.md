@@ -45,18 +45,15 @@ Use the following example to create a channel that connects to a public IBM GitH
    kubectl apply -f ./examples/github-channel/02-subscription.yaml
    ```
 
-   When you review the `./examples/github-channel/02-subscription.yaml` file, the `spec.packageFilter.filterRef` field references the following ConfigMap:
+   When you review the `./examples/github-channel/02-subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
-   apiVersion: v1
-   kind: ConfigMap
-   metadata:
-   name: ibm-mongodb-dev-cm
-   data:
-       path: stable/ibm-mongodb-dev
+    annotations:
+      apps.open-cluster-management.io/github-path: stable/ibm-mongodb-dev
+      apps.open-cluster-management.io/github-branch: branch1
    ```
 
-   The `data.path` field indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the GitHub repository channel.
+   The annotation `apps.open-cluster-management.io/github-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the GitHub repository channel. The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/github-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
@@ -112,20 +109,19 @@ In the following example, you create a channel that connects to a GitHub reposit
    kubectl apply -f ./examples/github-channel/12-subscription.yaml
    ```
 
-   When you review the `./examples/github-channel/12-subscription.yaml` file, the `spec.packageFilter.filterRef` field references the following ConfigMap:
+   When you review the `./examples/github-channel/12-subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
-   apiVersion: v1
-   kind: ConfigMap
-   metadata:
-     name: resource-filter-configmap
-   data:
-       path: examples/github-channel
+    annotations:
+      apps.open-cluster-management.io/github-path: examples/github-channel
+      apps.open-cluster-management.io/github-branch: branch1
    ```
 
-   The `data.path` field indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory of the GitHub repository channel.
+   The annotation `apps.open-cluster-management.io/github-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/github-channel` directory of the GitHub repository channel.
 
-     In `examples/github-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+   In `examples/github-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+
+   The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/github-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
@@ -184,18 +180,18 @@ If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed Git
 
 ## Subscribing to a specific branch
 
-The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a GitHub repository by default. If you want to subscribe to a different branch, you need to specify the branch name within the ConfigMap that is specified in the subscription `spec.packageFilter.filterRef` field.
+The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a GitHub repository by default. If you want to subscribe to a different branch, you need to specify the branch name annotation in the subscription.
 
-The following example ConfigMap YAML shows how to specify a different branch:
+The following example Subscription YAML shows how to specify a different branch:
 
 ```yaml
-apiVersion: v1
-kind: ConfigMap
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
 metadata:
-name: ibm-mongodb-dev-cm
-data:
-    path: stable/ibm-mongodb-dev
-    branch: mybranch
+  name: github-mongodb-subscription
+  annotations:
+    apps.open-cluster-management.io/github-path: stable/ibm-mongodb-dev
+    apps.open-cluster-management.io/github-branch: branch1
 ```
 
 ## Enabling GitHub WebHook
