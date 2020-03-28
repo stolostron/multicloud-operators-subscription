@@ -171,9 +171,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, nil
 	}
 
+	var reconcileErr error
 	pl := instance.Spec.Placement
 	if pl != nil && pl.Local != nil && *pl.Local {
-		err = r.doReconcile(instance)
+		reconcileErr = r.doReconcile(instance)
 
 		instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
 		if err != nil {
@@ -181,8 +182,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			instance.Status.Reason = err.Error()
 			klog.Errorf("doReconcile got error %v", err)
 
-			// we might want to give the subscription time to wait till the reference configmap is available
-			return reconcile.Result{}, err
 		}
 	} else {
 		// no longer local
@@ -225,9 +224,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
 
 		result.RequeueAfter = 1 * time.Second
+
+		return result, err
 	}
 
-	return result, err
+	if reconcileErr != nil {
+		return reconcile.Result{}, reconcileErr
+	}
+
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
