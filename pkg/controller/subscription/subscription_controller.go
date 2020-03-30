@@ -296,7 +296,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: instance.Namespace,
 		}
 
-		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		err = r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
 		if err != nil {
 			klog.Error("Failed to get reference configMap of subsciption, error: ", err)
 			return err
