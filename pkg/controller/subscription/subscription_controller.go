@@ -173,13 +173,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	pl := instance.Spec.Placement
 	if pl != nil && pl.Local != nil && *pl.Local {
-		err = r.doReconcile(instance)
+		reconcileErr := r.doReconcile(instance)
 
 		instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
-		if err != nil {
+		if reconcileErr != nil {
 			instance.Status.Phase = appv1alpha1.SubscriptionFailed
-			instance.Status.Reason = err.Error()
-			klog.Errorf("doReconcile got error %+v", err)
+			instance.Status.Reason = reconcileErr.Error()
+			klog.Errorf("doReconcile got error %v", reconcileErr)
 		}
 	} else {
 		// no longer local
@@ -201,7 +201,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	instance.Status.LastUpdateTime = metav1.Now()
 
 	// calculate the requeue time for updating the timewindow status
-	var nextStatusUpateAt time.Duration
+	nextStatusUpateAt := time.Duration(0)
 
 	if instance.Spec.TimeWindow == nil {
 		instance.Status.Message = subscriptionActive
@@ -249,7 +249,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		}
 
 		if err := r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret); err != nil {
-			return gerr.Wrap(err, "failed to get secret from channel")
+			return gerr.Wrap(err, "failed to get reference secret from channel")
 		}
 	}
 
@@ -261,7 +261,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		}
 
 		if err := r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap); err != nil {
-			return gerr.Wrap(err, "failed to get configmap from channel")
+			return gerr.Wrap(err, "failed to get reference configmap from channel")
 		}
 	}
 
@@ -271,7 +271,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
 
 		if err := r.ListAndDeployReferredObject(instance, gvk, obj); err != nil {
-			klog.Errorf("Can't deploy referred secret %v for subscription %v due to %v", subitem.ChannelSecret.GetName(), instance.GetName(), err)
+			return gerr.Wrapf(err, "Can't deploy reference secret %v for subscription %v", subitem.ChannelSecret.GetName(), instance.GetName())
 		}
 	}
 
@@ -281,7 +281,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 
 		if err != nil {
-			klog.Errorf("Can't deploy referred configmap %v for subscription %v due to %v", obj.GetName(), instance.GetName(), err)
+			return gerr.Wrapf(err, "can't deploy reference configmap %v for subscription %v", obj.GetName(), instance.GetName())
 		}
 	}
 
@@ -292,10 +292,9 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: instance.Namespace,
 		}
 
-		err = r.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		err = r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
 		if err != nil {
-			klog.Error("Failed to get secret of subsciption, error: ", err)
-			return err
+			return gerr.Wrapf(err, "failed to get reference configMap %v of subsciption %v from hub", subcfgkey.String(), instance.GetName())
 		}
 	}
 
