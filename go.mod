@@ -8,11 +8,11 @@ require (
 	github.com/google/go-cmp v0.3.1
 	github.com/google/go-github/v28 v28.1.1
 	github.com/jstemmer/go-junit-report v0.9.1 // indirect
-	github.com/onsi/gomega v1.7.0
-	github.com/open-cluster-management/multicloud-operators-channel v0.0.0-20200305023025-95e51b541ba1
-	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200305002029-e8093169e4ff
-	github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200304214605-e52bfdcb25bb
-	github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200318154658-3b051e2f6a10
+	github.com/onsi/gomega v1.9.0
+	github.com/open-cluster-management/multicloud-operators-channel v0.0.0-20200326020623-ff347c2da37c
+	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200324042552-efcef6528509
+	github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200324034428-30b1b40184d3
+	github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200320192809-fb88740b808a
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.7.0
