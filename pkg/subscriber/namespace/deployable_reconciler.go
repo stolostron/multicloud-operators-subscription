@@ -235,6 +235,11 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, 
 		return nil, nil, errors.Wrapf(err, "processing local deployable %v", dpl.Name)
 	}
 
+	//if the deployable namespace is not defined, set it to the subscription namespace
+	if template.GetNamespace() == "" {
+		template.SetNamespace(subitem.Subscription.GetNamespace())
+	}
+
 	template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), subitem.Subscription)
 	if err != nil {
 		err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpl.GetName(), err, nil)
