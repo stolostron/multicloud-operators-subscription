@@ -447,7 +447,9 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 	}
 
 	if ghsi.synchronizer.KubeResources[*validgvk].Namespaced {
-		rsc.SetNamespace(ghsi.Subscription.Namespace)
+		if rsc.GetNamespace() == "" {
+			rsc.SetNamespace(ghsi.Subscription.Namespace)
+		}
 	}
 
 	if ghsi.Subscription.Spec.PackageFilter != nil {
