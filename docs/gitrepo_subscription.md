@@ -195,7 +195,7 @@ spec:
 the kustomization overrider YAML as string
 ```
 
-The override either adds new entries or updates existing entries. It does not remove existing entries.
+`packageName: kustomization` is required. The override either adds new entries or updates existing entries. It does not remove existing entries.
 
 ## Subscribing to a specific branch
 
