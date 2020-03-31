@@ -176,7 +176,26 @@ If the `data.path` field is not defined in the ConfigMap that is set for the sub
 
 ## Kustomize
 
-If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed GitHub folder, kustomize will be applied
+If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed GitHub folder, kustomize will be applied.
+
+You can use `spec.packageOverrides` to override `kustomization` at the subscription deployment time. For example,
+
+```yaml
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: example-subscription
+  namespace: default
+spec:
+  channel: some/channel
+  packageOverrides:
+    packageName: kustomization
+    packageOverrides:
+      value: |
+the kustomization overrider YAML as string
+```
+
+The override either adds new entries or updates existing entries. It does not remove existing entries.
 
 ## Subscribing to a specific branch
 
@@ -250,9 +269,5 @@ oc annotate channel.apps.open-cluster-management.io <channel name> apps.open-clu
 No webhook specific configuration is needed in subscriptions.
 
 ## Limitations
-
-* If you are subscribing to Kubernetes resource configuration YAML files, include only one Kubernetes resource definition in each YAML file. If a file includes multiple resource definitions, only the first definition is applied.
-
-* A kubernetes resource YAML file cannot start with `---` line.
 
 * You cannot subscribe to a specific commit of a branch.
