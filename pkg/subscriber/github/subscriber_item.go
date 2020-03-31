@@ -353,22 +353,31 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 	rscFiles []string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
-		file, _ := ioutil.ReadFile(rscFile)
-		t := kubeResource{}
-		err := yaml.Unmarshal(file, &t)
+		file, err := ioutil.ReadFile(rscFile) // #nosec G304
 
 		if err != nil {
-			klog.Error(err, "Failed to unmarshal YAML file")
+			klog.Error(err, "Failed to read YAML file "+rscFile)
+			continue
 		}
 
-		if t.APIVersion == "" || t.Kind == "" {
-			klog.V(4).Info("Not a Kubernetes resource")
-		} else {
-			klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+		resources := utils.ParseKubeResoures(file)
 
-			err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, file, pkgMap)
-			if err != nil {
-				klog.Error("Failed to apply a resource, error: ", err)
+		if len(resources) > 0 {
+			for _, resource := range resources {
+				t := kubeResource{}
+				err := yaml.Unmarshal(resource, &t)
+
+				if err != nil {
+					// Ignore if it does not have apiVersion or kind fields in the YAML
+					continue
+				}
+
+				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+
+				err = ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resource, pkgMap)
+				if err != nil {
+					klog.Error("Failed to apply a resource, error: ", err)
+				}
 			}
 		}
 	}
@@ -933,7 +942,7 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 					!strings.HasPrefix(path, repoRoot+"/.git") &&
 					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
 					// Do not process kubernetes YAML files under helm chart or kustomization directory
-					err = ghsi.sortKubeResources(path)
+					err = ghsi.sortKubeResource(path)
 					if err != nil {
 						return err
 					}
@@ -950,33 +959,46 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 	return nil
 }
 
-func (ghsi *SubscriberItem) sortKubeResources(path string) error {
+func (ghsi *SubscriberItem) sortKubeResource(path string) error {
 	if strings.EqualFold(filepath.Ext(path), ".yml") || strings.EqualFold(filepath.Ext(path), ".yaml") {
 		klog.V(4).Info("Reading file: ", path)
 
-		file, _ := ioutil.ReadFile(path)
-		t := kubeResource{}
-		err := yaml.Unmarshal(file, &t)
+		file, err := ioutil.ReadFile(path) // #nosec G304
 
 		if err != nil {
-			fmt.Println("Failed to unmarshal YAML file")
+			klog.Error(err, "Failed to read YAML file "+path)
 			return err
 		}
 
-		if t.APIVersion != "" && t.Kind != "" {
-			if strings.EqualFold(t.Kind, "customresourcedefinition") {
-				ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
-			} else if strings.EqualFold(t.Kind, "namespace") {
-				ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
-			} else if strings.EqualFold(t.Kind, "serviceaccount") {
-				ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-			} else if strings.EqualFold(t.Kind, "clusterrole") {
-				ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-			} else if strings.EqualFold(t.Kind, "role") {
-				ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-			} else {
-				ghsi.otherFiles = append(ghsi.otherFiles, path)
+		resources := utils.ParseKubeResoures(file)
+
+		if len(resources) == 1 {
+			t := kubeResource{}
+			err := yaml.Unmarshal(resources[0], &t)
+
+			if err != nil {
+				fmt.Println("Failed to unmarshal YAML file")
+				// Just ignore the YAML
+				return nil
 			}
+
+			if t.APIVersion != "" && t.Kind != "" {
+				if strings.EqualFold(t.Kind, "customresourcedefinition") {
+					ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
+				} else if strings.EqualFold(t.Kind, "namespace") {
+					ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
+				} else if strings.EqualFold(t.Kind, "serviceaccount") {
+					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
+				} else if strings.EqualFold(t.Kind, "clusterrole") {
+					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
+				} else if strings.EqualFold(t.Kind, "role") {
+					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
+				} else {
+					ghsi.otherFiles = append(ghsi.otherFiles, path)
+				}
+			}
+		} else if len(resources) > 1 {
+			ghsi.otherFiles = append(ghsi.otherFiles, path)
 		}
 	}
 
