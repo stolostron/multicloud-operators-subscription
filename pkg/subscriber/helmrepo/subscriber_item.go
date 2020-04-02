@@ -605,7 +605,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		if helmRelease.Spec == nil {
 			spec := make(map[string]interface{})
 
-			err := yaml.Unmarshal([]byte(""), &spec)
+			err := yaml.Unmarshal([]byte("{\"\":\"\"}"), &spec)
 			if err != nil {
 				klog.Error("Failed to create an empty spec for helm release", helmRelease)
 				return err
