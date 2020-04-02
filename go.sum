@@ -728,8 +728,8 @@ github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-202003
 github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200324042552-efcef6528509/go.mod h1:/0I34yLjkM8kweCY5hjklhYuRDKAch7tEI5ZTErHATQ=
 github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200324034428-30b1b40184d3 h1:WxnSEiWbg+YdhiZcahWM++mZrsXbpf3hwKqDXpimUu4=
 github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200324034428-30b1b40184d3/go.mod h1:mgU+3nfxS4FgPcywx9VpQiQosWY+o0XXHhBJiT3fr2o=
-github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200331181405-d22d103aa060 h1:ttWZZc5IsNG3cpPAbqmiJMypImlmL3wwLQsjECjKex8=
-github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200331181405-d22d103aa060/go.mod h1:Ua+3zLexDHkWbuLYunzU/1rnWyQLrp8lrTSMUCcHkTw=
+github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200402132802-8a99b4e94930 h1:LS72Y97S9SZBY86I69YTNSTAIDIJH8yshpF1swT5dTw=
+github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200402132802-8a99b4e94930/go.mod h1:Ua+3zLexDHkWbuLYunzU/1rnWyQLrp8lrTSMUCcHkTw=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
