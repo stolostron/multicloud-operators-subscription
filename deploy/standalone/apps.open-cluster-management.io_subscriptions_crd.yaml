@@ -315,7 +315,6 @@ spec:
               description: For endpoint, it is the status of subscription, key is
                 packagename, For hub, it aggregates all status, key is cluster name
           type: object
-      type: object
   version: v1
   versions:
   - name: v1
