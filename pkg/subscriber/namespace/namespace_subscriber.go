@@ -87,7 +87,7 @@ var (
 
 const (
 	deployablesyncsource = "subnsdpl-"
-	secretsyncsource     = "subnssec-"
+	secretsyncsource     = "subnssec-" // #nosec G101
 )
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
