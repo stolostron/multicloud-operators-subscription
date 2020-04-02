@@ -16,6 +16,7 @@ package utils
 
 import (
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -45,6 +46,7 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 
 	var crddata []byte
 
+	pathname = filepath.Clean(pathname)
 	crddata, err = ioutil.ReadFile(pathname)
 
 	if err != nil {

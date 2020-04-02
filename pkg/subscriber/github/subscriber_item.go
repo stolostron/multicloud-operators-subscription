@@ -315,6 +315,7 @@ func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, k
 func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
 	var master map[string]interface{}
 
+	kustomizeYamlFilePath = filepath.Clean(kustomizeYamlFilePath)
 	bs, err := ioutil.ReadFile(kustomizeYamlFilePath)
 
 	if err != nil {
@@ -353,7 +354,8 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 	rscFiles []string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
-		file, err := ioutil.ReadFile(rscFile) // #nosec G304
+		rscFile = filepath.Clean(rscFile)
+		file, err := ioutil.ReadFile(rscFile)
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)
@@ -962,8 +964,9 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 func (ghsi *SubscriberItem) sortKubeResource(path string) error {
 	if strings.EqualFold(filepath.Ext(path), ".yml") || strings.EqualFold(filepath.Ext(path), ".yaml") {
 		klog.V(4).Info("Reading file: ", path)
+		path = filepath.Clean(path)
 
-		file, err := ioutil.ReadFile(path) // #nosec G304
+		file, err := ioutil.ReadFile(path)
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+path)

@@ -16,7 +16,7 @@ package helmrepo
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -259,7 +259,7 @@ func loadIndex(data []byte) (*repo.IndexFile, error) {
 
 //hashKey Calculate a hash key
 func hashKey(b []byte) string {
-	h := sha1.New()
+	h := sha1.New() // #nosec G505 Used only to generate random value to be used to generate hash string
 	_, err := h.Write(b)
 
 	if err != nil {
