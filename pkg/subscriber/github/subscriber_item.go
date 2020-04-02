@@ -354,8 +354,7 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 	rscFiles []string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
-		rscFile = filepath.Clean(rscFile)
-		file, err := ioutil.ReadFile(rscFile)
+		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)
@@ -964,9 +963,8 @@ func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) 
 func (ghsi *SubscriberItem) sortKubeResource(path string) error {
 	if strings.EqualFold(filepath.Ext(path), ".yml") || strings.EqualFold(filepath.Ext(path), ".yaml") {
 		klog.V(4).Info("Reading file: ", path)
-		path = filepath.Clean(path)
 
-		file, err := ioutil.ReadFile(path)
+		file, err := ioutil.ReadFile(path) // #nosec G304 path is not user input
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+path)
