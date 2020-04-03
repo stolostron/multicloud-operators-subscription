@@ -16,7 +16,6 @@ package utils
 
 import (
 	"io/ioutil"
-	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -46,8 +45,7 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 
 	var crddata []byte
 
-	pathname = filepath.Clean(pathname)
-	crddata, err = ioutil.ReadFile(pathname)
+	crddata, err = ioutil.ReadFile(pathname) // #nosec G304 pathname is not user supplied. Used only by unit-test.
 
 	if err != nil {
 		klog.Fatal("Loading app crd file", err.Error())

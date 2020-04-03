@@ -385,7 +385,7 @@ func LabelsChecker(labelSelector *metav1.LabelSelector, ls map[string]string) bo
 // GetReleaseName alters the given name in a deterministic way if the length exceed the maximum character
 func GetReleaseName(base string) (string, error) {
 	if len(base) > maxNameLength {
-		h := sha1.New() // #nosec G505 Used only to generate random value to be used to generate hash string
+		h := sha1.New() // #nosec G401 Used only to generate random value to be used to generate hash string
 		_, err := h.Write([]byte(base))
 
 		if err != nil {
