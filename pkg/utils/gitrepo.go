@@ -47,7 +47,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 
 		if t.APIVersion == "" || t.Kind == "" {
 			// Ignore item that does not have apiVersion or kind.
-			klog.Warning("Not a Kubernetes resource")
+			klog.Warning(t.APIVersion, "Not a Kubernetes resource", t.Kind )
 		} else {
 			ret = append(ret, item)
 		}
