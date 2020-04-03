@@ -315,8 +315,7 @@ func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, k
 func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
 	var master map[string]interface{}
 
-	kustomizeYamlFilePath = filepath.Clean(kustomizeYamlFilePath)
-	bs, err := ioutil.ReadFile(kustomizeYamlFilePath)
+	bs, err := ioutil.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
 
 	if err != nil {
 		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
