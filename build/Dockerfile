@@ -1,8 +1,15 @@
 FROM registry.access.redhat.com/ubi8/ubi-minimal:8.1-398
 
+RUN  microdnf update -y \ 
+        && rpm -e --nodeps tzdata \
+        && microdnf install tzdata \
+        &&  microdnf clean all
+
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     USER_UID=1001 \
-    USER_NAME=multicluster-operators-subscription
+    USER_NAME=multicluster-operators-subscription \
+    ZONEINFO=/usr/share/timezone
+
 
 # install operator binary
 COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
