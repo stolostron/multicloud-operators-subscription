@@ -42,14 +42,17 @@ import (
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
+
 	targetSub, updateSub, err := r.updateSubscriptionToTarget(sub)
 	if err != nil {
 		return err
 	}
 
-	updateSubDplAnno := r.UpdateDeployablesAnnotation(sub)
+	updateSubDplAnno := r.UpdateGitDeployablesAnnotation(sub)
 
-	klog.V(1).Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
+	//updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+
+	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
 
 	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)
 	if err != nil {
@@ -410,6 +413,25 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	}
 
 	return chNameSpace, chName, chType
+}
+
+func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, error) {
+	chNameSpace := ""
+	chName := ""
+
+	if s.Spec.Channel != "" {
+		strs := strings.Split(s.Spec.Channel, "/")
+		if len(strs) == 2 {
+			chNameSpace = strs[0]
+			chName = strs[1]
+		}
+	}
+
+	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
+	chobj := &chnv1alpha1.Channel{}
+	err := r.Get(context.TODO(), chkey, chobj)
+
+	return chobj, err
 }
 
 // GetChannelGeneration get the channel generation

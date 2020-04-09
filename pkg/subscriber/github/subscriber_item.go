@@ -28,9 +28,7 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
-	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
-	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -717,7 +715,17 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 }
 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
-	options := &git.CloneOptions{
+
+	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.LocalClient, ghsi.Channel)
+
+	if err != nil {
+		klog.Error(err, "Failed to get channel secret. Keep trying with secret.")
+	}
+
+	localRepoDir := utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
+
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, localRepoDir)
+	/*options := &git.CloneOptions{
 		URL:               ghsi.Channel.Spec.Pathname,
 		Depth:             1,
 		SingleBranch:      true,
@@ -808,7 +816,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		return "", err
 	}
 
-	return commit.ID().String(), nil
+	return commit.ID().String(), nil*/
 }
 
 func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
@@ -818,10 +826,7 @@ func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
 
 	branchStr := annotations[appv1alpha1.AnnotationGithubBranch]
 	if branchStr != "" {
-		if !strings.HasPrefix(branchStr, "refs/heads/") {
-			branchStr = "refs/heads/" + annotations[appv1alpha1.AnnotationGithubBranch]
-			branch = plumbing.ReferenceName(branchStr)
-		}
+		branch = utils.GetSubscriptionBranch(ghsi.Subscription)
 	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
 		if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
 			branchStr = ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]

@@ -48,6 +48,8 @@ var (
 	AnnotationGithubPath = SchemeGroupVersion.Group + "/github-path"
 	// AnnotationGithubBranch defines webhook secret
 	AnnotationGithubBranch = SchemeGroupVersion.Group + "/github-branch"
+	// AnnotationGithubCommit defines Git repo commit ID
+	AnnotationGithubCommit = SchemeGroupVersion.Group + "/github-commit"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 )
