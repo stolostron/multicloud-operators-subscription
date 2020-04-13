@@ -245,7 +245,7 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 func loadIndex(data []byte) (*repo.IndexFile, error) {
 	i := &repo.IndexFile{}
 	if err := yaml.Unmarshal(data, i); err != nil {
-		klog.Error(err, "Unmarshal failed. Data: ", string(data))
+		klog.Error(err, "Unmarshal failed. Data: ", data)
 		return i, err
 	}
 
