@@ -40,17 +40,17 @@ import (
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
-	releasev1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
-	appv1alpha1.SubscriberItem
+	appv1.SubscriberItem
 
 	hash         string
 	stopch       chan struct{}
@@ -190,8 +190,8 @@ func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
 
 //getHelmRepoIndex retreives the index.yaml, loads it into a repo.IndexFile and filters it
 func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
-	cleanRepoURL := strings.TrimSuffix(repoURL, "/")
-	req, err := http.NewRequest(http.MethodGet, cleanRepoURL+"/index.yaml", nil)
+	cleanRepoURL := strings.TrimSuffix(repoURL, "/") + "/index.yaml"
+	req, err := http.NewRequest(http.MethodGet, cleanRepoURL, nil)
 
 	if err != nil {
 		klog.Error(err, "Can not build request: ", cleanRepoURL)
@@ -245,6 +245,7 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 func loadIndex(data []byte) (*repo.IndexFile, error) {
 	i := &repo.IndexFile{}
 	if err := yaml.Unmarshal(data, i); err != nil {
+		klog.Error(err, "Unmarshal failed. Data: ", string(data))
 		return i, err
 	}
 
@@ -453,17 +454,17 @@ func takeLatestVersion(indexFile *repo.IndexFile) (err error) {
 	return nil
 }
 
-func (hrsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrides {
-	dploverrides := dplv1alpha1.Overrides{}
+func (hrsi *SubscriberItem) getOverrides(packageName string) dplv1.Overrides {
+	dploverrides := dplv1.Overrides{}
 
 	for _, overrides := range hrsi.Subscription.Spec.PackageOverrides {
 		if overrides.PackageName == packageName {
 			klog.Infof("Overrides for package %s found", packageName)
 			dploverrides.ClusterName = packageName
-			dploverrides.ClusterOverrides = make([]dplv1alpha1.ClusterOverride, 0)
+			dploverrides.ClusterOverrides = make([]dplv1.ClusterOverride, 0)
 
 			for _, override := range overrides.PackageOverrides {
-				clusterOverride := dplv1alpha1.ClusterOverride{
+				clusterOverride := dplv1.ClusterOverride{
 					RawExtension: runtime.RawExtension{
 						Raw: override.RawExtension.Raw,
 					},
@@ -518,7 +519,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			return err
 		}
 
-		helmRelease := &releasev1alpha1.HelmRelease{}
+		helmRelease := &releasev1.HelmRelease{}
 		//Create a new helrmReleases
 		//Try to retrieve the releases to check if we have to reuse the releaseName or calculate one.
 
@@ -536,6 +537,9 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 				chartVersions[0].URLs[i] = strings.Replace(chartVersions[0].URLs[i], "local://", repoURL, -1)
 			}
 		}
+
+		isCreate := false
+
 		//Check if Update or Create
 		err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
 			types.NamespacedName{Name: releaseCRName, Namespace: hrsi.Subscription.Namespace}, helmRelease)
@@ -544,7 +548,9 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			if errors.IsNotFound(err) {
 				klog.V(2).Infof("Create helmRelease %s", releaseCRName)
 
-				helmRelease = &releasev1alpha1.HelmRelease{
+				isCreate = true
+
+				helmRelease = &releasev1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "apps.open-cluster-management.io/v1",
 						Kind:       "HelmRelease",
@@ -559,10 +565,10 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 							UID:        hrsi.Subscription.UID,
 						}},
 					},
-					Repo: releasev1alpha1.HelmReleaseRepo{
-						Source: &releasev1alpha1.Source{
-							SourceType: releasev1alpha1.HelmRepoSourceType,
-							HelmRepo: &releasev1alpha1.HelmRepo{
+					Repo: releasev1.HelmReleaseRepo{
+						Source: &releasev1.Source{
+							SourceType: releasev1.HelmRepoSourceType,
+							HelmRepo: &releasev1.HelmRepo{
 								Urls: chartVersions[0].URLs,
 							},
 						},
@@ -581,10 +587,10 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			helmRelease.APIVersion = "apps.open-cluster-management.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
-			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
-				Source: &releasev1alpha1.Source{
-					SourceType: releasev1alpha1.HelmRepoSourceType,
-					HelmRepo: &releasev1alpha1.HelmRepo{
+			helmRelease.Repo = releasev1.HelmReleaseRepo{
+				Source: &releasev1.Source{
+					SourceType: releasev1.HelmRepoSourceType,
+					HelmRepo: &releasev1.HelmRepo{
 						Urls: chartVersions[0].URLs,
 					},
 				},
@@ -614,13 +620,32 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			helmRelease.Spec = spec
 		}
 
-		dpl := &dplv1alpha1.Deployable{}
+		dpl := &dplv1.Deployable{}
 		if hrsi.Channel == nil {
 			dpl.Name = hrsi.Subscription.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
 			dpl.Namespace = hrsi.Subscription.Namespace
 		} else {
 			dpl.Name = hrsi.Channel.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
 			dpl.Namespace = hrsi.Channel.Namespace
+		}
+
+		if !isCreate {
+			existingHelmRelease := &releasev1.HelmRelease{}
+
+			err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
+				types.NamespacedName{Name: releaseCRName, Namespace: hrsi.Subscription.Namespace}, existingHelmRelease)
+			if err == nil && compareHelmRelease(existingHelmRelease, helmRelease) {
+				klog.V(2).Infof("Skipping deployable for %s", helmRelease.Name)
+
+				dplkey := types.NamespacedName{
+					Name:      dpl.Name,
+					Namespace: dpl.Namespace,
+				}
+
+				pkgMap[dplkey.Name] = true
+
+				continue
+			}
 		}
 
 		dpl.Spec.Template = &runtime.RawExtension{}
@@ -632,7 +657,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		}
 
 		dplanno := make(map[string]string)
-		dplanno[dplv1alpha1.AnnotationLocal] = "true"
+		dplanno[dplv1.AnnotationLocal] = "true"
 		dpl.SetAnnotations(dplanno)
 
 		err = hrsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
@@ -668,7 +693,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	return err
 }
 
-func (hrsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {
+func (hrsi *SubscriberItem) override(helmRelease *releasev1.HelmRelease) error {
 	//Overrides with the values provided in the subscription for that package
 	overrides := hrsi.getOverrides(helmRelease.Repo.ChartName)
 	data, err := yaml.Marshal(helmRelease)
@@ -707,4 +732,33 @@ func (hrsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) e
 	}
 
 	return nil
+}
+
+func compareHelmRelease(existingHr *releasev1.HelmRelease, newHr *releasev1.HelmRelease) bool {
+	existingHrRepo := existingHr.Repo
+	newHrRepo := newHr.Repo
+
+	existingHrSpec, err := json.Marshal(existingHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", existingHr, " err:", err)
+		return false
+	}
+
+	existingHrSpecString := string(existingHrSpec)
+
+	newHrSpec, err := json.Marshal(newHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", newHrSpec, " err:", err)
+		return false
+	}
+
+	newHrSpecString := string(newHrSpec)
+
+	return existingHrSpecString == newHrSpecString &&
+		existingHrRepo.Source.SourceType == newHrRepo.Source.SourceType &&
+		existingHrRepo.Source.HelmRepo.Urls[0] == newHrRepo.Source.HelmRepo.Urls[0] &&
+		existingHrRepo.ConfigMapRef == newHrRepo.ConfigMapRef &&
+		existingHrRepo.SecretRef == newHrRepo.SecretRef &&
+		existingHrRepo.ChartName == newHrRepo.ChartName &&
+		existingHrRepo.Version == newHrRepo.Version
 }
