@@ -39,10 +39,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
-	releasev1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -58,7 +58,7 @@ const (
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
-	appv1alpha1.SubscriberItem
+	appv1.SubscriberItem
 
 	stopch                chan struct{}
 	syncinterval          int
@@ -317,7 +317,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 	return nil
 }
 
-func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
+func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
 	rsc := &unstructured.Unstructured{}
 	err := yaml.Unmarshal(file, &rsc)
 
@@ -325,7 +325,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		klog.Error(err, "Failed to unmarshal Kubernetes resource")
 	}
 
-	dpl := &dplv1alpha1.Deployable{}
+	dpl := &dplv1.Deployable{}
 	if ghsi.Channel == nil {
 		dpl.Name = ghsi.Subscription.Name + "-" + rsc.GetKind() + "-" + rsc.GetName()
 		dpl.Namespace = ghsi.Subscription.Namespace
@@ -393,7 +393,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		annotations = make(map[string]string)
 	}
 
-	annotations[dplv1alpha1.AnnotationLocal] = "true"
+	annotations[dplv1.AnnotationLocal] = "true"
 	dpl.SetAnnotations(annotations)
 
 	return dpl, validgvk, nil
@@ -474,16 +474,20 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			return err
 		}
 
-		helmRelease := &releasev1alpha1.HelmRelease{}
+		helmRelease := &releasev1.HelmRelease{}
 		err = ghsi.synchronizer.LocalClient.Get(context.TODO(),
 			types.NamespacedName{Name: releaseCRName, Namespace: ghsi.Subscription.Namespace}, helmRelease)
+
+		isCreate := false
 
 		//Check if Update or Create
 		if err != nil {
 			if kerrors.IsNotFound(err) {
 				klog.V(4).Infof("Create helmRelease %s", releaseCRName)
 
-				helmRelease = &releasev1alpha1.HelmRelease{
+				isCreate = true
+
+				helmRelease = &releasev1.HelmRelease{
 					TypeMeta: metav1.TypeMeta{
 						APIVersion: "apps.open-cluster-management.io/v1",
 						Kind:       "HelmRelease",
@@ -498,10 +502,10 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 							UID:        ghsi.Subscription.UID,
 						}},
 					},
-					Repo: releasev1alpha1.HelmReleaseRepo{
-						Source: &releasev1alpha1.Source{
-							SourceType: releasev1alpha1.GitHubSourceType,
-							GitHub: &releasev1alpha1.GitHub{
+					Repo: releasev1.HelmReleaseRepo{
+						Source: &releasev1.Source{
+							SourceType: releasev1.GitHubSourceType,
+							GitHub: &releasev1.GitHub{
 								Urls:      []string{ghsi.Channel.Spec.Pathname},
 								ChartPath: chartVersions[0].URLs[0],
 								Branch:    utils.GetSubscriptionBranch(ghsi.Subscription).Short(),
@@ -522,10 +526,10 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			helmRelease.APIVersion = "apps.open-cluster-management.io/v1"
 			helmRelease.Kind = "HelmRelease"
 			klog.V(4).Infof("Update helmRelease repo %s", helmRelease.Name)
-			helmRelease.Repo = releasev1alpha1.HelmReleaseRepo{
-				Source: &releasev1alpha1.Source{
-					SourceType: releasev1alpha1.GitHubSourceType,
-					GitHub: &releasev1alpha1.GitHub{
+			helmRelease.Repo = releasev1.HelmReleaseRepo{
+				Source: &releasev1.Source{
+					SourceType: releasev1.GitHubSourceType,
+					GitHub: &releasev1.GitHub{
 						Urls:      []string{ghsi.Channel.Spec.Pathname},
 						ChartPath: chartVersions[0].URLs[0],
 						Branch:    utils.GetSubscriptionBranch(ghsi.Subscription).Short(),
@@ -557,13 +561,32 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			helmRelease.Spec = spec
 		}
 
-		dpl := &dplv1alpha1.Deployable{}
+		dpl := &dplv1.Deployable{}
 		if ghsi.Channel == nil {
 			dpl.Name = ghsi.Subscription.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
 			dpl.Namespace = ghsi.Subscription.Namespace
 		} else {
 			dpl.Name = ghsi.Channel.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
 			dpl.Namespace = ghsi.Channel.Namespace
+		}
+
+		if !isCreate {
+			existingHelmRelease := &releasev1.HelmRelease{}
+
+			err = ghsi.synchronizer.LocalClient.Get(context.TODO(),
+				types.NamespacedName{Name: releaseCRName, Namespace: ghsi.Subscription.Namespace}, existingHelmRelease)
+			if err == nil && compareHelmRelease(existingHelmRelease, helmRelease) {
+				klog.V(2).Infof("Skipping deployable for %s", helmRelease.Name)
+
+				dplkey := types.NamespacedName{
+					Name:      dpl.Name,
+					Namespace: dpl.Namespace,
+				}
+
+				pkgMap[dplkey.Name] = true
+
+				continue
+			}
 		}
 
 		dpl.Spec.Template = &runtime.RawExtension{}
@@ -575,7 +598,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		}
 
 		dplanno := make(map[string]string)
-		dplanno[dplv1alpha1.AnnotationLocal] = "true"
+		dplanno[dplv1.AnnotationLocal] = "true"
 		dpl.SetAnnotations(dplanno)
 
 		err = ghsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
@@ -641,8 +664,8 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 
 	annotations := ghsi.Subscription.GetAnnotations()
 
-	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
-		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
+	if annotations[appv1.AnnotationGithubPath] != "" {
+		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1.AnnotationGithubPath])
 	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
 		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}
@@ -680,17 +703,17 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 	return nil
 }
 
-func (ghsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrides {
-	dploverrides := dplv1alpha1.Overrides{}
+func (ghsi *SubscriberItem) getOverrides(packageName string) dplv1.Overrides {
+	dploverrides := dplv1.Overrides{}
 
 	for _, overrides := range ghsi.Subscription.Spec.PackageOverrides {
 		if overrides.PackageName == packageName {
 			klog.Infof("Overrides for package %s found", packageName)
 			dploverrides.ClusterName = packageName
-			dploverrides.ClusterOverrides = make([]dplv1alpha1.ClusterOverride, 0)
+			dploverrides.ClusterOverrides = make([]dplv1.ClusterOverride, 0)
 
 			for _, override := range overrides.PackageOverrides {
-				clusterOverride := dplv1alpha1.ClusterOverride{
+				clusterOverride := dplv1.ClusterOverride{
 					RawExtension: runtime.RawExtension{
 						Raw: override.RawExtension.Raw,
 					},
@@ -705,7 +728,7 @@ func (ghsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrid
 	return dploverrides
 }
 
-func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {
+func (ghsi *SubscriberItem) override(helmRelease *releasev1.HelmRelease) error {
 	//Overrides with the values provided in the subscription for that package
 	overrides := ghsi.getOverrides(helmRelease.Repo.ChartName)
 	data, err := yaml.Marshal(helmRelease)
@@ -744,4 +767,33 @@ func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) e
 	}
 
 	return nil
+}
+
+func compareHelmRelease(existingHr *releasev1.HelmRelease, newHr *releasev1.HelmRelease) bool {
+	existingHrRepo := existingHr.Repo
+	newHrRepo := newHr.Repo
+
+	existingHrSpec, err := json.Marshal(existingHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", existingHr, " err:", err)
+		return false
+	}
+
+	existingHrSpecString := string(existingHrSpec)
+
+	newHrSpec, err := json.Marshal(newHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", newHrSpec, " err:", err)
+		return false
+	}
+
+	newHrSpecString := string(newHrSpec)
+
+	return existingHrSpecString == newHrSpecString &&
+		existingHrRepo.Source.SourceType == newHrRepo.Source.SourceType &&
+		existingHrRepo.Source.HelmRepo.Urls[0] == newHrRepo.Source.HelmRepo.Urls[0] &&
+		existingHrRepo.ConfigMapRef == newHrRepo.ConfigMapRef &&
+		existingHrRepo.SecretRef == newHrRepo.SecretRef &&
+		existingHrRepo.ChartName == newHrRepo.ChartName &&
+		existingHrRepo.Version == newHrRepo.Version
 }
