@@ -619,6 +619,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			Name:      dpl.Name,
 			Namespace: dpl.Namespace,
 		}
+
 		pkgMap[dplkey.Name] = true
 	}
 
@@ -767,6 +768,35 @@ func (ghsi *SubscriberItem) override(helmRelease *releasev1.HelmRelease) error {
 	}
 
 	return nil
+}
+
+func compareHelmRelease(existingHr *releasev1.HelmRelease, newHr *releasev1.HelmRelease) bool {
+	existingHrRepo := existingHr.Repo
+	newHrRepo := newHr.Repo
+
+	existingHrSpec, err := json.Marshal(existingHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", existingHr, " err:", err)
+		return false
+	}
+
+	existingHrSpecString := string(existingHrSpec)
+
+	newHrSpec, err := json.Marshal(newHr.Spec)
+	if err != nil {
+		klog.Error("Failed to marshal ", newHrSpec, " err:", err)
+		return false
+	}
+
+	newHrSpecString := string(newHrSpec)
+
+	return existingHrSpecString == newHrSpecString &&
+		existingHrRepo.Source.SourceType == newHrRepo.Source.SourceType &&
+		existingHrRepo.Source.HelmRepo.Urls[0] == newHrRepo.Source.HelmRepo.Urls[0] &&
+		existingHrRepo.ConfigMapRef == newHrRepo.ConfigMapRef &&
+		existingHrRepo.SecretRef == newHrRepo.SecretRef &&
+		existingHrRepo.ChartName == newHrRepo.ChartName &&
+		existingHrRepo.Version == newHrRepo.Version
 }
 
 func compareHelmRelease(existingHr *releasev1.HelmRelease, newHr *releasev1.HelmRelease) bool {
