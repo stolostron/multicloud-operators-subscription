@@ -35,6 +35,7 @@ import (
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const rsc1 = `apiVersion: v1
@@ -607,15 +608,15 @@ data:
 	subitem.Channel = githubchn
 	subitem.SubscriberItem.SubscriptionConfigMap = pathConfigMap
 
-	branch := subitem.getGitBranch()
+	branch := utils.GetSubscriptionBranch(githubsub)
 	g.Expect(branch).To(gomega.Equal(plumbing.Master))
 	g.Expect(branch.Short()).To(gomega.Equal("master"))
 
 	pathConfigMap.Data["branch"] = "notmaster"
-	err = c.Update(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	branch = subitem.getGitBranch()
+	subanno := make(map[string]string)
+	subanno[appv1alpha1.AnnotationGithubBranch] = "notmaster"
+	githubsub.SetAnnotations(subanno)
+	branch = utils.GetSubscriptionBranch(githubsub)
 	g.Expect(branch).To(gomega.Equal(plumbing.ReferenceName("refs/heads/notmaster")))
 	g.Expect(branch.Short()).To(gomega.Equal("notmaster"))
 
@@ -685,7 +686,7 @@ spec:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	pov := ov.PackageOverrides[0]
-	err = subitem.overrideKustomize(pov, kustomizeDir)
+	err = utils.OverrideKustomize(pov, kustomizeDir)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = copy(backup, orig)

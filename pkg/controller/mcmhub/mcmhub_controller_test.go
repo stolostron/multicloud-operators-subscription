@@ -137,6 +137,11 @@ func TestDoMCMReconcile(t *testing.T) {
 
 	rec := newReconciler(mgr).(*ReconcileSubscription)
 
+	chn := channel.DeepCopy()
+	chn.Spec.SecretRef = nil
+	chn.Spec.ConfigMapRef = nil
+	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), instance)

@@ -47,9 +47,22 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	updateSubDplAnno := r.UpdateDeployablesAnnotation(sub)
+	channel, err := r.getChannel(sub)
 
-	klog.V(1).Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
+	if err != nil {
+		klog.Errorf("Failed to find a channel for subscription: %s", sub.GetName())
+		return err
+	}
+
+	updateSubDplAnno := false
+
+	if strings.EqualFold(string(channel.Spec.Type), chnv1alpha1.ChannelTypeGitHub) {
+		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
+	} else {
+		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+	}
+
+	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
 
 	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)
 	if err != nil {
@@ -412,6 +425,25 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	return chNameSpace, chName, chType
 }
 
+func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, error) {
+	chNameSpace := ""
+	chName := ""
+
+	if s.Spec.Channel != "" {
+		strs := strings.Split(s.Spec.Channel, "/")
+		if len(strs) == 2 {
+			chNameSpace = strs[0]
+			chName = strs[1]
+		}
+	}
+
+	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
+	chobj := &chnv1alpha1.Channel{}
+	err := r.Get(context.TODO(), chkey, chobj)
+
+	return chobj, err
+}
+
 // GetChannelGeneration get the channel generation
 func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription) (string, error) {
 	chNameSpace := ""
@@ -747,7 +779,14 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 
 	chNameSpace, chName, chType := r.GetChannelNamespaceType(sub)
 
-	dplListOptions := &client.ListOptions{Namespace: chNameSpace}
+	dplNamespace := chNameSpace
+
+	if strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
+		// If GitHub channel, deployables are created in the subscription namespace
+		dplNamespace = sub.Namespace
+	}
+
+	dplListOptions := &client.ListOptions{Namespace: dplNamespace}
 
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
 		matchLbls := sub.Spec.PackageFilter.LabelSelector.MatchLabels
@@ -763,17 +802,30 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		dplListOptions.LabelSelector = clSelector
 	} else {
 		// Handle deployables from multiple channels in the same namespace
-		chLabel := make(map[string]string)
-		chLabel[chnv1alpha1.KeyChannel] = chName
-		chLabel[chnv1alpha1.KeyChannelType] = chType
+		subLabel := make(map[string]string)
+		subLabel[chnv1alpha1.KeyChannel] = chName
+		subLabel[chnv1alpha1.KeyChannelType] = chType
+
+		if strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
+			subscriptionNameLabel := types.NamespacedName{
+				Name:      sub.Name,
+				Namespace: sub.Namespace,
+			}
+			subscriptionNameLabelStr := strings.ReplaceAll(subscriptionNameLabel.String(), "/", "-")
+
+			subLabel[appv1alpha1.LabelSubscriptionName] = subscriptionNameLabelStr
+		}
+
 		labelSelector := &metav1.LabelSelector{
-			MatchLabels: chLabel,
+			MatchLabels: subLabel,
 		}
 		chSelector, err := dplutils.ConvertLabels(labelSelector)
+
 		if err != nil {
 			klog.Error("Failed to set label selector. err: ", chSelector, " err: ", err)
 			return nil
 		}
+
 		dplListOptions.LabelSelector = chSelector
 	}
 
@@ -784,7 +836,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		return nil
 	}
 
-	klog.V(5).Info("Hub Subscription found Deployables:", dplList.Items)
+	klog.Info("Hub Subscription found Deployables:", dplList.Items)
 
 	for _, dpl := range dplList.Items {
 		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {
@@ -840,7 +892,8 @@ func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription,
 	if resourcePath != "" {
 		if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
 			return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/") ||
-				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath)
+				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath) ||
+				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource]+"/", resourcePath)
 		}
 	}
 
