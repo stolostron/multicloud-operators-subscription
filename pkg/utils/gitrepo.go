@@ -25,19 +25,17 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
 	"strings"
 
-	"github.com/blang/semver"
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -86,7 +84,6 @@ func ParseKubeResoures(file []byte) [][]byte {
 
 // CloneGitRepo clones a GitHub repository
 func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string) (commitID string, err error) {
-
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -193,28 +190,83 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 			return "", "", errors.New("failed to get accressToken from the secret")
 		}
 	}
+
 	return username, accessToken, nil
+}
+
+func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
+	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
+	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
+
+	if err != nil {
+		klog.Error("Kustomize parse error: ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
+		return err
+	}
+
+	str := fmt.Sprintf("%v", ovuobj["value"])
+
+	var override map[string]interface{}
+
+	if err := yaml.Unmarshal([]byte(str), &override); err != nil {
+		klog.Error("Failed to override kustomize with error: ", err)
+		return err
+	}
+
+	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
+
+	if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
+		kustomizeYamlFilePath = filepath.Join(kustomizeDir, "kustomization.yml")
+		if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
+			klog.Error("Kustomization file not found in ", kustomizeDir)
+			return err
+		}
+	}
+
+	err = mergeKustomization(kustomizeYamlFilePath, override)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
+	var master map[string]interface{}
+
+	bs, err := ioutil.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
+
+	if err != nil {
+		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
+		return err
+	}
+
+	if err := yaml.Unmarshal(bs, &master); err != nil {
+		klog.Error("Failed to unmarshal kustomize file ", " err: ", err)
+		return err
+	}
+
+	for k, v := range override {
+		master[k] = v
+	}
+
+	bs, err = yaml.Marshal(master)
+
+	if err != nil {
+		klog.Error("Failed to marshal kustomize file ", " err: ", err)
+		return err
+	}
+
+	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0644); err != nil {
+		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
+		return err
+	}
+
+	return nil
 }
 
 // GetLocalGitFolder returns the local Git repo clone directory
 func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), chn.Namespace, chn.Name, GetSubscriptionBranch(sub).Short())
-}
-
-func createTmpDir(dir string) error {
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			klog.Error(err, "Failed to make directory "+dir)
-			return err
-		}
-	} else {
-		if err := os.RemoveAll(dir); err != nil {
-			klog.Error(err, "Failed to remove directory "+dir)
-			return err
-		}
-	}
-
-	return nil
 }
 
 // SortResources sorts kube resources into different arrays for processing them later.
@@ -275,7 +327,6 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
 					// Do not process kubernetes YAML files under helm chart or kustomization directory
 					crdsAndNamespaceFiles, rbacFiles, otherFiles, err = sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles, path)
-					klog.Info("otherfile[0]=" + otherFiles[0])
 					if err != nil {
 						klog.Error(err.Error())
 						return err
@@ -287,6 +338,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 		})
 
 	klog.Info("otherFiles size " + string(len(otherFiles)))
+
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 }
 
@@ -315,6 +367,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 
 			if t.APIVersion != "" && t.Kind != "" {
 				klog.Info(t.APIVersion + "/" + t.Kind)
+
 				if strings.EqualFold(t.Kind, "customresourcedefinition") {
 					crdsAndNamespaceFiles = append(crdsAndNamespaceFiles, path)
 				} else if strings.EqualFold(t.Kind, "namespace") {
@@ -353,162 +406,4 @@ func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 	}
 
 	return kubeIgnore
-}
-
-// GenerateHelmIndexFile generate helm repo index file
-func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs map[string]string) (*repo.IndexFile, error) {
-	// Build a helm repo index file
-	indexFile := repo.NewIndexFile()
-
-	for chartDir := range chartDirs {
-		chartFolderName := filepath.Base(chartDir)
-		chartParentDir := strings.Split(chartDir, chartFolderName)[0]
-
-		// Get the relative parent directory from the git repo root
-		chartBaseDir := strings.SplitAfter(chartParentDir, repoRoot+"/")[1]
-
-		chartMetadata, err := chartutil.LoadChartfile(chartDir + "Chart.yaml")
-
-		if err != nil {
-			klog.Error("There was a problem in generating helm charts index file: ", err.Error())
-			return indexFile, err
-		}
-
-		indexFile.Add(chartMetadata, chartFolderName, chartBaseDir, "generated-by-multicloud-operators-subscription")
-	}
-
-	indexFile.SortEntries()
-
-	filterCharts(sub, indexFile)
-
-	return indexFile, nil
-}
-
-//filterCharts filters the indexFile by name, tillerVersion, version, digest
-func filterCharts(sub *appv1.Subscription, indexFile *repo.IndexFile) {
-	//Removes all entries from the indexFile with non matching name
-	_ = removeNoMatchingName(sub, indexFile)
-
-	//Removes non matching version, tillerVersion, digest
-	filterOnVersion(sub, indexFile)
-}
-
-//removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
-func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
-	if sub.Spec.Package != "" {
-		keys := make([]string, 0)
-		for k := range indexFile.Entries {
-			keys = append(keys, k)
-		}
-
-		for _, k := range keys {
-			if k != sub.Spec.Package {
-				delete(indexFile.Entries, k)
-			}
-		}
-	} else {
-		return fmt.Errorf("subsciption.spec.name is missing for subscription: %s/%s", sub.Namespace, sub.Name)
-	}
-
-	klog.V(4).Info("After name matching:", indexFile)
-
-	return nil
-}
-
-//filterOnVersion filters the indexFile with the version, tillerVersion and Digest provided in the subscription
-//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
-//The tillerVersion and the digest provided in the subscription must be literals.
-func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
-	keys := make([]string, 0)
-	for k := range indexFile.Entries {
-		keys = append(keys, k)
-	}
-
-	for _, k := range keys {
-		chartVersions := indexFile.Entries[k]
-		newChartVersions := make([]*repo.ChartVersion, 0)
-
-		for index, chartVersion := range chartVersions {
-			if checkKeywords(sub, chartVersion) && checkTillerVersion(sub, chartVersion) && checkVersion(sub, chartVersion) {
-				newChartVersions = append(newChartVersions, chartVersions[index])
-			}
-		}
-
-		if len(newChartVersions) > 0 {
-			indexFile.Entries[k] = newChartVersions
-		} else {
-			delete(indexFile.Entries, k)
-		}
-	}
-
-	klog.V(4).Info("After version matching:", indexFile)
-}
-
-//checkKeywords Checks if the charts has at least 1 keyword from the packageFilter.Keywords array
-func checkKeywords(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
-	var labelSelector *metav1.LabelSelector
-	if sub.Spec.PackageFilter != nil {
-		labelSelector = sub.Spec.PackageFilter.LabelSelector
-	}
-
-	return KeywordsChecker(labelSelector, chartVersion.Keywords)
-}
-
-//checkTillerVersion Checks if the TillerVersion matches
-func checkTillerVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
-	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.PackageFilter.Annotations != nil {
-			if filterTillerVersion, ok := sub.Spec.PackageFilter.Annotations["tillerVersion"]; ok {
-				tillerVersion := chartVersion.GetTillerVersion()
-				if tillerVersion != "" {
-					tillerVersionVersion, err := semver.ParseRange(tillerVersion)
-					if err != nil {
-						klog.Errorf("Error while parsing tillerVersion: %s of %s Error: %s", tillerVersion, chartVersion.GetName(), err.Error())
-						return false
-					}
-
-					filterTillerVersion, err := semver.Parse(filterTillerVersion)
-
-					if err != nil {
-						klog.Error(err)
-						return false
-					}
-
-					return tillerVersionVersion(filterTillerVersion)
-				}
-			}
-		}
-	}
-
-	klog.V(4).Info("Tiller check passed for:", chartVersion)
-
-	return true
-}
-
-//checkVersion checks if the version matches
-func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
-	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.PackageFilter.Version != "" {
-			version := chartVersion.GetVersion()
-			versionVersion, err := semver.Parse(version)
-
-			if err != nil {
-				klog.Error(err)
-				return false
-			}
-
-			filterVersion, err := semver.ParseRange(sub.Spec.PackageFilter.Version)
-
-			if err != nil {
-				klog.Error(err)
-				return false
-			}
-
-			return filterVersion(versionVersion)
-		}
-	}
-
-	klog.V(4).Info("Version check passed for:", chartVersion)
-
-	return true
 }

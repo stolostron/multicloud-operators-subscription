@@ -19,16 +19,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
-	"gopkg.in/src-d/go-git.v4/plumbing"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -37,14 +33,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/cli-runtime/pkg/kustomize"
-	"k8s.io/helm/pkg/chartutil"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 	"sigs.k8s.io/kustomize/pkg/fs"
 
 	corev1 "k8s.io/api/core/v1"
-
-	gitignore "github.com/sabhiram/go-gitignore"
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
@@ -187,32 +180,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	return nil
 }
 
-func (ghsi *SubscriberItem) getKubeIgnore() *gitignore.GitIgnore {
-	resourcePath := ghsi.repoRoot
-
-	annotations := ghsi.Subscription.GetAnnotations()
-
-	if annotations[appv1alpha1.AnnotationGithubPath] != "" {
-		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1alpha1.AnnotationGithubPath])
-	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
-	}
-
-	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
-
-	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
-	// of the resource root.
-	lines := []string{""}
-	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
-
-	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesignore")); err == nil {
-		klog.V(4).Info("Found .kubernetesignore in ", resourcePath)
-		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesignore"))
-	}
-
-	return kubeIgnore
-}
-
 func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName,
 	syncsource string,
 	kvalid *kubesynchronizer.Validator,
@@ -233,7 +200,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 			} else {
 				klog.Info("Overriding kustomization ", kustomizeDir)
 				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
-				err := ghsi.overrideKustomize(pov, kustomizeDir)
+				err := utils.OverrideKustomize(pov, kustomizeDir)
 				if err != nil {
 					klog.Error("Failed to override kustomization.")
 					break
@@ -272,76 +239,6 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 			}
 		}
 	}
-}
-
-func (ghsi *SubscriberItem) overrideKustomize(pov appv1alpha1.PackageOverride, kustomizeDir string) error {
-	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
-	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
-
-	if err != nil {
-		klog.Error("Kustomize parse error: ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
-		return err
-	}
-
-	str := fmt.Sprintf("%v", ovuobj["value"])
-
-	var override map[string]interface{}
-
-	if err := yaml.Unmarshal([]byte(str), &override); err != nil {
-		klog.Error("Failed to override kustomize with error: ", err)
-		return err
-	}
-
-	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
-
-	if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
-		kustomizeYamlFilePath = filepath.Join(kustomizeDir, "kustomization.yml")
-		if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
-			klog.Error("Kustomization file not found in ", kustomizeDir)
-			return err
-		}
-	}
-
-	err = mergeKustomization(kustomizeYamlFilePath, override)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
-	var master map[string]interface{}
-
-	bs, err := ioutil.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
-
-	if err != nil {
-		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
-		return err
-	}
-
-	if err := yaml.Unmarshal(bs, &master); err != nil {
-		klog.Error("Failed to unmarshal kustomize file ", " err: ", err)
-		return err
-	}
-
-	for k, v := range override {
-		master[k] = v
-	}
-
-	bs, err = yaml.Marshal(master)
-
-	if err != nil {
-		klog.Error("Failed to marshal kustomize file ", " err: ", err)
-		return err
-	}
-
-	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0644); err != nil {
-		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
-		return err
-	}
-
-	return nil
 }
 
 func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
@@ -562,7 +459,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		releaseCRName := ghsi.getPackageAlias(packageName)
+		releaseCRName := utils.GetPackageAlias(ghsi.Subscription, packageName)
 		if releaseCRName == "" {
 			releaseCRName = packageName
 			subUID := string(ghsi.Subscription.UID)
@@ -607,7 +504,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 							GitHub: &releasev1alpha1.GitHub{
 								Urls:      []string{ghsi.Channel.Spec.Pathname},
 								ChartPath: chartVersions[0].URLs[0],
-								Branch:    ghsi.getGitBranch().Short(),
+								Branch:    utils.GetSubscriptionBranch(ghsi.Subscription).Short(),
 							},
 						},
 						ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
@@ -631,7 +528,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 					GitHub: &releasev1alpha1.GitHub{
 						Urls:      []string{ghsi.Channel.Spec.Pathname},
 						ChartPath: chartVersions[0].URLs[0],
-						Branch:    ghsi.getGitBranch().Short(),
+						Branch:    utils.GetSubscriptionBranch(ghsi.Subscription).Short(),
 					},
 				},
 				ConfigMapRef: ghsi.Channel.Spec.ConfigMapRef,
@@ -715,131 +612,15 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 }
 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
+	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
 	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.LocalClient, ghsi.Channel)
 
 	if err != nil {
-		klog.Error(err, "Failed to get channel secret. Keep trying with secret.")
-	}
-
-	localRepoDir := utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
-
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, localRepoDir)
-	/*options := &git.CloneOptions{
-		URL:               ghsi.Channel.Spec.Pathname,
-		Depth:             1,
-		SingleBranch:      true,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-	}
-
-	options.ReferenceName = ghsi.getGitBranch()
-
-	if ghsi.Channel.Spec.SecretRef != nil {
-		secret := &corev1.Secret{}
-		secns := ghsi.Channel.Spec.SecretRef.Namespace
-		subns := ghsi.Subscription.Namespace
-
-		if secns == "" {
-			secns = ghsi.Channel.Namespace
-		}
-
-		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: subns}, secret)
-		if err != nil {
-			klog.Error(err, "Unable to get secret from local cluster.")
-
-			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: secns}, secret)
-			if err != nil {
-				klog.Error(err, "Unable to get secret from hub cluster.")
-				return "", err
-			}
-		}
-
-		username := ""
-		accessToken := ""
-
-		err = yaml.Unmarshal(secret.Data[UserID], &username)
-		if err != nil {
-			klog.Error(err, "Failed to unmarshal username from the secret.")
-			return "", err
-		} else if username == "" {
-			klog.Error(err, "Failed to get user from the secret.")
-			return "", errors.New("failed to get user from the secret")
-		}
-
-		err = yaml.Unmarshal(secret.Data[AccessToken], &accessToken)
-		if err != nil {
-			klog.Error(err, "Failed to unmarshal accessToken from the secret.")
-			return "", err
-		} else if accessToken == "" {
-			klog.Error(err, "Failed to get accressToken from the secret.")
-			return "", errors.New("failed to get accressToken from the secret")
-		}
-
-		options.Auth = &githttp.BasicAuth{
-			Username: username,
-			Password: accessToken,
-		}
-	}
-
-	ghsi.repoRoot = filepath.Join(os.TempDir(), ghsi.Channel.Namespace, ghsi.Channel.Name)
-	if _, err := os.Stat(ghsi.repoRoot); os.IsNotExist(err) {
-		err = os.MkdirAll(ghsi.repoRoot, os.ModePerm)
-		if err != nil {
-			klog.Error(err, "Failed to make directory ", ghsi.repoRoot)
-			return "", err
-		}
-	} else {
-		err = os.RemoveAll(ghsi.repoRoot)
-		if err != nil {
-			klog.Error(err, "Failed to remove directory ", ghsi.repoRoot)
-			return "", err
-		}
-	}
-
-	klog.V(4).Info("Cloning ", ghsi.Channel.Spec.Pathname, " into ", ghsi.repoRoot)
-	r, err := git.PlainClone(ghsi.repoRoot, false, options)
-
-	if err != nil {
-		klog.Error(err, "Failed to git clone: ", err.Error())
 		return "", err
 	}
 
-	ref, err := r.Head()
-	if err != nil {
-		klog.Error(err, "Failed to get git repo head")
-		return "", err
-	}
-
-	commit, err := r.CommitObject(ref.Hash())
-	if err != nil {
-		klog.Error(err, "Failed to get git repo commit")
-		return "", err
-	}
-
-	return commit.ID().String(), nil*/
-}
-
-func (ghsi *SubscriberItem) getGitBranch() plumbing.ReferenceName {
-	branch := plumbing.Master
-
-	annotations := ghsi.Subscription.GetAnnotations()
-
-	branchStr := annotations[appv1alpha1.AnnotationGithubBranch]
-	if branchStr != "" {
-		branch = utils.GetSubscriptionBranch(ghsi.Subscription)
-	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
-		if ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"] != "" {
-			branchStr = ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-			if !strings.HasPrefix(branchStr, "refs/heads/") {
-				branchStr = "refs/heads/" + ghsi.SubscriberItem.SubscriptionConfigMap.Data["branch"]
-			}
-			branch = plumbing.ReferenceName(branchStr)
-		}
-	}
-
-	klog.Info("Subscribing to branch: ", branch)
-
-	return branch
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, ghsi.repoRoot)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
@@ -870,14 +651,20 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 	// crdsAndNamespaceFiles contains CustomResourceDefinition and Namespace Kubernetes resources file paths
 	// rbacFiles contains ServiceAccount, ClusterRole and Role Kubernetes resource file paths
 	// otherFiles contains all other Kubernetes resource file paths
-	err := ghsi.sortResources(ghsi.repoRoot, resourcePath)
+	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(ghsi.repoRoot, resourcePath)
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
 		return err
 	}
 
+	ghsi.chartDirs = chartDirs
+	ghsi.kustomizeDirs = kustomizeDirs
+	ghsi.crdsAndNamespaceFiles = crdsAndNamespaceFiles
+	ghsi.rbacFiles = rbacFiles
+	ghsi.otherFiles = otherFiles
+
 	// Build a helm repo index file
-	err = ghsi.generateHelmIndexFile(ghsi.repoRoot, ghsi.chartDirs)
+	indexFile, err := utils.GenerateHelmIndexFile(ghsi.Subscription, ghsi.repoRoot, chartDirs)
 
 	if err != nil {
 		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
@@ -885,155 +672,10 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 		return err
 	}
 
+	ghsi.indexFile = indexFile
+
 	b, _ := yaml.Marshal(ghsi.indexFile)
 	klog.V(4).Info("New index file ", string(b))
-
-	return nil
-}
-
-func (ghsi *SubscriberItem) sortResources(repoRoot string, resourcePath string) error {
-	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
-
-	// In the cloned git repo root, find all helm chart directories
-	ghsi.chartDirs = make(map[string]string)
-
-	// In the cloned git repo root, find all kustomization directories
-	ghsi.kustomizeDirs = make(map[string]string)
-
-	// Apply CustomResourceDefinition and Namespace Kubernetes resources first
-	ghsi.crdsAndNamespaceFiles = []string{}
-	// Then apply ServiceAccount, ClusterRole and Role Kubernetes resources next
-	ghsi.rbacFiles = []string{}
-	// Then apply the rest of resource
-	ghsi.otherFiles = []string{}
-
-	currentChartDir := "NONE"
-	currentKustomizeDir := "NONE"
-
-	kubeIgnore := ghsi.getKubeIgnore()
-
-	err := filepath.Walk(resourcePath,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			relativePath := path
-
-			if len(strings.SplitAfter(path, repoRoot+"/")) > 1 {
-				relativePath = strings.SplitAfter(path, repoRoot+"/")[1]
-			}
-
-			if !kubeIgnore.MatchesPath(relativePath) {
-				if info.IsDir() {
-					klog.V(4).Info("Ignoring subfolders of ", currentChartDir)
-					if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
-						klog.V(4).Info("Found Chart.yaml in ", path)
-						if !strings.HasPrefix(path, currentChartDir) {
-							klog.V(4).Info("This is a helm chart folder.")
-							ghsi.chartDirs[path+"/"] = path + "/"
-							currentChartDir = path + "/"
-						}
-					} else if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
-						klog.V(4).Info("Found kustomization.yaml in ", path)
-						currentKustomizeDir = path
-						ghsi.kustomizeDirs[path+"/"] = path + "/"
-					} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
-						klog.V(4).Info("Found kustomization.yml in ", path)
-						currentKustomizeDir = path
-						ghsi.kustomizeDirs[path+"/"] = path + "/"
-					}
-				} else if !strings.HasPrefix(path, currentChartDir) &&
-					!strings.HasPrefix(path, repoRoot+"/.git") &&
-					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
-					// Do not process kubernetes YAML files under helm chart or kustomization directory
-					err = ghsi.sortKubeResource(path)
-					if err != nil {
-						return err
-					}
-				}
-			}
-
-			return nil
-		})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (ghsi *SubscriberItem) sortKubeResource(path string) error {
-	if strings.EqualFold(filepath.Ext(path), ".yml") || strings.EqualFold(filepath.Ext(path), ".yaml") {
-		klog.V(4).Info("Reading file: ", path)
-
-		file, err := ioutil.ReadFile(path) // #nosec G304 path is not user input
-
-		if err != nil {
-			klog.Error(err, "Failed to read YAML file "+path)
-			return err
-		}
-
-		resources := utils.ParseKubeResoures(file)
-
-		if len(resources) == 1 {
-			t := kubeResource{}
-			err := yaml.Unmarshal(resources[0], &t)
-
-			if err != nil {
-				fmt.Println("Failed to unmarshal YAML file")
-				// Just ignore the YAML
-				return nil
-			}
-
-			if t.APIVersion != "" && t.Kind != "" {
-				if strings.EqualFold(t.Kind, "customresourcedefinition") {
-					ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
-				} else if strings.EqualFold(t.Kind, "namespace") {
-					ghsi.crdsAndNamespaceFiles = append(ghsi.crdsAndNamespaceFiles, path)
-				} else if strings.EqualFold(t.Kind, "serviceaccount") {
-					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-				} else if strings.EqualFold(t.Kind, "clusterrole") {
-					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-				} else if strings.EqualFold(t.Kind, "role") {
-					ghsi.rbacFiles = append(ghsi.rbacFiles, path)
-				} else {
-					ghsi.otherFiles = append(ghsi.otherFiles, path)
-				}
-			}
-		} else if len(resources) > 1 {
-			ghsi.otherFiles = append(ghsi.otherFiles, path)
-		}
-	}
-
-	return nil
-}
-
-func (ghsi *SubscriberItem) generateHelmIndexFile(repoRoot string, chartDirs map[string]string) error {
-	// Build a helm repo index file
-	ghsi.indexFile = repo.NewIndexFile()
-
-	for chartDir := range chartDirs {
-		chartFolderName := filepath.Base(chartDir)
-		chartParentDir := strings.Split(chartDir, chartFolderName)[0]
-
-		// Get the relative parent directory from the git repo root
-		chartBaseDir := strings.SplitAfter(chartParentDir, repoRoot+"/")[1]
-
-		chartMetadata, err := chartutil.LoadChartfile(chartDir + "Chart.yaml")
-
-		if err != nil {
-			klog.Error("There was a problem in generating helm charts index file: ", err.Error())
-			return err
-		}
-
-		ghsi.indexFile.Add(chartMetadata, chartFolderName, chartBaseDir, "generated-by-multicloud-operators-subscription")
-	}
-
-	ghsi.indexFile.SortEntries()
-
-	ghsi.filterCharts(ghsi.indexFile)
 
 	return nil
 }
@@ -1061,20 +703,6 @@ func (ghsi *SubscriberItem) getOverrides(packageName string) dplv1alpha1.Overrid
 	}
 
 	return dploverrides
-}
-
-func (ghsi *SubscriberItem) getPackageAlias(packageName string) string {
-	for _, overrides := range ghsi.Subscription.Spec.PackageOverrides {
-		if overrides.PackageName == packageName {
-			klog.Infof("Overrides for package %s found", packageName)
-
-			if overrides.PackageAlias != "" {
-				return overrides.PackageAlias
-			}
-		}
-	}
-
-	return ""
 }
 
 func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) error {
@@ -1116,139 +744,4 @@ func (ghsi *SubscriberItem) override(helmRelease *releasev1alpha1.HelmRelease) e
 	}
 
 	return nil
-}
-
-//filterCharts filters the indexFile by name, tillerVersion, version, digest
-func (ghsi *SubscriberItem) filterCharts(indexFile *repo.IndexFile) {
-	//Removes all entries from the indexFile with non matching name
-	_ = ghsi.removeNoMatchingName(indexFile)
-
-	//Removes non matching version, tillerVersion, digest
-	ghsi.filterOnVersion(indexFile)
-}
-
-//checkKeywords Checks if the charts has at least 1 keyword from the packageFilter.Keywords array
-func (ghsi *SubscriberItem) checkKeywords(chartVersion *repo.ChartVersion) bool {
-	var labelSelector *metav1.LabelSelector
-	if ghsi.Subscription.Spec.PackageFilter != nil {
-		labelSelector = ghsi.Subscription.Spec.PackageFilter.LabelSelector
-	}
-
-	return utils.KeywordsChecker(labelSelector, chartVersion.Keywords)
-}
-
-//filterOnVersion filters the indexFile with the version, tillerVersion and Digest provided in the subscription
-//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
-//The tillerVersion and the digest provided in the subscription must be literals.
-func (ghsi *SubscriberItem) filterOnVersion(indexFile *repo.IndexFile) {
-	keys := make([]string, 0)
-	for k := range indexFile.Entries {
-		keys = append(keys, k)
-	}
-
-	for _, k := range keys {
-		chartVersions := indexFile.Entries[k]
-		newChartVersions := make([]*repo.ChartVersion, 0)
-
-		for index, chartVersion := range chartVersions {
-			if ghsi.checkKeywords(chartVersion) && ghsi.checkTillerVersion(chartVersion) && ghsi.checkVersion(chartVersion) {
-				newChartVersions = append(newChartVersions, chartVersions[index])
-			}
-		}
-
-		if len(newChartVersions) > 0 {
-			indexFile.Entries[k] = newChartVersions
-		} else {
-			delete(indexFile.Entries, k)
-		}
-	}
-
-	klog.V(4).Info("After version matching:", indexFile)
-}
-
-//removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
-func (ghsi *SubscriberItem) removeNoMatchingName(indexFile *repo.IndexFile) error {
-	if ghsi.Subscription != nil {
-		if ghsi.Subscription.Spec.Package != "" {
-			keys := make([]string, 0)
-			for k := range indexFile.Entries {
-				keys = append(keys, k)
-			}
-
-			for _, k := range keys {
-				if k != ghsi.Subscription.Spec.Package {
-					delete(indexFile.Entries, k)
-				}
-			}
-		} else {
-			return fmt.Errorf("subsciption.spec.name is missing for subscription: %s/%s", ghsi.Subscription.Namespace, ghsi.Subscription.Name)
-		}
-	}
-
-	klog.V(4).Info("After name matching:", indexFile)
-
-	return nil
-}
-
-//checkTillerVersion Checks if the TillerVersion matches
-func (ghsi *SubscriberItem) checkTillerVersion(chartVersion *repo.ChartVersion) bool {
-	if ghsi.Subscription != nil {
-		if ghsi.Subscription.Spec.PackageFilter != nil {
-			if ghsi.Subscription.Spec.PackageFilter.Annotations != nil {
-				if filterTillerVersion, ok := ghsi.Subscription.Spec.PackageFilter.Annotations["tillerVersion"]; ok {
-					tillerVersion := chartVersion.GetTillerVersion()
-					if tillerVersion != "" {
-						tillerVersionVersion, err := semver.ParseRange(tillerVersion)
-						if err != nil {
-							klog.Errorf("Error while parsing tillerVersion: %s of %s Error: %s", tillerVersion, chartVersion.GetName(), err.Error())
-							return false
-						}
-
-						filterTillerVersion, err := semver.Parse(filterTillerVersion)
-
-						if err != nil {
-							klog.Error(err)
-							return false
-						}
-
-						return tillerVersionVersion(filterTillerVersion)
-					}
-				}
-			}
-		}
-	}
-
-	klog.V(4).Info("Tiller check passed for:", chartVersion)
-
-	return true
-}
-
-//checkVersion checks if the version matches
-func (ghsi *SubscriberItem) checkVersion(chartVersion *repo.ChartVersion) bool {
-	if ghsi.Subscription != nil {
-		if ghsi.Subscription.Spec.PackageFilter != nil {
-			if ghsi.Subscription.Spec.PackageFilter.Version != "" {
-				version := chartVersion.GetVersion()
-				versionVersion, err := semver.Parse(version)
-
-				if err != nil {
-					klog.Error(err)
-					return false
-				}
-
-				filterVersion, err := semver.ParseRange(ghsi.Subscription.Spec.PackageFilter.Version)
-
-				if err != nil {
-					klog.Error(err)
-					return false
-				}
-
-				return filterVersion(versionVersion)
-			}
-		}
-	}
-
-	klog.V(4).Info("Version check passed for:", chartVersion)
-
-	return true
 }

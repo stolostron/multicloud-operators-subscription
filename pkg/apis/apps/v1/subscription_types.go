@@ -52,6 +52,8 @@ var (
 	AnnotationGithubCommit = SchemeGroupVersion.Group + "/github-commit"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
+	//LabelSubscriptionName is the subscription name
+	LabelSubscriptionName = SchemeGroupVersion.Group + "/subscription"
 )
 
 const (
