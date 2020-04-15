@@ -435,6 +435,10 @@ data:
 
 	githubsub.Spec.PackageFilter = packageFilter
 
+	subanno := make(map[string]string)
+	subanno[appv1alpha1.AnnotationGithubPath] = "test/github/helmcharts"
+	githubsub.SetAnnotations(subanno)
+
 	githubsub.Spec.Package = "chart1"
 
 	subitem := &SubscriberItem{}
@@ -453,31 +457,29 @@ data:
 	// Filter out chart2
 	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
 
-	// chart1 has two versions
-	chartVersion, err := subitem.indexFile.Get("chart1", "1.1.1")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
-	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.1"))
-
-	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.2")
+	// chart1 has two versions but it will only contain the latest version
+	chartVersion, err := subitem.indexFile.Get("chart1", "1.1.2")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
 	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
 
-	packageFilter.Version = "1.1.2"
+	_, err = subitem.indexFile.Get("chart1", "1.1.1")
+	g.Expect(err).To(gomega.HaveOccurred())
+
+	packageFilter.Version = "1.1.1"
 
 	err = subitem.sortClonedGitRepo()
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
 
-	_, err = subitem.indexFile.Get("chart1", "1.1.1")
+	_, err = subitem.indexFile.Get("chart1", "1.1.2")
 	g.Expect(err).To(gomega.HaveOccurred())
 
-	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.2")
+	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.1")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
-	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
+	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.1"))
 
 	err = c.Delete(context.TODO(), pathConfigMap)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
