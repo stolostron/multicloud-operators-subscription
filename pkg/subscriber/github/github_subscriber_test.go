@@ -463,7 +463,7 @@ data:
 	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
 	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
 
-	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.1")
+	_, err = subitem.indexFile.Get("chart1", "1.1.1")
 	g.Expect(err).To(gomega.HaveOccurred())
 
 	packageFilter.Version = "1.1.1"
