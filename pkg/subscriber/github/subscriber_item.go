@@ -460,11 +460,11 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
-			return err
+			break
 		}
 
 		if skip {
-			pkgMap[dpl.Name] = true
+			pkgMap[dpl.GetName()] = true
 			continue
 		}
 
@@ -479,7 +479,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 			pkgMap[dpl.GetName()] = true
 
-			continue
+			return err
 		}
 
 		dplkey := types.NamespacedName{

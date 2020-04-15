@@ -18,26 +18,21 @@ import (
 	"context"
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"crypto/tls"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ghodss/yaml"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -276,102 +271,18 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		releaseCRName := utils.GetPackageAlias(hrsi.Subscription, packageName)
-		if releaseCRName == "" {
-			releaseCRName = packageName
-			subUID := string(hrsi.Subscription.UID)
-
-			if len(subUID) >= 5 {
-				releaseCRName += "-" + subUID[:5]
-			}
-		}
-
-		releaseCRName, err := utils.GetReleaseName(releaseCRName)
-		if err != nil {
-			return err
-		}
-
-		for i := range chartVersions[0].URLs {
-			parsedURL, err := url.Parse(chartVersions[0].URLs[i])
-
-			if err != nil {
-				klog.Error("Failed to parse url with error:", err)
-				return err
-			}
-
-			if parsedURL.Scheme == "local" {
-				//make sure there is one and only one slash
-				repoURL = strings.TrimSuffix(repoURL, "/") + "/"
-				chartVersions[0].URLs[i] = strings.Replace(chartVersions[0].URLs[i], "local://", repoURL, -1)
-			}
-		}
-
-		helmRelease, isCreate, err := utils.CreateOrUpdateHelmChart(
-			packageName, releaseCRName, chartVersions, hrsi.synchronizer.LocalClient, hrsi.Channel, hrsi.Subscription)
+		dpl, skip, err := utils.CreateHelmCRDeployable(
+			repoURL, packageName, chartVersions, hrsi.synchronizer.LocalClient, hrsi.Channel, hrsi.Subscription)
 
 		if err != nil {
-			klog.Error(err)
+			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
 			break
 		}
 
-		err = utils.Override(helmRelease, hrsi.Subscription)
-
-		if err != nil {
-			klog.Error("Failed to override ", helmRelease.Name, " err:", err)
-			return err
+		if skip {
+			pkgMap[dpl.GetName()] = true
+			continue
 		}
-
-		if helmRelease.Spec == nil {
-			spec := make(map[string]interface{})
-
-			err := yaml.Unmarshal([]byte("{\"\":\"\"}"), &spec)
-			if err != nil {
-				klog.Error("Failed to create an empty spec for helm release", helmRelease)
-				return err
-			}
-
-			helmRelease.Spec = spec
-		}
-
-		dpl := &dplv1.Deployable{}
-		if hrsi.Channel == nil {
-			dpl.Name = hrsi.Subscription.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
-			dpl.Namespace = hrsi.Subscription.Namespace
-		} else {
-			dpl.Name = hrsi.Channel.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
-			dpl.Namespace = hrsi.Channel.Namespace
-		}
-
-		if !isCreate {
-			existingHelmRelease := &releasev1.HelmRelease{}
-
-			err = hrsi.synchronizer.LocalClient.Get(context.TODO(),
-				types.NamespacedName{Name: releaseCRName, Namespace: hrsi.Subscription.Namespace}, existingHelmRelease)
-			if err == nil && utils.CompareHelmRelease(existingHelmRelease, helmRelease) {
-				klog.V(2).Infof("Skipping deployable for %s", helmRelease.Name)
-
-				dplkey := types.NamespacedName{
-					Name:      dpl.Name,
-					Namespace: dpl.Namespace,
-				}
-
-				pkgMap[dplkey.Name] = true
-
-				continue
-			}
-		}
-
-		dpl.Spec.Template = &runtime.RawExtension{}
-		dpl.Spec.Template.Raw, err = json.Marshal(helmRelease)
-
-		if err != nil {
-			klog.Error("Failed to mashall helm release", helmRelease)
-			return err
-		}
-
-		dplanno := make(map[string]string)
-		dplanno[dplv1.AnnotationLocal] = "true"
-		dpl.SetAnnotations(dplanno)
 
 		err = hrsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
 		if err != nil {

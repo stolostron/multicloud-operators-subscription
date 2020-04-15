@@ -78,7 +78,11 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 
 	indexFile.SortEntries()
 
-	FilterCharts(sub, indexFile)
+	err := FilterCharts(sub, indexFile)
+
+	if err != nil {
+		return indexFile, err
+	}
 
 	return indexFile, nil
 }
