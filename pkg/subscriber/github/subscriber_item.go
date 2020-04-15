@@ -460,7 +460,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
-			break
+			return err
 		}
 
 		if skip {

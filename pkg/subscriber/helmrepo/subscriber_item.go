@@ -276,7 +276,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
-			break
+			return err
 		}
 
 		if skip {
