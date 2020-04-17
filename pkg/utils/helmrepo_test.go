@@ -84,6 +84,8 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(indexFile.Entries)).To(gomega.Equal(2))
 
+	time.Sleep(3 * time.Second)
+
 	githubsub.UID = "dummyuid"
 	helmrelease, create, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
