@@ -16,16 +16,12 @@ package github
 
 import (
 	"context"
-	"io"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/src-d/go-git.v4/plumbing"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +31,6 @@ import (
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const rsc1 = `apiVersion: v1
@@ -561,162 +556,4 @@ data:
 
 	githubsub.Spec.Package = ""
 	githubsub.Spec.PackageFilter = nil
-}
-
-func TestGetBranch(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	pathConfigMapYAML := `apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: path-config-map
-  namespace: default
-data:
-  path: test/github/helmcharts`
-
-	pathConfigMap := &corev1.ConfigMap{}
-	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), pathConfigMap)
-
-	filterRef := &corev1.LocalObjectReference{}
-	filterRef.Name = "path-config-map"
-
-	packageFilter := &appv1alpha1.PackageFilter{}
-	packageFilter.FilterRef = filterRef
-	githubsub.Spec.PackageFilter = packageFilter
-
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.SubscriberItem.SubscriptionConfigMap = pathConfigMap
-
-	branch := utils.GetSubscriptionBranch(githubsub)
-	g.Expect(branch).To(gomega.Equal(plumbing.Master))
-	g.Expect(branch.Short()).To(gomega.Equal("master"))
-
-	pathConfigMap.Data["branch"] = "notmaster"
-	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGithubBranch] = "notmaster"
-	githubsub.SetAnnotations(subanno)
-	branch = utils.GetSubscriptionBranch(githubsub)
-	g.Expect(branch).To(gomega.Equal(plumbing.ReferenceName("refs/heads/notmaster")))
-	g.Expect(branch.Short()).To(gomega.Equal("notmaster"))
-
-	githubsub.Spec.Package = ""
-	githubsub.Spec.PackageFilter = nil
-}
-
-func TestKustomize(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
-kind: Subscription
-metadata:
-  name: github-resource-subscription
-  namespace: default
-spec:
-  channel: github-ns/github-ch
-  placement:
-  local: true
-  packageOverrides:
-    - packageName: kustomize/overlays/production/kustomization.yaml
-      packageOverrides:
-      - value: |
-          namePrefix: production-testtest-
-          commonLabels:
-            org: acmeCorporation-roke
-          patchesStrategicMerge:
-          - deployment.yaml
-          - configMap.yaml`
-
-	subscription := &appv1alpha1.Subscription{}
-	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	ov := subscription.Spec.PackageOverrides[0]
-
-	subitem := &SubscriberItem{}
-	subitem.Subscription = subscription
-	subitem.Channel = githubchn
-
-	// Set the cloned Git repo root directory to this Git repository root.
-	subitem.repoRoot = "../../.."
-	kustomizeDir := filepath.Join(subitem.repoRoot, "test/github/kustomize/overlays/production")
-
-	subitem.kustomizeDirs = make(map[string]string)
-	subitem.kustomizeDirs[kustomizeDir+"/"] = kustomizeDir + "/"
-
-	// backup the original kustomization.yaml
-	orig := kustomizeDir + "/kustomization.yaml"
-	backup := kustomizeDir + "/kustomization.yaml.BAK"
-	err = copy(orig, backup)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	pov := ov.PackageOverrides[0]
-	err = utils.OverrideKustomize(pov, kustomizeDir)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = copy(backup, orig)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = os.Remove(backup)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-}
-
-func copy(src, dst string) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-
-	defer in.Close()
-
-	out, err := os.Create(dst)
-	if err != nil {
-		return err
-	}
-
-	defer out.Close()
-
-	_, err = io.Copy(out, in)
-	if err != nil {
-		return err
-	}
-
-	return out.Close()
 }
