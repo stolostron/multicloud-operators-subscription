@@ -106,7 +106,6 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 		nSrt.SetNamespace(curSubItem.Subscription.GetNamespace())
 
 		if utils.CanPassPackageFilter(packageFilter, &nSrt) {
-			klog.Infof("append on secret %v", srt)
 			dpls = append(dpls, packageSecertIntoDeployable(nSrt))
 		}
 	}
@@ -137,6 +136,7 @@ func (s *SecretReconciler) getSecretsBySubLabel(srtNs string) (*v1.SecretList, e
 	if err != nil {
 		return nil, err
 	}
+
 	srts := &v1.SecretList{}
 	if err := hubclient.List(context.TODO(), srts, opts); err != nil {
 		return nil, err
