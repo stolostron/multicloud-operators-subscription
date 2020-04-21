@@ -1,5 +1,16 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev-test
+  namespace: ch-ns
+  annotations: 
+    apps.open-cluster-management.io/deployables: "true"
+data:
+  AccessKeyID: YWRtaW4=
+  SecretAccessKey: cGFzc3dvcmRhZG1pbg==
 --- 
-apiVersion: apps.open-cluster-management.io/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata: 
   name: payload-cfg-namespace-channel

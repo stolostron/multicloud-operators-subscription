@@ -1,5 +1,5 @@
 --- 
-apiVersion: apps.open-cluster-management.io/v1alpha1
+apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata: 
   name: payload-cfg-obj-channel

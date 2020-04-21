@@ -60,9 +60,9 @@ func newSecretReconciler(subscriber *NsSubscriber, mgr manager.Manager, subItemK
 
 //Reconcile handle the main logic to deploy the secret coming from the channel namespace
 func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(1) {
 		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v() request %v, secret fur subitem %v", fnName, request.NamespacedName, s.Itemkey)
+		klog.Infof("Entering: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 
 		defer klog.Infof("Exiting: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)
 	}
@@ -103,6 +103,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 		packageFilter := curSubItem.Subscription.Spec.PackageFilter
 		nSrt := cleanUpSecretObject(srt)
+		nSrt.SetNamespace(curSubItem.Subscription.GetNamespace())
 
 		if utils.CanPassPackageFilter(packageFilter, &nSrt) {
 			dpls = append(dpls, packageSecertIntoDeployable(nSrt))
@@ -131,8 +132,13 @@ func (s *SecretReconciler) getSecretsBySubLabel(srtNs string) (*v1.SecretList, e
 		opts.LabelSelector = clSelector
 	}
 
+	hubclient, err := client.New(s.config, client.Options{})
+	if err != nil {
+		return nil, err
+	}
+
 	srts := &v1.SecretList{}
-	if err := s.Clt.List(context.TODO(), srts, opts); err != nil {
+	if err := hubclient.List(context.TODO(), srts, opts); err != nil {
 		return nil, err
 	}
 
