@@ -16,39 +16,41 @@ package mcmhub
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
-	channelStr = `apiVersion: apps.open-cluster-management.io/v1
-kind: Channel
-metadata:
-  name: test-channel
-  namespace: default
-spec:
-  type: GitHub
-  pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git`
-
-	subscriptionStr = `apiVersion: apps.open-cluster-management.io/v1
-kind: Subscription
-metadata:
-  name: test-subscription
-  namespace: default
-  annotations:
-    apps.open-cluster-management.io/github-path: test/github
-  uid: dummyid
-spec:
-  channel: default/test-channel`
+	sharedkey = types.NamespacedName{
+		Name:      "githubtest",
+		Namespace: "default",
+	}
+	githubchn = &chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: chnv1.ChannelSpec{
+			Type:     "GitHub",
+			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+		},
+	}
+	githubsub = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: appv1.SubscriptionSpec{
+			Channel: sharedkey.String(),
+		},
+	}
 )
 
 func TestUpdateGitDeployablesAnnotation(t *testing.T) {
@@ -59,6 +61,8 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 
 	c = mgr.GetClient()
 
+	rec := newReconciler(mgr).(*ReconcileSubscription)
+
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
 	defer func() {
@@ -66,31 +70,21 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	rec := newReconciler(mgr).(*ReconcileSubscription)
+	githubsub.UID = "dummyid"
 
-	sub := &appv1.Subscription{}
-	err = yaml.Unmarshal([]byte(subscriptionStr), &sub)
+	annotations := make(map[string]string)
+	annotations[appv1.AnnotationGithubPath] = "test/github"
+	githubsub.SetAnnotations(annotations)
+
+	// No channel yet. It will fail and return false.
+	ret := rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	err = c.Create(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	// Should fail because no channel
-	updated := rec.UpdateGitDeployablesAnnotation(sub)
-	g.Expect(updated).To(gomega.BeFalse())
+	time.Sleep(3 * time.Second)
 
-	channel := &chnv1.Channel{}
-	err = yaml.Unmarshal([]byte(channelStr), &channel)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), channel)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	time.Sleep(2 * time.Second)
-
-	updated = rec.UpdateGitDeployablesAnnotation(sub)
-	g.Expect(updated).To(gomega.BeTrue())
-
-	annotations := sub.GetAnnotations()
-	g.Expect(annotations[appv1.AnnotationDeployables]).NotTo(gomega.BeEmpty())
-
-	err = os.RemoveAll(utils.GetLocalGitFolder(channel, sub))
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	ret = rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(ret).To(gomega.BeTrue())
 }
