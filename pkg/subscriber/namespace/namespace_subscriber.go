@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -217,7 +219,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 
 	ssrc := &source.Informer{Informer: sifm}
 
-	err = nssubitem.secretcontroller.Watch(ssrc, &handler.EnqueueRequestForObject{})
+	err = nssubitem.secretcontroller.Watch(ssrc, &handler.EnqueueRequestForObject{}, isDeployableSecret())
 
 	if err != nil {
 		return errors.Wrap(err, "failed to watch secret")
@@ -322,4 +324,33 @@ func CreateNsSubscriber(
 	nssubscriber.itemmap = make(map[types.NamespacedName]*NsSubscriberItem)
 
 	return nssubscriber, nil
+}
+
+func isDeployableSecret() predicate.Funcs {
+	return predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			_, ok := e.ObjectOld.(*v1.Secret)
+			if !ok {
+				return false
+			}
+
+			_, nok := e.ObjectNew.(*v1.Secret)
+			if !nok {
+				return false
+			}
+
+			_, ok = e.MetaOld.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			_, nok = e.MetaNew.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			// otherwise we trigger if the annotation has changed
+			return ok || nok
+		},
+		CreateFunc: func(e event.CreateEvent) bool {
+			_, ok := e.Meta.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			return ok
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			_, ok := e.Meta.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			return ok
+		},
+	}
 }
