@@ -1,4 +1,4 @@
-// Copyright 220The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,11 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		}
 
 		annotations := sub.GetAnnotations()
+		if annotations == nil {
+			annotations = make(map[string]string)
+			sub.SetAnnotations(annotations)
+		}
+
 		if !strings.EqualFold(annotations[appv1.AnnotationGithubCommit], commit) {
 			klog.Info("Repo commit = " + commit)
 			klog.Info("Subscription commit = " + annotations[appv1.AnnotationGithubCommit])
