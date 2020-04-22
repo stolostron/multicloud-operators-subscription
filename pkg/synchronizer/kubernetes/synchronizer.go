@@ -364,6 +364,9 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 
 	if obj != nil {
 		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"])
+		if obj.GroupVersionKind().Kind == crdKind {
+			sync.rediscoverResource()
+		}
 	} else {
 		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil)
 	}
