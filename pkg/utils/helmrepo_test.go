@@ -21,10 +21,11 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func TestGetPackageAlias(t *testing.T) {

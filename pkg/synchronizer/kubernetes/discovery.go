@@ -67,6 +67,7 @@ var (
 		Group: "apps.open-cluster-management.io",
 		Kind:  "Deployable",
 	}
+
 	internalIgnoredGroupKind = map[schema.GroupKind]bool{
 		rsextgk:     true,
 		rsappgk:     true,
@@ -123,11 +124,22 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 		return nil
 	}
 
+	res := &schema.GroupVersionKind{}
+	found := false
 	// return the right version of gv
 	for gvk := range sync.KubeResources {
 		if valid.GroupKind() == gvk.GroupKind() {
-			return &gvk
+			if valid.Version == gvk.Version {
+				return &gvk
+			}
+
+			res = &gvk
+			found = true
 		}
+	}
+
+	if found {
+		return res
 	}
 
 	return nil
@@ -140,7 +152,7 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
 	}
 
-	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
+	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerResources()
 	if err != nil {
 		// do not return this error
 		// some api server aggregation may cause this problem, but can still get return some resources.
