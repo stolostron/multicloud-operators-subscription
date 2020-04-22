@@ -91,9 +91,8 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	githubsub.UID = "dummyuid"
-	helmrelease, create, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(create).To(gomega.BeTrue())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
 	err = c.Create(context.TODO(), helmrelease)
@@ -102,9 +101,8 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	// Sleep to make sure the helm release is created in the test kube
 	time.Sleep(5 * time.Second)
 
-	helmrelease, create, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(create).To(gomega.BeFalse())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 }
 
@@ -267,9 +265,8 @@ persistence:
 	time.Sleep(3 * time.Second)
 
 	sub2.UID = "dummyuid"
-	helmrelease, create, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, sub2)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, sub2)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(create).To(gomega.BeTrue())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
 	err = Override(helmrelease, sub2)
@@ -311,14 +308,12 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, create, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(create).To(gomega.BeFalse())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, create, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(create).To(gomega.BeFalse())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 }

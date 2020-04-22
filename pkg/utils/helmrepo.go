@@ -94,12 +94,10 @@ func CreateOrUpdateHelmChart(
 	chartVersions repo.ChartVersions,
 	client client.Client,
 	channel *chnv1.Channel,
-	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, create bool, err error) {
+	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
 	helmRelease = &releasev1.HelmRelease{}
 	err = client.Get(context.TODO(),
 		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
-
-	create = false
 
 	source := &releasev1.Source{
 		SourceType: releasev1.HelmRepoSourceType,
@@ -122,8 +120,6 @@ func CreateOrUpdateHelmChart(
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.V(2).Infof("Create helmRelease %s", releaseCRName)
-
-			create = true
 
 			helmRelease = &releasev1.HelmRelease{
 				TypeMeta: metav1.TypeMeta{
@@ -150,7 +146,7 @@ func CreateOrUpdateHelmChart(
 			}
 		} else {
 			klog.Error("Error in getting existing helm release", err)
-			return nil, true, err
+			return nil, err
 		}
 	} else {
 		// set kind and apiversion, coz it is not in the resource get from k8s
@@ -166,7 +162,7 @@ func CreateOrUpdateHelmChart(
 		}
 	}
 
-	return helmRelease, create, nil
+	return helmRelease, nil
 }
 
 func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error {
@@ -210,42 +206,13 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 	return nil
 }
 
-func CompareHelmRelease(existingHr *releasev1.HelmRelease, newHr *releasev1.HelmRelease) bool {
-	existingHrRepo := existingHr.Repo
-	newHrRepo := newHr.Repo
-
-	existingHrSpec, err := json.Marshal(existingHr.Spec)
-	if err != nil {
-		klog.Error("Failed to marshal ", existingHr, " err:", err)
-		return false
-	}
-
-	existingHrSpecString := string(existingHrSpec)
-
-	newHrSpec, err := json.Marshal(newHr.Spec)
-	if err != nil {
-		klog.Error("Failed to marshal ", newHrSpec, " err:", err)
-		return false
-	}
-
-	newHrSpecString := string(newHrSpec)
-
-	return existingHrSpecString == newHrSpecString &&
-		existingHrRepo.Source.SourceType == newHrRepo.Source.SourceType &&
-		existingHrRepo.Source.HelmRepo.Urls[0] == newHrRepo.Source.HelmRepo.Urls[0] &&
-		existingHrRepo.ConfigMapRef == newHrRepo.ConfigMapRef &&
-		existingHrRepo.SecretRef == newHrRepo.SecretRef &&
-		existingHrRepo.ChartName == newHrRepo.ChartName &&
-		existingHrRepo.Version == newHrRepo.Version
-}
-
 func CreateHelmCRDeployable(
 	repoURL string,
 	packageName string,
 	chartVersions repo.ChartVersions,
 	client client.Client,
 	channel *chnv1.Channel,
-	sub *appv1.Subscription) (*dplv1.Deployable, bool, error) {
+	sub *appv1.Subscription) (*dplv1.Deployable, error) {
 	releaseCRName := GetPackageAlias(sub, packageName)
 	if releaseCRName == "" {
 		releaseCRName = packageName
@@ -258,7 +225,7 @@ func CreateHelmCRDeployable(
 
 	releaseCRName, err := GetReleaseName(releaseCRName)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 
 	if channel == nil || !strings.EqualFold(string(channel.Spec.Type), chnv1.ChannelTypeGitHub) {
@@ -267,7 +234,7 @@ func CreateHelmCRDeployable(
 
 			if err != nil {
 				klog.Error("Failed to parse url with error:", err)
-				return nil, false, err
+				return nil, err
 			}
 
 			if parsedURL.Scheme == "local" {
@@ -278,19 +245,19 @@ func CreateHelmCRDeployable(
 		}
 	}
 
-	helmRelease, isCreate, err := CreateOrUpdateHelmChart(
+	helmRelease, err := CreateOrUpdateHelmChart(
 		packageName, releaseCRName, chartVersions, client, channel, sub)
 
 	if err != nil {
 		klog.Error("Failed to create or update helm chart ", packageName, " err:", err)
-		return nil, false, err
+		return nil, err
 	}
 
 	err = Override(helmRelease, sub)
 
 	if err != nil {
 		klog.Error("Failed to override ", helmRelease.Name, " err:", err)
-		return nil, false, err
+		return nil, err
 	}
 
 	if helmRelease.Spec == nil {
@@ -299,7 +266,7 @@ func CreateHelmCRDeployable(
 		err := yaml.Unmarshal([]byte("{\"\":\"\"}"), &spec)
 		if err != nil {
 			klog.Error("Failed to create an empty spec for helm release", helmRelease)
-			return nil, false, err
+			return nil, err
 		}
 
 		helmRelease.Spec = spec
@@ -314,31 +281,19 @@ func CreateHelmCRDeployable(
 		dpl.Namespace = channel.Namespace
 	}
 
-	if !isCreate {
-		existingHelmRelease := &releasev1.HelmRelease{}
-
-		err = client.Get(context.TODO(),
-			types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, existingHelmRelease)
-		if err == nil && CompareHelmRelease(existingHelmRelease, helmRelease) {
-			klog.V(2).Infof("Skipping deployable for %s", helmRelease.Name)
-
-			return dpl, true, nil
-		}
-	}
-
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(helmRelease)
 
 	if err != nil {
 		klog.Error("Failed to mashall helm release", helmRelease)
-		return nil, false, err
+		return nil, err
 	}
 
 	dplanno := make(map[string]string)
 	dplanno[dplv1.AnnotationLocal] = "true"
 	dpl.SetAnnotations(dplanno)
 
-	return dpl, false, nil
+	return dpl, nil
 }
 
 func getOverrides(packageName string, sub *appv1.Subscription) dplv1.Overrides {

@@ -271,17 +271,12 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		dpl, skip, err := utils.CreateHelmCRDeployable(
+		dpl, err := utils.CreateHelmCRDeployable(
 			repoURL, packageName, chartVersions, hrsi.synchronizer.LocalClient, hrsi.Channel, hrsi.Subscription)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
 			return err
-		}
-
-		if skip {
-			pkgMap[dpl.GetName()] = true
-			continue
 		}
 
 		err = hrsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
