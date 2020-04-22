@@ -120,9 +120,11 @@ coverage:
 
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 
 local:
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 
 ############################################################
 # images section
