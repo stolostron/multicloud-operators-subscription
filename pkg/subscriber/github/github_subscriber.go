@@ -97,18 +97,20 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	ghs.itemmap[itemkey] = ghssubitem
 
+	// Set it back to false so subscription retries until it is set to true
+	ghssubitem.successful = false
+
 	// If the channel has annotation webhookenabled="true", do not poll the repo.
 	// Do subscription only on webhook events.
 	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		err := ghssubitem.doSubscription()
-
-		if err != nil {
-			klog.Error(err, "Subscription error.")
-		}
+		ghssubitem.webhookEnabled = true
 	} else {
-		ghssubitem.Start()
+		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = false
 	}
+
+	ghssubitem.Start()
 
 	return nil
 }
