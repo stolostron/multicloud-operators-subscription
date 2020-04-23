@@ -504,6 +504,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
 
+	fmt.Printf("%p\n", sync.KubeResources)
+
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil
 		if len(resmap.TemplateMap) > 0 {

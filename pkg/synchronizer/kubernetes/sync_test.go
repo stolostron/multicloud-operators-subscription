@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -128,14 +129,14 @@ func TestGVKValidation(t *testing.T) {
 	}
 	validgvk := schema.GroupVersionKind{
 		Group:   "apps",
-		Version: "v1",
+		Version: "v1beta1",
 		Kind:    "StatefulSet",
 	}
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
 
 	gvk = schema.GroupVersionKind{
 		Group:   "apps",
-		Version: "v1beta2",
+		Version: "v1beta1",
 		Kind:    "StatefulSet",
 	}
 	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
@@ -332,6 +333,8 @@ func TestCRDDiscovery(t *testing.T) {
 
 	g.Expect(sync.KubeResources[foocrdgvk]).Should(gomega.BeNil())
 	sync.houseKeeping()
+	time.Sleep(1 * time.Second)
+
 	g.Expect(sync.KubeResources[foocrdgvk]).ShouldNot(gomega.BeNil())
 
 	c.Delete(context.TODO(), crdinstance)
@@ -340,6 +343,8 @@ func TestCRDDiscovery(t *testing.T) {
 
 	g.Expect(sync.KubeResources[foocrdgvk]).ShouldNot(gomega.BeNil())
 	sync.houseKeeping()
+	time.Sleep(1 * time.Second)
+
 	g.Expect(sync.KubeResources[foocrdgvk]).Should(gomega.BeNil())
 }
 
@@ -382,6 +387,10 @@ func TestClusterScopedApply(t *testing.T) {
 
 	_, ok = sync.KubeResources[foocrdgvk]
 	g.Expect(ok).Should(gomega.BeTrue())
+
+	fmt.Printf("%p\n", sync.KubeResources)
+
+	time.Sleep(1 * time.Second)
 
 	g.Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(gomega.HaveOccurred())
 

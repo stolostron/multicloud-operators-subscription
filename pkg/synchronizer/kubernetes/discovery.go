@@ -123,11 +123,30 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 		return nil
 	}
 
+	found := false
+
+	var regGvk schema.GroupVersionKind
+
 	// return the right version of gv
 	for gvk := range sync.KubeResources {
 		if valid.GroupKind() == gvk.GroupKind() {
-			return &gvk
+			if valid.Version == gvk.Version {
+				return &gvk
+			}
+
+			found = true
+			regGvk = gvk
 		}
+	}
+
+	// if there's a GK ready served by the k8s, then we are going to registry
+	// the incoming unknown version for this GK as well, since k8s would handle
+	// the version conversion, if there isn't any version conversion on k8s,
+	// user would get deploy failed error, which would aligned with the kubectl
+	// behavior
+	if found {
+		kubeResourceAddVersionToGK(sync.KubeResources, regGvk, *valid)
+		return valid
 	}
 
 	return nil
@@ -239,6 +258,25 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			klog.V(5).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
 		}
 	}
+}
+
+func kubeResourceAddVersionToGK(kubeResource map[schema.GroupVersionKind]*ResourceMap, regGvk schema.GroupVersionKind, newGvk schema.GroupVersionKind) {
+	regResmap := kubeResource[regGvk]
+
+	newResmap := &ResourceMap{
+		GroupVersionResource: schema.GroupVersionResource{},
+		TemplateMap:          make(map[string]*TemplateUnit),
+	}
+
+	newGvr := schema.GroupVersionResource{
+		Group:    newGvk.Group,
+		Version:  newGvk.Version,
+		Resource: regResmap.GroupVersionResource.Resource,
+	}
+
+	newResmap.GroupVersionResource = newGvr
+	newResmap.Namespaced = regResmap.Namespaced
+	kubeResource[newGvk] = newResmap
 }
 
 func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
