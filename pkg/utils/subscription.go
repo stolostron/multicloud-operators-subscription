@@ -21,13 +21,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
+	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,8 +54,8 @@ const (
 // SubscriptionPredicateFunctions filters status update
 var SubscriptionPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		subOld := e.ObjectOld.(*appv1alpha1.Subscription)
-		subNew := e.ObjectNew.(*appv1alpha1.Subscription)
+		subOld := e.ObjectOld.(*appv1.Subscription)
+		subNew := e.ObjectNew.(*appv1.Subscription)
 
 		// need to process delete with finalizers
 		if len(subNew.GetFinalizers()) > 0 {
@@ -95,7 +99,7 @@ func GetSourceFromObject(obj metav1.Object) string {
 		return ""
 	}
 
-	return objanno[appv1alpha1.AnnotationSyncSource]
+	return objanno[appv1.AnnotationSyncSource]
 }
 
 // GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
@@ -109,7 +113,7 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	sourcestr := objanno[appv1alpha1.AnnotationSyncSource]
+	sourcestr := objanno[appv1.AnnotationSyncSource]
 	if sourcestr == "" {
 		return nil
 	}
@@ -136,28 +140,28 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 }
 
 // SetInClusterPackageStatus creates status strcuture and fill status
-func SetInClusterPackageStatus(substatus *appv1alpha1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) error {
+func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) error {
 	if substatus.Statuses == nil {
-		substatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
+		substatus.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
 	}
 
 	clst := substatus.Statuses["/"]
 	if clst == nil || clst.SubscriptionPackageStatus == nil {
-		clst = &appv1alpha1.SubscriptionPerClusterStatus{}
-		clst.SubscriptionPackageStatus = make(map[string]*appv1alpha1.SubscriptionUnitStatus)
+		clst = &appv1.SubscriptionPerClusterStatus{}
+		clst.SubscriptionPackageStatus = make(map[string]*appv1.SubscriptionUnitStatus)
 	}
 
 	pkgstatus := clst.SubscriptionPackageStatus[pkgname]
 	if pkgstatus == nil {
-		pkgstatus = &appv1alpha1.SubscriptionUnitStatus{}
+		pkgstatus = &appv1.SubscriptionUnitStatus{}
 	}
 
 	if pkgerr == nil {
-		pkgstatus.Phase = appv1alpha1.SubscriptionSubscribed
+		pkgstatus.Phase = appv1.SubscriptionSubscribed
 		pkgstatus.Reason = ""
 		pkgstatus.Message = ""
 	} else {
-		pkgstatus.Phase = appv1alpha1.SubscriptionFailed
+		pkgstatus.Phase = appv1.SubscriptionFailed
 		pkgstatus.Reason = pkgerr.Error()
 	}
 
@@ -199,7 +203,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		return nil
 	}
 
-	sub := &appv1alpha1.Subscription{}
+	sub := &appv1.Subscription{}
 	subkey := GetHostSubscriptionFromObject(tplunit)
 
 	if subkey == nil {
@@ -240,26 +244,26 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 }
 
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages
-func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1alpha1.Subscription, pkgMap map[string]bool) error {
+func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1.Subscription, pkgMap map[string]bool) error {
 	var err error
 
 	updated := false
 
 	if sub.Status.Statuses == nil {
-		sub.Status.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
+		sub.Status.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
 		updated = true
 	}
 
 	clst := sub.Status.Statuses["/"]
 	if clst == nil {
-		clst = &appv1alpha1.SubscriptionPerClusterStatus{}
+		clst = &appv1.SubscriptionPerClusterStatus{}
 		updated = true
 	}
 
 	klog.V(10).Info("valiating subscription status:", pkgMap, sub.Status, clst)
 
 	if clst.SubscriptionPackageStatus == nil {
-		clst.SubscriptionPackageStatus = make(map[string]*appv1alpha1.SubscriptionUnitStatus)
+		clst.SubscriptionPackageStatus = make(map[string]*appv1.SubscriptionUnitStatus)
 		updated = true
 	}
 
@@ -270,7 +274,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 			delete(clst.SubscriptionPackageStatus, k)
 		} else {
 			pkgst := clst.SubscriptionPackageStatus[k]
-			if pkgst.Phase == appv1alpha1.SubscriptionFailed {
+			if pkgst.Phase == appv1.SubscriptionFailed {
 				updated = true
 			}
 			delete(pkgMap, k)
@@ -279,7 +283,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 
 	for k := range pkgMap {
 		updated = true
-		pkgst := &appv1alpha1.SubscriptionUnitStatus{}
+		pkgst := &appv1.SubscriptionUnitStatus{}
 		clst.SubscriptionPackageStatus[k] = pkgst
 	}
 
@@ -303,18 +307,18 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 
 // OverrideResourceBySubscription alter the given template with overrides
 func OverrideResourceBySubscription(template *unstructured.Unstructured,
-	pkgName string, instance *appv1alpha1.Subscription) (*unstructured.Unstructured, error) {
+	pkgName string, instance *appv1.Subscription) (*unstructured.Unstructured, error) {
 	ovs := prepareOverrides(pkgName, instance)
 
 	return OverrideTemplate(template, ovs)
 }
 
-func prepareOverrides(pkgName string, instance *appv1alpha1.Subscription) []dplv1alpha1.ClusterOverride {
+func prepareOverrides(pkgName string, instance *appv1.Subscription) []dplv1.ClusterOverride {
 	if instance == nil || instance.Spec.PackageOverrides == nil {
 		return nil
 	}
 
-	var overrides []dplv1alpha1.ClusterOverride
+	var overrides []dplv1.ClusterOverride
 
 	// go over clsuters to find matching override
 	for _, ov := range instance.Spec.PackageOverrides {
@@ -323,7 +327,7 @@ func prepareOverrides(pkgName string, instance *appv1alpha1.Subscription) []dplv
 		}
 
 		for _, pov := range ov.PackageOverrides {
-			overrides = append(overrides, dplv1alpha1.ClusterOverride(pov))
+			overrides = append(overrides, dplv1.ClusterOverride(pov))
 		}
 	}
 
@@ -335,7 +339,7 @@ type objAnno interface {
 }
 
 // FilterPackageOut process the package filter logic
-func CanPassPackageFilter(filter *appv1alpha1.PackageFilter, obj objAnno) bool {
+func CanPassPackageFilter(filter *appv1.PackageFilter, obj objAnno) bool {
 	if filter == nil {
 		return true
 	}
@@ -405,15 +409,44 @@ func GetReleaseName(base string) (string, error) {
 }
 
 // GetPauseLabel check if the subscription-pause label exists
-func GetPauseLabel(instance *appv1alpha1.Subscription) bool {
+func GetPauseLabel(instance *appv1.Subscription) bool {
 	labels := instance.GetLabels()
 	if labels == nil {
 		labels = make(map[string]string)
 	}
 
-	if labels[appv1alpha1.LabelSubscriptionPause] != "" && strings.EqualFold(labels[appv1alpha1.LabelSubscriptionPause], "true") {
+	if labels[appv1.LabelSubscriptionPause] != "" && strings.EqualFold(labels[appv1.LabelSubscriptionPause], "true") {
 		return true
 	}
 
 	return false
+}
+
+//DeleteSubscriptionCRD deletes the Subscription CRD
+func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
+	sublist := &appv1.SubscriptionList{}
+	err := runtimeClient.List(context.TODO(), sublist, &client.ListOptions{})
+
+	if err != nil && !kerrors.IsNotFound(err) {
+		klog.Infof("subscription kind is gone. err: %s", err.Error())
+		os.Exit(0)
+	} else {
+		for _, sub := range sublist.Items {
+			klog.V(1).Infof("Found %s", sub.SelfLink)
+			// remove all finalizers
+			sub = *sub.DeepCopy()
+			sub.SetFinalizers([]string{})
+			err = runtimeClient.Update(context.TODO(), &sub)
+			if err != nil {
+				klog.Warning(err)
+			}
+		}
+		// now get rid of the crd
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("subscriptions.apps.open-cluster-management.io", &v1.DeleteOptions{})
+		if err != nil {
+			klog.Infof("Deleting subscription CRD failed. err: %s", err.Error())
+		} else {
+			klog.Info("subscription CRD removed")
+		}
+	}
 }
