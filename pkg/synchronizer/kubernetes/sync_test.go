@@ -128,6 +128,18 @@ func TestGVKValidation(t *testing.T) {
 	}
 	validgvk := schema.GroupVersionKind{
 		Group:   "apps",
+		Version: "v1beta1",
+		Kind:    "StatefulSet",
+	}
+	g.Expect(sync.GetValidatedGVK(gvk)).To(gomega.Equal(&validgvk))
+
+	gvk = schema.GroupVersionKind{
+		Group:   "apps",
+		Version: "v1",
+		Kind:    "StatefulSet",
+	}
+	validgvk = schema.GroupVersionKind{
+		Group:   "apps",
 		Version: "v1",
 		Kind:    "StatefulSet",
 	}
