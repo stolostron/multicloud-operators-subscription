@@ -33,8 +33,6 @@ type Validator struct {
 func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) {
 	var err error
 
-	crdDeleted := false
-
 	for _, resmap := range sync.KubeResources {
 		for _, tplunit := range resmap.TemplateMap {
 			tplhost := sync.Extension.GetHostFromObject(tplunit)
@@ -47,17 +45,8 @@ func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsourc
 				if err != nil {
 					klog.Error("Failed to deregister template for cleanup by host with error: ", err)
 				}
-
-				if resmap.GroupVersionResource.Resource == crdresource {
-					klog.Info("CleanupByHost: CRD Updated! let's discover it!")
-					crdDeleted = true
-				}
 			}
 		}
-	}
-
-	if crdDeleted {
-		sync.rediscoverResource()
 	}
 }
 
