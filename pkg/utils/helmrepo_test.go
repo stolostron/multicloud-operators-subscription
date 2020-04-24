@@ -22,8 +22,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/errors"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -315,4 +319,36 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
+}
+
+func TestDeleteHelmReleaseCRD(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	crdx, err := clientsetx.NewForConfig(cfg)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	runtimeClient, err := client.New(cfg, client.Options{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	hrlist := &releasev1.HelmReleaseList{}
+	err = runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	DeleteHelmReleaseCRD(runtimeClient, crdx)
+
+	hrlist = &releasev1.HelmReleaseList{}
+	err = runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
+	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
 }

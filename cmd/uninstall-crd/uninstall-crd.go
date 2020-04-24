@@ -15,18 +15,14 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
 	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -92,83 +88,11 @@ func main() {
 	}
 
 	// handle helmrelease crd
-	hrlist := &releasev1.HelmReleaseList{}
-	err = runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
-
-	if err != nil && !errors.IsNotFound(err) {
-		klog.Infof("HelmRelease kind is gone. err: %s", err.Error())
-		os.Exit(0)
-	} else {
-		for _, hr := range hrlist.Items {
-			klog.V(1).Infof("Found %s", hr.SelfLink)
-			// remove all finalizers
-			hr = *hr.DeepCopy()
-			hr.SetFinalizers([]string{})
-			err = runtimeClient.Update(context.TODO(), &hr)
-			if err != nil {
-				klog.Warning(err)
-			}
-		}
-		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("helmreleases.apps.open-cluster-management.io", &v1.DeleteOptions{})
-		if err != nil {
-			klog.Infof("Deleting helmrelease CRD failed. err: %s", err.Error())
-		} else {
-			klog.Info("helmrelease CRD removed")
-		}
-	}
+	utils.DeleteHelmReleaseCRD(runtimeClient, crdx)
 
 	// handle subscription crd
-	sublist := &subv1.SubscriptionList{}
-	err = runtimeClient.List(context.TODO(), sublist, &client.ListOptions{})
-
-	if err != nil && !errors.IsNotFound(err) {
-		klog.Infof("subscription kind is gone. err: %s", err.Error())
-		os.Exit(0)
-	} else {
-		for _, sub := range sublist.Items {
-			klog.V(1).Infof("Found %s", sub.SelfLink)
-			// remove all finalizers
-			sub = *sub.DeepCopy()
-			sub.SetFinalizers([]string{})
-			err = runtimeClient.Update(context.TODO(), &sub)
-			if err != nil {
-				klog.Warning(err)
-			}
-		}
-		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("subscriptions.apps.open-cluster-management.io", &v1.DeleteOptions{})
-		if err != nil {
-			klog.Infof("Deleting subscription CRD failed. err: %s", err.Error())
-		} else {
-			klog.Info("subscription CRD removed")
-		}
-	}
+	utils.DeleteSubscriptionCRD(runtimeClient, crdx)
 
 	// handle deployable crd
-	dpllist := &dplv1.DeployableList{}
-	err = runtimeClient.List(context.TODO(), dpllist, &client.ListOptions{})
-
-	if err != nil && !errors.IsNotFound(err) {
-		klog.Infof("deployable kind is gone. err: %s", err.Error())
-		os.Exit(0)
-	} else {
-		for _, dpl := range dpllist.Items {
-			klog.V(1).Infof("Found %s", dpl.SelfLink)
-			// remove all finalizers
-			dpl = *dpl.DeepCopy()
-			dpl.SetFinalizers([]string{})
-			err = runtimeClient.Update(context.TODO(), &dpl)
-			if err != nil {
-				klog.Warning(err)
-			}
-		}
-		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("deployables.apps.open-cluster-management.io", &v1.DeleteOptions{})
-		if err != nil {
-			klog.Infof("Deleting deployable CRD failed. err: %s", err.Error())
-		} else {
-			klog.Info("deployable CRD removed")
-		}
-	}
+	utils.DeleteDeployableCRD(runtimeClient, crdx)
 }

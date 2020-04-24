@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -29,8 +30,10 @@ import (
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -496,4 +499,33 @@ func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool
 	klog.V(4).Info("Version check passed for:", chartVersion)
 
 	return true
+}
+
+//DeleteHelmReleaseCRD deletes the HelmRelease CRD
+func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
+	hrlist := &releasev1.HelmReleaseList{}
+	err := runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
+
+	if err != nil && !errors.IsNotFound(err) {
+		klog.Infof("HelmRelease kind is gone. err: %s", err.Error())
+		os.Exit(0)
+	} else {
+		for _, hr := range hrlist.Items {
+			klog.V(1).Infof("Found %s", hr.SelfLink)
+			// remove all finalizers
+			hr = *hr.DeepCopy()
+			hr.SetFinalizers([]string{})
+			err = runtimeClient.Update(context.TODO(), &hr)
+			if err != nil {
+				klog.Warning(err)
+			}
+		}
+		// now get rid of the crd
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("helmreleases.apps.open-cluster-management.io", &v1.DeleteOptions{})
+		if err != nil {
+			klog.Infof("Deleting helmrelease CRD failed. err: %s", err.Error())
+		} else {
+			klog.Info("helmrelease CRD removed")
+		}
+	}
 }
