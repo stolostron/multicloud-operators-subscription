@@ -55,20 +55,19 @@ const (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1.SubscriberItem
-
-	stopch                chan struct{}
-	syncinterval          int
-	synchronizer          *kubesynchronizer.KubeSynchronizer
-	repoRoot              string
-	webhookEnabled        bool
-	commitID              string
-	successful            bool
-	chartDirs             map[string]string
-	kustomizeDirs         map[string]string
 	crdsAndNamespaceFiles []string
 	rbacFiles             []string
 	otherFiles            []string
+	repoRoot              string
+	commitID              string
+	stopch                chan struct{}
+	syncinterval          int
+	synchronizer          *kubesynchronizer.KubeSynchronizer
+	chartDirs             map[string]string
+	kustomizeDirs         map[string]string
 	indexFile             *repo.IndexFile
+	webhookEnabled        bool
+	successful            bool
 }
 
 type kubeResource struct {
@@ -266,6 +265,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -305,6 +305,7 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 			}
 		}
 	}
+
 	return nil
 }
 
