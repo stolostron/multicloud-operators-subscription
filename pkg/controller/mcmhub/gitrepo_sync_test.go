@@ -42,6 +42,7 @@ var (
 			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
 		},
 	}
+
 	githubsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
@@ -83,8 +84,23 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	err = c.Create(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(2 * time.Second)
 
 	ret = rec.UpdateGitDeployablesAnnotation(githubsub)
 	g.Expect(ret).To(gomega.BeTrue())
+
+	time.Sleep(2 * time.Second)
+
+	subDeployables := rec.getSubscriptionDeployables(githubsub)
+	g.Expect(len(subDeployables)).To(gomega.Equal(26))
+
+	rec.deleteSubscriptionDeployables(githubsub)
+
+	time.Sleep(2 * time.Second)
+
+	subDeployables = rec.getSubscriptionDeployables(githubsub)
+	g.Expect(len(subDeployables)).To(gomega.Equal(0))
+
+	err = c.Delete(context.TODO(), githubchn)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
