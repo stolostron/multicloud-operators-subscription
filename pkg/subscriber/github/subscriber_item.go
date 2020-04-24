@@ -55,18 +55,19 @@ const (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1.SubscriberItem
-
-	stopch                chan struct{}
-	syncinterval          int
-	synchronizer          *kubesynchronizer.KubeSynchronizer
-	repoRoot              string
-	commitID              string
-	chartDirs             map[string]string
-	kustomizeDirs         map[string]string
 	crdsAndNamespaceFiles []string
 	rbacFiles             []string
 	otherFiles            []string
+	repoRoot              string
+	commitID              string
+	stopch                chan struct{}
+	syncinterval          int
+	synchronizer          *kubesynchronizer.KubeSynchronizer
+	chartDirs             map[string]string
+	kustomizeDirs         map[string]string
 	indexFile             *repo.IndexFile
+	webhookEnabled        bool
+	successful            bool
 }
 
 type kubeResource struct {
@@ -101,6 +102,9 @@ func (ghsi *SubscriberItem) Start() {
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
+			ghsi.successful = false
+		} else {
+			ghsi.successful = true
 		}
 	}, time.Duration(ghsi.syncinterval)*time.Second, ghsi.stopch)
 }
@@ -112,6 +116,11 @@ func (ghsi *SubscriberItem) Stop() {
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
+	// If webhook is enabled and successful, don't do anything until next reconcilitation.
+	if ghsi.webhookEnabled && ghsi.successful {
+		return nil
+	}
+
 	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
@@ -120,8 +129,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
-	if commitID != ghsi.commitID {
-		klog.V(2).Info("The commit ID is different. Process the cloned repo")
+	if commitID != ghsi.commitID || !ghsi.successful {
+		klog.V(2).Info("The commit ID is different or subscription failed previously. Process the cloned repo")
 
 		err := ghsi.sortClonedGitRepo()
 		if err != nil {
@@ -136,19 +145,39 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
 
-		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.crdsAndNamespaceFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.crdsAndNamespaceFiles)
+
+		if err != nil {
+			klog.Error(err, "Unable to subscribe resource ")
+			return err
+		}
 
 		klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
 
-		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.rbacFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.rbacFiles)
+
+		if err != nil {
+			klog.Error(err, "Unable to subscribe resource")
+			return err
+		}
 
 		klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
 
-		ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.otherFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.otherFiles)
+
+		if err != nil {
+			klog.Error(err, "Unable to subscribe resource")
+			return err
+		}
 
 		klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
 
-		ghsi.subscribeKustomizations(hostkey, syncsource, kvalid, rscPkgMap)
+		err = ghsi.subscribeKustomizations(hostkey, syncsource, kvalid, rscPkgMap)
+
+		if err != nil {
+			klog.Error(err, "Unable to subscribe resource")
+			return err
+		}
 
 		ghsi.synchronizer.ApplyValiadtor(kvalid)
 
@@ -179,7 +208,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName,
 	syncsource string,
 	kvalid *kubesynchronizer.Validator,
-	pkgMap map[string]bool) {
+	pkgMap map[string]bool) error {
 	for _, kustomizeDir := range ghsi.kustomizeDirs {
 		klog.Info("Applying kustomization ", kustomizeDir)
 
@@ -231,17 +260,20 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 				err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resourceFile, pkgMap)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 	syncsource string,
 	kvalid *kubesynchronizer.Validator,
 	pkgMap map[string]bool,
-	rscFiles []string) {
+	rscFiles []string) error {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
@@ -268,10 +300,13 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 				err = ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resource, pkgMap)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
