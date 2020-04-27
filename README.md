@@ -37,8 +37,8 @@ Subscribes resources from Channels and apply them to kubernetes
 - Clone the subscription operator repository
 
 ```shell
-mkdir -p "$GOPATH"/src/github.com/IBM
-cd "$GOPATH"/src/github.com/IBM
+mkdir -p "$GOPATH"/src/github.com/open-cluster-management
+cd "$GOPATH"/src/github.com/open-cluster-management
 git clone https://github.com/open-cluster-management/multicloud-operators-subscription.git
 cd "$GOPATH"/src/github.com/open-cluster-management/multicloud-operators-subscription
 ```

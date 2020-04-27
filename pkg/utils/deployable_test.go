@@ -57,4 +57,8 @@ func TestDeleteDeployableCRD(t *testing.T) {
 	dlist = &dplv1.DeployableList{}
 	err = runtimeClient.List(context.TODO(), dlist, &client.ListOptions{})
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+
+	DeleteDeployableCRD(runtimeClient, crdx)
+	err = runtimeClient.List(context.TODO(), dlist, &client.ListOptions{})
+	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
 }
