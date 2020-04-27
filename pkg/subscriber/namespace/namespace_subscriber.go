@@ -39,7 +39,6 @@ import (
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	synckube "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 // NsSubscriberItem  defines the unit of namespace subscription
@@ -57,13 +56,11 @@ type NsSubscriberItem struct {
 type itemmap map[types.NamespacedName]*NsSubscriberItem
 
 type nssubscriberSyncSource interface {
-	CreateValiadtor(string) *synckube.Validator
-	ApplyValiadtor(*synckube.Validator)
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
-	RegisterTemplate(types.NamespacedName, *dplv1alpha1.Deployable, string) error
 	IsResourceNamespaced(schema.GroupVersionKind) bool
 	CleanupByHost(types.NamespacedName, string)
 	GetInterval() int
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
 }
 
 // NsSubscriber  information to run namespace subscription

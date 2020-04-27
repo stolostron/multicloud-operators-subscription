@@ -103,55 +103,6 @@ func (sync *KubeSynchronizer) rediscoverResource() {
 	sync.resetcache = false
 }
 
-// GetValidatedGVK return right gvk from original
-func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *schema.GroupVersionKind {
-	valid := &org
-
-	if _, ok := internalReplacedGroupVersionKind[org]; ok {
-		valid = internalReplacedGroupVersionKind[org]
-	}
-
-	gk := schema.GroupKind{Group: valid.Group, Kind: valid.Kind}
-
-	klog.V(5).Infof("gk: %#v, valid: %#v ", gk, valid)
-
-	if _, ok := internalIgnoredGroupKind[gk]; ok {
-		return nil
-	}
-
-	if sync.Extension != nil && sync.Extension.IsIgnoredGroupKind(gk) {
-		return nil
-	}
-
-	found := false
-
-	var regGvk schema.GroupVersionKind
-
-	// return the right version of gv
-	for gvk := range sync.KubeResources {
-		if valid.GroupKind() == gvk.GroupKind() {
-			if valid.Version == gvk.Version {
-				return &gvk
-			}
-
-			found = true
-			regGvk = gvk
-		}
-	}
-
-	// if there's a GK ready served by the k8s, then we are going to registry
-	// the incoming unknown version for this GK as well, since k8s would handle
-	// the version conversion, if there isn't any version conversion on k8s,
-	// user would get deploy failed error, which would aligned with the kubectl
-	// behavior
-	if found {
-		kubeResourceAddVersionToGK(sync.KubeResources, regGvk, *valid)
-		return valid
-	}
-
-	return nil
-}
-
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.Info("Discovering cluster resources")
 

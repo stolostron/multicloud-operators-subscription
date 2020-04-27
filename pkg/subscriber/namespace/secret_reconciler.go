@@ -23,6 +23,7 @@ import (
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 
 	"github.com/pkg/errors"
@@ -113,9 +114,7 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 	//handle secret lifecycle by registering packaged secret to synchronizer
 	kubesync := s.NsSubscriber.synchronizer
 
-	registerToResourceMap(s.Schema, s.NsSubscriber.itemmap[s.Itemkey].Subscription, kubesync, dpls)
-
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, registerToResourceMap(s.Schema, s.NsSubscriber.itemmap[s.Itemkey].Subscription, kubesync, dpls)
 }
 
 //GetSecrets get the Secert from all the suscribed channel
@@ -160,14 +159,12 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 }
 
 //registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
-func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription, kubesync nssubscriberSyncSource, pDpls []*dplv1alpha1.Deployable) {
+func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription, kubesync nssubscriberSyncSource, pDpls []*dplv1alpha1.Deployable) error {
 	hostkey := types.NamespacedName{Name: pSubscription.Name, Namespace: pSubscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
 
 	// create a validator when
-	kvalid := kubesync.CreateValiadtor(syncsource)
-
-	pkgMap := make(map[string]bool)
+	dplOrder := []kubesynchronizer.DplUnit{}
 
 	for _, dpl := range pDpls {
 		template := &unstructured.Unstructured{}
@@ -188,8 +185,6 @@ func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subsc
 				klog.Info("error in overriding for package: ", err)
 			}
 
-			pkgMap[dpl.GetName()] = true
-
 			continue
 		}
 
@@ -207,8 +202,6 @@ func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subsc
 			if err := utils.SetInClusterPackageStatus(&(pSubscription.Status), dpl.GetName(), gvkerr, nil); err != nil {
 				klog.Info("error in setting in cluster package status :", err)
 			}
-
-			pkgMap[dpl.GetName()] = true
 
 			continue
 		}
@@ -234,29 +227,21 @@ func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subsc
 		annotations[dplv1alpha1.AnnotationLocal] = "true"
 		dpltosync.SetAnnotations(annotations)
 
-		if err := kubesync.RegisterTemplate(hostkey, dpltosync, syncsource); err != nil {
-			if err := utils.SetInClusterPackageStatus(&(pSubscription.Status), dpltosync.GetName(), err, nil); err != nil {
-				klog.Info("error in setting in cluster package status :", err)
-			}
-
-			pkgMap[dpltosync.GetName()] = true
-
-			continue
-		}
-
 		dplkey := types.NamespacedName{
 			Name:      dpltosync.Name,
 			Namespace: dpltosync.Namespace,
 		}
 
-		kvalid.AddValidResource(*validgvk, hostkey, dplkey)
+		dUnit := kubesynchronizer.DplUnit{
+			Dpl: dpltosync,
+			Gvk: *validgvk,
+		}
 
-		pkgMap[dplkey.Name] = true
-
+		dplOrder = append(dplOrder, dUnit)
 		klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	kubesync.ApplyValiadtor(kvalid)
+	return kubesync.AddTemplates(syncsource, hostkey, dplOrder)
 }
 
 //PackageSecert put the secret to the deployable template

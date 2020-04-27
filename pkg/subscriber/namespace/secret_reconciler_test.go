@@ -33,6 +33,7 @@ import (
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	synckube "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
@@ -134,6 +135,10 @@ func (f *fakeSynchronizer) CleanupByHost(key types.NamespacedName, s string) {}
 
 func (f *fakeSynchronizer) GetInterval() int {
 	return f.interval
+}
+
+func (f *fakeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []kubernetes.DplUnit) error {
+	return nil
 }
 
 func (f *fakeSynchronizer) assertTemplateRegistry(nKey types.NamespacedName, gvk schema.GroupVersionKind) bool {
