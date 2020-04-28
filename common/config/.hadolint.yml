@@ -3,9 +3,3 @@ trustedRegistries:
   - docker.io
   - quay.io
   - registry.access.redhat.com
-
-ignored:
-  - DL3018
-  - DL3019
-  - DL3020
-  - DL4006
