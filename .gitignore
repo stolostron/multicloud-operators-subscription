@@ -77,4 +77,3 @@ tags
 ### MacOs
 .DS_Store
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
-.build-harness-bootstrap
