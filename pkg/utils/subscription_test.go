@@ -57,4 +57,8 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 	slist = &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+
+	slist = &appv1.SubscriptionList{}
+	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
+	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
 }

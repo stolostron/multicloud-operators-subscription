@@ -351,4 +351,8 @@ func TestDeleteHelmReleaseCRD(t *testing.T) {
 	hrlist = &releasev1.HelmReleaseList{}
 	err = runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+
+	hrlist = &releasev1.HelmReleaseList{}
+	err = runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
+	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
 }
