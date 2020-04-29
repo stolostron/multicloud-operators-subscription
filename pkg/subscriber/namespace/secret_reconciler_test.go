@@ -17,17 +17,18 @@ package namespace
 import (
 	"context"
 	"encoding/json"
-	"testing"
+	"fmt"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -37,63 +38,110 @@ import (
 	synckube "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
-func TestSecretReconcile(t *testing.T) {
-	// set up the reconcile
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is find id
+var _ = Describe("base secret reconcile", func() {
+	It("should reconcile with the default synchronizer", func() {
+		// a deployable annotated secert will sit at the channel namespace
+		var (
+			chKey = types.NamespacedName{
+				Name:      "tend",
+				Namespace: "tch",
+			}
 
-	defaultitem = &appv1alpha1.SubscriberItem{
-		Subscription: subscription,
-		Channel:      channel,
-	}
+			dplSrtName = "dpl-srt"
+			dplSrt     = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        dplSrtName,
+					Namespace:   chKey.Namespace,
+					Annotations: map[string]string{appv1alpha1.AnnotationDeployables: "true"},
+				},
+			}
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+			// a normal secert will sit at the channel namespace
+			noneDplSrtName = "none-dplsrt"
+			noneDplSrt     = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      noneDplSrtName,
+					Namespace: chKey.Namespace,
+				},
+			}
 
-	c = mgr.GetClient()
+			channel = &chnv1alpha1.Channel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      chKey.Name,
+					Namespace: chKey.Namespace,
+				},
+				Spec: chnv1alpha1.ChannelSpec{
+					Type: chnv1alpha1.ChannelTypeNamespace,
+				},
+			}
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+			subkey = types.NamespacedName{
+				Name:      "srt-test-sub",
+				Namespace: "srt-test-sub-namespace",
+			}
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+			subRef = &corev1.LocalObjectReference{
+				Name: subkey.Name,
+			}
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+			subscription = &appv1alpha1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subkey.Name,
+					Namespace: subkey.Namespace,
+				},
+				Spec: appv1alpha1.SubscriptionSpec{
+					Channel: id.String(),
+					PackageFilter: &appv1alpha1.PackageFilter{
+						FilterRef: subRef,
+					},
+				},
+			}
+		)
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is find id
+		defaultNsSubscriber.itemmap[subkey] = &NsSubscriberItem{
+			SubscriberItem: appv1alpha1.SubscriberItem{
+				Subscription: subscription,
+				Channel:      channel,
+			},
+		}
 
-	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
-	// pointing to a namespace type of channel
-	srtRec := newSecretReconciler(defaultNsSubscriber, mgr, subkey)
+		// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
+		// pointing to a namespace type of channel
+		srtRec := newSecretReconciler(defaultNsSubscriber, k8sManager, subkey)
 
-	// Create secrets at the channel namespace
+		// Create secrets at the channel namespace
 
-	g.Expect(c.Create(context.TODO(), subscription)).NotTo(gomega.HaveOccurred())
+		Expect(k8sClient.Create(context.TODO(), subscription)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), subscription)
 
-	defer c.Delete(context.TODO(), subscription)
+		Expect(k8sClient.Create(context.TODO(), dplSrt)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), dplSrt)
 
-	g.Expect(c.Create(context.TODO(), dplSrt)).NotTo(gomega.HaveOccurred())
+		Expect(k8sClient.Create(context.TODO(), noneDplSrt)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), noneDplSrt)
 
-	defer c.Delete(context.TODO(), dplSrt)
+		time.Sleep(k8swait)
+		dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
+		Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(BeNil())
+		//check up if the target secert is deployed at the subscriptions namespace
+		dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
+		// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
+		//checking if the reconcile has any error
+		Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(BeNil())
 
-	g.Expect(c.Create(context.TODO(), noneDplSrt)).NotTo(gomega.HaveOccurred())
+		expectSrt := &corev1.Secret{}
+		Expect(k8sClient.Get(context.TODO(),
+			types.NamespacedName{Name: dplSrtKey.Name, Namespace: subscription.Namespace},
+			expectSrt)).Should(Succeed())
 
-	defer c.Delete(context.TODO(), noneDplSrt)
+		defer func() {
+			Expect(k8sClient.Delete(context.TODO(), expectSrt)).Should(Succeed())
+		}()
+	})
+})
 
-	dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
-	g.Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(gomega.BeNil())
-	//check up if the target secert is deployed at the subscriptions namespace
-	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
-
-	time.Sleep(4 * time.Second)
-
-	//checked up if the secret is deployed at the subscription namespace
-
-	// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
-	//checking if the reconcile has any error
-	g.Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(gomega.BeNil())
-}
-
+// this is a used to mock the synchronizer due to the houseKeeping cycle
 type fakeSynchronizer struct {
 	Store    map[schema.GroupVersionKind]map[string]bool
 	name     string
@@ -117,7 +165,7 @@ func (f *fakeSynchronizer) GetValidatedGVK(gvk schema.GroupVersionKind) *schema.
 	return &gvk
 }
 
-func (f *fakeSynchronizer) RegisterTemplate(nKey types.NamespacedName, pDpl *dplv1alpha1.Deployable, s string) error {
+func (f *fakeSynchronizer) RegisterTemplate(nKey fmt.Stringer, pDpl *dplv1alpha1.Deployable, s string) error {
 	template := &unstructured.Unstructured{}
 	err := json.Unmarshal(pDpl.Spec.Template.Raw, template)
 
@@ -149,95 +197,91 @@ func (f *fakeSynchronizer) assertTemplateRegistry(nKey types.NamespacedName, gvk
 	return true
 }
 
-func TestSecretReconcileSpySync(t *testing.T) {
-	// set up the reconcile
-	g := gomega.NewGomegaWithT(t)
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is find id
-	subkey := types.NamespacedName{Name: "secret-sub", Namespace: "test-sub-namespace"}
-	chkey := types.NamespacedName{Name: "secret-ch", Namespace: "default"}
+var _ = Describe("fakeSynchronizer reconcile test", func() {
+	It("should reconcile without error", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is find id
+		var (
+			subkey = types.NamespacedName{Name: "fake-secret-sub", Namespace: "test-sub-namespace"}
+			chkey  = types.NamespacedName{Name: "fake-secret-ch", Namespace: "default"}
 
-	sub := &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      subkey.Name,
-			Namespace: subkey.Namespace,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: chkey.String(),
-			PackageFilter: &appv1alpha1.PackageFilter{
-				FilterRef: subRef,
+			subRef = &corev1.LocalObjectReference{
+				Name: subkey.Name,
+			}
+
+			sub = &appv1alpha1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subkey.Name,
+					Namespace: subkey.Namespace,
+				},
+				Spec: appv1alpha1.SubscriptionSpec{
+					Channel: chkey.String(),
+					PackageFilter: &appv1alpha1.PackageFilter{
+						FilterRef: subRef,
+					},
+				},
+			}
+
+			dplSrtName = "fake-dpl-srt"
+			dplSrt     = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        dplSrtName,
+					Namespace:   chkey.Namespace,
+					Annotations: map[string]string{appv1alpha1.AnnotationDeployables: "true"},
+				},
+			}
+
+			noneDplSrtName = "fake-none-dplsrt"
+			noneDplSrt     = &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      noneDplSrtName,
+					Namespace: chkey.Namespace,
+				},
+			}
+
+			channel = &chnv1alpha1.Channel{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      chkey.Name,
+					Namespace: chkey.Namespace,
+				},
+				Spec: chnv1alpha1.ChannelSpec{
+					Type: chnv1alpha1.ChannelTypeNamespace,
+				},
+			}
+		)
+
+		spySync := &fakeSynchronizer{}
+		tSubscriber, _ := CreateNsSubscriber(k8sManager.GetConfig(), k8sManager.GetScheme(), k8sManager, spySync)
+
+		tSubscriber.itemmap[subkey] = &NsSubscriberItem{
+			SubscriberItem: appv1alpha1.SubscriberItem{
+				Subscription: sub,
+				Channel:      channel,
 			},
-		},
-	}
+		}
+		// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
+		// pointing to a namespace type of channel
+		srtRec := newSecretReconciler(tSubscriber, k8sManager, subkey)
 
-	dplSrtName = "dpl-srt"
-	dplSrt = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        dplSrtName,
-			Namespace:   chkey.Namespace,
-			Annotations: map[string]string{appv1alpha1.AnnotationDeployables: "true"},
-		},
-	}
+		Expect(k8sClient.Create(context.TODO(), dplSrt)).NotTo(HaveOccurred())
 
-	noneDplSrtName = "none-dplsrt"
-	noneDplSrt = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      noneDplSrtName,
-			Namespace: chkey.Namespace,
-		},
-	}
+		defer k8sClient.Delete(context.TODO(), dplSrt)
 
-	channel = &chnv1alpha1.Channel{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      chkey.Name,
-			Namespace: chkey.Namespace,
-		},
-		Spec: chnv1alpha1.ChannelSpec{
-			Type: chnv1alpha1.ChannelTypeNamespace,
-		},
-	}
+		Expect(k8sClient.Create(context.TODO(), noneDplSrt)).NotTo(HaveOccurred())
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), noneDplSrt)
 
-	c = mgr.GetClient()
+		time.Sleep(k8swait)
+		dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
+		Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(BeNil())
+		//check up if the target secert is deployed at the subscriptions namespace
+		dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+		// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
+		//checking if the reconcile has any error
+		Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(BeNil())
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+		spySync.assertTemplateRegistry(dplSrtKey, dplSrt.GroupVersionKind())
 
-	spySync := &fakeSynchronizer{}
-	tSubscriber, _ := CreateNsSubscriber(cfg, mgr.GetScheme(), mgr, spySync)
-
-	tSubscriber.itemmap[subkey] = &NsSubscriberItem{
-		SubscriberItem: appv1alpha1.SubscriberItem{
-			Subscription: sub,
-			Channel:      channel,
-		},
-	}
-	// Getting a secret reconciler which belongs to the subscription defined in the var and the subscription is
-	// pointing to a namespace type of channel
-	srtRec := newSecretReconciler(tSubscriber, mgr, subkey)
-
-	g.Expect(c.Create(context.TODO(), dplSrt)).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), dplSrt)
-
-	g.Expect(c.Create(context.TODO(), noneDplSrt)).NotTo(gomega.HaveOccurred())
-
-	defer c.Delete(context.TODO(), noneDplSrt)
-
-	dplSrtKey := types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}
-	g.Expect(srtRec.getSecretsBySubLabel(dplSrtKey.Namespace)).ShouldNot(gomega.BeNil())
-	//check up if the target secert is deployed at the subscriptions namespace
-	dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
-
-	// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
-	//checking if the reconcile has any error
-	g.Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(gomega.BeNil())
-
-	spySync.assertTemplateRegistry(dplSrtKey, dplSrt.GroupVersionKind())
-}
+	})
+})

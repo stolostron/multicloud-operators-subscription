@@ -185,6 +185,7 @@ func (r *DeployableReconciler) doSubscription() error {
 		}
 
 		dplOrder = append(dplOrder, dplU)
+
 		klog.V(5).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
 		if err != nil {
@@ -206,6 +207,7 @@ func (r *DeployableReconciler) doSubscription() error {
 	}
 
 	retryerr = r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder)
+
 	return retryerr
 }
 

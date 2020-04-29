@@ -15,7 +15,6 @@
 package kubernetes
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -26,6 +25,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -189,6 +190,7 @@ func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
 
 func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub types.NamespacedName) error {
 	var err error
+
 	for _, resmap := range sync.KubeResources {
 		for _, tplunit := range resmap.TemplateMap {
 			tplhost := sync.Extension.GetHostFromObject(tplunit)
@@ -204,6 +206,7 @@ func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub ty
 			}
 		}
 	}
+
 	return err
 }
 
@@ -215,8 +218,8 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	keySet := make(map[string]bool)
 	resSet := make(map[string]map[schema.GroupVersionKind]bool)
-
 	crdFlag := false
+
 	var err error
 
 	//adding update,new resource to cache and create them at cluster
@@ -261,7 +264,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 					klog.Error("Failed to deregister template for applying validator with error: ", err)
 				}
 			}
-
 		}
 
 		sync.applyKindTemplates(resmap)
@@ -277,6 +279,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 //HouseKeeping - Apply resources defined in sync.KubeResources
 func (sync *KubeSynchronizer) houseKeeping() {
 	crdUpdated := false
+
 	// make sure the template map and the actual resource are aligned
 	for gvk, res := range sync.KubeResources {
 		var err error
