@@ -115,8 +115,6 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 }
 
 func (r *DeployableReconciler) doSubscription() error {
-	var retryerr error
-
 	subitem, ok := r.subscriber.itemmap[r.itemkey]
 
 	if !ok {
@@ -165,6 +163,8 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	versionMap := utils.GenerateVersionSet(utils.DplArrayToDplPointers(dpllist.Items), vsub)
 
+	var retryerr error
+
 	for _, dpl := range dpllist.Items {
 		klog.V(5).Infof("Updating subscription %v, with Deployable %v  ", syncsource, hostkey)
 
@@ -206,9 +206,11 @@ func (r *DeployableReconciler) doSubscription() error {
 		klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	retryerr = r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder)
+	if retryerr != nil {
+		return retryerr
+	}
 
-	return retryerr
+	return r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder)
 }
 
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, dpl *dplv1alpha1.Deployable,

@@ -165,9 +165,9 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 
 	sync.processTplChan(s)
 
-	//	go wait.Until(func() {
-	//		sync.houseKeeping()
-	//	}, time.Duration(sync.Interval)*time.Second, s)
+	//1	go wait.Until(func() {
+	//1		sync.houseKeeping()
+	//1	}, time.Duration(sync.Interval)*time.Second, s)
 
 	<-s
 
