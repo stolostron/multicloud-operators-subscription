@@ -43,11 +43,11 @@ var testEnv *envtest.Environment
 var k8sManager mgr.Manager
 var k8sClient client.Client
 
-func TestChannelDeployableReconcile(t *testing.T) {
+func TestSubscriptionNamespaceReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecsWithDefaultAndCustomReporters(t,
-		"Deployable Controller Suite",
+		"Namespace Controller Suite",
 		[]Reporter{envtest.NewlineReporter{}})
 }
 
