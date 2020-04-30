@@ -344,7 +344,7 @@ var _ = Describe("test CRD discovery", func() {
 		Eventually(sync.KubeResources[foocrdgvk], waitInterval).Should(BeNil())
 	})
 
-	FIt("should be able to deploy CRD via subscription", func() {
+	It("should be able to deploy CRD via subscription", func() {
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 		// channel when it is finished.
 
