@@ -1,7 +1,3 @@
-// Copyright 2019 The Kubernetes Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
@@ -322,8 +318,6 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	}
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
-
-	fmt.Printf("%p\n", sync.KubeResources)
 
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil

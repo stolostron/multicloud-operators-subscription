@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -29,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/client-go/kubernetes/scheme"
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -80,15 +80,6 @@ var (
 		},
 	}
 )
-
-var _ = Describe("test houseKeeping", func() {
-	It("should trigger the houseKeeping", func() {
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
-		Expect(err).NotTo(HaveOccurred())
-
-		sync.houseKeeping()
-	})
-})
 
 var _ = Describe("test GVK validation", func() {
 	It("should return the correct GVK", func() {
@@ -307,9 +298,7 @@ var _ = Describe("test CRD discovery", func() {
 				},
 			},
 			Spec: dplv1alpha1.DeployableSpec{
-				Template: &runtime.RawExtension{
-					Object: &workloadconfigmap,
-				},
+				Template: &runtime.RawExtension{},
 			},
 		}
 
@@ -322,92 +311,109 @@ var _ = Describe("test CRD discovery", func() {
 				Channel: crdSharedkey.String(),
 			},
 		}
+
+		interval     = 2
+		waitInterval = interval * 3
 	)
 
-	It("should apply the CRD and rebuild the cache", func() {
+	It("should detect user applied CRD and rebuild the cache", func() {
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 		// channel when it is finished.
-
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), scheme.Scheme, &host, 2, nil)
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, interval, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		sync.rediscoverResource()
 		defer sync.stopCaching()
+
+		go sync.Start(sync.stopCh)
+
+		Expect(sync.KubeResources[foocrdgvk]).Should(BeNil())
 
 		crdinstance := crd.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), crdinstance)).NotTo(HaveOccurred())
 		Expect(k8sClient.Get(context.TODO(), tCrdkey, crdinstance)).NotTo(HaveOccurred())
 
-		Expect(sync.KubeResources[foocrdgvk]).Should(BeNil())
-		sync.houseKeeping()
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Duration(waitInterval) * time.Second)
 
 		Expect(sync.KubeResources[foocrdgvk]).ShouldNot(BeNil())
 
 		k8sClient.Delete(context.TODO(), crdinstance)
-		time.Sleep(1 * time.Second)
+
+		time.Sleep(time.Duration(waitInterval) * time.Second)
 		Expect(errors.IsNotFound(k8sClient.Get(context.TODO(), tCrdkey, crdinstance))).Should(BeTrue())
 
-		Expect(sync.KubeResources[foocrdgvk]).ShouldNot(BeNil())
-		sync.houseKeeping()
-		time.Sleep(1 * time.Second)
-
-		Expect(sync.KubeResources[foocrdgvk]).Should(BeNil())
+		Eventually(sync.KubeResources[foocrdgvk], waitInterval).Should(BeNil())
 	})
 
-	It("should be able to deploy CRD via subscription", func() {
+	FIt("should be able to deploy CRD via subscription", func() {
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 		// channel when it is finished.
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, interval, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		sync.rediscoverResource()
 		defer sync.stopCaching()
+		go sync.Start(sync.stopCh)
 
 		sub := subinstance.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), sub)).Should(Succeed())
+		defer Expect(k8sClient.Delete(context.TODO(), sub)).Should(Succeed())
 
-		Expect(k8sClient.Create(context.TODO(), sub)).NotTo((HaveOccurred()))
-		defer k8sClient.Delete(context.TODO(), sub)
+		time.Sleep(time.Duration(waitInterval) * time.Second)
 
 		hostnn := crdSharedkey
-		dplnn := crdSharedkey
 		dpl := dplinstance.DeepCopy()
 		dpl.Spec.Template = &runtime.RawExtension{
 			Object: crd.DeepCopy(),
 		}
+
 		source := sourceprefix + hostnn.String()
+		anno := map[string]string{
+			dplv1alpha1.AnnotationHosting:    crdSharedkey.Namespace + "/" + crdSharedkey.Name,
+			appv1alpha1.AnnotationHosting:    crdSharedkey.Namespace + "/" + crdSharedkey.Name,
+			appv1alpha1.AnnotationSyncSource: source,
+			dplv1alpha1.AnnotationLocal:      "true",
+		}
 
-		Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(HaveOccurred())
+		dpl.SetAnnotations(anno)
 
+		dplU := DplUnit{
+			Dpl: dpl,
+			Gvk: crdgvk,
+		}
+
+		//just checking we don't have foo CRD on the test cluster
 		_, ok := sync.KubeResources[foocrdgvk]
 		Expect(ok).Should(BeFalse())
 
-		sync.houseKeeping()
-		time.Sleep(k8swait)
+		//apply CRD foo via subscription
+		Expect(sync.AddTemplates(source, hostnn, []DplUnit{dplU})).Should(Succeed())
 
-		result := &crdv1beta1.CustomResourceDefinition{}
-		Expect(k8sClient.Get(context.TODO(), tCrdkey, result)).NotTo(HaveOccurred())
+		time.Sleep(time.Duration(waitInterval) * time.Second)
 
 		_, ok = sync.KubeResources[foocrdgvk]
 		Expect(ok).Should(BeTrue())
 
-		crdgvk = schema.GroupVersionKind{
-			Group:   "apiextensions.k8s.io",
-			Version: "v1",
-			Kind:    "CustomResourceDefinition",
-		}
+		crdgvk.Version = "v1"
+		By("current foo CRD templates", func() {
+			printOut(sync.KubeResources, crdgvk, foocrdgvk)
+		})
 
-		resMap, ok := sync.KubeResources[crdgvk]
+		result := &crdv1beta1.CustomResourceDefinition{}
+		Expect(k8sClient.Get(context.TODO(), tCrdkey, result)).Should(Succeed())
+		defer Expect(k8sClient.Delete(context.TODO(), result)).Should(Succeed())
+
+		_, ok = sync.KubeResources[crdgvk]
 		Expect(ok).Should(BeTrue())
-		Expect(resMap.TemplateMap).ShouldNot(HaveLen(0))
 
-		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
+		By("current CRD templates", func() {
+			printOut(sync.KubeResources, crdgvk, foocrdgvk)
+		})
 
-		time.Sleep(time.Second * 5)
+		Expect(sync.CleanupByHost(hostnn, source)).Should(Succeed())
 
+		time.Sleep(time.Duration(waitInterval) * time.Second)
 		err = k8sClient.Get(context.TODO(), tCrdkey, result)
-
-		Expect(errors.IsNotFound(err)).Should(BeTrue())
+		Eventually(errors.IsNotFound(err), waitInterval).Should(BeTrue())
 	})
 })
 
@@ -604,3 +610,17 @@ var _ = Describe("test service resource", func() {
 		Expect(svc.Spec.Ports[0]).Should(Equal(serviceport2))
 	})
 })
+
+func printOut(kubeResources map[schema.GroupVersionKind]*ResourceMap, filters ...schema.GroupVersionKind) {
+	set := map[schema.GroupVersionKind]bool{}
+	for _, f := range filters {
+		if _, ok := set[f]; !ok {
+			set[f] = true
+		}
+	}
+	for gvk, mp := range kubeResources {
+		if set[gvk] {
+			fmt.Printf("gvk %v, with map %#v\n", gvk, mp)
+		}
+	}
+}

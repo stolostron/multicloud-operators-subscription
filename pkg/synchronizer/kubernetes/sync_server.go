@@ -15,6 +15,8 @@
 package kubernetes
 
 import (
+	"time"
+
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -154,20 +156,12 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 
 // Start the discovery and start caches
 func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	klog.Info("start synchronizer")
+	defer klog.Info("stop synchronizer")
 
 	sync.rediscoverResource()
 
-	sync.processTplChan(s)
-
-	//1	go wait.Until(func() {
-	//1		sync.houseKeeping()
-	//1	}, time.Duration(sync.Interval)*time.Second, s)
+	go sync.processTplChan(s)
 
 	<-s
 
@@ -175,14 +169,23 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 }
 
 func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
+	crdTicker := time.NewTicker(time.Duration(sync.Interval) * time.Second)
+	defer klog.Info("stop synchronizer channel")
 	for {
 		select {
-		case order := <-sync.tplCh:
+		case order, ok := <-sync.tplCh:
+			if !ok {
+				sync.tplCh = nil
+			}
 			err := sync.processOrder(order)
 			order.err <- err
 			close(order.err)
+		case <-crdTicker.C: //discovery CRD resource applied by user
+			sync.rediscoverResource()
 		case <-stopCh:
 			close(sync.tplCh)
+
+			crdTicker.Stop()
 			return
 		}
 	}

@@ -116,7 +116,7 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 
 	select {
 	case sync.tplCh <- rsOrder:
-		klog.Info("write resource request/order to cache")
+		klog.Info("wrote resource request/order to cache")
 	case <-time.After(syncTimeout):
 		return gerr.New("timeout on writing templates to syncrhonizer")
 	}
@@ -136,8 +136,6 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 }
 
 // CleanupByHost returns initialized validator struct
-func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) {
-	if err := sync.AddTemplates(syncsource, host, []DplUnit{}); err != nil {
-		klog.Errorf("failed to clean up by host, having err: %v", err)
-	}
+func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) error {
+	return sync.AddTemplates(syncsource, host, []DplUnit{})
 }
