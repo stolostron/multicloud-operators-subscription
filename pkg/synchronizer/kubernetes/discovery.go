@@ -105,6 +105,7 @@ func (sync *KubeSynchronizer) rediscoverResource() {
 
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.Info("Discovering cluster resources")
+	defer klog.Info("Discoverd cluster resources, done")
 
 	if sync.dynamicFactory == nil {
 		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
