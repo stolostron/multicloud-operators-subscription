@@ -134,7 +134,7 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 
 // CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
 func CreateObjectBucketSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
-	kubesync *kubesynchronizer.KubeSynchronizer, syncinterval int) *Subscriber {
+	kubesync SyncSource, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
 		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
 		return nil

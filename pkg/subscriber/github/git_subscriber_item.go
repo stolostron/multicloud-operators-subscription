@@ -329,10 +329,12 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 	err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
+
 	if err != nil {
 		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 
 		ghsi.successful = false
+
 		if err != nil {
 			klog.V(4).Info("error in setting in cluster package status :", err)
 		}
@@ -346,6 +348,8 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 	}
 
 	pkgMap[dplkey.Name] = true
+	//this is for the adaption of the new synchronizer API
+	kvalid.Store = nil
 
 	return err
 }
@@ -503,6 +507,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: helmGvk}})
 		if err != nil {
 			ghsi.successful = false
+
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), err, nil)
 

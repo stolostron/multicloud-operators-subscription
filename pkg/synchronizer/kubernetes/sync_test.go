@@ -613,11 +613,13 @@ var _ = Describe("test service resource", func() {
 
 func printOut(kubeResources map[schema.GroupVersionKind]*ResourceMap, filters ...schema.GroupVersionKind) {
 	set := map[schema.GroupVersionKind]bool{}
+
 	for _, f := range filters {
 		if _, ok := set[f]; !ok {
 			set[f] = true
 		}
 	}
+
 	for gvk, mp := range kubeResources {
 		if set[gvk] {
 			fmt.Printf("gvk %v, with map %#v\n", gvk, mp)

@@ -290,6 +290,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 		validGvk := hrsi.synchronizer.GetValidatedGVK(helmGvk)
 		err = hrsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: *validGvk}})
+
 		if err != nil {
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil)

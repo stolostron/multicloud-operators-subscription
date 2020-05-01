@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -179,7 +180,11 @@ func (f *fakeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) boo
 	return true
 }
 
-func (f *fakeSynchronizer) CleanupByHost(key types.NamespacedName, s string) {}
+func (f *fakeSynchronizer) GetLocalClient() client.Client {
+	return nil
+}
+
+func (f *fakeSynchronizer) CleanupByHost(key types.NamespacedName, s string) error { return nil }
 
 func (f *fakeSynchronizer) GetInterval() int {
 	return f.interval
