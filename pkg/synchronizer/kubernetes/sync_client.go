@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	syncTimeout = time.Second * 2
+	syncTimeout = time.Second * 5
 )
 
 type DplUnit struct {

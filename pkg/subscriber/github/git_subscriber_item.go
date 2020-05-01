@@ -328,10 +328,11 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 	pkgMap[dpltosync.GetName()] = true
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
-
+	err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
 	if err != nil {
 		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 
+		ghsi.successful = false
 		if err != nil {
 			klog.V(4).Info("error in setting in cluster package status :", err)
 		}
@@ -346,7 +347,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	pkgMap[dplkey.Name] = true
 
-	return ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
+	return err
 }
 
 func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
@@ -501,6 +502,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 
 		err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: helmGvk}})
 		if err != nil {
+			ghsi.successful = false
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), err, nil)
 

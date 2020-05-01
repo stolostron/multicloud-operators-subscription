@@ -44,10 +44,10 @@ var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-manageme
 type SubscriberItem struct {
 	appv1alpha1.SubscriberItem
 
-	bucket      string
-	objectStore awsutils.ObjectStore
-	stopch      chan struct{}
-
+	bucket       string
+	objectStore  awsutils.ObjectStore
+	stopch       chan struct{}
+	successful   bool
 	syncinterval int
 	synchronizer SyncSource
 }
@@ -78,10 +78,14 @@ func (obsi *SubscriberItem) Start() {
 			}
 		}
 
-		err := obsi.doSubscription()
+		if !obsi.successful {
+			err := obsi.doSubscription()
 
-		if err != nil {
-			klog.Error("Object Bucket ", obsi.Subscription.Namespace, "/", obsi.Subscription.Name, "housekeeping failed with error: ", err)
+			if err != nil {
+				klog.Error("Object Bucket ", obsi.Subscription.Namespace, "/", obsi.Subscription.Name, "housekeeping failed with error: ", err)
+			} else {
+				obsi.successful = true
+			}
 		}
 	}, time.Duration(obsi.syncinterval)*time.Second, obsi.stopch)
 }

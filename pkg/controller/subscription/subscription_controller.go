@@ -292,8 +292,9 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: instance.Namespace,
 		}
 
-		err = r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		if err != nil {
+		errLocal := r.Client.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		errRemote := r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		if errRemote != nil && errLocal != nil {
 			return gerr.Wrapf(err, "failed to get reference configMap %v of subsciption %v from hub", subcfgkey.String(), instance.GetName())
 		}
 	}

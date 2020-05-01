@@ -106,6 +106,7 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	obs.itemmap[itemkey] = obssubitem
 
+	obssubitem.successful = false
 	obssubitem.Start()
 
 	return nil

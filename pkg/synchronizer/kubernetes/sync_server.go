@@ -70,7 +70,8 @@ type KubeSynchronizer struct {
 }
 
 var (
-	crdresource = "customresourcedefinitions"
+	crdresource        = "customresourcedefinitions"
+	crdRetryMultiplier = 3
 )
 
 var defaultSynchronizer *KubeSynchronizer
@@ -169,7 +170,7 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 }
 
 func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
-	crdTicker := time.NewTicker(time.Duration(sync.Interval) * time.Second)
+	crdTicker := time.NewTicker(time.Duration(sync.Interval*crdRetryMultiplier) * time.Second)
 	defer klog.Info("stop synchronizer channel")
 	for {
 		select {

@@ -1,9 +1,35 @@
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-sub-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-ns
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: ns-sub-app
+  namespace: ns-sub-ns
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: ns-sub
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: dev-test
   namespace: ch-ns
+  labels:
+    name: ns-sub
   annotations: 
     apps.open-cluster-management.io/deployables: "true"
 data:
@@ -14,6 +40,8 @@ apiVersion: apps.open-cluster-management.io/v1
 kind: Deployable
 metadata: 
   name: payload-cfg-namespace-channel
+  labels:
+    name: ns-sub
   annotations: 
     apps.open-cluster-management.io/is-local-deployable: "false"
   namespace: default
@@ -28,32 +56,26 @@ spec:
     metadata: 
       name: cfg-from-ch-qa
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ch-ns
----
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: ns
   namespace: ch-ns
+  labels:
+    name: ns-sub
 spec:
   type: Namespace
   pathname: ch-ns
   sourceNamespaces:
     - default
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ns-sub-ns
----
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: towhichcluster
   namespace: ns-sub-ns
+  labels:
+    name: ns-sub
 spec:
   clusterReplicas: 1
   clusterLabels:
@@ -65,6 +87,8 @@ kind: Subscription
 metadata:
   name: ns-sub
   namespace: ns-sub-ns
+  labels:
+    name: ns-sub
 spec:
   channel: ch-ns/ns
   placement:
