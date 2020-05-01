@@ -18,9 +18,11 @@ import (
 	"errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -29,11 +31,20 @@ import (
 
 type itemmap map[types.NamespacedName]*SubscriberItem
 
+type SyncSource interface {
+	GetInterval() int
+	GetLocalClient() client.Client
+	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
+	IsResourceNamespaced(schema.GroupVersionKind) bool
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
+	CleanupByHost(types.NamespacedName, string) error
+}
+
 // Subscriber - information to run namespace subscription
 type Subscriber struct {
 	itemmap
 	manager      manager.Manager
-	synchronizer *kubesynchronizer.KubeSynchronizer
+	synchronizer SyncSource
 	syncinterval int
 }
 

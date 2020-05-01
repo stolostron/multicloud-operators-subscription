@@ -49,7 +49,7 @@ type SubscriberItem struct {
 	stopch      chan struct{}
 
 	syncinterval int
-	synchronizer *kubesynchronizer.KubeSynchronizer
+	synchronizer SyncSource
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel
@@ -191,7 +191,6 @@ func (obsi *SubscriberItem) doSubscription() error {
 	hostkey := types.NamespacedName{Name: obsi.Subscription.Name, Namespace: obsi.Subscription.Namespace}
 	syncsource := objectbucketsyncsource + hostkey.String()
 	// subscribed k8s resource
-	kvalid := obsi.synchronizer.CreateValiadtor(syncsource)
 	pkgMap := make(map[string]bool)
 
 	var vsub = ""
@@ -211,8 +210,7 @@ func (obsi *SubscriberItem) doSubscription() error {
 			continue
 		}
 
-		err = obsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
-
+		err = obsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
 		if err != nil {
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpltosync.GetName(), err, nil)
@@ -230,22 +228,19 @@ func (obsi *SubscriberItem) doSubscription() error {
 			Name:      dpltosync.Name,
 			Namespace: dpltosync.Namespace,
 		}
-		kvalid.AddValidResource(*validgvk, hostkey, dplkey)
 
 		pkgMap[dplkey.Name] = true
 
 		klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	obsi.synchronizer.ApplyValiadtor(kvalid)
-
-	if utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.LocalClient, obsi.Subscription, pkgMap) != nil {
-		err = obsi.synchronizer.LocalClient.Get(context.TODO(), hostkey, obsi.Subscription)
+	if utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.GetLocalClient(), obsi.Subscription, pkgMap) != nil {
+		err = obsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, obsi.Subscription)
 		if err != nil {
 			klog.Error("Failed to get and subscription resource with error:", err)
 		}
 
-		err = utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.LocalClient, obsi.Subscription, pkgMap)
+		err = utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.GetLocalClient(), obsi.Subscription, pkgMap)
 	}
 
 	return err

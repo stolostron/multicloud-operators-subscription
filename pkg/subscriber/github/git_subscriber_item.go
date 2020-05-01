@@ -52,6 +52,14 @@ const (
 	Path = "path"
 )
 
+var (
+	helmGvk = schema.GroupVersionKind{
+		Group:   appv1.SchemeGroupVersion.Group,
+		Version: appv1.SchemeGroupVersion.Version,
+		Kind:    "HelmRelease",
+	}
+)
+
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1.SubscriberItem
@@ -62,7 +70,7 @@ type SubscriberItem struct {
 	commitID              string
 	stopch                chan struct{}
 	syncinterval          int
-	synchronizer          *kubesynchronizer.KubeSynchronizer
+	synchronizer          SyncSource
 	chartDirs             map[string]string
 	kustomizeDirs         map[string]string
 	indexFile             *repo.IndexFile
@@ -140,12 +148,11 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 		syncsource := githubk8ssyncsource + hostkey.String()
-		kvalid := ghsi.synchronizer.CreateValiadtor(syncsource)
 		rscPkgMap := make(map[string]bool)
 
 		klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
 
-		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.crdsAndNamespaceFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.crdsAndNamespaceFiles)
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe resource ")
@@ -154,7 +161,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
 
-		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.rbacFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.rbacFiles)
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe resource")
@@ -163,7 +170,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
 
-		err = ghsi.subscribeResources(hostkey, syncsource, kvalid, rscPkgMap, ghsi.otherFiles)
+		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.otherFiles)
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe resource")
@@ -172,14 +179,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
 
-		err = ghsi.subscribeKustomizations(hostkey, syncsource, kvalid, rscPkgMap)
+		err = ghsi.subscribeKustomizations(hostkey, syncsource, nil, rscPkgMap)
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe resource")
 			return err
 		}
-
-		ghsi.synchronizer.ApplyValiadtor(kvalid)
 
 		klog.V(4).Info("Applying helm charts..")
 
@@ -324,15 +329,12 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
-	err = ghsi.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
 	if err != nil {
 		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 
 		if err != nil {
 			klog.V(4).Info("error in setting in cluster package status :", err)
 		}
-
-		pkgMap[dpltosync.GetName()] = true
 
 		return err
 	}
@@ -341,11 +343,10 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 		Name:      dpltosync.Name,
 		Namespace: dpltosync.Namespace,
 	}
-	kvalid.AddValidResource(*validgvk, hostkey, dplkey)
 
 	pkgMap[dplkey.Name] = true
 
-	return nil
+	return ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
 }
 
 func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
@@ -381,7 +382,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		return nil, nil, gvkerr
 	}
 
-	if ghsi.synchronizer.KubeResources[*validgvk].Namespaced {
+	if ghsi.synchronizer.IsResourceNamespaced(*validgvk) {
 		rsc.SetNamespace(ghsi.Subscription.Namespace)
 	}
 
@@ -491,14 +492,14 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRDeployable(
-			"", packageName, chartVersions, ghsi.synchronizer.LocalClient, ghsi.Channel, ghsi.Subscription)
+			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.Subscription)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
 			return err
 		}
 
-		err = ghsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
+		err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: helmGvk}})
 		if err != nil {
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), err, nil)
@@ -520,13 +521,13 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		pkgMap[dplkey.Name] = true
 	}
 
-	if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.LocalClient, ghsi.Subscription, pkgMap) != nil {
-		err = ghsi.synchronizer.LocalClient.Get(context.TODO(), hostkey, ghsi.Subscription)
+	if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap) != nil {
+		err = ghsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, ghsi.Subscription)
 		if err != nil {
 			klog.Error("Failed to get subscription resource with error:", err)
 		}
 
-		err = utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.LocalClient, ghsi.Subscription, pkgMap)
+		err = utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap)
 	}
 
 	return err
@@ -535,7 +536,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
-	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.LocalClient, ghsi.Channel)
+	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.GetLocalClient(), ghsi.Channel)
 
 	if err != nil {
 		return "", err
@@ -552,7 +553,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 			Namespace: ghsi.Subscription.Namespace,
 		}
 
-		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), subcfgkey, ghsi.SubscriberItem.SubscriptionConfigMap)
+		err := ghsi.synchronizer.GetLocalClient().Get(context.TODO(), subcfgkey, ghsi.SubscriberItem.SubscriptionConfigMap)
 		if err != nil {
 			klog.Error("Failed to get filterRef configmap, error: ", err)
 		}

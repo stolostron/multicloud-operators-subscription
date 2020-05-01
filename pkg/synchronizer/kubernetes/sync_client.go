@@ -21,6 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 )
@@ -43,14 +44,19 @@ type resourceOrder struct {
 
 type SyncSource interface {
 	GetInterval() int
+	GetLocalClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
 	AddTemplates(string, types.NamespacedName, []DplUnit) error
-	CleanupByHost(types.NamespacedName, string)
+	CleanupByHost(types.NamespacedName, string) error
 }
 
 func (sync *KubeSynchronizer) GetInterval() int {
 	return sync.Interval
+}
+
+func (sync *KubeSynchronizer) GetLocalClient() client.Client {
+	return sync.LocalClient
 }
 
 // GetValidatedGVK return right gvk from original

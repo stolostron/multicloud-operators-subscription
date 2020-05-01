@@ -160,7 +160,7 @@ func isSecretAnnoatedAsDeployable(srt v1.Secret) bool {
 
 //registerToResourceMap leverage the synchronizer to handle the sercet lifecycle management
 func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subscription,
-	kubesync nssubscriberSyncSource, pDpls []*dplv1alpha1.Deployable) error {
+	kubesync SyncSource, pDpls []*dplv1alpha1.Deployable) error {
 	hostkey := types.NamespacedName{Name: pSubscription.Name, Namespace: pSubscription.Namespace}
 	syncsource := secretsyncsource + hostkey.String()
 

@@ -55,12 +55,13 @@ type NsSubscriberItem struct {
 
 type itemmap map[types.NamespacedName]*NsSubscriberItem
 
-type nssubscriberSyncSource interface {
+type SyncSource interface {
+	GetInterval() int
+	GetLocalClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
-	CleanupByHost(types.NamespacedName, string)
-	GetInterval() int
 	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
+	CleanupByHost(types.NamespacedName, string) error
 }
 
 // NsSubscriber  information to run namespace subscription
@@ -71,7 +72,7 @@ type NsSubscriber struct {
 	scheme *runtime.Scheme
 	// endpoint cluster
 	manager      manager.Manager
-	synchronizer nssubscriberSyncSource
+	synchronizer SyncSource
 }
 
 var (
@@ -306,7 +307,7 @@ func GetdefaultNsSubscriber() appv1alpha1.Subscriber {
 func CreateNsSubscriber(
 	config *rest.Config, scheme *runtime.Scheme,
 	mgr manager.Manager,
-	kubesync nssubscriberSyncSource) (*NsSubscriber, error) {
+	kubesync SyncSource) (*NsSubscriber, error) {
 	if config == nil || kubesync == nil {
 		return nil, errors.Errorf("cant create namespace subscriber with config %v kubenetes synchronizer %v", config, kubesync)
 	}

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -45,8 +46,16 @@ type SubscriberItem struct {
 	hash         string
 	stopch       chan struct{}
 	syncinterval int
-	synchronizer *kubesynchronizer.KubeSynchronizer
+	synchronizer SyncSource
 }
+
+var (
+	helmGvk = schema.GroupVersionKind{
+		Group:   appv1.SchemeGroupVersion.Group,
+		Version: appv1.SchemeGroupVersion.Version,
+		Kind:    "HelmRelease",
+	}
+)
 
 // SubscribeItem subscribes a subscriber item with namespace channel
 func (hrsi *SubscriberItem) Start() {
@@ -272,14 +281,15 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRDeployable(
-			repoURL, packageName, chartVersions, hrsi.synchronizer.LocalClient, hrsi.Channel, hrsi.Subscription)
+			repoURL, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.Subscription)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
 			return err
 		}
 
-		err = hrsi.synchronizer.RegisterTemplate(hostkey, dpl, syncsource)
+		validGvk := hrsi.synchronizer.GetValidatedGVK(helmGvk)
+		err = hrsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: *validGvk}})
 		if err != nil {
 			klog.Info("eror in registering :", err)
 			err = utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil)
@@ -300,13 +310,13 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		pkgMap[dplkey.Name] = true
 	}
 
-	if utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.LocalClient, hrsi.Subscription, pkgMap) != nil {
-		err = hrsi.synchronizer.LocalClient.Get(context.TODO(), hostkey, hrsi.Subscription)
+	if utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription, pkgMap) != nil {
+		err = hrsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, hrsi.Subscription)
 		if err != nil {
 			klog.Error("Failed to get and subscription resource with error:", err)
 		}
 
-		err = utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.LocalClient, hrsi.Subscription, pkgMap)
+		err = utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription, pkgMap)
 	}
 
 	return err

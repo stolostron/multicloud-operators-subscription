@@ -278,38 +278,3 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	return err
 }
-
-//HouseKeeping - Apply resources defined in sync.KubeResources
-func (sync *KubeSynchronizer) houseKeeping() {
-	crdUpdated := false
-
-	// make sure the template map and the actual resource are aligned
-	for gvk, res := range sync.KubeResources {
-		var err error
-
-		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
-
-		if res.ServerUpdated {
-			err = sync.checkServerObjects(gvk, res)
-
-			if res.GroupVersionResource.Resource == crdresource {
-				klog.V(5).Info("CRD Updated! let's discover it!")
-
-				crdUpdated = true
-			}
-
-			res.ServerUpdated = false
-		}
-
-		if err != nil {
-			klog.Error("Error in checking server objects of gvk:", gvk, "error:", err, " skipping")
-			continue
-		}
-
-		sync.applyKindTemplates(res)
-	}
-
-	if crdUpdated {
-		sync.rediscoverResource()
-	}
-}

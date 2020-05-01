@@ -199,7 +199,7 @@ func DeleteDeployableCRD(runtimeClient client.Client, crdx *clientsetx.Clientset
 			}
 		}
 		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("deployables.apps.open-cluster-management.io", &v1.DeleteOptions{})
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(dplv1.SchemeGroupVersion.Group, &v1.DeleteOptions{})
 		if err != nil {
 			klog.Infof("Deleting deployable CRD failed. err: %s", err.Error())
 		} else {
