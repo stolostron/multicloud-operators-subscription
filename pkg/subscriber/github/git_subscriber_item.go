@@ -349,7 +349,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	pkgMap[dplkey.Name] = true
 	//this is for the adaption of the new synchronizer API
-	kvalid.Store = nil
+	klog.V(10).Infof("ingnor this kvalid %v, only exist for adopting synchronizer API", kvalid)
 
 	return err
 }
