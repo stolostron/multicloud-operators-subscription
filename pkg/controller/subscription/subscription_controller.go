@@ -142,7 +142,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
-				_ = sub.UnsubscribeItem(request.NamespacedName)
+				if err := sub.UnsubscribeItem(request.NamespacedName); err != nil {
+					return reconcile.Result{RequeueAfter: time.Second * 2}, err
+				}
 			}
 
 			objKind := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}

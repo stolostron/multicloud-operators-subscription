@@ -122,7 +122,7 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 
 	select {
 	case sync.tplCh <- rsOrder:
-		klog.Info("wrote resource request/order to cache")
+		klog.V(1).Info("wrote resource request/order to cache")
 	case <-time.After(syncTimeout):
 		return gerr.New("timeout on writing templates to syncrhonizer")
 	}

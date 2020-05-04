@@ -135,8 +135,16 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(ghs.itemmap, key)
-		ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String())
-		ghs.synchronizer.CleanupByHost(key, githubhelmsyncsource+key.String())
+
+		if err := ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
+
+		if err := ghs.synchronizer.CleanupByHost(key, githubhelmsyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
 	}
 
 	return nil

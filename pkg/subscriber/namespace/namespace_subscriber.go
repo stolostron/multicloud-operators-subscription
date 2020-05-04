@@ -287,8 +287,16 @@ func (ns *NsSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		close(nssubitem.stopch)
 		delete(ns.itemmap, key)
-		ns.synchronizer.CleanupByHost(key, deployablesyncsource+key.String())
-		ns.synchronizer.CleanupByHost(key, secretsyncsource+key.String())
+
+		if err := ns.synchronizer.CleanupByHost(key, deployablesyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
+
+		if err := ns.synchronizer.CleanupByHost(key, secretsyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
 	}
 
 	return nil

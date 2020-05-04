@@ -121,7 +121,11 @@ func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(hrs.itemmap, key)
-		hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String())
+
+		if err := hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
 	}
 
 	return nil
