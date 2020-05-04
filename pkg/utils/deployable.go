@@ -189,6 +189,7 @@ func DeleteDeployableCRD(runtimeClient client.Client, crdx *clientsetx.Clientset
 		os.Exit(0)
 	} else {
 		for _, dpl := range dpllist.Items {
+			dpl := dpl
 			klog.V(1).Infof("Found %s", dpl.SelfLink)
 			// remove all finalizers
 			dpl = *dpl.DeepCopy()

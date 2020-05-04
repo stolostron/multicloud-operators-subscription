@@ -49,6 +49,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 	var dl dynamic.ResourceInterface
 
 	for _, obj := range objlist.Items {
+		obj := obj
 		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) {
 			continue
 		}
