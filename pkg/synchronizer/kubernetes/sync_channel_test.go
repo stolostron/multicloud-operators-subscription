@@ -75,7 +75,7 @@ var _ = Describe("benchmark the sync channel", func() {
 		sync, _ = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
 	}, 60)
 
-	Measure("measure the client side", func(b Benchmarker) {
+	PMeasure("measure the client side", func(b Benchmarker) {
 		//defer close(sync.stopCh)
 		dplinstance.SetName(strconv.Itoa(rand.Intn(200)))
 		payload.SetName(strconv.Itoa(rand.Intn(200)))
