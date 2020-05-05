@@ -2,13 +2,34 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: helm-sub-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: ch-helm
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: helm-sub-app
+  namespace: helm-sub-ns
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: helm-sub
 ---
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: skip-cert-verify
   namespace: ch-helm
+  labels:
+    name: helm-sub
 data:
   insecureSkipVerify: "true"
 ---
@@ -17,6 +38,8 @@ kind: Channel
 metadata:
   name: helm
   namespace: ch-helm
+  labels:
+    name: helm-sub
 spec:
   type: HelmRepo
   pathname: https://ianzhang366.github.io/guestbook-chart/
@@ -25,16 +48,13 @@ spec:
     apiVersion: v1
     kind: ConfigMap
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: helm-sub-ns
----
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: towhichcluster
   namespace: helm-sub-ns
+  labels:
+    name: helm-sub
 spec:
   clusterReplicas: 1
   clusterLabels:
@@ -46,6 +66,8 @@ kind: Subscription
 metadata:
   name: helm-sub
   namespace: helm-sub-ns
+  labels:
+    name: helm-sub
 spec:
   channel: ch-helm/helm
   name: gbapp

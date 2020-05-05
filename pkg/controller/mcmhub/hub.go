@@ -836,7 +836,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		return nil
 	}
 
-	klog.Info("Hub Subscription found Deployables:", dplList.Items)
+	klog.V(1).Info("Hub Subscription found Deployables:", dplList.Items)
 
 	for _, dpl := range dplList.Items {
 		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {

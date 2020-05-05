@@ -142,7 +142,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 			// Object not found, delete existing subscriberitem if any
 			for _, sub := range r.subscribers {
-				_ = sub.UnsubscribeItem(request.NamespacedName)
+				if err := sub.UnsubscribeItem(request.NamespacedName); err != nil {
+					return reconcile.Result{RequeueAfter: time.Second * 2}, err
+				}
 			}
 
 			objKind := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
@@ -292,8 +294,10 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 			Namespace: instance.Namespace,
 		}
 
-		err = r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		if err != nil {
+		errLocal := r.Client.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		errRemote := r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+
+		if errRemote != nil && errLocal != nil {
 			return gerr.Wrapf(err, "failed to get reference configMap %v of subsciption %v from hub", subcfgkey.String(), instance.GetName())
 		}
 	}
