@@ -1,6 +1,6 @@
 # multicloud-operators-subscription
 
-[![Build](http://35.227.205.240/badge.svg?jobs=images_multicloud-operators-subscription_postsubmit)](http://35.227.205.240/?job=images_multicloud-operators-subscription_postsubmit)
+[![Build](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription-release.svg?branch=master)](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=master)
 [![GoDoc](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription)
 [![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/open-cluster-management/multicloud-operators-subscription)
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)
