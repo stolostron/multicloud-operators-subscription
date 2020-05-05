@@ -1,7 +1,3 @@
-// Copyright 2019 The Kubernetes Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
@@ -18,7 +14,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -28,193 +23,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	jsonpatch "k8s.io/apimachinery/pkg/util/jsonmergepatch"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
-
-// TemplateUnit defines the basic unit of Template and whether it should be updated or not
-type TemplateUnit struct {
-	*unstructured.Unstructured
-	Source          string
-	ResourceUpdated bool
-	StatusUpdated   bool
-}
-
-// ResourceMap is a registry for all resources
-type ResourceMap struct {
-	GroupVersionResource schema.GroupVersionResource
-	Namespaced           bool
-	ServerUpdated        bool
-	TemplateMap          map[string]*TemplateUnit
-}
-
-// KubeSynchronizer handles resources to a kube endpoint
-type KubeSynchronizer struct {
-	Interval       int
-	LocalClient    client.Client
-	RemoteClient   client.Client
-	localConfig    *rest.Config
-	DynamicClient  dynamic.Interface
-	KubeResources  map[schema.GroupVersionKind]*ResourceMap
-	SynchronizerID *types.NamespacedName
-	Extension      Extension
-	eventrecorder  *utils.EventRecorder
-
-	stopCh         chan struct{}
-	resetcache     bool
-	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
-}
-
-var (
-	crdresource = "customresourcedefinitions"
-)
-
-var defaultSynchronizer *KubeSynchronizer
-
-// Add creates the default syncrhonizer and add the start function as runnable into manager
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, interval int) error {
-	var err error
-	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension)
-
-	if err != nil {
-		klog.Error("Failed to create synchronizer with error: ", err)
-		return err
-	}
-
-	return mgr.Add(defaultSynchronizer)
-}
-
-// GetDefaultSynchronizer - return the default kubernetse synchronizer
-func GetDefaultSynchronizer() *KubeSynchronizer {
-	return defaultSynchronizer
-}
-
-// CreateSynchronizer createa an instance of synchrizer with give api-server config
-func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Scheme, syncid *types.NamespacedName,
-	interval int, ext Extension) (*KubeSynchronizer, error) {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	var err error
-
-	dynamicClient := dynamic.NewForConfigOrDie(config)
-
-	s := &KubeSynchronizer{
-		Interval:       interval,
-		SynchronizerID: syncid,
-		DynamicClient:  dynamicClient,
-		localConfig:    config,
-		KubeResources:  make(map[schema.GroupVersionKind]*ResourceMap),
-		Extension:      ext,
-	}
-
-	s.LocalClient, err = client.New(config, client.Options{})
-
-	if err != nil {
-		klog.Error("Failed to initialize client to update local status. err: ", err)
-		return nil, err
-	}
-
-	s.RemoteClient = s.LocalClient
-	if remoteConfig != nil {
-		s.RemoteClient, err = client.New(remoteConfig, client.Options{})
-
-		if err != nil {
-			klog.Error("Failed to initialize client to update remote status. err: ", err)
-			return nil, err
-		}
-	}
-
-	defaultExtension.localClient = s.LocalClient
-	defaultExtension.remoteClient = s.RemoteClient
-
-	if ext == nil {
-		s.Extension = defaultExtension
-	}
-
-	s.eventrecorder, err = utils.NewEventRecorder(config, scheme)
-
-	if err != nil {
-		klog.Error("Failed to create event recorder. err: ", err)
-		return nil, err
-	}
-
-	s.resetcache = true
-	s.discoverResourcesOnce()
-
-	return s, nil
-}
-
-// Start the discovery and start caches
-func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-
-	sync.rediscoverResource()
-
-	go wait.Until(func() {
-		sync.houseKeeping()
-	}, time.Duration(sync.Interval)*time.Second, s)
-
-	<-s
-
-	return nil
-}
-
-//HouseKeeping - Apply resources defined in sync.KubeResources
-func (sync *KubeSynchronizer) houseKeeping() {
-	crdUpdated := false
-	// make sure the template map and the actual resource are aligned
-	for gvk, res := range sync.KubeResources {
-		var err error
-
-		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
-
-		if res.ServerUpdated {
-			err = sync.checkServerObjects(gvk, res)
-
-			if res.GroupVersionResource.Resource == crdresource {
-				klog.V(5).Info("CRD Updated! let's discover it!")
-
-				crdUpdated = true
-			}
-
-			res.ServerUpdated = false
-		}
-
-		if err != nil {
-			klog.Error("Error in checking server objects of gvk:", gvk, "error:", err, " skipping")
-			continue
-		}
-
-		sync.applyKindTemplates(res)
-	}
-
-	if crdUpdated {
-		sync.rediscoverResource()
-	}
-}
-
-func (sync *KubeSynchronizer) GetInterval() int {
-	return sync.Interval
-}
 
 func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, res *ResourceMap) error {
 	if res == nil {
@@ -234,6 +49,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 	var dl dynamic.ResourceInterface
 
 	for _, obj := range objlist.Items {
+		obj := obj
 		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) {
 			continue
 		}
@@ -503,8 +319,6 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	}
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
-
-	fmt.Printf("%p\n", sync.KubeResources)
 
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil

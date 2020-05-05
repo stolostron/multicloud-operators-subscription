@@ -29,31 +29,6 @@ type Validator struct {
 	syncsource string
 }
 
-// CleanupByHost returns initialized validator struct
-func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) {
-	var err error
-
-	for _, resmap := range sync.KubeResources {
-		for _, tplunit := range resmap.TemplateMap {
-			tplhost := sync.Extension.GetHostFromObject(tplunit)
-			tpldpl := utils.GetHostDeployableFromObject(tplunit)
-
-			if tplhost != nil && tplhost.String() == host.String() {
-				klog.V(10).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
-				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, syncsource)
-
-				if err != nil {
-					klog.Error("Failed to deregister template for cleanup by host with error: ", err)
-				}
-			}
-		}
-	}
-}
-
-func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) bool {
-	return sync.KubeResources[gvk].Namespaced
-}
-
 // CreateValiadtor returns initialized validator struct
 func (sync *KubeSynchronizer) CreateValiadtor(syncsource string) *Validator {
 	return &Validator{

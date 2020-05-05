@@ -18,16 +18,17 @@ import (
 	"fmt"
 	"os"
 
-	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
-	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
-	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
+	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
+	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 var (

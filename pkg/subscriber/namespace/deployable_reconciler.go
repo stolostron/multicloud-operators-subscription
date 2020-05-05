@@ -31,6 +31,7 @@ import (
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -114,8 +115,6 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 }
 
 func (r *DeployableReconciler) doSubscription() error {
-	var retryerr error
-
 	subitem, ok := r.subscriber.itemmap[r.itemkey]
 
 	if !ok {
@@ -152,9 +151,9 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	hostkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
 	syncsource := deployablesyncsource + hostkey.String()
+
 	// subscribed k8s resource
-	kvalid := r.subscriber.synchronizer.CreateValiadtor(syncsource)
-	pkgMap := make(map[string]bool)
+	dplOrder := []kubesynchronizer.DplUnit{}
 
 	vsub := ""
 
@@ -164,10 +163,12 @@ func (r *DeployableReconciler) doSubscription() error {
 
 	versionMap := utils.GenerateVersionSet(utils.DplArrayToDplPointers(dpllist.Items), vsub)
 
+	var retryerr error
+
 	for _, dpl := range dpllist.Items {
 		klog.V(5).Infof("Updating subscription %v, with Deployable %v  ", syncsource, hostkey)
 
-		dpltosync, validgvk, err := r.doSubscribeDeployable(subitem, dpl.DeepCopy(), versionMap, pkgMap)
+		dpltosync, validgvk, err := r.doSubscribeDeployable(subitem, dpl.DeepCopy(), versionMap, map[string]bool{})
 		if err != nil {
 			klog.V(3).Info("Skipping deployable", dpl.Name)
 
@@ -178,9 +179,14 @@ func (r *DeployableReconciler) doSubscription() error {
 			continue
 		}
 
-		klog.V(5).Info("Ready to register template:", hostkey, dpltosync, syncsource)
+		dplU := kubesynchronizer.DplUnit{
+			Dpl: dpltosync,
+			Gvk: *validgvk,
+		}
 
-		err = r.subscriber.synchronizer.RegisterTemplate(hostkey, dpltosync, syncsource)
+		dplOrder = append(dplOrder, dplU)
+
+		klog.V(5).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
 		if err != nil {
 			err = utils.SetInClusterPackageStatus(&(subitem.Subscription.Status), dpltosync.GetName(), err, nil)
@@ -189,8 +195,6 @@ func (r *DeployableReconciler) doSubscription() error {
 				klog.Info("error in setting in cluster package status :", err)
 			}
 
-			pkgMap[dpltosync.GetName()] = true
-
 			return errors.Wrap(err, "failed to update subscription status")
 		}
 
@@ -198,16 +202,15 @@ func (r *DeployableReconciler) doSubscription() error {
 			Name:      dpltosync.Name,
 			Namespace: dpltosync.Namespace,
 		}
-		kvalid.AddValidResource(*validgvk, hostkey, dplkey)
-
-		pkgMap[dplkey.Name] = true
 
 		klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	r.subscriber.synchronizer.ApplyValiadtor(kvalid)
+	if retryerr != nil {
+		return retryerr
+	}
 
-	return retryerr
+	return r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder)
 }
 
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, dpl *dplv1alpha1.Deployable,

@@ -34,11 +34,12 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
+	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -256,7 +257,7 @@ func mergeKustomization(kustomizeYamlFilePath string, override map[string]interf
 		return err
 	}
 
-	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0644); err != nil {
+	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0600); err != nil {
 		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
 		return err
 	}
