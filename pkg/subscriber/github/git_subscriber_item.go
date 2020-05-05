@@ -328,11 +328,9 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 	pkgMap[dpltosync.GetName()] = true
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
-	err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
 
-	if err != nil {
+	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}}); err != nil {
 		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
-
 		ghsi.successful = false
 
 		if err != nil {
@@ -349,9 +347,9 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	pkgMap[dplkey.Name] = true
 	//this is for the adaption of the new synchronizer API
-	klog.V(10).Infof("ingnor this kvalid %v, only exist for adopting synchronizer API", kvalid)
+	klog.V(10).Infof("ignore this kvalid %v, only exist for adopting synchronizer API", kvalid)
 
-	return err
+	return nil
 }
 
 func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
