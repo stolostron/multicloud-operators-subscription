@@ -18,14 +18,25 @@ import (
 	"errors"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
+
+type SyncSource interface {
+	GetInterval() int
+	GetLocalClient() client.Client
+	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
+	IsResourceNamespaced(schema.GroupVersionKind) bool
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
+	CleanupByHost(types.NamespacedName, string) error
+}
 
 type itemmap map[types.NamespacedName]*SubscriberItem
 
@@ -33,7 +44,7 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 type Subscriber struct {
 	itemmap
 	manager      manager.Manager
-	synchronizer *kubesynchronizer.KubeSynchronizer
+	synchronizer SyncSource
 	syncinterval int
 }
 
@@ -110,7 +121,11 @@ func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	if ok {
 		subitem.Stop()
 		delete(hrs.itemmap, key)
-		hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String())
+
+		if err := hrs.synchronizer.CleanupByHost(key, helmreposyncsource+key.String()); err != nil {
+			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
+			return err
+		}
 	}
 
 	return nil
@@ -123,7 +138,7 @@ func GetDefaultSubscriber() appv1alpha1.Subscriber {
 
 // CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
 func CreateHelmRepoSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
-	kubesync *kubesynchronizer.KubeSynchronizer, syncinterval int) *Subscriber {
+	kubesync SyncSource, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
 		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
 		return nil

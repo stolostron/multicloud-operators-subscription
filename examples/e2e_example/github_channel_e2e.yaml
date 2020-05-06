@@ -2,37 +2,58 @@
 apiVersion: v1
 kind: Namespace
 metadata:
+  name: git-sub-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
   name: ch-git
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: git-sub-app
+  namespace: git-sub-ns
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: git-sub
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: git
   namespace: ch-git
+  labels:
+    name: git-sub
 spec:
   type: GitHub
-  pathname: https://github.com/IBM/charts.git
+  pathname: https://github.com/ianzhang366/acm-applifecycle-samples.git
   configMapRef:
-    name: ibm-mongodb-dev-cm
+    name: guestbook
+    kind: configmap
 ---
 apiVersion: v1
-data:
-  path: stable/ibm-mongodb-dev
 kind: ConfigMap
 metadata:
-  name: ibm-mongodb-dev-cm
+  name: guestbook
   namespace: ch-git
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: git-sub-ns
+  labels:
+    name: git-sub
+data:
+  path: git-ops/bookinfo/guestbook
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: towhichcluster
   namespace: git-sub-ns
+  labels:
+    name: git-sub
 spec:
   clusterReplicas: 1
   clusterLabels:
@@ -44,6 +65,8 @@ kind: Subscription
 metadata:
   name: git-sub
   namespace: git-sub-ns
+  labels:
+    name: git-sub
 spec:
   channel: ch-git/git
   placement:
@@ -52,18 +75,4 @@ spec:
       kind: PlacementRule
   packageFilter:
     filterRef:
-      name: ibm-mongodb-dev-cm
-  packageOverrides:
-  - packageName: ibm-mongodb-dev
-    packageOverrides:
-    - path: spec
-      value:
-        persistence:
-          enabled: false
-        resources:
-          requests:
-            memory: 256Mi
-            cpu: 100m
-          limits:
-            cpu: 200m
-            memory: 500Mi
+      name: guestbook

@@ -21,8 +21,9 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
