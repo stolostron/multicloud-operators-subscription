@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicloud-operators-subscription
+  namespace: multicloud-operators
   labels:
     name: multicloud-operators-subscription
 spec:
@@ -17,7 +18,7 @@ spec:
       serviceAccountName: multicloud-operators
       containers:
         - name: multicloud-operators-subscription
-          image: quay.io/multicloudlab/multicloud-operators-subscription
+          image: quay.io/open-cluster-management/multicluster-operators-subscription:community-latest
           ports:
           - containerPort: 8443
           command:
