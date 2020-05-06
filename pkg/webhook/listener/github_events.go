@@ -22,9 +22,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-github/v28/github"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,11 +32,8 @@ import (
 )
 
 const (
-	defaultKeyFile         = "/etc/subscription/tls.key"
-	defaultCrtFile         = "/etc/subscription/tls.crt"
 	payloadFormParam       = "payload"
 	github_signatureHeader = "X-Hub-Signature"
-	gitlab_signatureHeader = "X-Gitlab-Token"
 )
 
 func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
@@ -197,13 +192,7 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 
 	defer r.Body.Close()
 
-	// Look for GitHub signature header
 	signature = r.Header.Get(github_signatureHeader)
-	if strings.EqualFold(signature, "") {
-		// Look for GitLab signature header
-		signature = r.Header.Get(gitlab_signatureHeader)
-		// BitBucket does not support webhook signature yet.
-	}
 
 	event, err = github.ParseWebHook(github.WebHookType(r), payload)
 	if err != nil {
@@ -215,32 +204,11 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 }
 
 func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
-	secret := ""
-	ret = true
-	// Get GitHub WebHook secret from the channel annotations
-	if annotations[appv1alpha1.AnnotationWebhookSecret] == "" {
-		klog.Info("No webhook secret found in annotations")
-
+	secret, err := listener.getWebhookSecret(annotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
+	if err != nil {
 		ret = false
-	} else {
-		seckey := types.NamespacedName{Name: annotations[appv1alpha1.AnnotationWebhookSecret], Namespace: chNamespace}
-		secobj := &corev1.Secret{}
-
-		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
-		if err != nil {
-			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
-			ret = false
-		}
-
-		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
-		if err != nil {
-			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		} else if secret == "" {
-			klog.Info("Failed to get secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		}
 	}
+
 	// Using the channel's webhook secret, validate it against the request's body
 	if err := github.ValidateSignature(signature, body, []byte(secret)); err != nil {
 		klog.Info("Failed to validate webhook event signature, error: ", err)

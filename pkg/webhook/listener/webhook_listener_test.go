@@ -231,6 +231,9 @@ func TestWebhookHandler3(t *testing.T) {
 
 	err = c.Delete(context.TODO(), subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), channel)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func TestUpdateSubscription(t *testing.T) {

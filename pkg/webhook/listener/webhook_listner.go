@@ -35,6 +35,8 @@ import (
 )
 
 const (
+	defaultKeyFile       = "/etc/subscription/tls.key"
+	defaultCrtFile       = "/etc/subscription/tls.crt"
 	GithubEventHeader    = "X-Github-Event"
 	BitbucketEventHeader = "X-Event-Key"
 	GitlabEventHeader    = "X-Gitlab-Event"

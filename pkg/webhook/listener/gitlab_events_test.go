@@ -26,22 +26,23 @@ import (
 	"github.com/onsi/gomega"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
-	channelYAML2 = `apiVersion: apps.open-cluster-management.io/v1
+	channelYAML3 = `apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: test-github-channel
   namespace: test
 spec:
   type: GitHub
-  pathname: https://bitbucket.org/ekdjbdfh/testrepo.git"`
+  pathname: https://gitlab.com/ekdjbdfh/testrepo.git"`
 
-	subscriptionYAML2 = `apiVersion: apps.open-cluster-management.io/v1
+	subscriptionYAML3 = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: test-subscription
@@ -50,9 +51,17 @@ spec:
   channel: test/test-github-channel
   placement:
     local: false`
+
+	channelWebhookSecret = `apiVersion: v1
+kind: Secret
+metadata:
+  name: gitlab-secret
+  namespace: test
+data:
+  secret: bXlzZWNyZXQK`
 )
 
-func TestBitbucketWebhookHandler(t *testing.T) {
+func TestGitlabWebhookHandler(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -87,7 +96,7 @@ func TestBitbucketWebhookHandler(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	req.Header.Set(BitbucketEventHeader, "ping")
+	req.Header.Set(GitlabEventHeader, "ping")
 
 	rr = httptest.NewRecorder()
 	handler = http.HandlerFunc(listener.HandleWebhook)
@@ -95,7 +104,7 @@ func TestBitbucketWebhookHandler(t *testing.T) {
 	g.Expect(rr.Code).To(gomega.Equal(http.StatusInternalServerError))
 }
 
-func TestBitbucketWebhookHandler2(t *testing.T) {
+func TestGitlabWebhookHandler2(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -114,7 +123,7 @@ func TestBitbucketWebhookHandler2(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subscription := &appv1alpha1.Subscription{}
-	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	err = yaml.Unmarshal([]byte(subscriptionYAML3), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = c.Create(context.TODO(), subscription)
@@ -129,7 +138,7 @@ func TestBitbucketWebhookHandler2(t *testing.T) {
 	req2, err := http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	req2.Header.Set(BitbucketEventHeader, "ping")
+	req2.Header.Set(GitlabEventHeader, "ping")
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(listener.HandleWebhook)
@@ -152,7 +161,7 @@ func TestBitbucketWebhookHandler2(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func TestBitbucketWebhookHandler3(t *testing.T) {
+func TestGitlabWebhookHandler3(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -171,7 +180,7 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	channel := &chnv1alpha1.Channel{}
-	err = yaml.Unmarshal([]byte(channelYAML2), &channel)
+	err = yaml.Unmarshal([]byte(channelYAML3), &channel)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	newAnnotations := make(map[string]string)
@@ -182,7 +191,7 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subscription := &appv1alpha1.Subscription{}
-	err = yaml.Unmarshal([]byte(subscriptionYAML2), &subscription)
+	err = yaml.Unmarshal([]byte(subscriptionYAML3), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = c.Create(context.TODO(), subscription)
@@ -190,23 +199,14 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 
 	bodyStr := `{
 		"repository": {
-		  "links": {
-			"self": {
-			  "href": "https://api.bitbucket.org/2.0/repositories/ekdjbdfh/testrepo"
-			},
-			"html": {
-			  "href": "https://bitbucket.org/ekdjbdfh/testrepo"
-			},
-			"avatar": {
-			  "href": "https://bytebucket.org/ravatar/%7B01bc32a3-39cd-4ba5-8e0e-b3037a08826a%7D?ts=default"
-			}
-		  },
-		  "full_name": "ekdjbdfh/testrepo",
+		  "url": "ekdjbdfh/testrepo",
+		  "description": "ekdjbdfh/testrepo",
+		  "homepage": "https://gitlab.com/ekdjbdfh/testrepo",
 		  "name": "testrepo"
 		}
 	  }`
 
-	pl := &BitBucketPayload{}
+	pl := &GitLabPayload{}
 	err = json.Unmarshal([]byte(bodyStr), pl)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -215,7 +215,7 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 
 	req2, err := http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	req2.Header.Set(BitbucketEventHeader, "ping")
+	req2.Header.Set(GitlabEventHeader, "ping")
 
 	rr := httptest.NewRecorder()
 	handler := http.HandlerFunc(listener.HandleWebhook)
@@ -235,7 +235,7 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 
 	req3, err := http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	req3.Header.Set("X-Event-Key", "repo:push")
+	req3.Header.Set(GitlabEventHeader, GitLabPushEvents)
 
 	rr = httptest.NewRecorder()
 	handler = http.HandlerFunc(listener.HandleWebhook)
@@ -250,6 +250,113 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 
 	subAnnotations2 := subscription3.GetAnnotations()
 	g.Expect(subAnnotations2[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("0")) // annotation added
+
+	err = c.Delete(context.TODO(), subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), channel)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestWithWebhookSecret(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	channel := &chnv1alpha1.Channel{}
+	err = yaml.Unmarshal([]byte(channelYAML3), &channel)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	newAnnotations := make(map[string]string)
+	newAnnotations[appv1alpha1.AnnotationWebhookEnabled] = "true"
+	newAnnotations[appv1alpha1.AnnotationWebhookSecret] = "gitlab-secret"
+	channel.SetAnnotations(newAnnotations)
+
+	err = c.Create(context.TODO(), channel)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	subscription := &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML3), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	secret := &corev1.Secret{}
+	err = yaml.Unmarshal([]byte(channelWebhookSecret), &secret)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), secret)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	bodyStr := `{
+		"repository": {
+		  "url": "ekdjbdfh/testrepo",
+		  "description": "ekdjbdfh/testrepo",
+		  "homepage": "https://gitlab.com/ekdjbdfh/testrepo",
+		  "name": "testrepo"
+		}
+	  }`
+
+	pl := &GitLabPayload{}
+	err = json.Unmarshal([]byte(bodyStr), pl)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	reqBody, err := json.Marshal(pl)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	req, err := http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	req.Header.Set(GitlabEventHeader, GitLabPushEvents)
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(listener.HandleWebhook)
+	handler.ServeHTTP(rr, req)
+	g.Expect(rr.Code).To(gomega.Equal(http.StatusOK))
+
+	time.Sleep(2 * time.Second)
+
+	key := types.NamespacedName{
+		Name:      "test-subscription",
+		Namespace: "test",
+	}
+
+	subscription2 := &appv1alpha1.Subscription{}
+	err = c.Get(context.TODO(), key, subscription2)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	subAnnotations := subscription2.GetAnnotations()
+	g.Expect(subAnnotations[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.BeEmpty()) // secret mismatch. webhook event not processed for the subscription.
+
+	req, err = http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	req.Header.Set(GitlabEventHeader, GitLabPushEvents)
+	req.Header.Set(gitlab_signatureHeader, "mysecret")
+
+	handler.ServeHTTP(rr, req)
+	g.Expect(rr.Code).To(gomega.Equal(http.StatusOK))
+
+	time.Sleep(2 * time.Second)
+
+	subscription3 := &appv1alpha1.Subscription{}
+	err = c.Get(context.TODO(), key, subscription3)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	subAnnotations2 := subscription3.GetAnnotations()
+	g.Expect(subAnnotations2[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.Equal("0")) // secret match. webhook event processed for the subscription.
 
 	err = c.Delete(context.TODO(), subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())

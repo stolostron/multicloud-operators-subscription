@@ -22,10 +22,12 @@ import (
 	"net/http"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	"github.com/ghodss/yaml"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -33,6 +35,7 @@ import (
 const (
 	GitLabPushEvents         = "Push Hook"
 	GitLabMergeRequestEvents = "Merge Request Hook"
+	gitlab_signatureHeader   = "X-Gitlab-Token"
 )
 
 type GitLabPayload struct {
@@ -65,6 +68,8 @@ func (listener *WebhookListener) handleGitlabWebhook(r *http.Request) error {
 		return err
 	}
 
+	secret := r.Header.Get(gitlab_signatureHeader)
+
 	subList := &appv1alpha1.SubscriptionList{}
 	listopts := &client.ListOptions{}
 
@@ -77,7 +82,7 @@ func (listener *WebhookListener) handleGitlabWebhook(r *http.Request) error {
 	if strings.EqualFold(event, GitLabPushEvents) || strings.EqualFold(event, GitLabMergeRequestEvents) { // process only push or PR merge events
 		// Loop through all subscriptions
 		for _, sub := range subList.Items {
-			if !listener.processBitbucketEvent(sub, event, payload) {
+			if !listener.processGitLabEvent(sub, event, payload, secret) {
 				continue
 			}
 		}
@@ -89,8 +94,8 @@ func (listener *WebhookListener) handleGitlabWebhook(r *http.Request) error {
 	return nil
 }
 
-func (listener *WebhookListener) processGitLabEvent(sub appv1alpha1.Subscription, event string, payload GitLabPayload) bool {
-	klog.V(2).Info("Evaluating subscription: " + sub.GetName())
+func (listener *WebhookListener) processGitLabEvent(sub appv1alpha1.Subscription, event string, payload GitLabPayload, hookSecret string) bool {
+	klog.Info("Evaluating subscription: " + sub.GetName())
 
 	chNamespace := ""
 	chName := ""
@@ -116,16 +121,47 @@ func (listener *WebhookListener) processGitLabEvent(sub appv1alpha1.Subscription
 	}
 
 	if !listener.validateChannel(chobj, "", chNamespace, []byte("")) {
+		klog.Info("Failed to validate channel: ")
 		return false
 	}
 
-	if chobj.Spec.Pathname == payload.Repository.FullName ||
-		chobj.Spec.Pathname == payload.Repository.Links.HTML.Href ||
-		strings.Contains(chobj.Spec.Pathname, payload.Repository.Links.HTML.Href) {
-		klog.Error(payload.Repository.Links.HTML.Href)
-		klog.Infof("Processing %s event from %s repository for subscription %s", event, payload.Repository.FullName, sub.Name)
+	chnAnnotations := chobj.GetAnnotations()
+	channelSecret := ""
+	if chnAnnotations != nil {
+		channelSecret, err = listener.getWebhookSecret(chnAnnotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
+	}
+
+	if (strings.EqualFold(chobj.Spec.Pathname, payload.Repository.Homepage) ||
+		strings.Contains(chobj.Spec.Pathname, payload.Repository.Homepage)) &&
+		strings.TrimSpace(payload.Repository.Homepage) != "" &&
+		strings.EqualFold(channelSecret, hookSecret) {
+		klog.Infof("Processing %s event from %s repository for subscription %s", event, payload.Repository.URL, sub.Name)
 		listener.updateSubscription(sub)
 	}
 
 	return true
+}
+
+func (listener *WebhookListener) getWebhookSecret(channelSecret, channelNs string) (string, error) {
+	secret := ""
+	// Get WebHook secret from the channel annotations
+	if channelSecret == "" {
+		klog.Info("No webhook secret found in annotations")
+	} else {
+		seckey := types.NamespacedName{Name: channelSecret, Namespace: channelNs}
+		secobj := &corev1.Secret{}
+
+		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
+		if err != nil {
+			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
+			return secret, err
+		}
+
+		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
+		if err != nil {
+			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
+			return secret, err
+		}
+	}
+	return secret, nil
 }

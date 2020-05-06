@@ -133,7 +133,6 @@ func (listener *WebhookListener) processBitbucketEvent(sub appv1alpha1.Subscript
 	if chobj.Spec.Pathname == payload.Repository.FullName ||
 		chobj.Spec.Pathname == payload.Repository.Links.HTML.Href ||
 		strings.Contains(chobj.Spec.Pathname, payload.Repository.Links.HTML.Href) {
-		klog.Error(payload.Repository.Links.HTML.Href)
 		klog.Infof("Processing %s event from %s repository for subscription %s", event, payload.Repository.FullName, sub.Name)
 		listener.updateSubscription(sub)
 	}
