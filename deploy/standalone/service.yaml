@@ -4,6 +4,7 @@ metadata:
   labels:
     name: multicloud-operators-subscription
   name: multicloud-operators-subscription
+  namespace: multicloud-operators
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: multicloud-operators-subscription
 spec:

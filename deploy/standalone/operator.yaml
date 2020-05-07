@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicloud-operators-subscription
+  namespace: multicloud-operators
   labels:
     name: multicloud-operators-subscription
 spec:
@@ -17,11 +18,11 @@ spec:
       serviceAccountName: multicloud-operators
       containers:
         - name: multicloud-operators-subscription
-          image: quay.io/multicloudlab/multicloud-operators-subscription
+          image: quay.io/open-cluster-management/multicluster-operators-subscription:community-latest
           ports:
           - containerPort: 8443
           command:
-          - /usr/local/bin/multicloud-operators-subscription
+          - /usr/local/bin/multicluster-operators-subscription
           - --sync-interval=10
           - --standalone
           imagePullPolicy: Always
@@ -40,17 +41,3 @@ spec:
               limits:
                 cpu: 500m
                 memory: 512Mi
-          volumeMounts:
-          - name: multicloud-operators-subscription-tls
-            readOnly: true
-            mountPath: "/etc/subscription"
-      volumes:
-        - name: multicloud-operators-subscription-tls
-          secret:
-            defaultMode: 420
-            secretName: multicloud-operators-subscription
-            items:
-            - key: tls.crt
-              path: tls.crt
-            - key: tls.key
-              path: tls.key

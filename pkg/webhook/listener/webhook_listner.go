@@ -18,7 +18,9 @@ import (
 	"context"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/dynamic"
@@ -30,6 +32,14 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+)
+
+const (
+	defaultKeyFile       = "/etc/subscription/tls.key"
+	defaultCrtFile       = "/etc/subscription/tls.crt"
+	GithubEventHeader    = "X-Github-Event"
+	BitbucketEventHeader = "X-Event-Key"
+	GitlabEventHeader    = "X-Gitlab-Event"
 )
 
 // WebhookListener is a generic webhook event listener
@@ -47,6 +57,20 @@ var webhookListener *WebhookListener
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
 	klog.V(2).Info("Setting up webhook listener ...")
+
+	dir := "/root/certs"
+
+	if strings.EqualFold(tlsKeyFile, "") || strings.EqualFold(tlsCrtFile, "") {
+		err := utils.GenerateServerCerts(dir)
+
+		if err != nil {
+			klog.Error("Failed to generate a self signed certificate. error: ", err)
+			return err
+		}
+
+		tlsKeyFile = filepath.Join(dir, "tls.key")
+		tlsCrtFile = filepath.Join(dir, "tls.crt")
+	}
 
 	var err error
 	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
@@ -142,11 +166,33 @@ func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Sc
 
 // HandleWebhook handles incoming webhook events
 func (listener *WebhookListener) HandleWebhook(w http.ResponseWriter, r *http.Request) {
-	klog.V(2).Info("handleWebhook headers: ", r.Header)
+	klog.Info("handleWebhook headers: ", r.Header)
 
-	if r.Header.Get("X-Github-Event") != "" {
+	if r.Header.Get(GithubEventHeader) != "" {
 		// This is an event from a GitHub repository.
 		err := listener.handleGithubWebhook(r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(err.Error()))
+
+			if err != nil {
+				klog.Error(err.Error())
+			}
+		}
+	} else if r.Header.Get(BitbucketEventHeader) != "" {
+		// This is an event from a BitBucket repository.
+		err := listener.handleBitbucketWebhook(r)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_, err = w.Write([]byte(err.Error()))
+
+			if err != nil {
+				klog.Error(err.Error())
+			}
+		}
+	} else if r.Header.Get(GitlabEventHeader) != "" {
+		// This is an event from a GitLab repository.
+		err := listener.handleGitlabWebhook(r)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_, err = w.Write([]byte(err.Error()))

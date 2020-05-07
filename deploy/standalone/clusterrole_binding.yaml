@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: multicloud-operators
-  namespace: default
+  namespace: multicloud-operators
 roleRef:
   kind: ClusterRole
   name: multicloud-operators

@@ -22,9 +22,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ghodss/yaml"
 	"github.com/google/go-github/v28/github"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,10 +32,8 @@ import (
 )
 
 const (
-	defaultKeyFile   = "/etc/subscription/tls.key"
-	defaultCrtFile   = "/etc/subscription/tls.crt"
-	payloadFormParam = "payload"
-	signatureHeader  = "X-Hub-Signature"
+	payloadFormParam      = "payload"
+	githubSignatureHeader = "X-Hub-Signature"
 )
 
 func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
@@ -116,7 +112,7 @@ func (listener *WebhookListener) processSubscription(sub appv1alpha1.Subscriptio
 			chobj.Spec.Pathname == e.GetRepo().GetHTMLURL() ||
 			chobj.Spec.Pathname == e.GetRepo().GetURL() ||
 			strings.Contains(chobj.Spec.Pathname, e.GetRepo().GetFullName()) {
-			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
+			klog.Info("Processing PR event from " + e.GetRepo().GetHTMLURL())
 			listener.updateSubscription(sub)
 		}
 	case *github.PushEvent:
@@ -124,7 +120,7 @@ func (listener *WebhookListener) processSubscription(sub appv1alpha1.Subscriptio
 			chobj.Spec.Pathname == e.GetRepo().GetHTMLURL() ||
 			chobj.Spec.Pathname == e.GetRepo().GetURL() ||
 			strings.Contains(chobj.Spec.Pathname, e.GetRepo().GetFullName()) {
-			klog.V(2).Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
+			klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
 			listener.updateSubscription(sub)
 		}
 	default:
@@ -139,7 +135,7 @@ func (listener *WebhookListener) validateChannel(chobj *chnv1alpha1.Channel, sig
 	// This WebHook event is applicable for this subscription if:
 	// 		1. channel type is github
 	// 		2. AND ValidateSignature is true with the channel's secret token
-	// 		3. AND channel path contains the repo full name from the event
+	// 		3. AND channel path contains the repo full name from the event (this is verified in the actual event processing)
 	//      4. AND channel has annotation webhookenabled="true"
 	// If these conditions are not met, skip to the next subscription.
 	chType := string(chobj.Spec.Type)
@@ -196,7 +192,7 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 
 	defer r.Body.Close()
 
-	signature = r.Header.Get(signatureHeader)
+	signature = r.Header.Get(githubSignatureHeader)
 
 	event, err = github.ParseWebHook(github.WebHookType(r), payload)
 	if err != nil {
@@ -208,32 +204,8 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 }
 
 func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
-	secret := ""
-	ret = true
-	// Get GitHub WebHook secret from the channel annotations
-	if annotations[appv1alpha1.AnnotationWebhookSecret] == "" {
-		klog.Info("No webhook secret found in annotations")
+	secret := listener.getWebhookSecret(annotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
 
-		ret = false
-	} else {
-		seckey := types.NamespacedName{Name: annotations[appv1alpha1.AnnotationWebhookSecret], Namespace: chNamespace}
-		secobj := &corev1.Secret{}
-
-		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
-		if err != nil {
-			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
-			ret = false
-		}
-
-		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
-		if err != nil {
-			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		} else if secret == "" {
-			klog.Info("Failed to get secret from the webhook secret. Skip this subscription, error: ", err)
-			ret = false
-		}
-	}
 	// Using the channel's webhook secret, validate it against the request's body
 	if err := github.ValidateSignature(signature, body, []byte(secret)); err != nil {
 		klog.Info("Failed to validate webhook event signature, error: ", err)
