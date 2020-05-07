@@ -31,13 +31,13 @@ import (
 func GenerateServerCerts(dir string) error {
 	var err error
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
+
 	if err != nil {
 		klog.Errorf("Failed to generate private key: %v", err)
 		return err
 	}
 
-	var notBefore time.Time
-	notBefore = time.Now()
+	notBefore := time.Now()
 	notAfter := notBefore.AddDate(5, 0, 0)
 
 	ca := x509.Certificate{
@@ -70,39 +70,50 @@ func GenerateServerCerts(dir string) error {
 
 	certFilePath := filepath.Join(dir, "tls.crt")
 	certOut, err := os.Create(certFilePath)
+
 	if err != nil {
 		klog.Errorf("Failed to open tls.crt for writing: %v", err)
 		return err
 	}
+
 	if err := pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: caBytes}); err != nil {
 		klog.Errorf("Failed to write data to tls.crt: %v", err)
 		return err
 	}
+
 	if err := certOut.Close(); err != nil {
 		klog.Errorf("Error closing tls.crt: %v", err)
 		return err
 	}
+
 	klog.Infof("tls.crt file was generated successfully.\n")
 
 	keyFilePath := filepath.Join(dir, "tls.key")
 	keyOut, err := os.OpenFile(keyFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+
 	if err != nil {
 		klog.Errorf("Failed to open tls.key for writing: %v", err)
 		return err
 	}
+
 	privBytes, err := x509.MarshalPKCS8PrivateKey(privateKey)
+
 	if err != nil {
 		klog.Errorf("Unable to marshal private key: %v", err)
 		return err
 	}
+
 	if err := pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: privBytes}); err != nil {
 		klog.Errorf("Failed to write data to tls.key: %v", err)
 		return err
 	}
+
 	if err := keyOut.Close(); err != nil {
 		klog.Errorf("Error closing tls.key: %v", err)
 		return err
 	}
+
 	klog.Infof("tls.key file was generated successfully.\n")
+
 	return nil
 }

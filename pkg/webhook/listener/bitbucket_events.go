@@ -65,11 +65,11 @@ func (listener *WebhookListener) handleBitbucketWebhook(r *http.Request) error {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		klog.Error("Failed to parse the payload: ", err)
-		return errors.New("Failed to parse the payload")
+		return errors.New("failed to parse the payload")
 	}
 
 	var payload BitBucketPayload
-	err = json.Unmarshal([]byte(body), &payload)
+	err = json.Unmarshal(body, &payload)
 
 	if err != nil {
 		klog.Error("Failed to parse the webhook event payload. error: ", err)

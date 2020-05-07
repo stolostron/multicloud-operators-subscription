@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -219,11 +218,9 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 		}
 
 		dir, _ := filepath.Split(rscFile)
-		fmt.Println("Dir: ", dir)
 
 		resourceDir := strings.Split(dir, baseDir)[1]
 		resourceDir = strings.Trim(resourceDir, "/")
-		fmt.Println("resourceDir: ", resourceDir)
 
 		resources := utils.ParseKubeResoures(file)
 

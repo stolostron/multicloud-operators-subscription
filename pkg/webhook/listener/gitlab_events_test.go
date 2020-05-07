@@ -344,7 +344,7 @@ func TestWithWebhookSecret(t *testing.T) {
 	req, err = http.NewRequest("POST", "/webhook", bytes.NewBuffer(reqBody))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	req.Header.Set(GitlabEventHeader, GitLabPushEvents)
-	req.Header.Set(gitlab_signatureHeader, "mysecret")
+	req.Header.Set(gitlabSignatureHeader, "mysecret")
 
 	handler.ServeHTTP(rr, req)
 	g.Expect(rr.Code).To(gomega.Equal(http.StatusOK))

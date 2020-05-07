@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	payloadFormParam       = "payload"
-	github_signatureHeader = "X-Hub-Signature"
+	payloadFormParam      = "payload"
+	githubSignatureHeader = "X-Hub-Signature"
 )
 
 func (listener *WebhookListener) handleGithubWebhook(r *http.Request) error {
@@ -192,7 +192,7 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 
 	defer r.Body.Close()
 
-	signature = r.Header.Get(github_signatureHeader)
+	signature = r.Header.Get(githubSignatureHeader)
 
 	event, err = github.ParseWebHook(github.WebHookType(r), payload)
 	if err != nil {
@@ -204,10 +204,7 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 }
 
 func (listener *WebhookListener) validateSecret(signature string, annotations map[string]string, chNamespace string, body []byte) (ret bool) {
-	secret, err := listener.getWebhookSecret(annotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
-	if err != nil {
-		ret = false
-	}
+	secret := listener.getWebhookSecret(annotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
 
 	// Using the channel's webhook secret, validate it against the request's body
 	if err := github.ValidateSignature(signature, body, []byte(secret)); err != nil {

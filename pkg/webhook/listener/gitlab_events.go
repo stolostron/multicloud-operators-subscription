@@ -35,7 +35,7 @@ import (
 const (
 	GitLabPushEvents         = "Push Hook"
 	GitLabMergeRequestEvents = "Merge Request Hook"
-	gitlab_signatureHeader   = "X-Gitlab-Token"
+	gitlabSignatureHeader    = "X-Gitlab-Token"
 )
 
 type GitLabPayload struct {
@@ -57,18 +57,18 @@ func (listener *WebhookListener) handleGitlabWebhook(r *http.Request) error {
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil || len(body) == 0 {
 		klog.Error("Failed to parse the payload: ", err)
-		return errors.New("Failed to parse the payload")
+		return errors.New("failed to parse the payload")
 	}
 
 	var payload GitLabPayload
-	err = json.Unmarshal([]byte(body), &payload)
+	err = json.Unmarshal(body, &payload)
 
 	if err != nil {
 		klog.Error("Failed to parse the webhook event payload. error: ", err)
 		return err
 	}
 
-	secret := r.Header.Get(gitlab_signatureHeader)
+	secret := r.Header.Get(gitlabSignatureHeader)
 
 	subList := &appv1alpha1.SubscriptionList{}
 	listopts := &client.ListOptions{}
@@ -127,8 +127,9 @@ func (listener *WebhookListener) processGitLabEvent(sub appv1alpha1.Subscription
 
 	chnAnnotations := chobj.GetAnnotations()
 	channelSecret := ""
+
 	if chnAnnotations != nil {
-		channelSecret, err = listener.getWebhookSecret(chnAnnotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
+		channelSecret = listener.getWebhookSecret(chnAnnotations[appv1alpha1.AnnotationWebhookSecret], chNamespace)
 	}
 
 	if (strings.EqualFold(chobj.Spec.Pathname, payload.Repository.Homepage) ||
@@ -142,7 +143,7 @@ func (listener *WebhookListener) processGitLabEvent(sub appv1alpha1.Subscription
 	return true
 }
 
-func (listener *WebhookListener) getWebhookSecret(channelSecret, channelNs string) (string, error) {
+func (listener *WebhookListener) getWebhookSecret(channelSecret, channelNs string) string {
 	secret := ""
 	// Get WebHook secret from the channel annotations
 	if channelSecret == "" {
@@ -154,14 +155,13 @@ func (listener *WebhookListener) getWebhookSecret(channelSecret, channelNs strin
 		err := listener.RemoteClient.Get(context.TODO(), seckey, secobj)
 		if err != nil {
 			klog.Info("Failed to get secret for channel webhook listener, error: ", err)
-			return secret, err
 		}
 
 		err = yaml.Unmarshal(secobj.Data["secret"], &secret)
 		if err != nil {
 			klog.Info("Failed to unmarshal secret from the webhook secret. Skip this subscription, error: ", err)
-			return secret, err
 		}
 	}
-	return secret, nil
+
+	return secret
 }
