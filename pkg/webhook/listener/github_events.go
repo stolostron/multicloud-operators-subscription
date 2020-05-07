@@ -112,7 +112,7 @@ func (listener *WebhookListener) processSubscription(sub appv1alpha1.Subscriptio
 			chobj.Spec.Pathname == e.GetRepo().GetHTMLURL() ||
 			chobj.Spec.Pathname == e.GetRepo().GetURL() ||
 			strings.Contains(chobj.Spec.Pathname, e.GetRepo().GetFullName()) {
-			klog.Info("Processing PUSH event from " + e.GetRepo().GetHTMLURL())
+			klog.Info("Processing PR event from " + e.GetRepo().GetHTMLURL())
 			listener.updateSubscription(sub)
 		}
 	case *github.PushEvent:
