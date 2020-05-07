@@ -11,10 +11,10 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
-	github.com/open-cluster-management/multicloud-operators-channel v0.0.0-20200326020623-ff347c2da37c
+	github.com/open-cluster-management/multicloud-operators-channel v1.0.0-2020-05-04-17-43-49.0.20200507185053-b5b7ebcbb442
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200324042552-efcef6528509
 	github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200324034428-30b1b40184d3
-	github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200421184321-05020fc22ab1
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.0-2020-05-07-19-51-26.0.20200507204535-66060e9e1ccf
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.7.0
@@ -23,11 +23,11 @@ require (
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	k8s.io/api v0.0.0
-	k8s.io/apiextensions-apiserver v0.0.0
-	k8s.io/apimachinery v0.0.0
+	k8s.io/api v0.17.2
+	k8s.io/apiextensions-apiserver v0.17.2
+	k8s.io/apimachinery v0.17.2
 	k8s.io/cli-runtime v0.0.0
-	k8s.io/client-go v12.0.0+incompatible
+	k8s.io/client-go v13.0.0+incompatible
 	k8s.io/helm v2.16.1+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d

@@ -15,10 +15,10 @@
 package subscriber
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/github"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, github.Add)
+	AddToManagerFuncs = append(AddToManagerFuncs, git.Add)
 }

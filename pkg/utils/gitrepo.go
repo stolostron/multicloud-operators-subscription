@@ -143,12 +143,15 @@ func GetSubscriptionBranch(sub *appv1.Subscription) plumbing.ReferenceName {
 
 	annotations := sub.GetAnnotations()
 
-	branchStr := annotations[appv1.AnnotationGithubBranch]
+	branchStr := annotations[appv1.AnnotationGitBranch]
+	if branchStr == "" {
+		branchStr = annotations[appv1.AnnotationGithubBranch] // AnnotationGithubBranch will be depricated
+	}
 	if branchStr != "" {
 		if !strings.HasPrefix(branchStr, "refs/heads/") {
-			branchStr = "refs/heads/" + annotations[appv1.AnnotationGithubBranch]
-			branch = plumbing.ReferenceName(branchStr)
+			branchStr = "refs/heads/" + branchStr
 		}
+		branch = plumbing.ReferenceName(branchStr)
 	}
 
 	return branch
@@ -407,4 +410,10 @@ func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 	}
 
 	return kubeIgnore
+}
+
+// IsGitChannel returns true if channel type is github or git
+func IsGitChannel(chType string) bool {
+	return strings.EqualFold(chType, chnv1.ChannelTypeGitHub) ||
+		strings.EqualFold(chType, chnv1.ChannelTypeGit)
 }

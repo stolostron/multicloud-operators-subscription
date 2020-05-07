@@ -127,7 +127,7 @@ func TestCheckTillerVersion(t *testing.T) {
 	}()
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGithubPath] = "test/github/helmcharts"
+	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
 	githubsub.SetAnnotations(subanno)
 
 	packageFilter := &appv1alpha1.PackageFilter{}
@@ -202,7 +202,7 @@ func TestCheckVersion(t *testing.T) {
 	g.Expect(ret).To(gomega.BeTrue())
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGithubPath] = "test/github/helmcharts"
+	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
 	githubsub.SetAnnotations(subanno)
 
 	packageFilter = &appv1alpha1.PackageFilter{}

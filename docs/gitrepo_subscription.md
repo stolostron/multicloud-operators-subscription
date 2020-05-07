@@ -1,63 +1,70 @@
-# GitHub repository channel subscription
+# Git repository channel subscription
 
-You can subscribe to public or enterprise GitHub repositories that contain Kubernetes resource YAML files or Helm charts, or both. This document gives examples of connecting to a GitHub repository through a channel and subscribing to Kubernetes resources and Helm charts from the GitHub repository.
+You can subscribe to public or enterprise Git repositories that contain Kubernetes resource YAML files or Helm charts, or both. This document gives examples of connecting to a Git repository through a channel and subscribing to Kubernetes resources and Helm charts from the Git repository.
+
+## Supported Git servers
+
+- GitHub
+- GitLab
+- BitBucket
+- Gogs (Gogs webhook is not supported )
 
 ## Prerequisite
 
 Ensure that you have a Kubernetes cluster and this subscription operator running.
 Ensure that you have a Kubernetes cluster that include a running instance of this subscription operator.
 
-## Subscribing to a Helm chart from a public GitHub repository
+## Subscribing to a Helm chart from a public Git repository
 
-Use the following example to create a channel that connects to a public IBM GitHub repository and subscribes to a MongoDB Helm chart.
+Use the following example to create a channel that connects to a public IBM Git repository and subscribes to a MongoDB Helm chart.
 
 1. Clone this `multicloud-operators-subscription` GitHub repository.
 1. In the root for your cloned repository, run the following command to create a namespace:
 
    ```shell
-   kubectl apply -f ./examples/github-channel/00-namespace.yaml
+   kubectl apply -f ./examples/git-channel/00-namespace.yaml
    ```
 
    This command creates an `ibmcharts` namespace.
-1. Run the following command to create an `ibm-charts-github` channel within the `ibmcharts` namespace.
+1. Run the following command to create an `ibm-charts-git` channel within the `ibmcharts` namespace.
 
    ```shell
-   kubectl apply -f ./examples/github-channel/01-channel.yaml
+   kubectl apply -f ./examples/git-channel/01-channel.yaml
    ```
 
-   The following YAML content is used to define this `ibm-charts-github` channel:
+   The following YAML content is used to define this `ibm-charts-git` channel:
 
    ```yaml
    apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
-   name: ibm-charts-github
+   name: ibm-charts-git
    namespace: ibmcharts
    spec:
-       type: GitHub
+       type: Git
        pathname: https://github.com/IBM/charts.git
    ```
 
-   The value for the `pathname` field is the GitHub repository HTTPS URL.
-1. Run the following command to subscribe to the `ibm-charts-github` channel:
+   The value for the `pathname` field is the Git repository HTTPS URL.
+1. Run the following command to subscribe to the `ibm-charts-git` channel:
 
    ```shell
-   kubectl apply -f ./examples/github-channel/02-subscription.yaml
+   kubectl apply -f ./examples/git-channel/02-subscription.yaml
    ```
 
-   When you review the `./examples/github-channel/02-subscription.yaml` file, the subscription has the following annotations.
+   When you review the `./examples/git-channel/02-subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
     annotations:
-      apps.open-cluster-management.io/github-path: stable/ibm-mongodb-dev
-      apps.open-cluster-management.io/github-branch: branch1
+      apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
+      apps.open-cluster-management.io/git-branch: branch1
    ```
 
-   The annotation `apps.open-cluster-management.io/github-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the GitHub repository channel. The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/github-branch`.
+   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the Git repository channel. The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
-   kubectl patch subscriptions.apps.open-cluster-management.io github-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   kubectl patch subscriptions.apps.open-cluster-management.io git-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
    ```
 
    After a couple of minutes, run the following command to check whether a `helmreleases.apps.open-cluster-management.io` CR is created for the MongoDB Helm chart:
@@ -72,56 +79,56 @@ Use the following example to create a channel that connects to a public IBM GitH
    kubectl get deployments
    ```
 
-## Subscribing to Kubernetes resources from a GitHub repository
+## Subscribing to Kubernetes resources from a Git repository
 
-In the following example, you create a channel that connects to a GitHub repository and subscribes to a sample nginx deployment `examples/github-channel/sample-deployment.yaml` YAML file.
+In the following example, you create a channel that connects to a Git repository and subscribes to a sample nginx deployment `examples/git-channel/sample-deployment.yaml` YAML file.
 
-1. Clone this `multicloud-operators-subscription` GitHub repository.
+1. Clone this `multicloud-operators-subscription` Git repository.
 1. Run the following command to create a `kuberesources`namespace:
 
    ```shell
-   kubectl apply -f ./examples/github-channel/10-namespace.yaml
+   kubectl apply -f ./examples/git-channel/10-namespace.yaml
    ```
 
-1. Run the following command to create a `sample-kube-resources-github` channel in the `kuberesources` namespace:
+1. Run the following command to create a `sample-kube-resources-git` channel in the `kuberesources` namespace:
 
    ```shell
-   kubectl apply -f ./examples/github-channel/11-channel.yaml
+   kubectl apply -f ./examples/git-channel/11-channel.yaml
    ```
 
-   The following YAML content is used to define this `sample-kube-resources-github` channel:
+   The following YAML content is used to define this `sample-kube-resources-git` channel:
 
    ```yaml
    apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
-     name: sample-kube-resources-github
+     name: sample-kube-resources-git
      namespace: kuberesources
    spec:
-       type: GitHub
+       type: Git
        pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
    ```
 
-   The value for the `pathname` field is the GitHub repository HTTPS URL.
-1. Run the following command to subscribe to the `sample-kube-resources-github` channel:
+   The value for the `pathname` field is the Git repository HTTPS URL.
+1. Run the following command to subscribe to the `sample-kube-resources-git` channel:
 
    ```shell
-   kubectl apply -f ./examples/github-channel/12-subscription.yaml
+   kubectl apply -f ./examples/git-channel/12-subscription.yaml
    ```
 
-   When you review the `./examples/github-channel/12-subscription.yaml` file, the subscription has the following annotations.
+   When you review the `./examples/git-channel/12-subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
     annotations:
-      apps.open-cluster-management.io/github-path: examples/github-channel
-      apps.open-cluster-management.io/github-branch: branch1
+      apps.open-cluster-management.io/git-path: examples/git-channel
+      apps.open-cluster-management.io/git-branch: branch1
    ```
 
-   The annotation `apps.open-cluster-management.io/github-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/github-channel` directory of the GitHub repository channel.
+   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/git-channel` directory of the Git repository channel.
 
-   In `examples/github-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+   In `examples/git-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
 
-   The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/github-branch`.
+   The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
@@ -134,19 +141,19 @@ In the following example, you create a channel that connects to a GitHub reposit
    kubectl get deployment --all-namespaces
    ```
 
-## Subscribing to a Helm chart from an enterprise GitHub repository that requires authentication
+## Subscribing to a Helm chart from an enterprise Git repository that requires authentication
 
-In the previous examples, the GitHub repository that the channel connects to is a public repository and did not require authentication. If a GitHub repository does require authentication to connect to the repository, you need to associate the channel with a Kubernetes secret.
+In the previous examples, the Git repository that the channel connects to is a public repository and did not require authentication. If a Git repository does require authentication to connect to the repository, you need to associate the channel with a Kubernetes secret.
 
 The `channel` and `subscription` resources support only basic authentication.
 
-Update you channel resource to reference a Kubernetes secret and define the YAML content to create the secret. Within your YAML content, set the `user` field to be a GitHub user ID and the `accessToken` field to be a GitHub personal access token.
+Update you channel resource to reference a Kubernetes secret and define the YAML content to create the secret. Within your YAML content, set the `user` field to be a Git user ID and the `accessToken` field to be a Git personal access token.
 
 ```yaml
 apiVersion: v1
 kind: Secret
 metadata:
-  name: my-github-secret
+  name: my-git-secret
   namespace: ibmcharts
 data:
   user: dXNlcgo=
@@ -155,18 +162,18 @@ data:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
-  name: ibm-charts-github
+  name: ibm-charts-git
   namespace: ibmcharts
 spec:
-    type: GitHub
+    type: Git
     pathname: https://github.com/IBM/charts.git
     secretRef:
-      name: my-github-secret
+      name: my-git-secret
 ```
 
 ## .kubernetesignore file
 
-You can include a `.kubernetesignore` file within your GitHub repository root directory, or within the `data.path` directory that is specified in the ConfigMap that is defined for your subscription `spec.packageFilter.filterRef` field.
+You can include a `.kubernetesignore` file within your Git repository root directory, or within the `data.path` directory that is specified in the ConfigMap that is defined for your subscription `spec.packageFilter.filterRef` field.
 
 You can use this `.kubernetesignore` file to specify patterns of files or subdirectories, or both, to ignore when the subscription processes and applies Kubernetes resource from the repository.
 
@@ -176,7 +183,7 @@ If the `data.path` field is not defined in the ConfigMap that is set for the sub
 
 ## Kustomize
 
-If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed GitHub folder, kustomize will be applied.
+If there is `kustomization.yaml` or `kustomization.yml` file in a subscribed Git folder, kustomize will be applied.
 
 You can use `spec.packageOverrides` to override `kustomization` at the subscription deployment time. For example,
 
@@ -199,7 +206,7 @@ the kustomization overrider YAML as string
 
 ## Subscribing to a specific branch
 
-The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a GitHub repository by default. If you want to subscribe to a different branch, you need to specify the branch name annotation in the subscription.
+The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the `master` branch of a Git repository by default. If you want to subscribe to a different branch, you need to specify the branch name annotation in the subscription.
 
 The following example Subscription YAML shows how to specify a different branch:
 
@@ -207,17 +214,17 @@ The following example Subscription YAML shows how to specify a different branch:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
-  name: github-mongodb-subscription
+  name: git-mongodb-subscription
   annotations:
-    apps.open-cluster-management.io/github-path: stable/ibm-mongodb-dev
-    apps.open-cluster-management.io/github-branch: branch1
+    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
+    apps.open-cluster-management.io/git-branch: branch1
 ```
 
-## Enabling GitHub WebHook
+## Enabling Git WebHook
 
-By default, a GitHub channel subscription clones the GitHub repository specified in the channel every minute and applies changes when the commit ID has changed. Alternatively, you can configure your subscription to apply changes only when the GitHub repository sends repo PUSH and PULL webhook event notifications.
+By default, a Git channel subscription clones the Git repository specified in the channel every minute and applies changes when the commit ID has changed. Alternatively, you can configure your subscription to apply changes only when the Git repository sends repo PUSH and PULL webhook event notifications.
 
-In order to configure webhook in a GitHub repository, you need a target webhook payload URL and optionally a secret.
+In order to configure webhook in a Git repository, you need a target webhook payload URL and optionally a secret.
 
 ### Payload URL
 
@@ -237,18 +244,18 @@ WebHook secret is optional. Create a Kubernetes secret in the channel namespace.
 apiVersion: v1
 kind: Secret
 metadata:
-  name: my-github-webhook-secret
+  name: my-git-webhook-secret
 data:
   secret: cm9rZWpAY2EuaWJtLmNvbQo=
 ```
 
 The value of `data.secret` is the base-64 encoded WebHook secret you are going to use.
 
-* Using a unique secret per GitHub repository is recommended.
+* Using a unique secret per Git repository is recommended.
 
-### Configuring WebHook in GitHub repository
+### Configuring WebHook in Git repository
 
-Use the payload URL and webhook secret to configure WebHook in your GitHub repository.
+Use the payload URL and webhook secret to configure WebHook in your Git repository.
 
 ### Enable WebHook event notification in channel
 

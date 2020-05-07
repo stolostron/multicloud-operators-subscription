@@ -46,7 +46,7 @@ var (
 			Namespace: sharedkey.Namespace,
 		},
 		Spec: chnv1.ChannelSpec{
-			Type:     "GitHub",
+			Type:     "Git",
 			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
 		},
 	}
@@ -200,7 +200,7 @@ func TestGetSubscriptionBranch(t *testing.T) {
 	g.Expect(branch.Short()).To(gomega.Equal("master"))
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGithubBranch] = "notmaster"
+	subanno[appv1alpha1.AnnotationGitBranch] = "notmaster"
 	githubsub.SetAnnotations(subanno)
 
 	branchRef := plumbing.NewBranchReferenceName("notmaster")

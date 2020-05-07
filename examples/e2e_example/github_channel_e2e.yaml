@@ -31,7 +31,7 @@ metadata:
   labels:
     name: git-sub
 spec:
-  type: GitHub
+  type: Git
   pathname: https://github.com/ianzhang366/acm-applifecycle-samples.git
   configMapRef:
     name: guestbook

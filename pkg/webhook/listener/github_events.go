@@ -29,6 +29,7 @@ import (
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -140,7 +141,7 @@ func (listener *WebhookListener) validateChannel(chobj *chnv1alpha1.Channel, sig
 	// If these conditions are not met, skip to the next subscription.
 	chType := string(chobj.Spec.Type)
 
-	if !strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
+	if !utils.IsGitChannel(chType) {
 		klog.V(2).Infof("The channel type is %s. Skipping to process this subscription.", chType)
 		return false
 	}
