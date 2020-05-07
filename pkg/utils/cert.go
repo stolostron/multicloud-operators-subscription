@@ -29,9 +29,6 @@ import (
 )
 
 func GenerateServerCerts(dir string) error {
-
-	//host := "rhacm.kubernetes.redhat.com"
-
 	var err error
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -56,8 +53,6 @@ func GenerateServerCerts(dir string) error {
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 		BasicConstraintsValid: true,
 	}
-
-	//template.DNSNames = append(template.DNSNames, host)
 
 	caBytes, err := x509.CreateCertificate(rand.Reader, &ca, &ca, &privateKey.PublicKey, privateKey)
 	if err != nil {
