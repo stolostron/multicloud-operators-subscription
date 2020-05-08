@@ -144,13 +144,16 @@ func GetSubscriptionBranch(sub *appv1.Subscription) plumbing.ReferenceName {
 	annotations := sub.GetAnnotations()
 
 	branchStr := annotations[appv1.AnnotationGitBranch]
+
 	if branchStr == "" {
 		branchStr = annotations[appv1.AnnotationGithubBranch] // AnnotationGithubBranch will be depricated
 	}
+
 	if branchStr != "" {
 		if !strings.HasPrefix(branchStr, "refs/heads/") {
 			branchStr = "refs/heads/" + branchStr
 		}
+
 		branch = plumbing.ReferenceName(branchStr)
 	}
 
