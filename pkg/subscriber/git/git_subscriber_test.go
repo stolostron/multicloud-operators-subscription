@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package github
+package git
 
 import (
 	"context"
@@ -108,7 +108,7 @@ var (
 			Namespace: sharedkey.Namespace,
 		},
 		Spec: chnv1alpha1.ChannelSpec{
-			Type:     "GitHub",
+			Type:     "Git",
 			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
 		},
 	}
@@ -431,7 +431,7 @@ data:
 	githubsub.Spec.PackageFilter = packageFilter
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGithubPath] = "test/github/helmcharts"
+	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
 	githubsub.SetAnnotations(subanno)
 
 	githubsub.Spec.Package = "chart1"

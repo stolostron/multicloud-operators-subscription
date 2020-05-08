@@ -109,10 +109,10 @@ func CreateOrUpdateHelmChart(
 		},
 	}
 
-	if strings.EqualFold(string(channel.Spec.Type), chnv1.ChannelTypeGitHub) {
+	if IsGitChannel(string(channel.Spec.Type)) {
 		source = &releasev1.Source{
-			SourceType: releasev1.GitHubSourceType,
-			GitHub: &releasev1.GitHub{
+			SourceType: releasev1.GitSourceType,
+			Git: &releasev1.Git{
 				Urls:      []string{channel.Spec.Pathname},
 				ChartPath: chartVersions[0].URLs[0],
 				Branch:    GetSubscriptionBranch(sub).Short(),
@@ -231,7 +231,7 @@ func CreateHelmCRDeployable(
 		return nil, err
 	}
 
-	if channel == nil || !strings.EqualFold(string(channel.Spec.Type), chnv1.ChannelTypeGitHub) {
+	if channel == nil || !IsGitChannel(string(channel.Spec.Type)) {
 		for i := range chartVersions[0].URLs {
 			parsedURL, err := url.Parse(chartVersions[0].URLs[i])
 

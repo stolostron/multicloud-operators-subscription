@@ -67,7 +67,7 @@ func TestSetNewSubscription(t *testing.T) {
 	githubsub.UID = "dummyid"
 
 	annotations := make(map[string]string)
-	annotations[appv1.AnnotationGithubPath] = "test/github"
+	annotations[appv1.AnnotationGitPath] = "test/github"
 	githubsub.SetAnnotations(annotations)
 
 	err = rec.setNewSubscription(githubsub, true, false)
@@ -102,8 +102,8 @@ func TestPrepareDeployableForSubscription(t *testing.T) {
 
 	annotations := make(map[string]string)
 	annotations[appv1.AnnotationWebhookEventCount] = "1"
-	annotations[appv1.AnnotationGithubBranch] = "branch1"
-	annotations[appv1.AnnotationGithubPath] = "test/github"
+	annotations[appv1.AnnotationGitBranch] = "branch1"
+	annotations[appv1.AnnotationGitPath] = "test/github"
 	githubsub.SetAnnotations(annotations)
 
 	subDpl, err := rec.prepareDeployableForSubscription(githubsub, nil)

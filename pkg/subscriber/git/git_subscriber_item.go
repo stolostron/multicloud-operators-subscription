@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package github
+package git
 
 import (
 	"bytes"
@@ -570,6 +570,8 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 
 	if annotations[appv1.AnnotationGithubPath] != "" {
 		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1.AnnotationGithubPath])
+	} else if annotations[appv1.AnnotationGitPath] != "" {
+		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1.AnnotationGitPath])
 	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
 		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
 	}

@@ -50,6 +50,12 @@ var (
 	AnnotationGithubBranch = SchemeGroupVersion.Group + "/github-branch"
 	// AnnotationGithubCommit defines Git repo commit ID
 	AnnotationGithubCommit = SchemeGroupVersion.Group + "/github-commit"
+	// AnnotationGitPath defines webhook secret
+	AnnotationGitPath = SchemeGroupVersion.Group + "/git-path"
+	// AnnotationGitBranch defines webhook secret
+	AnnotationGitBranch = SchemeGroupVersion.Group + "/git-branch"
+	// AnnotationGitCommit defines Git repo commit ID
+	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-commit"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name

@@ -397,7 +397,7 @@ func TestValidateChannel(t *testing.T) {
 	ret = listener.validateChannel(channel, "", "", []byte(""))
 	g.Expect(ret).To(gomega.BeFalse())
 
-	channel.Spec.Type = chnv1alpha1.ChannelTypeGitHub
+	channel.Spec.Type = chnv1alpha1.ChannelTypeGit
 	newAnnotations := make(map[string]string)
 	newAnnotations[appv1alpha1.AnnotationWebhookEnabled] = "false"
 	channel.SetAnnotations(newAnnotations)
