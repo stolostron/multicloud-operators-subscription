@@ -436,7 +436,7 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 			// remove all finalizers
 			sub = *sub.DeepCopy()
 			sub.SetFinalizers([]string{})
-			err = runtimeClient.Update(context.TODO(), sub)
+			err = runtimeClient.Update(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
 			if err != nil {
 				klog.Warning(err)
 			}
