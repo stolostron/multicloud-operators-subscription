@@ -55,23 +55,24 @@ type WebhookListener struct {
 var webhookListener *WebhookListener
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
-func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool) error {
 	klog.V(2).Info("Setting up webhook listener ...")
 
-	dir := "/root/certs"
+	if !disableTLS {
+		dir := "/root/certs"
 
-	if strings.EqualFold(tlsKeyFile, "") || strings.EqualFold(tlsCrtFile, "") {
-		err := utils.GenerateServerCerts(dir)
+		if strings.EqualFold(tlsKeyFile, "") || strings.EqualFold(tlsCrtFile, "") {
+			err := utils.GenerateServerCerts(dir)
 
-		if err != nil {
-			klog.Error("Failed to generate a self signed certificate. error: ", err)
-			return err
+			if err != nil {
+				klog.Error("Failed to generate a self signed certificate. error: ", err)
+				return err
+			}
+
+			tlsKeyFile = filepath.Join(dir, "tls.key")
+			tlsCrtFile = filepath.Join(dir, "tls.crt")
 		}
-
-		tlsKeyFile = filepath.Join(dir, "tls.key")
-		tlsCrtFile = filepath.Join(dir, "tls.crt")
 	}
-
 	var err error
 	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
 

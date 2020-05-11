@@ -122,7 +122,7 @@ func RunManager(sig <-chan struct{}) {
 		}
 
 		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
@@ -199,7 +199,7 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	// Setup Webhook listner
-	if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName); err != nil {
+	if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS); err != nil {
 		klog.Error("Failed to initialize WebHook listener with error:", err)
 		return err
 	}
