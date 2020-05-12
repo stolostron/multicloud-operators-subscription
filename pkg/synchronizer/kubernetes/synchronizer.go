@@ -236,14 +236,15 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 
 	var dl dynamic.ResourceInterface
 
-	for _, obj := range objlist.Items {
-		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) { //#nosec G601
+	for _, o := range objlist.Items {
+		obj := o
+		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) {
 			continue
 		}
 
-		host := sync.Extension.GetHostFromObject(&obj) // #nosec G601
-		dpl := utils.GetHostDeployableFromObject(&obj) // #nosec G601
-		source := utils.GetSourceFromObject(&obj)      // #nosec G601
+		host := sync.Extension.GetHostFromObject(&obj)
+		dpl := utils.GetHostDeployableFromObject(&obj)
+		source := utils.GetSourceFromObject(&obj)
 
 		if dpl == nil || host == nil {
 			continue

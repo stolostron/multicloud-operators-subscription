@@ -256,7 +256,7 @@ func mergeKustomization(kustomizeYamlFilePath string, override map[string]interf
 		return err
 	}
 
-	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0644); err != nil {
+	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0600); err != nil {
 		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
 		return err
 	}
