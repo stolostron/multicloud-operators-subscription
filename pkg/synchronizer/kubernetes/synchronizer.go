@@ -71,6 +71,7 @@ type KubeSynchronizer struct {
 
 	stopCh         chan struct{}
 	resetcache     bool
+	rediscover     bool
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -153,6 +154,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 	}
 
 	s.resetcache = true
+	s.rediscover = false
 	s.discoverResourcesOnce()
 
 	return s, nil
@@ -207,8 +209,9 @@ func (sync *KubeSynchronizer) houseKeeping() {
 		sync.applyKindTemplates(res)
 	}
 
-	if crdUpdated {
+	if crdUpdated || sync.rediscover {
 		sync.rediscoverResource()
+		sync.rediscover = false
 	}
 }
 
