@@ -1,8 +1,8 @@
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
-  name: ibm-charts-github
+  name: ibm-charts-git
   namespace: ibmcharts
 spec:
-    type: GitHub
+    type: Git
     pathname: https://github.com/IBM/charts.git

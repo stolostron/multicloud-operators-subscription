@@ -30,7 +30,7 @@ import (
 
 var (
 	sharedkey = types.NamespacedName{
-		Name:      "githubtest",
+		Name:      "gittest",
 		Namespace: "default",
 	}
 	githubchn = &chnv1.Channel{
@@ -39,7 +39,7 @@ var (
 			Namespace: sharedkey.Namespace,
 		},
 		Spec: chnv1.ChannelSpec{
-			Type:     "GitHub",
+			Type:     "Git",
 			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
 		},
 	}
@@ -75,7 +75,7 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	githubsub.UID = "dummyid"
 
 	annotations := make(map[string]string)
-	annotations[appv1.AnnotationGithubPath] = "test/github"
+	annotations[appv1.AnnotationGitPath] = "test/github"
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.

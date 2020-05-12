@@ -38,6 +38,7 @@ import (
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -57,7 +58,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateSubDplAnno := false
 
-	if strings.EqualFold(string(channel.Spec.Type), chnv1alpha1.ChannelTypeGitHub) {
+	if utils.IsGitChannel(string(channel.Spec.Type)) {
 		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
 	} else {
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
@@ -613,21 +614,25 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()
-	// Keep GitHub related annotations from the source subscription.
+	// Keep Git related annotations from the source subscription.
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
 		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
 	}
 
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubBranch], "") {
-		subepanno[appv1alpha1.AnnotationGithubBranch] = origsubanno[appv1alpha1.AnnotationGithubBranch]
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitBranch], "") {
+		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGitBranch]
+	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubBranch], "") {
+		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGithubBranch]
 	}
 
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
-		subepanno[appv1alpha1.AnnotationGithubPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitPath], "") {
+		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGitPath]
+	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
+		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
 	}
 
-	// Add annotation for github path and branch
-	// It is recommended to define Gihub path and branch in subscription annotations but
+	// Add annotation for git path and branch
+	// It is recommended to define Git path and branch in subscription annotations but
 	// this code is to support those that already use ConfigMap.
 	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
 		subscriptionConfigMap := &corev1.ConfigMap{}
@@ -642,11 +647,11 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 		} else {
 			gitPath := subscriptionConfigMap.Data["path"]
 			if gitPath != "" {
-				subepanno[appv1alpha1.AnnotationGithubPath] = gitPath
+				subepanno[appv1alpha1.AnnotationGitPath] = gitPath
 			}
 			gitBranch := subscriptionConfigMap.Data["branch"]
 			if gitBranch != "" {
-				subepanno[appv1alpha1.AnnotationGithubBranch] = gitBranch
+				subepanno[appv1alpha1.AnnotationGitBranch] = gitBranch
 			}
 		}
 	}
@@ -870,8 +875,8 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 
 	dplNamespace := chNameSpace
 
-	if strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
-		// If GitHub channel, deployables are created in the subscription namespace
+	if utils.IsGitChannel(chType) {
+		// If Git channel, deployables are created in the subscription namespace
 		dplNamespace = sub.Namespace
 	}
 
@@ -895,7 +900,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		subLabel[chnv1alpha1.KeyChannel] = chName
 		subLabel[chnv1alpha1.KeyChannelType] = chType
 
-		if strings.EqualFold(chType, chnv1alpha1.ChannelTypeGitHub) {
+		if utils.IsGitChannel(chType) {
 			subscriptionNameLabel := types.NamespacedName{
 				Name:      sub.Name,
 				Namespace: sub.Namespace,

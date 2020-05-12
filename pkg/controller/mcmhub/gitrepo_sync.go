@@ -63,8 +63,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		return false
 	}
 
-	if strings.EqualFold(string(channel.Spec.Type), chnv1.ChannelTypeGitHub) {
-		klog.Infof("Subscription %s has GitHub type channel.", sub.GetName())
+	if utils.IsGitChannel(string(channel.Spec.Type)) {
+		klog.Infof("Subscription %s has Git type channel.", sub.GetName())
 
 		user, pwd, err := utils.GetChannelSecret(r.Client, channel)
 
@@ -89,15 +89,15 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			sub.SetAnnotations(annotations)
 		}
 
-		if !strings.EqualFold(annotations[appv1.AnnotationGithubCommit], commit) {
+		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) {
 			klog.Info("Repo commit = " + commit)
-			klog.Info("Subscription commit = " + annotations[appv1.AnnotationGithubCommit])
+			klog.Info("Subscription commit = " + annotations[appv1.AnnotationGitCommit])
 			klog.Info("The repo has changed. Update deployables.")
 
 			// Delete the existing deployables and recreate them
 			r.deleteSubscriptionDeployables(sub)
 
-			annotations[appv1.AnnotationGithubCommit] = commit
+			annotations[appv1.AnnotationGitCommit] = commit
 			sub.SetAnnotations(annotations)
 
 			resourcePath := utils.GetLocalGitFolder(channel, sub)
@@ -105,6 +105,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 			if annotations[appv1.AnnotationGithubPath] != "" {
 				resourcePath = filepath.Join(utils.GetLocalGitFolder(channel, sub), annotations[appv1.AnnotationGithubPath])
+			} else if annotations[appv1.AnnotationGitPath] != "" {
+				resourcePath = filepath.Join(utils.GetLocalGitFolder(channel, sub), annotations[appv1.AnnotationGitPath])
 			}
 
 			err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
@@ -130,7 +132,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 	return updated
 }
 
-// updateGitSubDeployablesAnnotation set all deployables subscribed by github subscription to the apps.open-cluster-management.io/deployables annotation
+// updateGitSubDeployablesAnnotation set all deployables subscribed by git subscription to the apps.open-cluster-management.io/deployables annotation
 func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Subscription) {
 	allDpls := r.getSubscriptionDeployables(sub)
 
@@ -173,7 +175,7 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 	b, _ := yaml.Marshal(indexFile)
 	klog.Info("New index file ", string(b))
 
-	// Create deployables for kube resources and helm charts from the github repo
+	// Create deployables for kube resources and helm charts from the git repo
 	r.subscribeResources(chn, sub, crdsAndNamespaceFiles, baseDir)
 	r.subscribeResources(chn, sub, rbacFiles, baseDir)
 	r.subscribeResources(chn, sub, otherFiles, baseDir)
@@ -383,7 +385,7 @@ type helmSpec struct {
 
 type helmSource struct {
 	HelmRepo *sourceURLs `json:"helmRepo,omitempty"`
-	GitHub   *sourceURLs `json:"github,omitempty"`
+	Git      *sourceURLs `json:"git,omitempty"`
 	Type     string      `json:"type,omitempty"`
 }
 
@@ -411,10 +413,10 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		src := &helmSource{}
 
-		src.Type = chnv1.ChannelTypeGitHub
-		src.GitHub = sourceurls
+		src.Type = chnv1.ChannelTypeGit
+		src.Git = sourceurls
 		chartVersion, _ := indexFile.Get(packageName, chartVersions[0].Version)
-		src.GitHub.ChartPath = chartVersion.URLs[0]
+		src.Git.ChartPath = chartVersion.URLs[0]
 
 		spec.Source = src
 

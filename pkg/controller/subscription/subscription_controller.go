@@ -37,7 +37,7 @@ import (
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/github"
+	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
 	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
 	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
@@ -77,6 +77,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
 	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
+	subs[chnv1alpha1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
 	subs[chnv1alpha1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))

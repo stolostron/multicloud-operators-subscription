@@ -127,6 +127,19 @@ spec:
                         type: string
                       type: array
                   type: object
+                git:
+                  description: Git provides the parameters to access the helm-chart
+                    located in a git repo
+                  properties:
+                    branch:
+                      type: string
+                    chartPath:
+                      type: string
+                    urls:
+                      items:
+                        type: string
+                      type: array
+                  type: object
                 helmRepo:
                   description: HelmRepo provides the urls to retrieve the helm-chart
                   properties:

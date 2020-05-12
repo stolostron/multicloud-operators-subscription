@@ -11,10 +11,10 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
-	github.com/open-cluster-management/multicloud-operators-channel v0.0.0-20200326020623-ff347c2da37c
+	github.com/open-cluster-management/multicloud-operators-channel v1.0.0-2020-05-04-17-43-49.0.20200507185053-b5b7ebcbb442
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200324042552-efcef6528509
 	github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200324034428-30b1b40184d3
-	github.com/open-cluster-management/multicloud-operators-subscription-release v0.0.0-20200421184321-05020fc22ab1
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.0-2020-05-07-19-51-26.0.20200507204535-66060e9e1ccf
 	github.com/operator-framework/operator-sdk v0.16.0
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/common v0.7.0
