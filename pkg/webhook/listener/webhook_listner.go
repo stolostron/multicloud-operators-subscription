@@ -58,7 +58,7 @@ var webhookListener *WebhookListener
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string) error {
 	klog.V(2).Info("Setting up webhook listener ...")
 
-	dir := "/Users/xiangjingli/certs"
+	dir := "/root/certs"
 
 	if strings.EqualFold(tlsKeyFile, "") || strings.EqualFold(tlsCrtFile, "") {
 		err := utils.GenerateServerCerts(dir)
