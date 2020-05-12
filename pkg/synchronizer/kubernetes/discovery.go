@@ -164,6 +164,9 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 		// do not return this error
 		// some api server aggregation may cause this problem, but can still get return some resources.
 		klog.Error("Failed to discover server resources. skipping err:", err)
+		klog.Info("Setting synchronizer rediscover to true")
+
+		sync.rediscover = true
 	}
 
 	filteredResources := discovery.FilteredBy(resourcePredicate, resources)

@@ -360,7 +360,6 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			err := yaml.Unmarshal(resources[0], &t)
 
 			if err != nil {
-				fmt.Println("Failed to unmarshal YAML file")
 				// Just ignore the YAML
 				return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 			}

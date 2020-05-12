@@ -71,6 +71,7 @@ type KubeSynchronizer struct {
 
 	stopCh         chan struct{}
 	resetcache     bool
+	rediscover     bool
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -153,6 +154,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 	}
 
 	s.resetcache = true
+	s.rediscover = false
 	s.discoverResourcesOnce()
 
 	return s, nil
@@ -207,8 +209,9 @@ func (sync *KubeSynchronizer) houseKeeping() {
 		sync.applyKindTemplates(res)
 	}
 
-	if crdUpdated {
+	if crdUpdated || sync.rediscover {
 		sync.rediscoverResource()
+		sync.rediscover = false
 	}
 }
 
@@ -234,13 +237,13 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 	var dl dynamic.ResourceInterface
 
 	for _, obj := range objlist.Items {
-		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) {
+		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) { //#nosec G601
 			continue
 		}
 
-		host := sync.Extension.GetHostFromObject(&obj)
-		dpl := utils.GetHostDeployableFromObject(&obj)
-		source := utils.GetSourceFromObject(&obj)
+		host := sync.Extension.GetHostFromObject(&obj) // #nosec G601
+		dpl := utils.GetHostDeployableFromObject(&obj) // #nosec G601
+		source := utils.GetSourceFromObject(&obj)      // #nosec G601
 
 		if dpl == nil || host == nil {
 			continue
@@ -503,8 +506,6 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	}
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
-
-	fmt.Printf("%p\n", sync.KubeResources)
 
 	for _, resmap := range sync.KubeResources {
 		// all templates are added with annotations, no need to check nil

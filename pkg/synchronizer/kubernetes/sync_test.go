@@ -16,7 +16,6 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -387,8 +386,6 @@ func TestClusterScopedApply(t *testing.T) {
 
 	_, ok = sync.KubeResources[foocrdgvk]
 	g.Expect(ok).Should(gomega.BeTrue())
-
-	fmt.Printf("%p\n", sync.KubeResources)
 
 	time.Sleep(1 * time.Second)
 
