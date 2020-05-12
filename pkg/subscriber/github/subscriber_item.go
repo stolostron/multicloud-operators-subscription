@@ -320,6 +320,11 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 		return err
 	}
 
+	if dpltosync == nil || validgvk == nil {
+		klog.Info("Skipping resource")
+		return nil
+	}
+
 	pkgMap[dpltosync.GetName()] = true
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
@@ -390,7 +395,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		if errMsg != "" {
 			klog.V(3).Info(errMsg)
 
-			return nil, nil, errors.New(errMsg)
+			return nil, nil, nil
 		}
 	}
 
