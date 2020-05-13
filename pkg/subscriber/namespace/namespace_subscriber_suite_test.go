@@ -28,6 +28,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
@@ -47,7 +48,7 @@ func TestSubscriptionNamespaceReconcile(t *testing.T) {
 
 	RunSpecsWithDefaultAndCustomReporters(t,
 		"Namespace Controller Suite",
-		[]Reporter{envtest.NewlineReporter{}})
+		[]Reporter{printer.NewlineReporter{}})
 }
 
 var _ = BeforeSuite(func(done Done) {
