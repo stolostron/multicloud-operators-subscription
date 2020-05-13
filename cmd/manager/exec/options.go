@@ -24,10 +24,11 @@ type SubscriptionCMDOptions struct {
 	ClusterName           string
 	ClusterNamespace      string
 	HubConfigFilePathName string
-	SyncInterval          int
-	Standalone            bool
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
+	SyncInterval          int
+	DisableTLS            bool
+	Standalone            bool
 }
 
 var Options = SubscriptionCMDOptions{
@@ -94,5 +95,12 @@ func ProcessFlags() {
 		"tls-crt-file",
 		Options.TLSCrtFilePathName,
 		"WebHook event listener TLS cert file path.",
+	)
+
+	flag.BoolVar(
+		&Options.DisableTLS,
+		"disable-tls",
+		Options.DisableTLS,
+		"Disable TLS on WebHook event listener.",
 	)
 }
