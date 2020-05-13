@@ -73,7 +73,9 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile str
 			tlsCrtFile = filepath.Join(dir, "tls.crt")
 		}
 	}
+
 	var err error
+
 	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
 
 	if err != nil {
