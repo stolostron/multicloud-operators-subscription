@@ -107,7 +107,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	err := r.doSubscription()
 
 	if err != nil {
-		result.RequeueAfter = time.Duration(rand.IntnRange(1, 5)) * time.Second
+		result.RequeueAfter = time.Duration(rand.IntnRange(1, 10)) * time.Second
 
 		klog.Errorf("failed to reconcile deployable %v for namespace subscriber with error: %+v", request.String(), err)
 	}

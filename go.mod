@@ -21,7 +21,8 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
-	golang.org/x/net v0.0.0-20191105084925-a882066a44e0
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	golang.org/x/tools/gopls v0.4.1 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	k8s.io/api v0.17.2
 	k8s.io/apiextensions-apiserver v0.17.2
