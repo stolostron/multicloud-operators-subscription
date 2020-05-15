@@ -28,7 +28,6 @@ type SubscriptionCMDOptions struct {
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
 	SyncInterval          int
-	DisableTLS            bool
 	Standalone            bool
 }
 
