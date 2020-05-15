@@ -36,6 +36,7 @@ import (
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -135,7 +136,8 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 			return err
 		}
 	} else {
-		err = r.updateSubscriptionStatus(sub, found)
+		klog.V(1).Infof("update Subscription status, sub:%v/%v", sub.GetNamespace(), sub.GetName())
+		err = r.updateSubscriptionStatus(sub, found, channel)
 	}
 
 	return err
@@ -347,6 +349,23 @@ func setFoundDplLabel(found *dplv1alpha1.Deployable, sub *appv1alpha1.Subscripti
 	label[dplv1alpha1.LabelSubscriptionPause] = labelPause
 
 	found.SetLabels(label)
+}
+
+//setSuscriptionLabel update subscription labels. for now only set subacription-pause label
+func setSuscriptionLabel(sub *appv1alpha1.Subscription) {
+	label := sub.GetLabels()
+	if label == nil {
+		label = make(map[string]string)
+	}
+
+	labelPause := "false"
+	if subutil.GetPauseLabel(sub) {
+		labelPause = "true"
+	}
+
+	label[dplv1alpha1.LabelSubscriptionPause] = labelPause
+
+	sub.SetLabels(label)
 }
 
 //SetTargetDplAnnotation set target dpl annotation to the source dpl annoation
@@ -660,6 +679,8 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	})
 	(&appv1alpha1.SubscriptionStatus{}).DeepCopyInto(&subep.Status)
 
+	setSuscriptionLabel(subep)
+
 	rawep, err := json.Marshal(subep)
 	if err != nil {
 		klog.Info("Error in mashalling subscription ", subep, err)
@@ -737,7 +758,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	return dpl, nil
 }
 
-func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable) error {
+func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
 	newsubstatus := appv1alpha1.SubscriptionStatus{}
 
 	newsubstatus.Phase = appv1alpha1.SubscriptionPropagated
@@ -749,20 +770,40 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	} else {
 		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
 
-		for k, v := range found.Status.PropagatedStatus {
+		for cluster, cstatus := range found.Status.PropagatedStatus {
 			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
-			if v.Phase == dplv1alpha1.DeployableDeployed {
+			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
+
+			if cstatus.ResourceStatus != nil {
 				mcsubstatus := &appv1alpha1.SubscriptionStatus{}
-				if v.ResourceStatus != nil {
-					err := json.Unmarshal(v.ResourceStatus.Raw, mcsubstatus)
-					if err != nil {
-						klog.Info("Failed to unmashall status from clusters")
-						return err
+				err := json.Unmarshal(cstatus.ResourceStatus.Raw, mcsubstatus)
+				if err != nil {
+					klog.Infof("Failed to unmashall ResourceStatus from target cluster: %v, in deployable: %v/%v", cluster, found.GetNamespace(), found.GetName())
+					return err
+				}
+
+				//get status per package if exist, for namespace/objectStore/helmRepo channel subscription status
+				for _, lcStatus := range mcsubstatus.Statuses {
+					for pkg, pkgStatus := range lcStatus.SubscriptionPackageStatus {
+						subPkgStatus[pkg] = getStatusPerPackage(pkgStatus, chn)
 					}
 				}
-				clusterSubStatus = mcsubstatus.Statuses["/"]
+
+				//if no status per package, apply status.<per cluster>.resourceStatus, for github channel subscription status
+				if len(subPkgStatus) == 0 {
+					subUnitStatus := &appv1alpha1.SubscriptionUnitStatus{}
+					subUnitStatus.LastUpdateTime = mcsubstatus.LastUpdateTime
+					subUnitStatus.Phase = mcsubstatus.Phase
+					subUnitStatus.Message = mcsubstatus.Message
+					subUnitStatus.Reason = mcsubstatus.Reason
+
+					subPkgStatus["/"] = subUnitStatus
+				}
 			}
-			newsubstatus.Statuses[k] = clusterSubStatus
+
+			clusterSubStatus.SubscriptionPackageStatus = subPkgStatus
+
+			newsubstatus.Statuses[cluster] = clusterSubStatus
 		}
 	}
 
@@ -775,6 +816,54 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	}
 
 	return nil
+}
+
+func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chnv1alpha1.Channel) *appv1alpha1.SubscriptionUnitStatus {
+	subUnitStatus := &appv1alpha1.SubscriptionUnitStatus{}
+
+	switch chn.Spec.Type {
+	case "HelmRepo":
+		subUnitStatus.LastUpdateTime = pkgStatus.LastUpdateTime
+		setHelmSubUnitStatus(pkgStatus.ResourceStatus, subUnitStatus)
+	default:
+		subUnitStatus = pkgStatus
+	}
+
+	return subUnitStatus
+}
+
+func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus *appv1alpha1.SubscriptionUnitStatus) {
+	helmAppStatus := &releasev1.HelmAppStatus{}
+	err := json.Unmarshal(pkgResourceStatus.Raw, helmAppStatus)
+
+	if err != nil {
+		klog.Info("Failed to unmashall pkgResourceStatus to helm condition. err: ", err)
+	}
+
+	subUnitStatus.Phase = "Subscribed"
+	subUnitStatus.Message = ""
+	subUnitStatus.Reason = ""
+
+	messages := []string{}
+	reasons := []string{}
+
+	for _, condition := range helmAppStatus.Conditions {
+		if strings.Contains(string(condition.Reason), "Error") {
+			subUnitStatus.Phase = "Failed"
+
+			messages = append(messages, condition.Message)
+
+			reasons = append(reasons, string(condition.Reason))
+		}
+	}
+
+	if len(messages) > 0 {
+		subUnitStatus.Message = strings.Join(messages, ", ")
+	}
+
+	if len(reasons) > 0 {
+		subUnitStatus.Reason = strings.Join(reasons, ", ")
+	}
 }
 
 func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subscription) map[string]*dplv1alpha1.Deployable {
@@ -841,7 +930,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		return nil
 	}
 
-	klog.V(1).Info("Hub Subscription found Deployables:", dplList.Items)
+	klog.V(1).Info("Hub Subscription found Deployables:", len(dplList.Items))
 
 	for _, dpl := range dplList.Items {
 		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {

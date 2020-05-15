@@ -74,6 +74,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile str
 		}
 	}
 	var err error
+
 	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
 
 	if err != nil {
