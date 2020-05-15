@@ -24,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -106,7 +107,7 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 	err := r.doSubscription()
 
 	if err != nil {
-		result.RequeueAfter = time.Duration(r.subscriber.synchronizer.GetInterval()*5) * time.Second
+		result.RequeueAfter = time.Duration(rand.IntnRange(1, 10)) * time.Second
 
 		klog.Errorf("failed to reconcile deployable %v for namespace subscriber with error: %+v", request.String(), err)
 	}
