@@ -23,11 +23,11 @@ type SubscriptionCMDOptions struct {
 	MetricsAddr           string
 	ClusterName           string
 	ClusterNamespace      string
-	DisableTLS            bool
 	HubConfigFilePathName string
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
 	SyncInterval          int
+	DisableTLS            bool
 	Standalone            bool
 }
 
