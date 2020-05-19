@@ -206,7 +206,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 		instance.Status.Phase = appv1alpha1.SubscriptionPropagated
 		if err != nil {
-			instance.Status.Phase = appv1alpha1.SubscriptionFailed
+			instance.Status.Phase = appv1alpha1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 		}
 	} else {

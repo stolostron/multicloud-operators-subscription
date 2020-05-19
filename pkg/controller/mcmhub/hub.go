@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -460,6 +461,13 @@ func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1a
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
 	chobj := &chnv1alpha1.Channel{}
 	err := r.Get(context.TODO(), chkey, chobj)
+
+	if err != nil {
+		if errors.IsNotFound(err) {
+			err1 := fmt.Errorf("channel %s/%s not found for subscription %s/%s", chNameSpace, chName, s.GetNamespace(), s.GetName())
+			err = err1
+		}
+	}
 
 	return chobj, err
 }

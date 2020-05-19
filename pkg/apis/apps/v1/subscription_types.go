@@ -140,6 +140,8 @@ const (
 	SubscriptionSubscribed SubscriptionPhase = "Subscribed"
 	// SubscriptionFailed means this subscription is the "parent" sitting in hub
 	SubscriptionFailed SubscriptionPhase = "Failed"
+	// SubscriptionPropagationFailed means this subscription is the "parent" sitting in hub
+	SubscriptionPropagationFailed SubscriptionPhase = "PropagationFailed"
 )
 
 // SubscriptionUnitStatus defines status of a unit (subscription or package)
