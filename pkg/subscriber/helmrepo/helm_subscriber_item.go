@@ -301,7 +301,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			klog.Error("error in registering :", err)
 
 			if serr := utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil); serr != nil {
-				klog.Info("error in setting in cluster package status :", serr)
+				klog.Error("error in setting in cluster package status :", serr)
 			}
 
 			pkgMap[dpl.GetName()] = true
