@@ -111,8 +111,6 @@ func (ghsi *SubscriberItem) Start() {
 		if err != nil {
 			klog.Error(err, "Subscription error.")
 			ghsi.successful = false
-		} else {
-			ghsi.successful = true
 		}
 	}, time.Duration(ghsi.syncinterval)*time.Second, ghsi.stopch)
 }
@@ -152,11 +150,14 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
 
+		ghsi.successful = true
+
 		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.crdsAndNamespaceFiles)
 
 		if err != nil {
-			klog.Error(err, "Unable to subscribe resource ")
-			return err
+			klog.Error(err, "Unable to subscribe crd and ns resources")
+
+			ghsi.successful = false
 		}
 
 		klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -164,8 +165,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.rbacFiles)
 
 		if err != nil {
-			klog.Error(err, "Unable to subscribe resource")
-			return err
+			klog.Error(err, "Unable to subscribe rbac resources")
+
+			ghsi.successful = false
 		}
 
 		klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -173,8 +175,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		err = ghsi.subscribeResources(hostkey, syncsource, nil, rscPkgMap, ghsi.otherFiles)
 
 		if err != nil {
-			klog.Error(err, "Unable to subscribe resource")
-			return err
+			klog.Error(err, "Unable to subscribe other resources")
+
+			ghsi.successful = false
 		}
 
 		klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -182,8 +185,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		err = ghsi.subscribeKustomizations(hostkey, syncsource, nil, rscPkgMap)
 
 		if err != nil {
-			klog.Error(err, "Unable to subscribe resource")
-			return err
+			klog.Error(err, "Unable to subscribe kustomize resources")
+
+			ghsi.successful = false
 		}
 
 		klog.V(4).Info("Applying helm charts..")
@@ -192,7 +196,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		if err != nil {
 			klog.Error(err, "Unable to subscribe helm charts")
-			return err
+
+			ghsi.successful = false
 		}
 
 		ghsi.commitID = commitID
@@ -245,6 +250,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 		err := kustomize.RunKustomizeBuild(&out, fSys, kustomizeDir)
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
+			return err
 		}
 		// Split the output of kustomize build output into individual kube resource YAML files
 		resources := strings.Split(out.String(), "---")
@@ -265,7 +271,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 				err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resourceFile, pkgMap)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
-					return err
+					ghsi.successful = false
 				}
 			}
 		}
@@ -285,7 +291,7 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)
-			continue
+			return err
 		}
 
 		resources := utils.ParseKubeResoures(file)
@@ -305,7 +311,8 @@ func (ghsi *SubscriberItem) subscribeResources(hostkey types.NamespacedName,
 				err = ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resource, pkgMap)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
-					return err
+
+					ghsi.successful = false
 				}
 			}
 		}
@@ -321,8 +328,14 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 	pkgMap map[string]bool) error {
 	dpltosync, validgvk, err := ghsi.subscribeResource(file, pkgMap)
 	if err != nil {
+		klog.Error(err)
+
+		ghsi.successful = false
+	}
+
+	if dpltosync == nil || validgvk == nil {
 		klog.Info("Skipping resource")
-		return err
+		return nil
 	}
 
 	pkgMap[dpltosync.GetName()] = true
@@ -394,7 +407,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		if errMsg != "" {
 			klog.V(3).Info(errMsg)
 
-			return nil, nil, errors.New(errMsg)
+			return nil, nil, nil
 		}
 	}
 
