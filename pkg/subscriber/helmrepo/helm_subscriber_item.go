@@ -288,27 +288,26 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			return err
 		}
 
-		validGvk := hrsi.synchronizer.GetValidatedGVK(helmGvk)
-		err = hrsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: *validGvk}})
-
-		if err != nil {
-			klog.Info("eror in registering :", err)
-			err = utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil)
-
-			if err != nil {
-				klog.Info("error in setting in cluster package status :", err)
-			}
-
-			pkgMap[dpl.GetName()] = true
-
-			return err
-		}
-
 		dplkey := types.NamespacedName{
 			Name:      dpl.Name,
 			Namespace: dpl.Namespace,
 		}
 		pkgMap[dplkey.Name] = true
+
+		validGvk := hrsi.synchronizer.GetValidatedGVK(helmGvk)
+		err = hrsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: *validGvk}})
+
+		if err != nil {
+			klog.Error("error in registering :", err)
+
+			if serr := utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil); serr != nil {
+				klog.Info("error in setting in cluster package status :", serr)
+			}
+
+			pkgMap[dpl.GetName()] = true
+		}
+
+		return err
 	}
 
 	if utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription, pkgMap) != nil {
