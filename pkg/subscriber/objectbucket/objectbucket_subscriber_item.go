@@ -216,16 +216,15 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 		err = obsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
 		if err != nil {
-			klog.Info("eror in registering :", err)
-			err = utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpltosync.GetName(), err, nil)
+			klog.Error("eror in registering :", err)
 
-			if err != nil {
-				klog.Info("error in setting in cluster package status :", err)
+			if serr := utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpltosync.GetName(), err, nil); serr != nil {
+				klog.Error("error in setting in cluster package status :", err)
 			}
 
 			pkgMap[dpltosync.GetName()] = true
 
-			continue
+			return err
 		}
 
 		dplkey := types.NamespacedName{
