@@ -15,7 +15,6 @@
 package helmrepo
 
 import (
-	"context"
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"crypto/tls"
 	"fmt"
@@ -35,6 +34,7 @@ import (
 	"k8s.io/klog"
 
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -46,6 +46,7 @@ type SubscriberItem struct {
 	hash         string
 	stopch       chan struct{}
 	syncinterval int
+	success      bool
 	synchronizer SyncSource
 }
 
@@ -109,12 +110,14 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	klog.V(4).Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
 
-	if hash != hrsi.hash {
-		err = hrsi.processSubscription()
-	}
+	if hash != hrsi.hash || !hrsi.success {
+		if err := hrsi.processSubscription(); err != nil {
+			klog.Error("Failed to process helm repo subscription with error:", err)
+			hrsi.success = false
+			return
+		}
 
-	if err != nil {
-		klog.Error("Failed to process helm repo subscription with error:", err)
+		hrsi.success = true
 	}
 }
 
@@ -270,11 +273,13 @@ func hashKey(b []byte) string {
 }
 
 func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL string) error {
-	var err error
+	var doErr error
 
 	hostkey := types.NamespacedName{Name: hrsi.Subscription.Name, Namespace: hrsi.Subscription.Namespace}
 	syncsource := helmreposyncsource + hostkey.String()
 	pkgMap := make(map[string]bool)
+
+	dplUnits := make([]kubesynchronizer.DplUnit, 0)
 
 	//Loop on all packages selected by the subscription
 	for packageName, chartVersions := range indexFile.Entries {
@@ -284,40 +289,25 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			repoURL, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.Subscription)
 
 		if err != nil {
-			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
-			return err
+			klog.Error("failed to create a helmrelease CR deployable, err: ", err)
+			doErr = err
+			continue
 		}
+
+		unit := kubesynchronizer.DplUnit{Dpl: dpl, Gvk: helmGvk}
+		dplUnits = append(dplUnits, unit)
 
 		dplkey := types.NamespacedName{
 			Name:      dpl.Name,
 			Namespace: dpl.Namespace,
 		}
 		pkgMap[dplkey.Name] = true
-
-		validGvk := hrsi.synchronizer.GetValidatedGVK(helmGvk)
-		err = hrsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: *validGvk}})
-
-		if err != nil {
-			klog.Error("error in registering :", err)
-
-			if serr := utils.SetInClusterPackageStatus(&(hrsi.Subscription.Status), dpl.GetName(), err, nil); serr != nil {
-				klog.Error("error in setting in cluster package status :", serr)
-			}
-
-			pkgMap[dpl.GetName()] = true
-		}
-
-		return err
 	}
 
-	if utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription, pkgMap) != nil {
-		err = hrsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, hrsi.Subscription)
-		if err != nil {
-			klog.Error("Failed to get and subscription resource with error:", err)
-		}
-
-		err = utils.ValidatePackagesInSubscriptionStatus(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription, pkgMap)
+	if err := dplpro.ProcessDeployableUnits(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+		klog.Errorf("failed to put helm deployables to cache, err: %v", err)
+		doErr = err
 	}
 
-	return err
+	return doErr
 }

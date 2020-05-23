@@ -15,7 +15,6 @@
 package objectbucket
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -33,6 +32,8 @@ import (
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+
+	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
@@ -207,46 +208,30 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 	klog.V(5).Infof("dplversion map is %v", versionMap)
 
+	dplUnits := make([]kubesynchronizer.DplUnit, 0)
+
+	//track if there's any error when doSubscribeDeployable, if there's any,
+	//then we should retry this
+	var doErr error
+
 	for _, dpl := range dpls {
 		dpltosync, validgvk, err := obsi.doSubscribeDeployable(dpl.DeepCopy(), versionMap, pkgMap)
 
 		if err != nil {
+			klog.Errorf("object bucket failed to package deployable, err: %v", err)
+			doErr = err
 			continue
 		}
 
-		err = obsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}})
-		if err != nil {
-			klog.Error("eror in registering :", err)
-
-			if serr := utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpltosync.GetName(), err, nil); serr != nil {
-				klog.Error("error in setting in cluster package status :", err)
-			}
-
-			pkgMap[dpltosync.GetName()] = true
-
-			return err
-		}
-
-		dplkey := types.NamespacedName{
-			Name:      dpltosync.Name,
-			Namespace: dpltosync.Namespace,
-		}
-
-		pkgMap[dplkey.Name] = true
-
-		klog.V(5).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
+		unit := kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk}
+		dplUnits = append(dplUnits, unit)
 	}
 
-	if utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.GetLocalClient(), obsi.Subscription, pkgMap) != nil {
-		err = obsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, obsi.Subscription)
-		if err != nil {
-			klog.Error("Failed to get and subscription resource with error:", err)
-		}
-
-		err = utils.ValidatePackagesInSubscriptionStatus(obsi.synchronizer.GetLocalClient(), obsi.Subscription, pkgMap)
+	if err := dplpro.ProcessDeployableUnits(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+		return err
 	}
 
-	return err
+	return doErr
 }
 
 func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
