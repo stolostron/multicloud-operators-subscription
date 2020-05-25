@@ -17,14 +17,16 @@ package processdeployable
 import (
 	"context"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 type SyncSource interface {
@@ -34,9 +36,9 @@ type SyncSource interface {
 }
 
 //PProcessDeployableUnits unify the deployable handle process between helm and objectbucket deployables
-func ProcessDeployableUnits(sub *subv1.Subscription, synchronizer SyncSource,
-	hostkey types.NamespacedName, syncsource string, pkgMap map[string]bool, dplUnits []kubesynchronizer.DplUnit) error {
-
+func Units(sub *subv1.Subscription, synchronizer SyncSource,
+	hostkey types.NamespacedName, syncsource string,
+	pkgMap map[string]bool, dplUnits []kubesynchronizer.DplUnit) error {
 	if err := synchronizer.AddTemplates(syncsource, hostkey, dplUnits); err != nil {
 		klog.Error("error in registering :", err)
 

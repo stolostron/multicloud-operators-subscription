@@ -88,11 +88,6 @@ data:
   user: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm`
 
-var id = types.NamespacedName{
-	Name:      "endpoint",
-	Namespace: "default",
-}
-
 var (
 	sharedkey = types.NamespacedName{
 		Name:      "githubtest",

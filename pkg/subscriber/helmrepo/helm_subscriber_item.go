@@ -113,7 +113,9 @@ func (hrsi *SubscriberItem) doSubscription() {
 	if hash != hrsi.hash || !hrsi.success {
 		if err := hrsi.processSubscription(); err != nil {
 			klog.Error("Failed to process helm repo subscription with error:", err)
+
 			hrsi.success = false
+
 			return
 		}
 
@@ -217,6 +219,7 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 
 	if err != nil {
 		klog.Error(err, "Http request failed: ", cleanRepoURL)
+
 		return nil, "", err
 	}
 
@@ -290,7 +293,9 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 
 		if err != nil {
 			klog.Error("failed to create a helmrelease CR deployable, err: ", err)
+
 			doErr = err
+
 			continue
 		}
 
@@ -304,7 +309,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		pkgMap[dplkey.Name] = true
 	}
 
-	if err := dplpro.ProcessDeployableUnits(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+	if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
 		klog.Errorf("failed to put helm deployables to cache, err: %v", err)
 		doErr = err
 	}

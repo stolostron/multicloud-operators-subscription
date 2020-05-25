@@ -219,7 +219,9 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 		if err != nil {
 			klog.Errorf("object bucket failed to package deployable, err: %v", err)
+
 			doErr = err
+
 			continue
 		}
 
@@ -227,7 +229,7 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dplUnits = append(dplUnits, unit)
 	}
 
-	if err := dplpro.ProcessDeployableUnits(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
 		return err
 	}
 
