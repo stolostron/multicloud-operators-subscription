@@ -15,55 +15,83 @@
 package git
 
 import (
-	stdlog "log"
 	"os"
-	"sync"
 	"testing"
+	"time"
 
 	"path/filepath"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
+	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 )
 
-var cfg *rest.Config
+const (
+	k8swait      = time.Second * 3
+	StartTimeout = 30 // seconds
+)
 
-func TestMain(m *testing.M) {
-	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "hack", "test"),
-		},
-	}
+var testEnv *envtest.Environment
+var k8sManager mgr.Manager
+var k8sClient client.Client
 
-	apis.AddToScheme(scheme.Scheme)
+func TestSubscriptionNamespaceReconcile(t *testing.T) {
+	RegisterFailHandler(Fail)
 
-	var err error
-	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
-	}
-
-	code := m.Run()
-
-	t.Stop()
-	os.Exit(code)
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"Github Controller Suite",
+		[]Reporter{printer.NewlineReporter{}})
 }
 
-// StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+var _ = BeforeSuite(func(done Done) {
+	By("bootstrapping test environment")
 
+	t := true
+	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
+		testEnv = &envtest.Environment{
+			UseExistingCluster: &t,
+		}
+	} else {
+		testEnv = &envtest.Environment{
+			CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "deploy", "crds"),
+				filepath.Join("..", "..", "..", "hack", "test")},
+		}
+	}
+
+	cfg, err := testEnv.Start()
+	Expect(err).ToNot(HaveOccurred())
+	Expect(cfg).ToNot(BeNil())
+
+	err = apis.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	Expect(err).ToNot(HaveOccurred())
+
+	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2)).NotTo(HaveOccurred())
 	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred())
 	}()
 
-	return stop, wg
-}
+	k8sClient = k8sManager.GetClient()
+	Expect(k8sClient).ToNot(BeNil())
+
+	close(done)
+}, StartTimeout)
+
+var _ = AfterSuite(func() {
+	By("tearing down the test environment")
+	gexec.KillAndWait(5 * time.Second)
+	err := testEnv.Stop()
+	Expect(err).ToNot(HaveOccurred())
+})
