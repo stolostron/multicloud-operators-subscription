@@ -32,7 +32,7 @@ import (
 )
 
 const (
-	syncWorkNum = 1
+	syncWorkNum = 5
 )
 
 // TemplateUnit defines the basic unit of Template and whether it should be updated or not
