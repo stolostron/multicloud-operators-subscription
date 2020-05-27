@@ -16,6 +16,7 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-openapi/spec v0.19.4
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
+	github.com/golangci/golangci-lint v1.20.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
 	github.com/gorilla/handlers v1.4.0 // indirect
