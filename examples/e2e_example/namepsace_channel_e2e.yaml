@@ -100,6 +100,6 @@ spec:
     location: "America/Toronto"
     hours:
       - start: "09:00AM"
-        end: "10:10AM"
-      - start: "2:10PM"
-        end: "10:30PM"
+        end: "13:50AM"
+      - start: "12:00PM"
+        end: "6:30PM"

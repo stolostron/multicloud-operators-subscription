@@ -34,7 +34,7 @@ metadata:
     name: obj-sub
 spec: 
   channels: 
-  - dev
+  - deva
   template: 
     apiVersion: v1
     data: 
@@ -46,7 +46,7 @@ spec:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
-  name: dev
+  name: deva
   namespace: ch-obj
   labels:
     name: obj-sub
@@ -90,7 +90,7 @@ metadata:
   labels:
     name: obj-sub
 spec:
-  channel: ch-obj/dev
+  channel: ch-obj/deva
   placement:
     placementRef: 
       name: towhichcluster
