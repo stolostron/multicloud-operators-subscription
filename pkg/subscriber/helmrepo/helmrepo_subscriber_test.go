@@ -28,11 +28,6 @@ import (
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
-var id = types.NamespacedName{
-	Name:      "endpoint",
-	Namespace: "default",
-}
-
 var (
 	repourl   = "https://kubernetes-charts.storage.googleapis.com/"
 	sharedkey = types.NamespacedName{
