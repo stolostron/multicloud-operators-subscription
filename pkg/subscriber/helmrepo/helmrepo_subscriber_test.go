@@ -18,22 +18,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
-
-var c client.Client
-
-var id = types.NamespacedName{
-	Name:      "endpoint",
-	Namespace: "default",
-}
 
 var (
 	repourl   = "https://kubernetes-charts.storage.googleapis.com/"
@@ -68,26 +61,14 @@ var (
 )
 
 func TestHelmSubscriber(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	g.Expect(defaultSubscriber.SubscribeItem(subitem)).NotTo(gomega.HaveOccurred())
-
-	time.Sleep(1 * time.Second)
-
-	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
 }
+
+var _ = Describe("", func() {
+	It("", func() {
+		Expect(defaultSubscriber.SubscribeItem(subitem)).NotTo(HaveOccurred())
+
+		time.Sleep(k8swait)
+
+		Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(HaveOccurred())
+	})
+})

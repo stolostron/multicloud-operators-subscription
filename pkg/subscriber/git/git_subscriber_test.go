@@ -16,18 +16,16 @@ package git
 
 import (
 	"context"
-	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
+	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
+	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -90,13 +88,6 @@ data:
   user: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm`
 
-var c client.Client
-
-var id = types.NamespacedName{
-	Name:      "endpoint",
-	Namespace: "default",
-}
-
 var (
 	sharedkey = types.NamespacedName{
 		Name:      "githubtest",
@@ -127,222 +118,164 @@ var (
 	}
 )
 
-func TestGitHubSubscriber(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+var _ = Describe("github subscriber reconcile logic", func() {
+	It("should reconcile on github subscription creation", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is finished.
+		err := k8sClient.Create(context.TODO(), githubchn)
+		Expect(err).NotTo(HaveOccurred())
 
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = k8sClient.Create(context.TODO(), githubsub)
+		Expect(err).NotTo(HaveOccurred())
 
-	c = mgr.GetClient()
+		Expect(defaultSubscriber.SubscribeItem(subitem)).NotTo(HaveOccurred())
 
-	err = c.Create(context.TODO(), githubchn)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		time.Sleep(k8swait)
 
-	err = c.Create(context.TODO(), githubsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(HaveOccurred())
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	})
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+	It("should pass resource label selector", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
 
-	g.Expect(defaultSubscriber.SubscribeItem(subitem)).NotTo(gomega.HaveOccurred())
+		rsc := &unstructured.Unstructured{}
+		err := yaml.Unmarshal([]byte(rsc1), &rsc)
+		Expect(err).Should(Succeed())
 
-	time.Sleep(3 * time.Second)
+		// Test kube resource with no package filter
+		errMsg := subitem.checkFilters(rsc)
+		Expect(errMsg).To(gomega.Equal(""))
 
-	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
-}
+		matchLabels := make(map[string]string)
+		matchLabels["environment"] = "dev"
+		lblSelector := &metav1.LabelSelector{}
+		lblSelector.MatchLabels = matchLabels
+		pkgFilter := &appv1alpha1.PackageFilter{}
+		pkgFilter.LabelSelector = lblSelector
+		githubsub.Spec.PackageFilter = pkgFilter
 
-func TestResourceLableSelector(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+		// Test kube resource with package filter having a matching label
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal(""))
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
+		matchLabels = make(map[string]string)
+		matchLabels["city"] = "Toronto"
+		matchLabels["environment"] = "dev"
+		lblSelector.MatchLabels = matchLabels
 
-	rsc := &unstructured.Unstructured{}
-	err := yaml.Unmarshal([]byte(rsc1), &rsc)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		// Test kube resource with package filter having multiple matching labels
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal(""))
 
-	// Test kube resource with no package filter
-	errMsg := subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal(""))
+		matchLabels = make(map[string]string)
+		matchLabels["city"] = "paris"
+		matchLabels["environment"] = "dev"
+		lblSelector.MatchLabels = matchLabels
 
-	matchLabels := make(map[string]string)
-	matchLabels["environment"] = "dev"
-	lblSelector := &metav1.LabelSelector{}
-	lblSelector.MatchLabels = matchLabels
-	pkgFilter := &appv1alpha1.PackageFilter{}
-	pkgFilter.LabelSelector = lblSelector
-	githubsub.Spec.PackageFilter = pkgFilter
+		// Test kube resource with package filter having some matching labels
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal("Failed to pass label check on resource " + rsc.GetName()))
 
-	// Test kube resource with package filter having a matching label
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal(""))
+		err = yaml.Unmarshal([]byte(rsc2), &rsc)
+		//assert.NoError(t, err)
+		Expect(err).Should(Succeed())
 
-	matchLabels = make(map[string]string)
-	matchLabels["city"] = "Toronto"
-	matchLabels["environment"] = "dev"
-	lblSelector.MatchLabels = matchLabels
+		matchLabels = make(map[string]string)
+		matchLabels["environment"] = "dev"
+		lblSelector.MatchLabels = matchLabels
 
-	// Test kube resource with package filter having multiple matching labels
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal(""))
+		// Test kube resource with package filter having no annotation
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal(""))
 
-	matchLabels = make(map[string]string)
-	matchLabels["city"] = "paris"
-	matchLabels["environment"] = "dev"
-	lblSelector.MatchLabels = matchLabels
+		annotations := make(map[string]string)
+		annotations["need"] = "this"
+		githubsub.Spec.PackageFilter.Annotations = annotations
 
-	// Test kube resource with package filter having some matching labels
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal("Failed to pass label check on resource " + rsc.GetName()))
+		// Test kube resource with package filter having some matching labels
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal(""))
 
-	err = yaml.Unmarshal([]byte(rsc2), &rsc)
-	assert.NoError(t, err)
+		annotations["need"] = "not"
 
-	matchLabels = make(map[string]string)
-	matchLabels["environment"] = "dev"
-	lblSelector.MatchLabels = matchLabels
+		// Test kube resource with package filter having some matching labels
+		errMsg = subitem.checkFilters(rsc)
+		Expect(errMsg).To(Equal("Failed to pass annotation check to deployable " + rsc.GetName()))
 
-	// Test kube resource with package filter having no annotation
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal(""))
+	})
+})
 
-	annotations := make(map[string]string)
-	annotations["need"] = "this"
-	githubsub.Spec.PackageFilter.Annotations = annotations
+var _ = Describe("test subscribe invalid resource", func() {
+	It("should not return error or panic", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
 
-	// Test kube resource with package filter having some matching labels
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal(""))
+		pkgMap := make(map[string]bool)
 
-	annotations["need"] = "not"
+		// Test subscribing an invalid kubernetes resource
+		_, _, err := subitem.subscribeResource([]byte(invalidRsc), pkgMap)
+		Expect(err).To(HaveOccurred())
 
-	// Test kube resource with package filter having some matching labels
-	errMsg = subitem.checkFilters(rsc)
-	g.Expect(errMsg).To(gomega.Equal("Failed to pass annotation check to deployable " + rsc.GetName()))
-}
+	})
 
-func TestSubscribeInvalidResource(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	It("should clone the target repo", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
+		commitid, err := subitem.cloneGitRepo()
+		Expect(commitid).ToNot(Equal(""))
+		Expect(err).NotTo(HaveOccurred())
 
-	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		// Test with a fake authentication secret but correct data keys in the secret
+		chnSecret := &corev1.Secret{}
+		err = yaml.Unmarshal([]byte(correctSecret), &chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+		err = k8sClient.Create(context.TODO(), chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+		secretRef := &corev1.ObjectReference{}
+		secretRef.Name = "correct-secret"
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+		githubchn.Spec.SecretRef = secretRef
+		_, err = subitem.cloneGitRepo()
+		Expect(err.Error()).To(Equal("authentication required"))
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.synchronizer = defaultSubscriber.synchronizer
+		noUserKey := make(map[string][]byte)
+		chnSecret.Data = noUserKey
+		err = k8sClient.Update(context.TODO(), chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	pkgMap := make(map[string]bool)
+		_, err = subitem.cloneGitRepo()
+		Expect(err.Error()).To(Equal("failed to get user from the secret"))
 
-	// Test subscribing an invalid kubernetes resource
-	_, _, err = subitem.subscribeResource([]byte(invalidRsc), pkgMap)
-	g.Expect(err).To(gomega.HaveOccurred())
-}
-func TestCloneGitRepo(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+		err = k8sClient.Delete(context.TODO(), chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		// Test with a fake authentication secret but correct data keys in the secret
+		chnSecret = &corev1.Secret{}
+		err = yaml.Unmarshal([]byte(incorrectSecret), &chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	c = mgr.GetClient()
+		err = k8sClient.Create(context.TODO(), chnSecret)
+		Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+		secretRef.Name = "incorrect-secret"
+		_, err = subitem.cloneGitRepo()
+		Expect(err.Error()).To(Equal("failed to get accressToken from the secret"))
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+		githubchn.Spec.SecretRef = nil
 
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
+	})
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.synchronizer = defaultSubscriber.synchronizer
-	commitid, err := subitem.cloneGitRepo()
-	g.Expect(commitid).ToNot(gomega.Equal(""))
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	// Test with a fake authentication secret but correct data keys in the secret
-	chnSecret := &corev1.Secret{}
-	err = yaml.Unmarshal([]byte(correctSecret), &chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	secretRef := &corev1.ObjectReference{}
-	secretRef.Name = "correct-secret"
-
-	githubchn.Spec.SecretRef = secretRef
-	_, err = subitem.cloneGitRepo()
-	g.Expect(err.Error()).To(gomega.Equal("authentication required"))
-
-	noUserKey := make(map[string][]byte)
-	chnSecret.Data = noUserKey
-	err = c.Update(context.TODO(), chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	_, err = subitem.cloneGitRepo()
-	g.Expect(err.Error()).To(gomega.Equal("failed to get user from the secret"))
-
-	err = c.Delete(context.TODO(), chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	// Test with a fake authentication secret but correct data keys in the secret
-	chnSecret = &corev1.Secret{}
-	err = yaml.Unmarshal([]byte(incorrectSecret), &chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), chnSecret)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	secretRef.Name = "incorrect-secret"
-	_, err = subitem.cloneGitRepo()
-	g.Expect(err.Error()).To(gomega.Equal("failed to get accressToken from the secret"))
-
-	githubchn.Spec.SecretRef = nil
-}
-
-func TestSubscriptionWithRepoPath(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	pathConfigMapYAML := `apiVersion: v1
+	It("should success on subscription with repo path", func() {
+		pathConfigMapYAML := `apiVersion: v1
 kind: ConfigMap
 metadata:
   name: path-config-map
@@ -350,64 +283,47 @@ metadata:
 data:
   path: test/github/resources/deploy/crds`
 
-	pathConfigMap := &corev1.ConfigMap{}
-	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		pathConfigMap := &corev1.ConfigMap{}
+		err := yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	err = c.Create(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = k8sClient.Create(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	filterRef := &corev1.LocalObjectReference{}
-	filterRef.Name = "path-config-map"
+		filterRef := &corev1.LocalObjectReference{}
+		filterRef.Name = "path-config-map"
 
-	packageFilter := &appv1alpha1.PackageFilter{}
-	packageFilter.FilterRef = filterRef
+		packageFilter := &appv1alpha1.PackageFilter{}
+		packageFilter.FilterRef = filterRef
 
-	githubsub.Spec.PackageFilter = packageFilter
+		githubsub.Spec.PackageFilter = packageFilter
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.synchronizer = defaultSubscriber.synchronizer
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
 
-	// Set the cloned Git repo root directory to this Git repository root.
-	subitem.repoRoot = "../../.."
+		// Set the cloned Git repo root directory to this Git repository root.
+		subitem.repoRoot = "../../.."
 
-	err = subitem.sortClonedGitRepo()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(subitem.indexFile.Entries)).To(gomega.BeZero())
+		Expect(len(subitem.indexFile.Entries)).To(BeZero())
 
-	g.Expect(len(subitem.crdsAndNamespaceFiles)).To(gomega.Equal(1))
-	g.Expect(subitem.crdsAndNamespaceFiles[0]).To(gomega.ContainSubstring("test/github/resources/deploy/crds/crontab.yaml"))
+		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(1))
+		Expect(subitem.crdsAndNamespaceFiles[0]).To(ContainSubstring("test/github/resources/deploy/crds/crontab.yaml"))
 
-	g.Expect(len(subitem.otherFiles)).To(gomega.BeZero())
+		Expect(len(subitem.otherFiles)).To(BeZero())
 
-	githubsub.Spec.PackageFilter = nil
+		githubsub.Spec.PackageFilter = nil
 
-	err = c.Delete(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-}
+		err = k8sClient.Delete(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
+	})
 
-func TestRemoveNoMatchingName(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	pathConfigMapYAML := `apiVersion: v1
+	It("should remove no matching name", func() {
+		pathConfigMapYAML := `apiVersion: v1
 kind: ConfigMap
 metadata:
   name: path-config-map
@@ -415,93 +331,76 @@ metadata:
 data:
   path: test/github/helmcharts`
 
-	pathConfigMap := &corev1.ConfigMap{}
-	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		pathConfigMap := &corev1.ConfigMap{}
+		err := yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	err = c.Create(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = k8sClient.Create(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	filterRef := &corev1.LocalObjectReference{}
-	filterRef.Name = "path-config-map"
+		filterRef := &corev1.LocalObjectReference{}
+		filterRef.Name = "path-config-map"
 
-	packageFilter := &appv1alpha1.PackageFilter{}
-	packageFilter.FilterRef = filterRef
+		packageFilter := &appv1alpha1.PackageFilter{}
+		packageFilter.FilterRef = filterRef
 
-	githubsub.Spec.PackageFilter = packageFilter
+		githubsub.Spec.PackageFilter = packageFilter
 
-	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
-	githubsub.SetAnnotations(subanno)
+		subanno := make(map[string]string)
+		subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
+		githubsub.SetAnnotations(subanno)
 
-	githubsub.Spec.Package = "chart1"
+		githubsub.Spec.Package = "chart1"
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.synchronizer = defaultSubscriber.synchronizer
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
 
-	// Set the cloned Git repo root directory to this Git repository root.
-	subitem.repoRoot = "../../.."
+		// Set the cloned Git repo root directory to this Git repository root.
+		subitem.repoRoot = "../../.."
 
-	err = subitem.sortClonedGitRepo()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	// 3 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1
-	g.Expect(len(subitem.chartDirs)).To(gomega.Equal(3))
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
+		// 3 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1
+		Expect(len(subitem.chartDirs)).To(Equal(3))
 
-	// Filter out chart2
-	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+		// Filter out chart2
+		Expect(len(subitem.indexFile.Entries)).To(Equal(1))
 
-	// chart1 has two versions but it will only contain the latest version
-	chartVersion, err := subitem.indexFile.Get("chart1", "1.1.2")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
-	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.2"))
+		// chart1 has two versions but it will only contain the latest version
+		chartVersion, err := subitem.indexFile.Get("chart1", "1.1.2")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(chartVersion.GetName()).To(Equal("chart1"))
+		Expect(chartVersion.GetVersion()).To(Equal("1.1.2"))
 
-	_, err = subitem.indexFile.Get("chart1", "1.1.1")
-	g.Expect(err).To(gomega.HaveOccurred())
+		_, err = subitem.indexFile.Get("chart1", "1.1.1")
+		Expect(err).To(HaveOccurred())
 
-	packageFilter.Version = "1.1.1"
+		packageFilter.Version = "1.1.1"
 
-	err = subitem.sortClonedGitRepo()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
 
-	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+		Expect(len(subitem.indexFile.Entries)).To(Equal(1))
 
-	_, err = subitem.indexFile.Get("chart1", "1.1.2")
-	g.Expect(err).To(gomega.HaveOccurred())
+		_, err = subitem.indexFile.Get("chart1", "1.1.2")
+		Expect(err).To(HaveOccurred())
 
-	chartVersion, err = subitem.indexFile.Get("chart1", "1.1.1")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(chartVersion.GetName()).To(gomega.Equal("chart1"))
-	g.Expect(chartVersion.GetVersion()).To(gomega.Equal("1.1.1"))
+		chartVersion, err = subitem.indexFile.Get("chart1", "1.1.1")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(chartVersion.GetName()).To(Equal("chart1"))
+		Expect(chartVersion.GetVersion()).To(Equal("1.1.1"))
 
-	err = c.Delete(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		err = k8sClient.Delete(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	githubsub.Spec.Package = ""
-	githubsub.Spec.PackageFilter = nil
-}
+		githubsub.Spec.Package = ""
+		githubsub.Spec.PackageFilter = nil
+	})
 
-func TestCheckTillerVersion(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	pathConfigMapYAML := `apiVersion: v1
+	It("should check Tiller version", func() {
+		pathConfigMapYAML := `apiVersion: v1
 kind: ConfigMap
 metadata:
   name: path-config-map
@@ -509,51 +408,53 @@ metadata:
 data:
   path: test/github/helmcharts`
 
-	pathConfigMap := &corev1.ConfigMap{}
-	err = yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		pathConfigMap := &corev1.ConfigMap{}
+		err := yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
 
-	err = c.Create(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
-	filterRef := &corev1.LocalObjectReference{}
-	filterRef.Name = "path-config-map"
+		err = k8sClient.Create(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
 
-	packageFilter := &appv1alpha1.PackageFilter{}
-	packageFilter.FilterRef = filterRef
+		filterRef := &corev1.LocalObjectReference{}
+		filterRef.Name = "path-config-map"
 
-	annotations := make(map[string]string)
-	annotations["tillerVersion"] = "2.8.0"
+		packageFilter := &appv1alpha1.PackageFilter{}
+		packageFilter.FilterRef = filterRef
 
-	packageFilter.Annotations = annotations
+		annotations := make(map[string]string)
+		annotations["tillerVersion"] = "2.8.0"
 
-	githubsub.Spec.PackageFilter = packageFilter
+		packageFilter.Annotations = annotations
 
-	githubsub.Spec.Package = "chart2"
+		githubsub.Spec.PackageFilter = packageFilter
 
-	subitem := &SubscriberItem{}
-	subitem.Subscription = githubsub
-	subitem.Channel = githubchn
-	subitem.synchronizer = defaultSubscriber.synchronizer
+		githubsub.Spec.Package = "chart2"
 
-	// Set the cloned Git repo root directory to this Git repository root.
-	subitem.repoRoot = "../../.."
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
 
-	err = subitem.sortClonedGitRepo()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(0))
+		// Set the cloned Git repo root directory to this Git repository root.
+		subitem.repoRoot = "../../.."
 
-	annotations["tillerVersion"] = "2.9.2"
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(subitem.indexFile.Entries)).To(Equal(0))
 
-	// In test/github/helmcharts directory, filter out all helm charts except charts with name "chart2"
-	// and with tillerVersion annotation that satisfies subscription's tillerVersion annotation
-	err = subitem.sortClonedGitRepo()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(len(subitem.indexFile.Entries)).To(gomega.Equal(1))
+		annotations["tillerVersion"] = "2.9.2"
 
-	err = c.Delete(context.TODO(), pathConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+		// In test/github/helmcharts directory, filter out all helm charts except charts with name "chart2"
+		// and with tillerVersion annotation that satisfies subscription's tillerVersion annotation
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
+		Expect(len(subitem.indexFile.Entries)).To(Equal(1))
 
-	githubsub.Spec.Package = ""
-	githubsub.Spec.PackageFilter = nil
-}
+		err = k8sClient.Delete(context.TODO(), pathConfigMap)
+		Expect(err).NotTo(HaveOccurred())
+
+		githubsub.Spec.Package = ""
+		githubsub.Spec.PackageFilter = nil
+	})
+})
