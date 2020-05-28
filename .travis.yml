@@ -69,6 +69,7 @@ jobs:
         - |
           make
           make component/test/unit
+          go test -json ./...
           make sonar/go
 
     - stage: test-e2e
