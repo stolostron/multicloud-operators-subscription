@@ -121,6 +121,12 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.webhookEnabled = false
 	}
 
+	subAnnotations := ghssubitem.Subscription.GetAnnotations()
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.clusterAdmin = true
+	}
+
 	ghssubitem.Start()
 
 	return nil

@@ -118,6 +118,9 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 			r.updateGitSubDeployablesAnnotation(sub)
 
+			// Check and add cluster-admin annotation for multi-namepsace application
+			r.AddClusterAdminAnnotation(sub)
+
 			updated = true
 		}
 
@@ -130,6 +133,17 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 	}
 
 	return updated
+}
+
+// AddClusterAdminAnnotation adds cluster-admin annotation if conditions are met
+func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscription) {
+	annotations := sub.GetAnnotations()
+	delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
+
+	if utils.IsClusterAdmin(r.Client, sub) {
+		annotations[appv1.AnnotationClusterAdmin] = "true"
+		sub.SetAnnotations(annotations)
+	}
 }
 
 // updateGitSubDeployablesAnnotation set all deployables subscribed by git subscription to the apps.open-cluster-management.io/deployables annotation
@@ -301,8 +315,6 @@ func (r *ReconcileSubscription) createDeployable(
 	dir string,
 	filecontent []byte) error {
 	obj := &unstructured.Unstructured{}
-
-	klog.Info(string(filecontent))
 
 	if err := yaml.Unmarshal(filecontent, &obj); err != nil {
 		klog.Error("Failed to unmarshal resource YAML.")

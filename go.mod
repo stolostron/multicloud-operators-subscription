@@ -16,12 +16,12 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-openapi/spec v0.19.4
 	github.com/gofrs/uuid v3.2.0+incompatible // indirect
-	github.com/golangci/golangci-lint v1.20.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
 	github.com/gorilla/handlers v1.4.0 // indirect
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
+	github.com/lib/pq v1.2.0 // indirect
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/onsi/ginkgo v1.12.0
 	github.com/onsi/gomega v1.9.0
@@ -35,7 +35,6 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.6 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b

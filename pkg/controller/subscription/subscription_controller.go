@@ -35,8 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
 	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
@@ -65,7 +65,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 		return err
 	}
 
-	subs := make(map[string]appv1alpha1.Subscriber)
+	subs := make(map[string]appv1.Subscriber)
 
 	if nssub.GetdefaultNsSubscriber() == nil {
 		errmsg := "default namespace subscriber is not initialized"
@@ -74,17 +74,17 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 		return errors.NewServiceUnavailable(errmsg)
 	}
 
-	subs[chnv1alpha1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
-	subs[chnv1alpha1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
-	subs[chnv1alpha1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
-	subs[chnv1alpha1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
-	subs[chnv1alpha1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
+	subs[chnv1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
+	subs[chnv1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
+	subs[chnv1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
+	subs[chnv1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
+	subs[chnv1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber) reconcile.Reconciler {
 	rec := &ReconcileSubscription{
 		Client:      mgr.GetClient(),
 		scheme:      mgr.GetScheme(),
@@ -105,7 +105,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &appv1alpha1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
+	err = c.Watch(&source.Kind{Type: &appv1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ type ReconcileSubscription struct {
 	client.Client
 	hubclient   client.Client
 	scheme      *runtime.Scheme
-	subscribers map[string]appv1alpha1.Subscriber
+	subscribers map[string]appv1.Subscriber
 	clk         clock
 }
 
@@ -134,7 +134,7 @@ type ReconcileSubscription struct {
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.Info("Standalone/Endpoint Reconciling subscription: ", request.NamespacedName)
 
-	instance := &appv1alpha1.Subscription{}
+	instance := &appv1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
@@ -178,9 +178,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if pl != nil && pl.Local != nil && *pl.Local {
 		reconcileErr := r.doReconcile(instance)
 
-		instance.Status.Phase = appv1alpha1.SubscriptionSubscribed
+		instance.Status.Phase = appv1.SubscriptionSubscribed
 		if reconcileErr != nil {
-			instance.Status.Phase = appv1alpha1.SubscriptionFailed
+			instance.Status.Phase = appv1.SubscriptionFailed
 			instance.Status.Reason = reconcileErr.Error()
 			klog.Errorf("doReconcile got error %v", reconcileErr)
 		}
@@ -190,7 +190,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			_ = sub.UnsubscribeItem(request.NamespacedName)
 		}
 
-		if instance.Status.Phase == appv1alpha1.SubscriptionFailed || instance.Status.Phase == appv1alpha1.SubscriptionSubscribed {
+		if instance.Status.Phase == appv1.SubscriptionFailed || instance.Status.Phase == appv1.SubscriptionSubscribed {
 			instance.Status.Phase = ""
 			instance.Status.Message = ""
 			instance.Status.Reason = ""
@@ -230,13 +230,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	return result, err
 }
 
-func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) error {
+func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error {
 	var err error
 
-	subitem := &appv1alpha1.SubscriberItem{}
+	subitem := &appv1.SubscriberItem{}
 	subitem.Subscription = instance
 
-	subitem.Channel = &chnv1alpha1.Channel{}
+	subitem.Channel = &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(instance.Spec.Channel)
 	err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 
@@ -304,6 +304,21 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1alpha1.Subscription) 
 	}
 
 	subtype := strings.ToLower(string(subitem.Channel.Spec.Type))
+
+	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) {
+		annotations := instance.GetAnnotations()
+
+		if utils.IsClusterAdmin(r.Client, instance) {
+			klog.Info("ADDING apps.open-cluster-management.io/cluster-admin: true")
+
+			annotations[appv1.AnnotationClusterAdmin] = "true"
+			subitem.Subscription.SetAnnotations(annotations)
+		} else {
+			klog.Info("REMOVING apps.open-cluster-management.io/cluster-admin annotation")
+			delete(annotations, appv1.AnnotationClusterAdmin)
+			subitem.Subscription.SetAnnotations(annotations)
+		}
+	}
 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
