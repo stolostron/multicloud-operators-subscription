@@ -522,6 +522,9 @@ metadata:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	err = c.Delete(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func TestIsClusterAdminRemote(t *testing.T) {
@@ -639,6 +642,15 @@ metadata:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	err = c.Delete(context.TODO(), clusterRole)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), clusterRoleBinding)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func subAdminClusterRole() *rbacv1.ClusterRole {
