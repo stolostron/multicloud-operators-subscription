@@ -255,8 +255,18 @@ func subAdminClusterRole() *rbacv1.ClusterRole {
 				Verbs:     []string{"*"},
 			},
 			{
-				APIGroups: []string{"clusterregistry.k8s.io"},
+				APIGroups: []string{"admissionregistration.k8s.io"},
 				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			{
+				APIGroups: []string{"cluster.open-cluster-management.io"},
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+			{
+				APIGroups: []string{"coordination.k8s.io"},
+				Resources: []string{"leases"},
 				Verbs:     []string{"*"},
 			},
 			{
