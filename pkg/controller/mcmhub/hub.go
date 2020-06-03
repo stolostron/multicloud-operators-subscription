@@ -69,12 +69,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
 	}
 
-	//	if utils.IsGitChannel(string(channel.Spec.Type)) {
-	//		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
-	//	} else {
-	//		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
-	//	}
-
 	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
 
 	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)

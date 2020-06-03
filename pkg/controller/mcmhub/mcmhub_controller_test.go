@@ -15,7 +15,6 @@
 package mcmhub
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -179,6 +178,7 @@ func TestDoMCMReconcile(t *testing.T) {
 	chn.Spec.SecretRef = nil
 	chn.Spec.ConfigMapRef = nil
 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
 	defer c.Delete(context.TODO(), chn)
 
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
@@ -186,52 +186,4 @@ func TestDoMCMReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 
 	g.Expect(rec.doMCMHubReconcile(instance)).NotTo(gomega.HaveOccurred())
-}
-
-func TestTopoAnnotationUpdate(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
-
-	g.Expect(c.Create(context.TODO(), cfgMap)).Should(gomega.Succeed())
-	defer func() {
-		g.Expect(c.Delete(context.TODO(), cfgMap)).Should(gomega.Succeed())
-	}()
-
-	rec := newReconciler(mgr).(*ReconcileSubscription)
-
-	chn := chHelm.DeepCopy()
-	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
-	defer func() {
-		g.Expect(c.Delete(context.TODO(), chn)).Should(gomega.Succeed())
-	}()
-
-	subIns := subscription.DeepCopy()
-	subIns.SetName("helm-sub")
-	subIns.Spec.Channel = helmKey.String()
-	subIns.Spec.PackageFilter = nil
-	g.Expect(c.Create(context.TODO(), subIns)).NotTo(gomega.HaveOccurred())
-	defer func() {
-		g.Expect(c.Delete(context.TODO(), subIns)).Should(gomega.Succeed())
-	}()
-
-	g.Expect(rec.doMCMHubReconcile(subIns)).NotTo(gomega.HaveOccurred())
-
-	subAnno := subIns.GetAnnotations()
-	g.Expect(subAnno).ShouldNot(gomega.HaveLen(0))
-
-	g.Expect(subAnno[appv1alpha1.AnnotationTopo]).ShouldNot(gomega.HaveLen(0))
-	fmt.Println(subAnno[appv1alpha1.AnnotationTopo])
 }
