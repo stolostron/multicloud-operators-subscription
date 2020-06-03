@@ -271,23 +271,28 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	klog.V(2).Infof("getting resource list of HelmRepo %v", repoURL)
 
 	chSrt := &corev1.Secret{}
-	chnSrtKey := types.NamespacedName{
-		Name:      chn.Spec.SecretRef.Name,
-		Namespace: chn.Spec.SecretRef.Namespace,
-	}
+	if chn.Spec.SecretRef != nil {
 
-	if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
-		return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+		chnSrtKey := types.NamespacedName{
+			Name:      chn.Spec.SecretRef.Name,
+			Namespace: chn.Spec.SecretRef.Namespace,
+		}
+
+		if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
+			return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+		}
 	}
 
 	chnCfg := &corev1.ConfigMap{}
-	chnCfgKey := types.NamespacedName{
-		Name:      chn.Spec.ConfigMapRef.Name,
-		Namespace: chn.Spec.ConfigMapRef.Namespace,
-	}
+	if chn.Spec.ConfigMapRef != nil {
+		chnCfgKey := types.NamespacedName{
+			Name:      chn.Spec.ConfigMapRef.Name,
+			Namespace: chn.Spec.ConfigMapRef.Namespace,
+		}
 
-	if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
-		return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+		if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
+			return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+		}
 	}
 
 	httpClient, err := getHelmRepoClient(chnCfg)

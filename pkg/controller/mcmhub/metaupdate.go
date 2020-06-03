@@ -20,6 +20,8 @@ import (
 
 	gerr "github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/kube"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -34,6 +36,10 @@ const (
 	sep = ","
 )
 
+func ObjectString(obj metav1.Object) string {
+	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
+}
+
 func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription) bool {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
@@ -42,7 +48,7 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 
 	expectTopo, err := generateResrouceList(hubClt, hubCfg, sub)
 	if err != nil {
-		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", sub, err)
+		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false
 	}
 
@@ -78,7 +84,7 @@ type resourceUnit struct {
 	name      string
 	namespace string
 	kind      string
-	addition  string
+	addition  int
 }
 
 func (r resourceUnit) String() string {
@@ -95,10 +101,12 @@ func parseResourceList(rs kube.ResourceList) string {
 }
 
 func infoToUnit(ri *resource.Info) resourceUnit {
-	addition := ""
-	k := ri.Object.GetObjectKind().GroupVersionKind().Kind
-	if k == "deployment" {
-		addition = "2"
+	addition := 0
+
+	// TODO, adding more replicas related type over here
+	switch k := ri.Object.GetObjectKind().GroupVersionKind().Kind; k {
+	case "Deployment":
+		addition = getAdditionValue(ri.Object)
 	}
 
 	return resourceUnit{
@@ -107,4 +115,23 @@ func infoToUnit(ri *resource.Info) resourceUnit {
 		kind:      ri.Object.GetObjectKind().GroupVersionKind().Kind,
 		addition:  addition,
 	}
+}
+
+func getAdditionValue(obj runtime.Object) int {
+	unstructuredObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		klog.Error(err)
+		return -1
+	}
+
+	spec := unstructuredObj["spec"]
+	md, ok := spec.(map[string]interface{})
+	if ok {
+		if v, f := md["replicas"]; f {
+			res := int(v.(int64))
+			return res
+		}
+	}
+
+	return -1
 }
