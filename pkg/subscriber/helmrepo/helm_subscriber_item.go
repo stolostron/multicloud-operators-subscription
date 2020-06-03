@@ -200,7 +200,8 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap) (*http.Client, error) {
 }
 
 //getHelmRepoIndex retreives the index.yaml, loads it into a repo.IndexFile and filters it
-func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription, chnSrt *corev1.Secret, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
+func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
+	chnSrt *corev1.Secret, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
 	cleanRepoURL := strings.TrimSuffix(repoURL, "/") + "/index.yaml"
 	req, err := http.NewRequest(http.MethodGet, cleanRepoURL, nil)
 
@@ -263,6 +264,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription, chnSrt *c
 func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
+
 	if err := hubClt.Get(context.TODO(), chnkey, chn); err != nil {
 		return nil, gerr.Wrapf(err, "failed to get channel of subscription %v", sub)
 	}
@@ -271,8 +273,8 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	klog.V(2).Infof("getting resource list of HelmRepo %v", repoURL)
 
 	chSrt := &corev1.Secret{}
-	if chn.Spec.SecretRef != nil {
 
+	if chn.Spec.SecretRef != nil {
 		chnSrtKey := types.NamespacedName{
 			Name:      chn.Spec.SecretRef.Name,
 			Namespace: chn.Spec.SecretRef.Namespace,
@@ -284,6 +286,7 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	}
 
 	chnCfg := &corev1.ConfigMap{}
+
 	if chn.Spec.ConfigMapRef != nil {
 		chnCfgKey := types.NamespacedName{
 			Name:      chn.Spec.ConfigMapRef.Name,
@@ -306,6 +309,7 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	}
 
 	helms := make([]*releasev1.HelmRelease, 0)
+
 	for pkgName, chartVer := range indexFile.Entries {
 		releaseCRName, err := utils.PkgToReleaseCRName(sub, pkgName)
 		if err != nil {

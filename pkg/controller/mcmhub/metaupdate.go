@@ -43,7 +43,7 @@ func ObjectString(obj metav1.Object) string {
 func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription) bool {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
-		subanno = make(map[string]string, 0)
+		subanno = make(map[string]string)
 	}
 
 	expectTopo, err := generateResrouceList(hubClt, hubCfg, sub)
@@ -55,6 +55,7 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
 		sub.SetAnnotations(subanno)
+
 		return true
 	}
 
@@ -68,6 +69,7 @@ func generateResrouceList(hubClt client.Client, hubCfg *rest.Config, sub *subv1.
 	}
 
 	res := make([]string, 0)
+
 	for _, helmRl := range helmRls {
 		resList, err := helmrelease.GenerateResourceListByConfig(hubClt, hubCfg, helmRl)
 		if err != nil {
@@ -125,8 +127,7 @@ func getAdditionValue(obj runtime.Object) int {
 	}
 
 	spec := unstructuredObj["spec"]
-	md, ok := spec.(map[string]interface{})
-	if ok {
+	if md, ok := spec.(map[string]interface{}); ok {
 		if v, f := md["replicas"]; f {
 			res := int(v.(int64))
 			return res
