@@ -845,11 +845,16 @@ func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chn
 }
 
 func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus *appv1alpha1.SubscriptionUnitStatus) {
+	if pkgResourceStatus == nil || subUnitStatus == nil {
+		klog.Errorf("failed to setHelmSubUnitStatus due to pkgResourceStatus %v or subUnitStatus %v is nil", pkgResourceStatus, subUnitStatus)
+		return
+	}
+
 	helmAppStatus := &releasev1.HelmAppStatus{}
 	err := json.Unmarshal(pkgResourceStatus.Raw, helmAppStatus)
 
 	if err != nil {
-		klog.Info("Failed to unmashall pkgResourceStatus to helm condition. err: ", err)
+		klog.Error("Failed to unmashall pkgResourceStatus to helm condition. err: ", err)
 	}
 
 	subUnitStatus.Phase = "Subscribed"
