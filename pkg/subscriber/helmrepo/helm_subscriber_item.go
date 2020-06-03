@@ -15,6 +15,7 @@
 package helmrepo
 
 import (
+	"context"
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"crypto/tls"
 	"fmt"
@@ -25,6 +26,10 @@ import (
 	"strings"
 	"time"
 
+	gerr "github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -33,6 +38,8 @@ import (
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
@@ -94,14 +101,14 @@ func (hrsi *SubscriberItem) doSubscription() {
 	//Retrieve the helm repo
 	repoURL := hrsi.Channel.Spec.Pathname
 
-	httpClient, err := hrsi.getHelmRepoClient()
+	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap)
 
 	if err != nil {
 		klog.Error(err, "Unable to create client for helm repo", repoURL)
 		return
 	}
 
-	_, hash, err := hrsi.getHelmRepoIndex(httpClient, repoURL)
+	_, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
 
 	if err != nil {
 		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
@@ -127,13 +134,13 @@ func (hrsi *SubscriberItem) processSubscription() error {
 	repoURL := hrsi.Channel.Spec.Pathname
 	klog.V(4).Info("Proecssing HelmRepo:", repoURL)
 
-	httpClient, err := hrsi.getHelmRepoClient()
+	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap)
 	if err != nil {
 		klog.Error(err, "Unable to create client for helm repo", repoURL)
 		return err
 	}
 
-	indexFile, hash, err := hrsi.getHelmRepoIndex(httpClient, repoURL)
+	indexFile, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
 	if err != nil {
 		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
 		return err
@@ -150,7 +157,7 @@ func (hrsi *SubscriberItem) processSubscription() error {
 	return nil
 }
 
-func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
+func getHelmRepoClient(chnCfg *corev1.ConfigMap) (*http.Client, error) {
 	client := http.DefaultClient
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -168,8 +175,8 @@ func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
 		},
 	}
 
-	if hrsi.ChannelConfigMap != nil {
-		helmRepoConfigData := hrsi.ChannelConfigMap.Data
+	if chnCfg != nil {
+		helmRepoConfigData := chnCfg.Data
 		klog.V(5).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
 
 		if helmRepoConfigData["insecureSkipVerify"] != "" {
@@ -193,7 +200,7 @@ func (hrsi *SubscriberItem) getHelmRepoClient() (*http.Client, error) {
 }
 
 //getHelmRepoIndex retreives the index.yaml, loads it into a repo.IndexFile and filters it
-func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
+func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription, chnSrt *corev1.Secret, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
 	cleanRepoURL := strings.TrimSuffix(repoURL, "/") + "/index.yaml"
 	req, err := http.NewRequest(http.MethodGet, cleanRepoURL, nil)
 
@@ -202,11 +209,11 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 		return nil, "", err
 	}
 
-	if hrsi.ChannelSecret != nil && hrsi.ChannelSecret.Data != nil {
-		if authHeader, ok := hrsi.ChannelSecret.Data["authHeader"]; ok {
+	if chnSrt != nil && chnSrt.Data != nil {
+		if authHeader, ok := chnSrt.Data["authHeader"]; ok {
 			req.Header.Set("Authorization", string(authHeader))
-		} else if user, ok := hrsi.ChannelSecret.Data["user"]; ok {
-			if password, ok := hrsi.ChannelSecret.Data["password"]; ok {
+		} else if user, ok := chnSrt.Data["user"]; ok {
+			if password, ok := chnSrt.Data["password"]; ok {
 				req.SetBasicAuth(string(user), string(password))
 			} else {
 				return nil, "", fmt.Errorf("password not found in secret for basic authentication")
@@ -241,9 +248,74 @@ func (hrsi *SubscriberItem) getHelmRepoIndex(client rest.HTTPClient, repoURL str
 		return nil, "", err
 	}
 
-	err = utils.FilterCharts(hrsi.Subscription, indexfile)
+	err = utils.FilterCharts(sub, indexfile)
 
 	return indexfile, hash, err
+}
+
+//func CreateOrUpdateHelmChart(
+//	packageName string,
+//	releaseCRName string,
+//	chartVersions repo.ChartVersions,
+//	client client.Client,
+//	channel *chnv1.Channel,
+//	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
+func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
+	chn := &chnv1.Channel{}
+	chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
+	if err := hubClt.Get(context.TODO(), chnkey, chn); err != nil {
+		return nil, gerr.Wrapf(err, "failed to get channel of subscription %v", sub)
+	}
+
+	repoURL := chn.Spec.Pathname
+	klog.V(2).Infof("getting resource list of HelmRepo %v", repoURL)
+
+	chSrt := &corev1.Secret{}
+	chnSrtKey := types.NamespacedName{
+		Name:      chn.Spec.SecretRef.Name,
+		Namespace: chn.Spec.SecretRef.Namespace,
+	}
+
+	if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
+		return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+	}
+
+	chnCfg := &corev1.ConfigMap{}
+	chnCfgKey := types.NamespacedName{
+		Name:      chn.Spec.ConfigMapRef.Name,
+		Namespace: chn.Spec.ConfigMapRef.Namespace,
+	}
+
+	if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
+		return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+	}
+
+	httpClient, err := getHelmRepoClient(chnCfg)
+	if err != nil {
+		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", repoURL)
+	}
+
+	indexFile, _, err := getHelmRepoIndex(httpClient, sub, chSrt, repoURL)
+	if err != nil {
+		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", repoURL)
+	}
+
+	helms := make([]*releasev1.HelmRelease, 0)
+	for pkgName, chartVer := range indexFile.Entries {
+		releaseCRName, err := utils.PkgToReleaseCRName(sub, pkgName)
+		if err != nil {
+			return nil, gerr.Wrapf(err, "failed to generate releaseCRName of helm chart %v for subscription %v", pkgName, sub)
+		}
+
+		helm, err := utils.CreateOrUpdateHelmChart(pkgName, releaseCRName, chartVer, hubClt, chn, sub)
+		if err != nil {
+			return nil, gerr.Wrapf(err, "failed to get helm chart of %v for subscription %v", pkgName, sub)
+		}
+
+		helms = append(helms, helm)
+	}
+
+	return helms, nil
 }
 
 //loadIndex loads data into a repo.IndexFile

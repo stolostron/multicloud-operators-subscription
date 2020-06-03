@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -55,6 +56,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 	rec := &ReconcileSubscription{
 		Client:        mgr.GetClient(),
+		cfg:           mgr.GetConfig(),
 		scheme:        mgr.GetScheme(),
 		eventRecorder: erecorder,
 	}
@@ -173,6 +175,7 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
+	cfg           *rest.Config
 	scheme        *runtime.Scheme
 	eventRecorder *utils.EventRecorder
 }

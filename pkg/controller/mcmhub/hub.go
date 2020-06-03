@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
@@ -59,11 +60,20 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateSubDplAnno := false
 
-	if utils.IsGitChannel(string(channel.Spec.Type)) {
+	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
+	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
-	} else {
+	case chnv1alpha1.ChannelTypeHelmRepo:
+		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub)
+	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
 	}
+
+	//	if utils.IsGitChannel(string(channel.Spec.Type)) {
+	//		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
+	//	} else {
+	//		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+	//	}
 
 	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
 
@@ -459,7 +469,7 @@ func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1a
 	}
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1alpha1.Channel{}
+	chobj := &chnv1.Channel{}
 	err := r.Get(context.TODO(), chkey, chobj)
 
 	if err != nil {

@@ -209,13 +209,7 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 	return nil
 }
 
-func CreateHelmCRDeployable(
-	repoURL string,
-	packageName string,
-	chartVersions repo.ChartVersions,
-	client client.Client,
-	channel *chnv1.Channel,
-	sub *appv1.Subscription) (*dplv1.Deployable, error) {
+func PkgToReleaseCRName(sub *appv1.Subscription, packageName string) (string, error) {
 	releaseCRName := GetPackageAlias(sub, packageName)
 	if releaseCRName == "" {
 		releaseCRName = packageName
@@ -227,6 +221,21 @@ func CreateHelmCRDeployable(
 	}
 
 	releaseCRName, err := GetReleaseName(releaseCRName)
+	if err != nil {
+		return "", err
+	}
+
+	return releaseCRName, nil
+}
+
+func CreateHelmCRDeployable(
+	repoURL string,
+	packageName string,
+	chartVersions repo.ChartVersions,
+	client client.Client,
+	channel *chnv1.Channel,
+	sub *appv1.Subscription) (*dplv1.Deployable, error) {
+	releaseCRName, err := PkgToReleaseCRName(sub, packageName)
 	if err != nil {
 		return nil, err
 	}

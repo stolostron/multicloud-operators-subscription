@@ -28,7 +28,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.0-2020-05-12-22-38-29.0.20200514134758-a7e10a29ec07
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200513210312-92eab4faeb2b
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.0-2020-05-12-22-38-29.0.20200513204034-766ba50d9664
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.0-2020-05-12-22-38-29.0.20200513171134-285e76a606b8
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-05-28-18-29-00.0.20200603130746-0d0667fb4e33
 	github.com/opencontainers/runc v1.0.0-rc2.0.20190611121236-6cc515888830 // indirect
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/pkg/errors v0.9.1
@@ -40,6 +40,7 @@ require (
 	github.com/yvasiyarov/gorelic v0.0.6 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	helm.sh/helm/v3 v3.1.2
 	k8s.io/api v0.17.4
 	k8s.io/apiextensions-apiserver v0.17.4
 	k8s.io/apimachinery v0.17.4

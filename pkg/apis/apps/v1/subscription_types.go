@@ -34,6 +34,8 @@ var (
 	AnnotationRollingUpdateMaxUnavailable = SchemeGroupVersion.Group + "/rollingupdate-maxunavaialble"
 	// AnnotationDeployables defines all deployables subscribed by the subscription
 	AnnotationDeployables = SchemeGroupVersion.Group + "/deployables"
+	// AnnotationDeployables defines all deployables subscribed by the subscription
+	AnnotationTopo = SchemeGroupVersion.Group + "/topo"
 	// AnnotationHosting defines the subscription hosting the resource
 	AnnotationHosting = SchemeGroupVersion.Group + "/hosting-subscription"
 	// AnnotationChannelGeneration defines the channel generation
