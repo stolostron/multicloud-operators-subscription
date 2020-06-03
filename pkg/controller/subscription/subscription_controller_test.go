@@ -362,8 +362,6 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 			g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 			g.Expect(c.Create(context.TODO(), tt.given)).NotTo(gomega.HaveOccurred())
 
-			defer c.Delete(context.TODO(), tt.given)
-
 			g.Eventually(reconciliation, timeout).Should(gomega.Receive(gomega.Equal(tt.expectedReconcileResult)))
 
 			got := &appv1alpha1.Subscription{}
@@ -375,6 +373,10 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 			if gotMsg != tt.expectedSubMsg {
 				t.Errorf("(%v): expected %s, actual %s", tt.given, tt.expectedSubMsg, gotMsg)
 			}
+
+			c.Delete(context.TODO(), tt.given)
+
+			time.Sleep(time.Second * 2)
 		})
 	}
 }
