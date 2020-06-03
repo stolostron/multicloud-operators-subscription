@@ -292,9 +292,11 @@ func (r *ReconcileSubscription) CreateSubscriptionAdminRBAC() error {
 func subAdminClusterRole() *rbacv1.ClusterRole {
 	cr := &rbacv1.ClusterRole{}
 	err := yaml.Unmarshal([]byte(clusterRole), &cr)
+
 	if err != nil {
 		return nil
 	}
+
 	return cr
 }
 
