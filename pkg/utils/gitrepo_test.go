@@ -216,12 +216,20 @@ func TestGetChannelSecret(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)
@@ -272,12 +280,20 @@ func TestKustomize(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)
@@ -380,9 +396,15 @@ func TestIsClusterAdminLocal(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)

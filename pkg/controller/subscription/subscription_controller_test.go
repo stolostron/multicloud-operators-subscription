@@ -237,9 +237,15 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)
