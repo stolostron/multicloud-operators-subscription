@@ -253,14 +253,6 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 
 	return indexfile, hash, err
 }
-
-//func CreateOrUpdateHelmChart(
-//	packageName string,
-//	releaseCRName string,
-//	chartVersions repo.ChartVersions,
-//	client client.Client,
-//	channel *chnv1.Channel,
-//	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
 func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
@@ -275,26 +267,40 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	chSrt := &corev1.Secret{}
 
 	if chn.Spec.SecretRef != nil {
+		srtNs := chn.Spec.ConfigMapRef.Namespace
+
+		if srtNs == "" {
+			srtNs = chn.GetNamespace()
+		}
+
 		chnSrtKey := types.NamespacedName{
 			Name:      chn.Spec.SecretRef.Name,
-			Namespace: chn.Spec.SecretRef.Namespace,
+			Namespace: srtNs,
 		}
 
 		if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
-			return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+			return nil, gerr.Wrapf(err, "failed to get reference secret %v from channel", chnSrtKey.String())
 		}
 	}
 
 	chnCfg := &corev1.ConfigMap{}
 
 	if chn.Spec.ConfigMapRef != nil {
-		chnCfgKey := types.NamespacedName{
-			Name:      chn.Spec.ConfigMapRef.Name,
-			Namespace: chn.Spec.ConfigMapRef.Namespace,
+		cfgNs := chn.Spec.ConfigMapRef.Namespace
+
+		if cfgNs == "" {
+			cfgNs = chn.GetNamespace()
 		}
 
+		chnCfgKey := types.NamespacedName{
+			Name:      chn.Spec.ConfigMapRef.Name,
+			Namespace: cfgNs,
+		}
+
+		klog.V(2).Infof("getting cfg %v from channel %v", chnCfgKey.String(), chn)
+
 		if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
-			return nil, gerr.Wrap(err, "failed to get reference configmap from channel")
+			return nil, gerr.Wrapf(err, "failed to get reference configmap %v from channel", chnCfgKey.String())
 		}
 	}
 
