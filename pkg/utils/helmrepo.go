@@ -523,7 +523,7 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 			}
 		}
 		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("helmreleases.apps.open-cluster-management.io", &v1.DeleteOptions{})
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "helmreleases.apps.open-cluster-management.io", v1.DeleteOptions{})
 		if err != nil {
 			klog.Infof("Deleting helmrelease CRD failed. err: %s", err.Error())
 		} else {

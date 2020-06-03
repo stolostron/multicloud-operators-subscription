@@ -442,7 +442,7 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 			}
 		}
 		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete("subscriptions.apps.open-cluster-management.io", &v1.DeleteOptions{})
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "subscriptions.apps.open-cluster-management.io", v1.DeleteOptions{})
 		if err != nil {
 			klog.Infof("Deleting subscription CRD failed. err: %s", err.Error())
 		} else {
