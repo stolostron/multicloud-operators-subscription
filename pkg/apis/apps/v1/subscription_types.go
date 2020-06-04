@@ -58,6 +58,12 @@ var (
 	AnnotationGitBranch = SchemeGroupVersion.Group + "/git-branch"
 	// AnnotationGitCommit defines Git repo commit ID
 	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-commit"
+	// AnnotationClusterAdmin indicates the subscription has cluster admin access
+	AnnotationClusterAdmin = SchemeGroupVersion.Group + "/cluster-admin"
+	// AnnotationUserGroup is subscription user group
+	AnnotationUserGroup = "mcm.ibm.com/user-group"
+	// AnnotationUserIdentity is subscription user id
+	AnnotationUserIdentity = "mcm.ibm.com/user-identity"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
@@ -67,6 +73,10 @@ var (
 const (
 	// DefaultRollingUpdateMaxUnavailablePercentage defines the percentage for rolling update
 	DefaultRollingUpdateMaxUnavailablePercentage = 25
+	// SubscriptionAdmin is used as RBAC resource name for multi-namespace app deployment
+	SubscriptionAdmin = "acm-subscription-admin"
+	// AcmWebhook is the ACM foundation mutation webhook that adds user identity and group annotations
+	AcmWebhook = "mcm-mutating-webhook"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

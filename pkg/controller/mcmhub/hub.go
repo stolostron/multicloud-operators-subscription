@@ -624,50 +624,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subep.Generation = 1
 	subep.SelfLink = ""
 
-	subepanno := make(map[string]string)
-
-	origsubanno := sub.GetAnnotations()
-	// Keep Git related annotations from the source subscription.
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
-		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
-	}
-
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitBranch], "") {
-		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGitBranch]
-	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubBranch], "") {
-		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGithubBranch]
-	}
-
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitPath], "") {
-		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGitPath]
-	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
-		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
-	}
-
-	// Add annotation for git path and branch
-	// It is recommended to define Git path and branch in subscription annotations but
-	// this code is to support those that already use ConfigMap.
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
-		subscriptionConfigMap := &corev1.ConfigMap{}
-		subcfgkey := types.NamespacedName{
-			Name:      sub.Spec.PackageFilter.FilterRef.Name,
-			Namespace: sub.Namespace,
-		}
-
-		err := r.Get(context.TODO(), subcfgkey, subscriptionConfigMap)
-		if err != nil {
-			klog.Error("Failed to get PackageFilter.FilterRef of subsciption, error: ", err)
-		} else {
-			gitPath := subscriptionConfigMap.Data["path"]
-			if gitPath != "" {
-				subepanno[appv1alpha1.AnnotationGitPath] = gitPath
-			}
-			gitBranch := subscriptionConfigMap.Data["branch"]
-			if gitBranch != "" {
-				subepanno[appv1alpha1.AnnotationGitBranch] = gitBranch
-			}
-		}
-	}
+	subepanno := r.updateSubAnnotations(sub)
 
 	if rootSub == nil {
 		subep.Name = sub.GetName()
@@ -769,6 +726,59 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	}
 
 	return dpl, nil
+}
+
+func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscription) map[string]string {
+	subepanno := make(map[string]string)
+
+	origsubanno := sub.GetAnnotations()
+	// Keep Git related annotations from the source subscription.
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
+		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitBranch], "") {
+		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGitBranch]
+	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubBranch], "") {
+		subepanno[appv1alpha1.AnnotationGitBranch] = origsubanno[appv1alpha1.AnnotationGithubBranch]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitPath], "") {
+		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGitPath]
+	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
+		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") {
+		subepanno[appv1alpha1.AnnotationClusterAdmin] = origsubanno[appv1alpha1.AnnotationClusterAdmin]
+	}
+
+	// Add annotation for git path and branch
+	// It is recommended to define Git path and branch in subscription annotations but
+	// this code is to support those that already use ConfigMap.
+	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
+		subscriptionConfigMap := &corev1.ConfigMap{}
+		subcfgkey := types.NamespacedName{
+			Name:      sub.Spec.PackageFilter.FilterRef.Name,
+			Namespace: sub.Namespace,
+		}
+
+		err := r.Get(context.TODO(), subcfgkey, subscriptionConfigMap)
+		if err != nil {
+			klog.Error("Failed to get PackageFilter.FilterRef of subsciption, error: ", err)
+		} else {
+			gitPath := subscriptionConfigMap.Data["path"]
+			if gitPath != "" {
+				subepanno[appv1alpha1.AnnotationGitPath] = gitPath
+			}
+			gitBranch := subscriptionConfigMap.Data["branch"]
+			if gitBranch != "" {
+				subepanno[appv1alpha1.AnnotationGitBranch] = gitBranch
+			}
+		}
+	}
+
+	return subepanno
 }
 
 func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {

@@ -457,4 +457,47 @@ data:
 		githubsub.Spec.Package = ""
 		githubsub.Spec.PackageFilter = nil
 	})
+
+	It("should check cluster-admin=true annotation in subscription", func() {
+		subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: demo-subscription-2
+  namespace: demo-ns-2
+  annotations:
+    apps.open-cluster-management.io/github-path: resources2
+    apps.open-cluster-management.io/cluster-admin: "true"
+spec:
+  channel: demo-ns-2/somechannel-2
+  placement:
+    local: true`
+
+		resource := kubeResource{}
+		err := yaml.Unmarshal([]byte(subscriptionYAML), &resource)
+
+		Expect(err).NotTo(HaveOccurred())
+
+		err = checkSubscriptionAnnotation(resource)
+		Expect(err).To(HaveOccurred())
+
+		subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: demo-subscription-2
+  namespace: demo-ns-2
+  annotations:
+    apps.open-cluster-management.io/github-path: resources2
+spec:
+  channel: demo-ns-2/somechannel-2
+  placement:
+    local: true`
+
+		resource = kubeResource{}
+		err = yaml.Unmarshal([]byte(subscriptionYAML), &resource)
+
+		Expect(err).NotTo(HaveOccurred())
+
+		err = checkSubscriptionAnnotation(resource)
+		Expect(err).NotTo(HaveOccurred())
+	})
 })

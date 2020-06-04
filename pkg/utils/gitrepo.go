@@ -16,6 +16,7 @@ package utils
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -24,7 +25,9 @@ import (
 
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -419,4 +422,97 @@ func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 func IsGitChannel(chType string) bool {
 	return strings.EqualFold(chType, chnv1.ChannelTypeGitHub) ||
 		strings.EqualFold(chType, chnv1.ChannelTypeGit)
+}
+
+func IsClusterAdmin(client client.Client, sub *appv1.Subscription) bool {
+	isClusterAdmin := false
+	isUserSubAdmin := false
+	isSubPropagatedFromHub := false
+	isClusterAdminAnnotationTrue := false
+
+	userIdentity := ""
+	userGroups := ""
+	annotations := sub.GetAnnotations()
+
+	if annotations != nil {
+		encodedUserGroup := strings.Trim(annotations[appv1.AnnotationUserGroup], "")
+		encodedUserIdentity := strings.Trim(annotations[appv1.AnnotationUserIdentity], "")
+
+		if encodedUserGroup != "" {
+			userGroups = base64StringDecode(encodedUserGroup)
+		}
+
+		if encodedUserIdentity != "" {
+			userIdentity = base64StringDecode(encodedUserIdentity)
+		}
+
+		if annotations[appv1.AnnotationHosting] != "" {
+			isSubPropagatedFromHub = true
+		}
+
+		if strings.EqualFold(annotations[appv1.AnnotationClusterAdmin], "true") {
+			isClusterAdminAnnotationTrue = true
+		}
+	}
+
+	doesWebhookExist := false
+	theWebhook := &admissionv1.MutatingWebhookConfiguration{}
+
+	if err := client.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
+		doesWebhookExist = true
+	}
+
+	if userIdentity != "" && doesWebhookExist {
+		isUserSubAdmin = matchUserSubAdmin(client, userIdentity, userGroups)
+	}
+
+	if (isClusterAdminAnnotationTrue && isSubPropagatedFromHub && !doesWebhookExist) || isUserSubAdmin {
+		isClusterAdmin = true
+	}
+
+	klog.Infof("isClusterAdmin = %v", isClusterAdmin)
+
+	return isClusterAdmin
+}
+
+func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bool {
+	isUserSubAdmin := false
+	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+
+	err := client.Get(context.TODO(), types.NamespacedName{Name: appv1.SubscriptionAdmin}, foundClusterRoleBinding)
+
+	if err == nil {
+		klog.Info("ClusterRoleBinding subscription-admin found.")
+
+		for _, subject := range foundClusterRoleBinding.Subjects {
+			if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
+				klog.Info("User match. cluster-admin: true")
+
+				isUserSubAdmin = true
+			} else if subject.Kind == "Group" {
+				groupNames := strings.Split(userGroups, ",")
+				for _, groupName := range groupNames {
+					if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
+						klog.Info("Group match. cluster-admin: true")
+
+						isUserSubAdmin = true
+					}
+				}
+			}
+		}
+	} else {
+		klog.Error(err)
+	}
+
+	return isUserSubAdmin
+}
+
+func base64StringDecode(encodedStr string) string {
+	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
+	if err != nil {
+		klog.Error("Failed to base64 decode")
+		klog.Error(err)
+	}
+
+	return string(decodedBytes)
 }

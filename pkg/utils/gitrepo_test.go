@@ -24,7 +24,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"gopkg.in/src-d/go-git.v4/plumbing"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -214,12 +216,20 @@ func TestGetChannelSecret(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)
@@ -270,12 +280,20 @@ func TestKustomize(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	c = mgr.GetClient()
-
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
 
 	defer func() {
 		close(stopMgr)
@@ -365,4 +383,331 @@ func TestSortResources(t *testing.T) {
 	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(2))
 	g.Expect(len(rbacFiles)).To(gomega.Equal(2))
 	g.Expect(len(otherFiles)).To(gomega.Equal(5))
+}
+
+func TestSimple(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	g.Expect("hello").To(gomega.Equal("hello"))
+}
+
+func TestIsClusterAdminLocal(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	// The mutation webhook does not exist.
+
+	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+spec:
+  channel: github-ns/github-ch
+  placement:
+    local: true`
+
+	subscription := &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/hosting-subscription: demo-ns/demo-subscription
+spec:
+  channel: github-ns/github-ch
+  placement:
+    local: true`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/hosting-subscription: demo-ns/demo-subscription
+    apps.open-cluster-management.io/cluster-admin: "false"
+spec:
+  channel: github-ns/github-ch
+  placement:
+    local: true`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/hosting-subscription: demo-ns/demo-subscription
+    apps.open-cluster-management.io/cluster-admin: "true"
+spec:
+  channel: github-ns/github-ch
+  placement:
+    local: true`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/cluster-admin: "true"
+spec:
+  channel: github-ns/github-ch
+  placement:
+    local: true`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mcm-mutating-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  name: webhook.admission.cloud.com
+  clientConfig:
+    caBundle: ZHVtbXkK
+    service:
+      name: mcm-webhook
+      namespace: default
+      port: 443
+  sideEffects: None`
+
+	theWebhook := &admissionv1.MutatingWebhookConfiguration{}
+	err = yaml.Unmarshal([]byte(webhookYAML), &theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/hosting-subscription: demo-ns/demo-subscription
+    apps.open-cluster-management.io/cluster-admin: "true"
+  spec:
+    channel: github-ns/github-ch
+    placement:
+      local: true`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	err = c.Delete(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestIsClusterAdminRemote(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	clusterRole := subAdminClusterRole()
+	clusterRoleBinding := subAdminClusterRoleBinding()
+
+	err = c.Create(context.TODO(), clusterRole)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), clusterRoleBinding)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: mcm-mutating-webhook
+webhooks:
+- admissionReviewVersions:
+  - v1beta1
+  name: webhook.admission.cloud.com
+  clientConfig:
+    caBundle: ZHVtbXkK
+    service:
+      name: mcm-webhook
+      namespace: default
+      port: 443
+  sideEffects: None`
+
+	theWebhook := &admissionv1.MutatingWebhookConfiguration{}
+	err = yaml.Unmarshal([]byte(webhookYAML), &theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Create(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// user group: subscription-admin,test-group
+	// user identity: bob
+	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    mcm.ibm.com/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
+    mcm.ibm.com/user-identity: Ym9i
+    apps.open-cluster-management.io/cluster-admin: "true"
+  spec:
+    channel: github-ns/github-ch
+    placement:
+      placementRef:
+        name: dev-clusters`
+
+	subscription := &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+
+	// user group: subscription-admin,test-group
+	// user identity: joe
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    mcm.ibm.com/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
+    mcm.ibm.com/user-identity: am9l
+    apps.open-cluster-management.io/cluster-admin: "true"
+  spec:
+    channel: github-ns/github-ch
+    placement:
+      placementRef:
+        name: dev-clusters`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+
+	// user group: test-group
+	// user identity: jane
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    mcm.ibm.com/user-group: dGVzdC1ncm91cAo=
+    mcm.ibm.com/user-identity: amFuZQ==
+    apps.open-cluster-management.io/cluster-admin: "true"
+  spec:
+    channel: github-ns/github-ch
+    placement:
+      placementRef:
+        name: dev-clusters`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+
+	err = c.Delete(context.TODO(), clusterRole)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), clusterRoleBinding)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), theWebhook)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func subAdminClusterRole() *rbacv1.ClusterRole {
+	return &rbacv1.ClusterRole{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: appv1.SubscriptionAdmin,
+		},
+		Rules: []rbacv1.PolicyRule{
+			{
+				APIGroups: []string{"*"},
+				Resources: []string{"*"},
+				Verbs:     []string{"*"},
+			},
+		},
+	}
+}
+
+func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
+	return &rbacv1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: appv1.SubscriptionAdmin,
+		},
+		Subjects: []rbacv1.Subject{
+			{
+				Kind: "User",
+				Name: "bob",
+			},
+			{
+				Kind: "Group",
+				Name: "subscription-admin",
+			},
+		},
+		RoleRef: rbacv1.RoleRef{
+			Kind: "ClusterRole",
+			Name: appv1.SubscriptionAdmin,
+		},
+	}
 }

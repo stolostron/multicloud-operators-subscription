@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"context"
 	"io/ioutil"
 	"reflect"
 	"strings"
@@ -61,11 +62,11 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 
 	klog.V(10).Info("Loaded Application CRD: ", crdobj, "\n - From - \n", string(crddata))
 
-	crd, err := crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(crdobj.GetName(), metav1.GetOptions{})
+	crd, err := crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdobj.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		klog.Info("Installing SIG Application CRD from File: ", pathname)
 		// Install sig app
-		_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(&crdobj)
+		_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &crdobj, metav1.CreateOptions{})
 		if err != nil {
 			klog.Fatal("Creating CRD", err.Error())
 			return err
@@ -74,7 +75,7 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 		if !reflect.DeepEqual(crd.Spec, crdobj.Spec) {
 			klog.Info("CRD ", crdobj.GetName(), " is being updated with ", pathname)
 			crdobj.Spec.DeepCopyInto(&crd.Spec)
-			_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(crd)
+			_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Fatal("Updating CRD", err.Error())
 				return err

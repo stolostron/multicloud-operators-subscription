@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -76,11 +77,12 @@ type SubscriberItem struct {
 	indexFile             *repo.IndexFile
 	webhookEnabled        bool
 	successful            bool
+	clusterAdmin          bool
 }
 
 type kubeResource struct {
-	APIVersion string `yaml:"apiVersion"`
-	Kind       string `yaml:"kind"`
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 // Start subscribes a subscriber item with github channel
@@ -268,12 +270,30 @@ func (ghsi *SubscriberItem) subscribeKustomizations(hostkey types.NamespacedName
 			if t.APIVersion == "" || t.Kind == "" {
 				klog.Info("Not a Kubernetes resource")
 			} else {
-				err := ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resourceFile, pkgMap)
+				err := checkSubscriptionAnnotation(t)
+				if err != nil {
+					klog.Errorf("Failed to apply %s/%s resource. err: %s", t.APIVersion, t.Kind, err)
+					ghsi.successful = false
+				}
+
+				err = ghsi.subscribeResourceFile(hostkey, syncsource, kvalid, resourceFile, pkgMap)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
 					ghsi.successful = false
 				}
 			}
+		}
+	}
+
+	return nil
+}
+
+func checkSubscriptionAnnotation(resource kubeResource) error {
+	if strings.EqualFold(resource.APIVersion, appv1.SchemeGroupVersion.String()) && strings.EqualFold(resource.Kind, "Subscription") {
+		annotations := resource.GetAnnotations()
+		if strings.EqualFold(annotations[appv1.AnnotationClusterAdmin], "true") {
+			klog.Errorf("%s %s contains annotation %s set to true.", resource.APIVersion, resource.Name, appv1.AnnotationClusterAdmin)
+			return errors.New("contains " + appv1.AnnotationClusterAdmin + " = true annotation.")
 		}
 	}
 
@@ -399,7 +419,19 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 	}
 
 	if ghsi.synchronizer.IsResourceNamespaced(*validgvk) {
-		rsc.SetNamespace(ghsi.Subscription.Namespace)
+		if ghsi.clusterAdmin {
+			klog.Info("cluster-admin is true.")
+
+			if rsc.GetNamespace() != "" {
+				klog.Info("Using resource's original namespace. Resource namespace is " + rsc.GetNamespace())
+			} else {
+				klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
+				rsc.SetNamespace(ghsi.Subscription.Namespace)
+			}
+		} else {
+			klog.Info("No cluster-admin. Setting it to subscription namespace " + ghsi.Subscription.Namespace)
+			rsc.SetNamespace(ghsi.Subscription.Namespace)
+		}
 	}
 
 	if ghsi.Subscription.Spec.PackageFilter != nil {
