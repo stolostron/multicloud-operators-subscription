@@ -27,7 +27,10 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplUtils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	"github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
@@ -103,13 +106,7 @@ func parseResourceList(rs kube.ResourceList) string {
 }
 
 func infoToUnit(ri *resource.Info) resourceUnit {
-	addition := 0
-
-	// need to  add more replicas related type over here
-	switch k := ri.Object.GetObjectKind().GroupVersionKind().Kind; k {
-	case "Deployment":
-		addition = getAdditionValue(ri.Object)
-	}
+	addition := processAddition(ri)
 
 	return resourceUnit{
 		name:      ri.Name,
@@ -117,6 +114,17 @@ func infoToUnit(ri *resource.Info) resourceUnit {
 		kind:      ri.Object.GetObjectKind().GroupVersionKind().Kind,
 		addition:  addition,
 	}
+}
+
+func processAddition(obj runtime.Object) int {
+	// need to  add more replicas related type over here
+	switch k := obj.Object.GetObjectKind().GroupVersionKind().Kind; k {
+	case "Deployment":
+		return getAdditionValue(obj.Object)
+	default:
+		return 0
+	}
+
 }
 
 func getAdditionValue(obj runtime.Object) int {
@@ -135,4 +143,47 @@ func getAdditionValue(obj runtime.Object) int {
 	}
 
 	return -1
+}
+
+func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) string {
+	res := []string{}
+	for _, dpl := range allDpls {
+		tpl, err := dplUtils.GetUnstructuredTemplateFromDeployable(dpl)
+		if err != nil {
+			klog.Error("deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
+			return ""
+		}
+
+		rUnit := resourceUnit{
+			name:      tpl.GetName(),
+			namespace: tpl.GetNamespace(),
+			kind:      tpl.GetKind(),
+			addition:  processAddition(tpl),
+		}
+
+		res = append(res, rUnit.String())
+	}
+
+	return strings.Join(res, sep)
+}
+
+func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable) bool {
+	subanno := sub.GetAnnotations()
+	if len(subanno) == 0 {
+		subanno = make(map[string]string)
+	}
+
+	expectTopo, err := updateResourceListViaDeployableMap()
+	if err != nil {
+		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
+		return false
+	}
+
+	if subanno[subv1.AnnotationTopo] != expectTopo {
+		subanno[subv1.AnnotationTopo] = expectTopo
+		sub.SetAnnotations(subanno)
+		return true
+	}
+
+	return false
 }
