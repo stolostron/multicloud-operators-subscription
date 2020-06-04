@@ -174,7 +174,7 @@ func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[stri
 
 	expectTopo, err := updateResourceListViaDeployableMap(allDpls)
 	if err != nil {
-		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
+		klog.Errorf("failed to get the resource info for subscription %v, err: %v", ObjectString(sub), err)
 		return false
 	}
 

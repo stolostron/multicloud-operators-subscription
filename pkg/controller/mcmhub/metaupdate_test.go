@@ -98,7 +98,8 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 
 		tpCfgMap = &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
-				Kind: "ConfigMap",
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cfgMapKey.Name,
@@ -110,6 +111,10 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 		}
 
 		tpChn = &chnv1.Channel{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Channel",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      tpChnKey.Name,
 				Namespace: tpChnKey.Namespace,
@@ -151,7 +156,31 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 			},
 		}
 
+		dplCm = &dplv1.Deployable{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Deployable",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "dpl-cm",
+				Namespace: tpChnKey.Namespace,
+				Labels: map[string]string{
+					chnv1.KeyChannel:     tpChn.Name,
+					chnv1.KeyChannelType: string(tpChn.Spec.Type),
+				},
+			},
+			Spec: dplv1.DeployableSpec{
+				Template: &runtime.RawExtension{
+					Object: tpCfgMap,
+				},
+			},
+		}
+
 		dplDeploy = &dplv1.Deployable{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Deployable",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "dpl-deploy",
 				Namespace: tpChnKey.Namespace,
@@ -175,6 +204,10 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 		}
 
 		tpSub = &subv1.Subscription{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Subscription",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      tpSubKey.Name,
 				Namespace: tpSubKey.Namespace,
@@ -213,6 +246,12 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 
 	defer func() {
 		g.Expect(c.Delete(ctx, dplDeploy)).Should(gomega.Succeed())
+	}()
+
+	g.Expect(c.Create(ctx, dplCm)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(c.Delete(ctx, dplCm)).Should(gomega.Succeed())
 	}()
 
 	rec := newReconciler(mgr).(*ReconcileSubscription)
