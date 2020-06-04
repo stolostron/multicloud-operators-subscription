@@ -15,6 +15,7 @@
 package namespace
 
 import (
+	"context"
 	"reflect"
 
 	"github.com/pkg/errors"
@@ -187,7 +188,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to create deployable controller for namespace subscriber item")
 	}
 
-	ifm, err := nssubitem.cache.GetInformer(&dplv1alpha1.Deployable{})
+	ifm, err := nssubitem.cache.GetInformer(context.TODO(), &dplv1alpha1.Deployable{})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to get informer for deployable from cache")
@@ -209,7 +210,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to create secret controller for namespace subscriber item")
 	}
 
-	sifm, err := nssubitem.cache.GetInformer(&v1.Secret{})
+	sifm, err := nssubitem.cache.GetInformer(context.TODO(), &v1.Secret{})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to get informer for secret from cache")

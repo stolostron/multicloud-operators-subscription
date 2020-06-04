@@ -11,6 +11,7 @@
 package kubernetes
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -41,7 +42,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 
 	klog.V(5).Info("Checking Server object:", res.GroupVersionResource)
 
-	objlist, err := sync.DynamicClient.Resource(res.GroupVersionResource).List(metav1.ListOptions{})
+	objlist, err := sync.DynamicClient.Resource(res.GroupVersionResource).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return err
 	}
@@ -109,7 +110,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 			if !reflect.DeepEqual(obj, tplunit.Unstructured.Object) {
 				newobj := tplunit.Unstructured.DeepCopy()
 				newobj.SetResourceVersion(obj.GetResourceVersion())
-				_, err = dl.Update(newobj, metav1.UpdateOptions{})
+				_, err = dl.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 				sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
@@ -135,7 +136,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	klog.V(5).Info("Apply - Creating New Resource ", tplunit)
 
 	tplunit.Unstructured.SetResourceVersion("")
-	obj, err := ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
+	obj, err := ri.Create(context.TODO(), tplunit.Unstructured, metav1.CreateOptions{})
 
 	// Auto Create Namespace if not exist
 	if err != nil && errors.IsNotFound(err) {
@@ -175,11 +176,11 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
 				Version:  "v1",
 				Resource: "namespaces",
-			}).Create(nsus, metav1.CreateOptions{})
+			}).Create(context.TODO(), nsus, metav1.CreateOptions{})
 
 			if err == nil {
 				// try again
-				obj, err = ri.Create(tplunit.Unstructured, metav1.CreateOptions{})
+				obj, err = ri.Create(context.TODO(), tplunit.Unstructured, metav1.CreateOptions{})
 			}
 		}
 	}
@@ -258,9 +259,9 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 		klog.V(4).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 
-		_, err = ri.Patch(obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		_, err = ri.Update(newobj, metav1.UpdateOptions{})
+		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
@@ -310,7 +311,7 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		ri = nri
 	}
 
-	obj, err := ri.Get(tplunit.GetName(), metav1.GetOptions{})
+	obj, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -370,13 +371,13 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 			}
 
 			// check resource ownership
-			tgtobj, err := dl.Get(tplunit.GetName(), metav1.GetOptions{})
+			tgtobj, err := dl.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
 					klog.V(5).Info("Resource is owned by ", host, "Deleting ", tplunit.Unstructured)
 
 					deletepolicy := metav1.DeletePropagationBackground
-					err = dl.Delete(tplunit.GetName(), &metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
+					err = dl.Delete(context.TODO(), tplunit.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 					sync.eventrecorder.RecordEvent(tplunit.Unstructured, "DeleteResource",
 						"Synchronizer deleted resource "+tplunit.GetName()+" of gvk:"+tplunit.GroupVersionKind().String()+" by deregister", err)
 
