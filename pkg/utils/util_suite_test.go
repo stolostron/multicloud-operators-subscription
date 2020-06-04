@@ -36,11 +36,20 @@ var cfg *rest.Config
 var c client.Client
 
 func TestMain(m *testing.M) {
+	customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
+		"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
+		"PersistentVolumeClaimResize,ResourceQuota",
+	}
+
+	apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
+	apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
+
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "hack", "test"),
 		},
+		KubeAPIServerFlags: apiServerFlags,
 	}
 
 	apis.AddToScheme(scheme.Scheme)
