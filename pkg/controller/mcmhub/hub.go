@@ -517,6 +517,7 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		}
 	}
 
+	// map[string]*deployable
 	allDpls := r.getSubscriptionDeployables(sub)
 
 	// changes in order of deployables does not mean changes in deployables

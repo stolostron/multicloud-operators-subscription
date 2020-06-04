@@ -35,20 +35,20 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/yvasiyarov/go-metrics v0.0.0-20150112132944-c25f46c4b940 // indirect
 	github.com/yvasiyarov/gorelic v0.0.6 // indirect
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	helm.sh/helm/v3 v3.1.2
-	k8s.io/api v0.17.4
-	k8s.io/apiextensions-apiserver v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/cli-runtime v0.17.4
+	helm.sh/helm/v3 v3.2.0
+	k8s.io/api v0.18.0
+	k8s.io/apiextensions-apiserver v0.18.0
+	k8s.io/apimachinery v0.18.0
+	k8s.io/cli-runtime v0.18.0
 	k8s.io/client-go v13.0.0+incompatible
 	k8s.io/helm v2.16.3+incompatible
 	k8s.io/klog v1.0.0
-	k8s.io/kube-openapi v0.0.0-20191107075043-30be4d16710a
+	k8s.io/kube-openapi v0.0.0-20200121204235-bf4fb3bd569c
 	sigs.k8s.io/controller-runtime v0.5.2
 	sigs.k8s.io/kustomize v2.0.3+incompatible
 )
