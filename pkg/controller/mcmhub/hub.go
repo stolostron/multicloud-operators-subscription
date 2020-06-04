@@ -842,7 +842,14 @@ func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chn
 	switch chn.Spec.Type {
 	case "HelmRepo":
 		subUnitStatus.LastUpdateTime = pkgStatus.LastUpdateTime
-		setHelmSubUnitStatus(pkgStatus.ResourceStatus, subUnitStatus)
+
+		if pkgStatus.ResourceStatus != nil {
+			setHelmSubUnitStatus(pkgStatus.ResourceStatus, subUnitStatus)
+		} else {
+			subUnitStatus.Phase = pkgStatus.Phase
+			subUnitStatus.Message = pkgStatus.Message
+			subUnitStatus.Reason = pkgStatus.Reason
+		}
 	default:
 		subUnitStatus = pkgStatus
 	}
