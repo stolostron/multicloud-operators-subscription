@@ -106,7 +106,7 @@ func parseResourceList(rs kube.ResourceList) string {
 }
 
 func infoToUnit(ri *resource.Info) resourceUnit {
-	addition := processAddition(ri)
+	addition := processAddition(ri.Object)
 
 	return resourceUnit{
 		name:      ri.Name,
@@ -118,13 +118,12 @@ func infoToUnit(ri *resource.Info) resourceUnit {
 
 func processAddition(obj runtime.Object) int {
 	// need to  add more replicas related type over here
-	switch k := obj.Object.GetObjectKind().GroupVersionKind().Kind; k {
-	case "Deployment":
-		return getAdditionValue(obj.Object)
+	switch k := obj.GetObjectKind().GroupVersionKind().Kind; k {
+	case "Deployment", "ReplicaSet", "StatefulSet":
+		return getAdditionValue(obj)
 	default:
 		return 0
 	}
-
 }
 
 func getAdditionValue(obj runtime.Object) int {
@@ -145,13 +144,13 @@ func getAdditionValue(obj runtime.Object) int {
 	return -1
 }
 
-func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) string {
+func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (string, error) {
 	res := []string{}
+
 	for _, dpl := range allDpls {
 		tpl, err := dplUtils.GetUnstructuredTemplateFromDeployable(dpl)
 		if err != nil {
-			klog.Error("deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
-			return ""
+			return "", gerr.Wrap(err, "deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
 		}
 
 		rUnit := resourceUnit{
@@ -164,7 +163,7 @@ func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) st
 		res = append(res, rUnit.String())
 	}
 
-	return strings.Join(res, sep)
+	return strings.Join(res, sep), nil
 }
 
 func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable) bool {
@@ -173,7 +172,7 @@ func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[stri
 		subanno = make(map[string]string)
 	}
 
-	expectTopo, err := updateResourceListViaDeployableMap()
+	expectTopo, err := updateResourceListViaDeployableMap(allDpls)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false
@@ -182,6 +181,7 @@ func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[stri
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
 		sub.SetAnnotations(subanno)
+
 		return true
 	}
 

@@ -557,7 +557,9 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		sub.SetAnnotations(subanno)
 	}
 
-	return updated || extracResourceListFromDeployables(sub, allDpls)
+	topoFlag := extracResourceListFromDeployables(sub, allDpls)
+
+	return updated || topoFlag
 }
 
 // clearSubscriptionDpls clear the subscription deployable and its rolling update target deployable if exists.
