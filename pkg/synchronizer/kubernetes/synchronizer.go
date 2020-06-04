@@ -141,6 +141,26 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	if err != nil && errors.IsNotFound(err) {
 		ns := &corev1.Namespace{}
 		ns.Name = tplunit.GetNamespace()
+
+		tplanno := tplunit.GetAnnotations()
+		if tplanno == nil {
+			tplanno = make(map[string]string)
+		}
+
+		nsanno := ns.GetAnnotations()
+		if nsanno == nil {
+			nsanno = make(map[string]string)
+		}
+
+		if tplanno[appv1alpha1.AnnotationHosting] > "" {
+			nsanno[appv1alpha1.AnnotationHosting] = tplanno[appv1alpha1.AnnotationHosting]
+			nsanno[appv1alpha1.AnnotationSyncSource] = "subnsdpl-" + tplanno[appv1alpha1.AnnotationHosting]
+		}
+
+		ns.SetAnnotations(nsanno)
+
+		klog.V(1).Infof("Apply - Creating New Namespace: %#v", ns)
+
 		nsus := &unstructured.Unstructured{}
 		nsus.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
 
