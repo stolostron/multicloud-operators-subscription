@@ -52,7 +52,7 @@ metadata:
     name: obj-sub
 spec:
   type: ObjectBucket
-  pathname: http://52.90.18.11:9000/dev
+  pathname: http://ec2-100-26-232-156.compute-1.amazonaws.com:9000/deva
   sourceNamespaces:
     - default
   secretRef:

@@ -167,6 +167,7 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 	}
 
 	subanno[appv1alpha1.AnnotationDeployables] = dplstr
+	subanno[appv1.AnnotationTopo] = dplstr
 	sub.SetAnnotations(subanno)
 }
 

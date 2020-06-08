@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
@@ -59,9 +60,12 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateSubDplAnno := false
 
-	if utils.IsGitChannel(string(channel.Spec.Type)) {
+	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
+	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
-	} else {
+	case chnv1alpha1.ChannelTypeHelmRepo:
+		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub)
+	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
 	}
 
@@ -459,7 +463,7 @@ func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1a
 	}
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1alpha1.Channel{}
+	chobj := &chnv1.Channel{}
 	err := r.Get(context.TODO(), chkey, chobj)
 
 	if err != nil {
@@ -513,6 +517,7 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		}
 	}
 
+	// map[string]*deployable
 	allDpls := r.getSubscriptionDeployables(sub)
 
 	// changes in order of deployables does not mean changes in deployables
@@ -552,7 +557,9 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		sub.SetAnnotations(subanno)
 	}
 
-	return updated
+	topoFlag := extracResourceListFromDeployables(sub, allDpls)
+
+	return updated || topoFlag
 }
 
 // clearSubscriptionDpls clear the subscription deployable and its rolling update target deployable if exists.
@@ -858,11 +865,16 @@ func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chn
 }
 
 func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus *appv1alpha1.SubscriptionUnitStatus) {
+	if pkgResourceStatus == nil || subUnitStatus == nil {
+		klog.Errorf("failed to setHelmSubUnitStatus due to pkgResourceStatus %v or subUnitStatus %v is nil", pkgResourceStatus, subUnitStatus)
+		return
+	}
+
 	helmAppStatus := &releasev1.HelmAppStatus{}
 	err := json.Unmarshal(pkgResourceStatus.Raw, helmAppStatus)
 
 	if err != nil {
-		klog.Info("Failed to unmashall pkgResourceStatus to helm condition. err: ", err)
+		klog.Error("Failed to unmashall pkgResourceStatus to helm condition. err: ", err)
 	}
 
 	subUnitStatus.Phase = "Subscribed"

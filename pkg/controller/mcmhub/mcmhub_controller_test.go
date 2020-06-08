@@ -48,6 +48,43 @@ var (
 			Type: chnv1alpha1.ChannelTypeNamespace,
 		},
 	}
+
+	helmKey = types.NamespacedName{
+		Name:      "ch-helm",
+		Namespace: "ch-helm-ns",
+	}
+
+	cfgMapKey = types.NamespacedName{
+		Name:      "skip-cert-verify",
+		Namespace: helmKey.Namespace,
+	}
+
+	cfgMap = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgMapKey.Name,
+			Namespace: cfgMapKey.Namespace,
+		},
+		Data: map[string]string{
+			"insecureSkipVerify": "true",
+		},
+	}
+
+	chHelm = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmKey.Name,
+			Namespace: helmKey.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:     chnv1alpha1.ChannelTypeHelmRepo,
+			Pathname: "https://helm.nginx.com/stable",
+			ConfigMapRef: &corev1.ObjectReference{
+				Name:       cfgMap.Name,
+				Namespace:  cfgMap.Namespace,
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+		},
+	}
 )
 
 var (
@@ -141,6 +178,8 @@ func TestDoMCMReconcile(t *testing.T) {
 	chn.Spec.SecretRef = nil
 	chn.Spec.ConfigMapRef = nil
 	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), chn)
 
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
 
