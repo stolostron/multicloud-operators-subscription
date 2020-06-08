@@ -99,7 +99,7 @@ spec:
     windowtype: "active"
     location: "America/Toronto"
     hours:
-      - start: "09:00AM"
-        end: "13:50AM"
+      - start: "9:00AM"
+        end: "11:50AM"
       - start: "12:00PM"
         end: "6:30PM"

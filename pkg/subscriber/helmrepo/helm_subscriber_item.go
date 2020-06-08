@@ -327,6 +327,10 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 			return nil, gerr.Wrapf(err, "failed to get helm chart of %v for subscription %v", pkgName, sub)
 		}
 
+		if err := utils.Override(helm, sub); err != nil {
+			return nil, err
+		}
+
 		helms = append(helms, helm)
 	}
 
