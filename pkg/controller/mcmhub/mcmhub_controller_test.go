@@ -125,7 +125,7 @@ var (
 
 var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
-const timeout = time.Second * 5
+const timeout = time.Second * 2
 
 func TestMcMHubReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
