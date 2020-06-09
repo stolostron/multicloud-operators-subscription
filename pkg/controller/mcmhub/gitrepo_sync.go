@@ -18,12 +18,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
+	gerr "github.com/pkg/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -38,6 +40,8 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -100,14 +104,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			annotations[appv1.AnnotationGitCommit] = commit
 			sub.SetAnnotations(annotations)
 
-			resourcePath := utils.GetLocalGitFolder(channel, sub)
-			baseDir := resourcePath
-
-			if annotations[appv1.AnnotationGithubPath] != "" {
-				resourcePath = filepath.Join(utils.GetLocalGitFolder(channel, sub), annotations[appv1.AnnotationGithubPath])
-			} else if annotations[appv1.AnnotationGitPath] != "" {
-				resourcePath = filepath.Join(utils.GetLocalGitFolder(channel, sub), annotations[appv1.AnnotationGitPath])
-			}
+			baseDir := utils.GetLocalGitFolder(channel, sub)
+			resourcePath := getResourcePath(channel, sub)
 
 			err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
 
@@ -144,6 +142,65 @@ func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscriptio
 		annotations[appv1.AnnotationClusterAdmin] = "true"
 		sub.SetAnnotations(annotations)
 	}
+}
+
+func getResourcePath(chn *chnv1.Channel, sub *appv1.Subscription) string {
+	resourcePath := utils.GetLocalGitFolder(chn, sub)
+
+	annotations := sub.GetAnnotations()
+	if annotations[appv1.AnnotationGithubPath] != "" {
+		resourcePath = filepath.Join(utils.GetLocalGitFolder(chn, sub), annotations[appv1.AnnotationGithubPath])
+	} else if annotations[appv1.AnnotationGitPath] != "" {
+		resourcePath = filepath.Join(utils.GetLocalGitFolder(chn, sub), annotations[appv1.AnnotationGitPath])
+	}
+
+	return resourcePath
+}
+
+func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.IndexFile, error) {
+	chartDirs, a, b, c, d, err := utils.SortResources(localRepoRoot, subPath)
+	if err != nil {
+		return nil, gerr.Wrap(err, "failed to get helm index for topo annotation")
+	}
+
+	//to pass the linter without changing the utils.SortResources() API
+	_ = fmt.Sprint(a, b, c, d)
+
+	// Build a helm repo index file
+	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
+
+	if err != nil {
+		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
+		return nil, gerr.Wrap(err, "failed to get helm index file")
+	}
+
+	return indexFile, nil
+}
+
+func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, chn *chnv1.Channel) string {
+	idxFile, err := getGitChart(sub, utils.GetLocalGitFolder(chn, sub), getResourcePath(chn, sub))
+	if err != nil {
+		klog.Error(err.Error())
+		return ""
+	}
+
+	if len(idxFile.Entries) != 0 {
+		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, sub, idxFile)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		res, err := generateResrouceList(r.Client, r.cfg, rls)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		return res
+	}
+
+	return ""
 }
 
 // updateGitSubDeployablesAnnotation set all deployables subscribed by git subscription to the apps.open-cluster-management.io/deployables annotation
