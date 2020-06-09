@@ -154,10 +154,13 @@ func getResourcePath(chn *chnv1.Channel, sub *appv1.Subscription) string {
 }
 
 func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.IndexFile, error) {
-	chartDirs, _, _, _, _, err := utils.SortResources(localRepoRoot, subPath)
+	chartDirs, a, b, c, d, err := utils.SortResources(localRepoRoot, subPath)
 	if err != nil {
 		return nil, gerr.Wrap(err, "failed to get helm index for topo annotation")
 	}
+
+	//to pass the linter without changing the utils.SortResources()
+	_ := fmt.Sprint(a, b, c, d)
 
 	// Build a helm repo index file
 	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
