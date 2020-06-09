@@ -115,7 +115,7 @@ var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
 const timeout = time.Second * 2
 
-func TestReconcile(t *testing.T) {
+func TestMcMHubReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
