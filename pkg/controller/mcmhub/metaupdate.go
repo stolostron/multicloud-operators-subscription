@@ -67,7 +67,7 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 		return false
 	}
 
-	expectTopo, err := generateResrouceList(hubClt, hubCfg, helmRls)
+	expectTopo, err := generateResrouceList(hubCfg, helmRls)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false
@@ -83,11 +83,12 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 	return false
 }
 
-func generateResrouceList(hubClt client.Client, hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {
+func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {
 	res := make([]string, 0)
+	cfg := rest.CopyConfig(hubCfg)
 
 	for _, helmRl := range helmRls {
-		resList, err := GenerateResourceListByConfig(hubCfg, helmRl)
+		resList, err := GenerateResourceListByConfig(cfg, helmRl)
 		if err != nil {
 			return "", gerr.Wrap(err, "failed to get resource string")
 		}

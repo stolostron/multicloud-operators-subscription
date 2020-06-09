@@ -40,6 +40,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -185,21 +186,21 @@ func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, c
 
 	_ = idxFile
 
-	//	if len(idxFile.Entries) != 0 {
-	//		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, sub, idxFile)
-	//		if err != nil {
-	//			klog.Error(err.Error())
-	//			return ""
-	//		}
-	//
-	//		res, err := generateResrouceList(r.Client, r.cfg, rls)
-	//		if err != nil {
-	//			klog.Error(err.Error())
-	//			return ""
-	//		}
-	//
-	//		return res
-	//	}
+	if len(idxFile.Entries) != 0 {
+		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, sub, idxFile)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		res, err := generateResrouceList(r.cfg, rls)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		return res
+	}
 
 	return ""
 }
