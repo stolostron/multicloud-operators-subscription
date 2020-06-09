@@ -274,5 +274,4 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 	g.Expect(subAnno).ShouldNot(gomega.HaveLen(0))
 
 	g.Expect(subAnno[subv1.AnnotationTopo]).ShouldNot(gomega.HaveLen(0))
-	fmt.Println(subAnno[subv1.AnnotationTopo])
 }
