@@ -314,6 +314,10 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", repoURL)
 	}
 
+	return ChartIndexToHelmReleases(hubClt, chn, sub, indexFile)
+}
+
+func ChartIndexToHelmReleases(hclt client.Client, chn *chnv1.Channel, sub *appv1.Subscription, indexFile *repo.IndexFile) ([]*releasev1.HelmRelease, error) {
 	helms := make([]*releasev1.HelmRelease, 0)
 
 	for pkgName, chartVer := range indexFile.Entries {
@@ -322,7 +326,7 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 			return nil, gerr.Wrapf(err, "failed to generate releaseCRName of helm chart %v for subscription %v", pkgName, sub)
 		}
 
-		helm, err := utils.CreateOrUpdateHelmChart(pkgName, releaseCRName, chartVer, hubClt, chn, sub)
+		helm, err := utils.CreateOrUpdateHelmChart(pkgName, releaseCRName, chartVer, hclt, chn, sub)
 		if err != nil {
 			return nil, gerr.Wrapf(err, "failed to get helm chart of %v for subscription %v", pkgName, sub)
 		}

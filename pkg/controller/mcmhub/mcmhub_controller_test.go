@@ -40,6 +40,10 @@ var (
 	}
 
 	channel = &chnv1alpha1.Channel{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Channel",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      chnkey.Name,
 			Namespace: chnkey.Namespace,
@@ -70,6 +74,10 @@ var (
 	}
 
 	chHelm = &chnv1alpha1.Channel{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Channel",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmKey.Name,
 			Namespace: helmKey.Namespace,
@@ -98,6 +106,10 @@ var (
 	}
 
 	subscription = &appv1alpha1.Subscription{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Subscription",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      subkey.Name,
 			Namespace: subkey.Namespace,
@@ -113,9 +125,9 @@ var (
 
 var expectedRequest = reconcile.Request{NamespacedName: subkey}
 
-const timeout = time.Second * 2
+const timeout = time.Second * 5
 
-func TestReconcile(t *testing.T) {
+func TestMcMHubReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
