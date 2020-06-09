@@ -40,7 +40,6 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -184,21 +183,23 @@ func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, c
 		return ""
 	}
 
-	if len(idxFile.Entries) != 0 {
-		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, sub, idxFile)
-		if err != nil {
-			klog.Error(err.Error())
-			return ""
-		}
+	_ = idxFile
 
-		res, err := generateResrouceList(r.Client, r.cfg, rls)
-		if err != nil {
-			klog.Error(err.Error())
-			return ""
-		}
-
-		return res
-	}
+	//	if len(idxFile.Entries) != 0 {
+	//		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, sub, idxFile)
+	//		if err != nil {
+	//			klog.Error(err.Error())
+	//			return ""
+	//		}
+	//
+	//		res, err := generateResrouceList(r.Client, r.cfg, rls)
+	//		if err != nil {
+	//			klog.Error(err.Error())
+	//			return ""
+	//		}
+	//
+	//		return res
+	//	}
 
 	return ""
 }
@@ -225,6 +226,17 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 
 	subanno[appv1alpha1.AnnotationDeployables] = dplstr
 	subanno[appv1.AnnotationTopo] = dplstr
+
+	chn, err := r.getChannel(sub)
+	if err != nil {
+		klog.Errorf("Failed to find a channel for subscription: %s", sub.GetName())
+		sub.SetAnnotations(subanno)
+
+		return
+	}
+
+	chartRes := r.gitHelmResourceString(sub, chn)
+	subanno[appv1.AnnotationTopo] = fmt.Sprintf("%v,%v", dplstr, chartRes)
 	sub.SetAnnotations(subanno)
 }
 
