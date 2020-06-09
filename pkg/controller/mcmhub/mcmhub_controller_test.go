@@ -152,16 +152,20 @@ func TestMcMHubReconcile(t *testing.T) {
 	chn := channel.DeepCopy()
 	chn.Spec.SecretRef = nil
 	chn.Spec.ConfigMapRef = nil
-	g.Expect(c.Create(context.TODO(), chn)).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), chn)).Should(gomega.Succeed())
 
-	defer c.Delete(context.TODO(), chn)
+	defer func() {
+		g.Expect(c.Delete(context.TODO(), chn)).Should(gomega.Succeed())
+	}()
 
 	// Create the Subscription object and expect the Reconcile and Deployment to be created
-	instance := subscription.DeepCopy()
-	instance.Spec.PackageFilter = nil
-	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+	subIns := subscription.DeepCopy()
+	subIns.Spec.PackageFilter = nil
 
-	defer c.Delete(context.TODO(), instance)
+	g.Expect(c.Create(context.TODO(), subIns)).Should(gomega.Succeed())
+	defer func() {
+		g.Expect(c.Delete(context.TODO(), subIns)).Should(gomega.Succeed())
+	}()
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 }
