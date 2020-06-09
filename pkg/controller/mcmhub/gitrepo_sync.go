@@ -159,8 +159,8 @@ func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.
 		return nil, gerr.Wrap(err, "failed to get helm index for topo annotation")
 	}
 
-	//to pass the linter without changing the utils.SortResources()
-	_ := fmt.Sprint(a, b, c, d)
+	//to pass the linter without changing the utils.SortResources() API
+	_ = fmt.Sprint(a, b, c, d)
 
 	// Build a helm repo index file
 	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
