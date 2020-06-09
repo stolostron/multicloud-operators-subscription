@@ -274,7 +274,9 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 	kubeClient := kube.New(rcg)
 
 	actionConfig := &action.Configuration{}
-	actionConfig.Init(rcg, s.GetNamespace(), "secret", func(_ string, _ ...interface{}) {})
+	if err := actionConfig.Init(rcg, s.GetNamespace(), "secret", func(_ string, _ ...interface{}) {}); err != nil {
+		return nil, fmt.Errorf("failed to initialized actionConfig: %w", err)
+	}
 
 	install := action.NewInstall(actionConfig)
 	install.ReleaseName = s.Name
