@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
@@ -526,6 +527,10 @@ webhooks:
 	err = c.Create(context.TODO(), theWebhook)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
+	defer c.Delete(context.TODO(), theWebhook)
+
+	time.Sleep(1 * time.Second)
+
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -544,9 +549,6 @@ metadata:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
-
-	err = c.Delete(context.TODO(), theWebhook)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func TestIsClusterAdminRemote(t *testing.T) {
@@ -570,8 +572,14 @@ func TestIsClusterAdminRemote(t *testing.T) {
 	err = c.Create(context.TODO(), clusterRole)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
+	defer c.Delete(context.TODO(), clusterRole)
+
 	err = c.Create(context.TODO(), clusterRoleBinding)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), clusterRoleBinding)
+
+	time.Sleep(1 * time.Second)
 
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -595,6 +603,8 @@ webhooks:
 
 	err = c.Create(context.TODO(), theWebhook)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), theWebhook)
 
 	// user group: subscription-admin,test-group
 	// user identity: bob
@@ -664,15 +674,6 @@ metadata:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
-
-	err = c.Delete(context.TODO(), clusterRole)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Delete(context.TODO(), clusterRoleBinding)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Delete(context.TODO(), theWebhook)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func subAdminClusterRole() *rbacv1.ClusterRole {
