@@ -260,6 +260,7 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	sub.SetAnnotations(subanno)
 
 	klog.V(3).Infof("topo string: %v", tpStr)
+
 	return nil
 }
 
