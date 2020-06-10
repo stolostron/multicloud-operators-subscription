@@ -28,6 +28,8 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
 
@@ -38,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	dplUtils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
@@ -162,7 +163,7 @@ func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (s
 	res := []string{}
 
 	for _, dpl := range allDpls {
-		tpl, err := dplUtils.GetUnstructuredTemplateFromDeployable(dpl)
+		tpl, err := GetDeployableTemplateAsUnstructrure(dpl)
 		if err != nil {
 			return "", gerr.Wrap(err, "deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
 		}
@@ -326,4 +327,23 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 	}
 
 	return nil, fmt.Errorf("fail to start a manager to generate the resource list")
+}
+
+func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.Unstructured, error) {
+	if dpl == nil || dpl.Spec.Template == nil {
+		return nil, gerr.New("nil deployable skip conversion")
+	}
+
+	out := &unstructured.Unstructured{}
+
+	b, err := dpl.Spec.Template.MarshalJSON()
+	if err != nil {
+		return nil, gerr.Wrap(err, "failed to convert template object to raw")
+	}
+
+	if err := json.Unmarshal(b, out); err != nil {
+		return nil, gerr.Wrap(err, "failed to convert template raw to unstructured")
+	}
+
+	return out, nil
 }

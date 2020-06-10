@@ -25,6 +25,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -248,6 +249,11 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 		g.Expect(c.Delete(ctx, dplDeploy)).Should(gomega.Succeed())
 	}()
 
+	cfgMapDpl := tpCfgMap.DeepCopy()
+	// somehow the kind will get lost which fails the unstructured conversion
+	gvk := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+	cfgMapDpl.SetGroupVersionKind(gvk)
+	dplCm.Spec.Template.Object = cfgMapDpl
 	g.Expect(c.Create(ctx, dplCm)).Should(gomega.Succeed())
 
 	defer func() {
@@ -274,4 +280,112 @@ func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 	g.Expect(subAnno).ShouldNot(gomega.HaveLen(0))
 
 	g.Expect(subAnno[subv1.AnnotationTopo]).ShouldNot(gomega.HaveLen(0))
+}
+
+func TestDeployableTemplateConversion(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	tpChnKey := types.NamespacedName{
+		Name:      "test-chn",
+		Namespace: "tp-chn-namespace",
+	}
+
+	cfgMapKey := types.NamespacedName{
+		Name:      "skip-cert-verify",
+		Namespace: tpChnKey.Namespace,
+	}
+
+	tpCfgMap := &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cfgMapKey.Name,
+			Namespace: cfgMapKey.Namespace,
+		},
+		Data: map[string]string{
+			"insecureSkipVerify": "true",
+		},
+	}
+	dplCm := &dplv1.Deployable{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Deployable",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpl-cm",
+			Namespace: tpChnKey.Namespace,
+		},
+		Spec: dplv1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: tpCfgMap,
+			},
+		},
+	}
+
+	selector := map[string]string{"a": "b"}
+
+	tDeploy := &apps.Deployment{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Deployment",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpl-deployment",
+			Namespace: tpChnKey.Namespace,
+		},
+		Spec: apps.DeploymentSpec{
+			Replicas: func() *int32 { i := int32(1); return &i }(),
+			Selector: &metav1.LabelSelector{MatchLabels: selector},
+			Template: v1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: selector,
+				},
+				Spec: v1.PodSpec{
+					Containers: []v1.Container{
+						{
+							Image: "foo/bar",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	dplDeploy := &dplv1.Deployable{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Deployable",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpl-deploy",
+			Namespace: tpChnKey.Namespace,
+		},
+		Spec: dplv1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: tDeploy,
+			},
+		},
+	}
+
+	var tests = []struct {
+		name     string
+		given    *dplv1.Deployable
+		expected string
+	}{
+		{"template as configmap", dplCm, "ConfigMap"},
+		{"template as deployment", dplDeploy, "Deployment"},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := GetDeployableTemplateAsUnstructrure(tt.given)
+			g.Expect(err).Should(gomega.Succeed())
+
+			if actual.GetKind() != tt.expected {
+				t.Errorf("(%s): expected %s, actual %s", ObjectString(tt.given), tt.expected, actual.GetKind())
+			}
+		})
+	}
 }
