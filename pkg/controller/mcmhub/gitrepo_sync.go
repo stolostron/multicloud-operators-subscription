@@ -252,7 +252,11 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	}
 
 	chartRes := r.gitHelmResourceString(sub, chn)
-	tpStr := fmt.Sprintf("%v,%v", dplStr, chartRes)
+	tpStr := dplStr
+
+	if len(chartRes) != 0 {
+		tpStr = fmt.Sprintf("%v,%v", tpStr, chartRes)
+	}
 
 	klog.V(3).Infof("dplStr string: %v\n chartStr %v", tpStr, chartRes)
 
