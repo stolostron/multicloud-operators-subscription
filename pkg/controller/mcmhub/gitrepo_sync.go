@@ -38,8 +38,9 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -122,7 +123,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			updated = true
 		}
 
-		if annotations[appv1alpha1.AnnotationDeployables] == "" {
+		if annotations[appv1.AnnotationDeployables] == "" {
 			// this might have failed previously. Try again.
 			r.updateGitSubDeployablesAnnotation(sub)
 
@@ -225,20 +226,41 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 		subanno = make(map[string]string)
 	}
 
-	subanno[appv1alpha1.AnnotationDeployables] = dplstr
-	subanno[appv1.AnnotationTopo] = dplstr
+	subanno[appv1.AnnotationDeployables] = dplstr
+
+	if err := r.updateAnnotationTopo(sub, allDpls); err != nil {
+		klog.Errorf("failed to update topo annotation for git sub %v, err: %v", sub.Name, err)
+	}
+
+	sub.SetAnnotations(subanno)
+}
+
+func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, allDpls map[string]*dplv1alpha1.Deployable) error {
+	dplStr, err := updateResourceListViaDeployableMap(allDpls)
+	if err != nil {
+		return gerr.Wrap(err, "failed to parse deployable template")
+	}
 
 	chn, err := r.getChannel(sub)
 	if err != nil {
-		klog.Errorf("Failed to find a channel for subscription: %s", sub.GetName())
-		sub.SetAnnotations(subanno)
+		return gerr.Wrap(err, "fail to get channel info")
+	}
 
-		return
+	subanno := sub.GetAnnotations()
+	if subanno == nil {
+		subanno = make(map[string]string)
 	}
 
 	chartRes := r.gitHelmResourceString(sub, chn)
-	subanno[appv1.AnnotationTopo] = fmt.Sprintf("%v,%v", dplstr, chartRes)
+	tpStr := fmt.Sprintf("%v,%v", dplStr, chartRes)
+
+	klog.V(3).Infof("dplStr string: %v\n chartStr %v", tpStr, chartRes)
+
+	subanno[appv1.AnnotationTopo] = tpStr
 	sub.SetAnnotations(subanno)
+
+	klog.V(3).Infof("topo string: %v", tpStr)
+	return nil
 }
 
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) error {
