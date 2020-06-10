@@ -74,6 +74,7 @@ type SubscriberItem struct {
 	synchronizer          SyncSource
 	chartDirs             map[string]string
 	kustomizeDirs         map[string]string
+	resources             []kubesynchronizer.DplUnit
 	indexFile             *repo.IndexFile
 	webhookEnabled        bool
 	successful            bool
@@ -140,6 +141,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	if commitID != ghsi.commitID || !ghsi.successful {
 		klog.V(2).Info("The commit ID is different or subscription failed previously. Process the cloned repo")
 
+		ghsi.resources = []kubesynchronizer.DplUnit{}
+
 		err := ghsi.sortClonedGitRepo()
 		if err != nil {
 			klog.Error(err, "Unable to sort helm charts and kubernetes resources from the cloned git repo.")
@@ -202,8 +205,18 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			ghsi.successful = false
 		}
 
+		if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
+			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), "", err, nil)
+			ghsi.successful = false
+
+			if err != nil {
+				klog.V(4).Info("error in setting in cluster package status :", err)
+			}
+		}
+
 		ghsi.commitID = commitID
 
+		ghsi.resources = nil
 		ghsi.chartDirs = nil
 		ghsi.kustomizeDirs = nil
 		ghsi.crdsAndNamespaceFiles = nil
@@ -362,7 +375,9 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	klog.V(4).Info("Ready to register template:", hostkey, dpltosync, syncsource)
 
-	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}}); err != nil {
+	ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk})
+
+	/*if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpltosync, Gvk: *validgvk}}); err != nil {
 		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpltosync.GetName(), err, nil)
 		ghsi.successful = false
 
@@ -380,7 +395,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(hostkey types.NamespacedName,
 
 	pkgMap[dplkey.Name] = true
 	//this is for the adaption of the new synchronizer API
-	klog.V(10).Infof("ignore this kvalid %v, only exist for adopting synchronizer API", kvalid)
+	klog.V(10).Infof("ignore this kvalid %v, only exist for adopting synchronizer API", kvalid)*/
 
 	return nil
 }
@@ -533,7 +548,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 
 func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
-	syncsource := githubhelmsyncsource + hostkey.String()
+	//syncsource := githubhelmsyncsource + hostkey.String()
 	pkgMap := make(map[string]bool)
 
 	for packageName, chartVersions := range indexFile.Entries {
@@ -547,7 +562,9 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			return err
 		}
 
-		err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: helmGvk}})
+		ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpl, Gvk: helmGvk})
+
+		/*err = ghsi.synchronizer.AddTemplates(syncsource, hostkey, []kubesynchronizer.DplUnit{{Dpl: dpl, Gvk: helmGvk}})
 		if err != nil {
 			ghsi.successful = false
 
@@ -568,7 +585,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 			Namespace: dpl.Namespace,
 		}
 
-		pkgMap[dplkey.Name] = true
+		pkgMap[dplkey.Name] = true*/
 	}
 
 	if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap) != nil {
