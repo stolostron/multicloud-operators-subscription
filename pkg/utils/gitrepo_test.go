@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
@@ -528,6 +529,8 @@ webhooks:
 
 	defer c.Delete(context.TODO(), theWebhook)
 
+	time.Sleep(1 * time.Second)
+
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -575,6 +578,8 @@ func TestIsClusterAdminRemote(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	defer c.Delete(context.TODO(), clusterRoleBinding)
+
+	time.Sleep(1 * time.Second)
 
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
