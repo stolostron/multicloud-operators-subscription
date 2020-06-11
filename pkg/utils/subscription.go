@@ -193,10 +193,23 @@ func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname stri
 	return nil
 }
 
+// DeleteInClusterPackageStatus deletes a package status
+func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) {
+	if substatus.Statuses != nil {
+		clst := substatus.Statuses["/"]
+		if clst != nil && clst.SubscriptionPackageStatus != nil {
+			klog.V(3).Info("Deleting " + pkgname + " from the package status.")
+			delete(clst.SubscriptionPackageStatus, pkgname)
+		}
+	}
+
+	substatus.LastUpdateTime = metav1.Now()
+}
+
 // UpdateSubscriptionStatus based on error message, and propagate resource status
 // - nil:  success
 // - others: failed, with error message in reason
-func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}) error {
+func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}, deletePkg bool) error {
 	klog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
 
 	if tplunit == nil {
@@ -228,10 +241,14 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		return err
 	}
 
-	err = SetInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
-	if err != nil {
-		klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
-		return err
+	if deletePkg {
+		DeleteInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+	} else {
+		err = SetInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+		if err != nil {
+			klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
+			return err
+		}
 	}
 
 	err = statusClient.Status().Update(context.TODO(), sub)
