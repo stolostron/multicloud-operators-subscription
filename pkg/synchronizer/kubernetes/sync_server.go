@@ -236,7 +236,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	//adding update,new resource to cache and create them at cluster
 	for _, dplUn := range order.dpls {
-		klog.Info("ROKEROKE resource: " + dplUn.Dpl.Name)
 		err = sync.RegisterTemplate(order.hostSub, dplUn.Dpl, order.subType)
 		if err == nil {
 			dplKey := types.NamespacedName{Name: dplUn.Dpl.GetName(), Namespace: dplUn.Dpl.GetNamespace()}
