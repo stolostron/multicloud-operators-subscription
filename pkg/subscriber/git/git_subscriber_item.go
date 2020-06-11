@@ -205,8 +205,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			ghsi.successful = false
 		}
 
+		klog.Info("ROKEROKE sending %v resources", len(ghsi.resources))
+
 		if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
-			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), "", err, nil)
+			//err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), "", err, nil)
 			ghsi.successful = false
 
 			if err != nil {
@@ -547,9 +549,9 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 }
 
 func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
-	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
+	//hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 	//syncsource := githubhelmsyncsource + hostkey.String()
-	pkgMap := make(map[string]bool)
+	//pkgMap := make(map[string]bool)
 
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
@@ -588,14 +590,14 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		pkgMap[dplkey.Name] = true*/
 	}
 
-	if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap) != nil {
+	/*if utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap) != nil {
 		err = ghsi.synchronizer.GetLocalClient().Get(context.TODO(), hostkey, ghsi.Subscription)
 		if err != nil {
 			klog.Error("Failed to get subscription resource with error:", err)
 		}
 
 		err = utils.ValidatePackagesInSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription, pkgMap)
-	}
+	}*/
 
 	return err
 }

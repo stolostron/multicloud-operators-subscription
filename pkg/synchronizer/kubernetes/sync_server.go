@@ -236,18 +236,15 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	//adding update,new resource to cache and create them at cluster
 	for _, dplUn := range order.dpls {
+		klog.Info("ROKEROKE resource: " + dplUn.Dpl.Name)
 		err = sync.RegisterTemplate(order.hostSub, dplUn.Dpl, order.subType)
 		if err == nil {
 			dplKey := types.NamespacedName{Name: dplUn.Dpl.GetName(), Namespace: dplUn.Dpl.GetNamespace()}
 			rKey := sync.generateResourceMapKey(order.hostSub, dplKey)
-			klog.Info("keySet[rKey] = true : " + rKey)
 			keySet[rKey] = true
 
 			if _, ok := resSet[rKey][dplUn.Gvk]; !ok {
 				resSet[rKey] = map[schema.GroupVersionKind]bool{dplUn.Gvk: true}
-				klog.Info("NOT OK 1")
-				klog.Info("rKey = " + rKey)
-				klog.Infof("schema.GroupVersionKind = %s", dplUn.Gvk)
 			}
 
 			if dplUn.Gvk.Kind == crdKind {
@@ -259,22 +256,15 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	// handle orphan resource
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
-
-			klog.Info("reskey = " + reskey)
-			klog.Info("resgvk = " + resgvk.String())
-
 			//if resource's key don't belong to the current key set, then do
 			//nothing
 			if _, ok := keySet[reskey]; ok {
-				klog.Info("OK 2")
-				klog.Info("reskey = " + reskey)
 				continue
 			}
 
 			//if the resource map have a key belong to this resource order, then
 			//check if the order required the resgvk, if not, delete the resgvk
 			if _, ok := resSet[reskey][resgvk]; !ok {
-				klog.Info("NOT OK 3")
 				// will ignore non-syncsource templates
 				tplhost := sync.Extension.GetHostFromObject(tplunit)
 				tpldpl := utils.GetHostDeployableFromObject(tplunit)
