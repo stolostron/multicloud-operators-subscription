@@ -344,6 +344,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(file []byte) {
 
 	if dpltosync == nil || validgvk == nil {
 		klog.Info("Skipping resource")
+		return
 	}
 
 	ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk})
