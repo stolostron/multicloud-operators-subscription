@@ -38,7 +38,7 @@ type SubscriptionExtension struct {
 
 // Extension defines the extension features of synchronizer
 type Extension interface {
-	UpdateHostStatus(error, *unstructured.Unstructured, interface{}) error
+	UpdateHostStatus(error, *unstructured.Unstructured, interface{}, bool) error
 	GetHostFromObject(metav1.Object) *types.NamespacedName
 	SetSynchronizerToObject(metav1.Object, *types.NamespacedName) error
 	SetHostToObject(metav1.Object, types.NamespacedName, *types.NamespacedName) error
@@ -56,13 +56,13 @@ var (
 )
 
 // UpdateHostSubscriptionStatus defines update host status function for deployable
-func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unstructured.Unstructured, status interface{}) error {
+func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unstructured.Unstructured, status interface{}, deletePkg bool) error {
 	host := se.GetHostFromObject(tplunit)
 	if host == nil || host.String() == "/" {
 		return utils.UpdateDeployableStatus(se.remoteClient, actionerr, tplunit, status)
 	}
 
-	return utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status)
+	return utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status, deletePkg)
 }
 
 // GetHostFromObject defines update host status function for deployable

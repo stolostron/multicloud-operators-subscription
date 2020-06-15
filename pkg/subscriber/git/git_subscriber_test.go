@@ -215,10 +215,8 @@ var _ = Describe("test subscribe invalid resource", func() {
 		subitem.Channel = githubchn
 		subitem.synchronizer = defaultSubscriber.synchronizer
 
-		pkgMap := make(map[string]bool)
-
 		// Test subscribing an invalid kubernetes resource
-		_, _, err := subitem.subscribeResource([]byte(invalidRsc), pkgMap)
+		_, _, err := subitem.subscribeResource([]byte(invalidRsc))
 		Expect(err).To(HaveOccurred())
 
 	})
