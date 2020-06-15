@@ -45,6 +45,10 @@ var (
 	}
 
 	githubsub = &appv1.Subscription{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Subscription",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
