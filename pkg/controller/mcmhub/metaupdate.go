@@ -299,7 +299,11 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 	return resources, nil
 }
 
-//GenerateResourceListByConfig generates the resource list for given HelmRelease
+//GenerateResourceListByConfig this func and it's child funcs(downloadChart,
+//generateResourceList) is a clone of from the helmrelease. Having this clone
+//give us the flexiblity to modify the function parameters,which helped to pass
+//test case.
+//generates the resource list for given HelmRelease
 func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: "0",
