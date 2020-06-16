@@ -78,38 +78,45 @@ var (
 var crdKind = "CustomResourceDefinition"
 
 func (sync *KubeSynchronizer) stopCaching() {
+	sync.dmtx.Lock()
 	if sync.stopCh != nil {
 		close(sync.stopCh)
 		sync.dynamicFactory = nil
 	}
+	sync.dmtx.Unlock()
 }
 
 func (sync *KubeSynchronizer) rediscoverResource() {
+	sync.rmtx.Lock()
 	if sync.resetcache {
-		if sync.stopCh != nil {
-			close(sync.stopCh)
-			sync.dynamicFactory = nil
-		}
+		sync.stopCaching()
 	}
+	sync.rmtx.Unlock()
 
 	sync.discoverResourcesOnce()
 
+	sync.rmtx.Lock()
 	if sync.resetcache {
+		sync.dmtx.Lock()
 		sync.stopCh = make(chan struct{})
 		sync.dynamicFactory.Start(sync.stopCh)
+		sync.dmtx.Unlock()
 		klog.Info("Synchronizer cache (re)started")
 	}
 
 	sync.resetcache = false
+	sync.rmtx.Unlock()
 }
 
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.V(1).Info("Discovering cluster resources")
 	defer klog.V(1).Info("Discovered cluster resources, done")
 
+	sync.dmtx.Lock()
 	if sync.dynamicFactory == nil {
 		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
 	}
+	sync.dmtx.Unlock()
 
 	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
 	if err != nil {
@@ -129,11 +136,13 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 
 	klog.V(5).Info("valid resources remain:", valid)
 
+	sync.kmtx.Lock()
 	for k := range sync.KubeResources {
 		if _, ok := valid[k]; !ok {
 			delete(sync.KubeResources, k)
 		}
 	}
+	sync.kmtx.Unlock()
 }
 
 func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList, valid map[schema.GroupVersionKind]bool) {
@@ -160,7 +169,9 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			continue
 		}
 
+		sync.kmtx.Lock()
 		resmap, ok := sync.KubeResources[gvk]
+		sync.kmtx.Unlock()
 		valid[gvk] = true
 
 		if !ok {
@@ -181,8 +192,12 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 
 			resmap.GroupVersionResource = gvr
 			resmap.Namespaced = res.Namespaced
-			sync.KubeResources[gvk] = resmap
 
+			sync.kmtx.Lock()
+			sync.KubeResources[gvk] = resmap
+			sync.kmtx.Unlock()
+
+			//telling cache that when action happens, call the handlerFuncs
 			sync.dynamicFactory.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc: func(new interface{}) {
 					obj := new.(*unstructured.Unstructured)
@@ -199,7 +214,9 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind {
+						sync.rmtx.Lock()
 						sync.resetcache = true
+						sync.rmtx.Unlock()
 					}
 
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
@@ -232,6 +249,9 @@ func kubeResourceAddVersionToGK(kubeResource map[schema.GroupVersionKind]*Resour
 }
 
 func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
+
 	if resmap, ok := sync.KubeResources[gvk]; ok {
 		resmap.ServerUpdated = true
 	}

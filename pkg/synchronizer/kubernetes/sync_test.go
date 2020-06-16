@@ -21,6 +21,7 @@ import (
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -332,16 +333,38 @@ var _ = Describe("test CRD discovery", func() {
 		Expect(k8sClient.Create(context.TODO(), crdinstance)).NotTo(HaveOccurred())
 		Expect(k8sClient.Get(context.TODO(), tCrdkey, crdinstance)).NotTo(HaveOccurred())
 
-		time.Sleep(time.Duration(waitInterval) * time.Second)
+		f := func(s *KubeSynchronizer) error {
+			time.Sleep(time.Duration(waitInterval) * time.Second)
 
-		Expect(sync.KubeResources[foocrdgvk]).ShouldNot(BeNil())
+			s.kmtx.Lock()
+			if s.KubeResources[foocrdgvk] == nil {
+				return gerr.New("expecting a nil")
+			}
+			s.kmtx.Unlock()
 
-		k8sClient.Delete(context.TODO(), crdinstance)
+			if err := k8sClient.Delete(context.TODO(), crdinstance); err != nil {
+				return err
+			}
 
-		time.Sleep(time.Duration(waitInterval) * time.Second)
-		Expect(errors.IsNotFound(k8sClient.Get(context.TODO(), tCrdkey, crdinstance))).Should(BeTrue())
+			time.Sleep(time.Duration(waitInterval) * time.Second)
 
-		Eventually(sync.KubeResources[foocrdgvk], waitInterval).Should(BeNil())
+			if err := k8sClient.Get(context.TODO(), tCrdkey, crdinstance); err != nil {
+				if !errors.IsNotFound(err) {
+					return err
+				}
+			}
+
+			time.Sleep(time.Duration(waitInterval) * time.Second)
+			s.kmtx.Lock()
+			if s.KubeResources[foocrdgvk] != nil {
+				return gerr.New("expecting a nil")
+			}
+			s.kmtx.Unlock()
+
+			return nil
+		}
+
+		Expect(f(sync)).Should(BeNil())
 	})
 
 	It("should be able to deploy CRD via subscription", func() {
@@ -382,7 +405,9 @@ var _ = Describe("test CRD discovery", func() {
 		}
 
 		//just checking we don't have foo CRD on the test cluster
+		sync.kmtx.Lock()
 		_, ok := sync.KubeResources[foocrdgvk]
+		sync.kmtx.Unlock()
 		Expect(ok).Should(BeFalse())
 
 		//apply CRD foo via subscription
@@ -390,11 +415,15 @@ var _ = Describe("test CRD discovery", func() {
 
 		time.Sleep(time.Duration(waitInterval) * time.Second)
 
+		sync.kmtx.Lock()
 		_, ok = sync.KubeResources[foocrdgvk]
+		sync.kmtx.Unlock()
 		Expect(ok).Should(BeTrue())
 
 		crdgvk.Version = "v1"
 		By("current foo CRD templates", func() {
+			sync.kmtx.Lock()
+			defer sync.kmtx.Unlock()
 			printOut(sync.KubeResources, crdgvk, foocrdgvk)
 		})
 
@@ -402,10 +431,14 @@ var _ = Describe("test CRD discovery", func() {
 		Expect(k8sClient.Get(context.TODO(), tCrdkey, result)).Should(Succeed())
 		defer Expect(k8sClient.Delete(context.TODO(), result)).Should(Succeed())
 
-		_, ok = sync.KubeResources[crdgvk]
+		sync.kmtx.Lock()
+		_, ok = sync.KubeResources[foocrdgvk]
+		sync.kmtx.Unlock()
 		Expect(ok).Should(BeTrue())
 
 		By("current CRD templates", func() {
+			sync.kmtx.Lock()
+			defer sync.kmtx.Unlock()
 			printOut(sync.KubeResources, crdgvk, foocrdgvk)
 		})
 
@@ -452,10 +485,12 @@ var _ = Describe("harvest existing", func() {
 		reskey := sync.generateResourceMapKey(*hostnn, *dplnn)
 
 		// object should be havested back before source is found
+		sync.kmtx.Lock()
 		resmap := sync.KubeResources[resgvk]
 		Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(HaveOccurred())
 
 		tplunit, ok := resmap.TemplateMap[reskey]
+		sync.kmtx.Unlock()
 		Expect(ok).Should(BeTrue())
 		Expect(tplunit.Source).Should(Equal(source))
 

@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"sync"
 	"time"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -53,19 +54,24 @@ type ResourceMap struct {
 
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {
-	Interval       int
-	LocalClient    client.Client
-	RemoteClient   client.Client
-	localConfig    *rest.Config
-	DynamicClient  dynamic.Interface
+	Interval      int
+	LocalClient   client.Client
+	RemoteClient  client.Client
+	localConfig   *rest.Config
+	DynamicClient dynamic.Interface
+
+	kmtx           sync.Mutex // lock the kubeResource
 	KubeResources  map[schema.GroupVersionKind]*ResourceMap
 	SynchronizerID *types.NamespacedName
 	Extension      Extension
 	eventrecorder  *utils.EventRecorder
-
 	tplCh          chan resourceOrder
 	stopCh         chan struct{}
-	resetcache     bool
+
+	rmtx       sync.Mutex //this lock protect the resetcache flag
+	resetcache bool
+
+	dmtx           sync.Mutex //this lock protect the dynamicFactory
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -112,9 +118,12 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		SynchronizerID: syncid,
 		DynamicClient:  dynamicClient,
 		localConfig:    config,
+		kmtx:           sync.Mutex{},
 		KubeResources:  make(map[schema.GroupVersionKind]*ResourceMap),
 		Extension:      ext,
 		tplCh:          make(chan resourceOrder, syncWorkNum),
+		rmtx:           sync.Mutex{},
+		dmtx:           sync.Mutex{},
 	}
 
 	s.LocalClient, err = client.New(config, client.Options{})
@@ -163,8 +172,6 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 
 	go sync.processTplChan(s)
 
-	<-s
-
 	return nil
 }
 
@@ -202,6 +209,9 @@ func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
 
 func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub types.NamespacedName) error {
 	var err error
+
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 
 	for _, resmap := range sync.KubeResources {
 		for _, tplunit := range resmap.TemplateMap {
@@ -253,6 +263,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	}
 
 	// handle orphan resource
+	sync.kmtx.Lock()
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
@@ -280,6 +291,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 		sync.applyKindTemplates(resmap)
 	}
+	sync.kmtx.Unlock()
 
 	if crdFlag {
 		sync.rediscoverResource()
