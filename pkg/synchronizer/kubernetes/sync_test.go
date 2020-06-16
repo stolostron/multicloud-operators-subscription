@@ -323,9 +323,9 @@ var _ = Describe("test CRD discovery", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, interval, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		defer sync.stopCaching()
-
-		go sync.Start(sync.stopCh)
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(sch)
 
 		Expect(sync.KubeResources[foocrdgvk]).Should(BeNil())
 
@@ -374,8 +374,10 @@ var _ = Describe("test CRD discovery", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, interval, nil)
 		Expect(err).NotTo(HaveOccurred())
 
-		defer sync.stopCaching()
-		go sync.Start(sync.stopCh)
+		sch := make(chan struct{})
+		defer close(sch)
+
+		go sync.Start(sch)
 
 		sub := subinstance.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), sub)).Should(Succeed())

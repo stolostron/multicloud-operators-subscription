@@ -66,12 +66,9 @@ type KubeSynchronizer struct {
 	Extension      Extension
 	eventrecorder  *utils.EventRecorder
 	tplCh          chan resourceOrder
+
+	dmtx           sync.Mutex //this lock protect the dynamicFactory and stopCh
 	stopCh         chan struct{}
-
-	rmtx       sync.Mutex //this lock protect the resetcache flag
-	resetcache bool
-
-	dmtx           sync.Mutex //this lock protect the dynamicFactory
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
 }
 
@@ -122,8 +119,8 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		KubeResources:  make(map[schema.GroupVersionKind]*ResourceMap),
 		Extension:      ext,
 		tplCh:          make(chan resourceOrder, syncWorkNum),
-		rmtx:           sync.Mutex{},
 		dmtx:           sync.Mutex{},
+		stopCh:         make(chan struct{}),
 	}
 
 	s.LocalClient, err = client.New(config, client.Options{})
@@ -157,13 +154,12 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		return nil, err
 	}
 
-	s.resetcache = true
 	s.discoverResourcesOnce()
 
 	return s, nil
 }
 
-// Start the discovery and start caches
+// Start the discovery and start caches, this will be triggered by the manager
 func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	klog.Info("start synchronizer")
 	defer klog.Info("stop synchronizer")
@@ -197,7 +193,7 @@ func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
 			klog.Infof("order processor: done order %v, took: %v", order.hostSub.String(), time.Since(st))
 		case <-crdTicker.C: //discovery CRD resource applied by user
 			sync.rediscoverResource()
-		case <-stopCh:
+		case <-stopCh: //this channel is from controller manager
 			close(sync.tplCh)
 
 			crdTicker.Stop()

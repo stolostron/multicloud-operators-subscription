@@ -77,35 +77,25 @@ var (
 
 var crdKind = "CustomResourceDefinition"
 
-func (sync *KubeSynchronizer) stopCaching() {
+func (sync *KubeSynchronizer) stopDynamicClientCaching() {
 	sync.dmtx.Lock()
-	if sync.stopCh != nil {
-		close(sync.stopCh)
-		sync.dynamicFactory = nil
-	}
+	close(sync.stopCh)
+	sync.dynamicFactory = nil
 	sync.dmtx.Unlock()
 }
 
+func (sync *KubeSynchronizer) startDynamicClientCache() {
+	sync.dmtx.Lock()
+	sync.stopCh = make(chan struct{})
+	sync.dynamicFactory.Start(sync.stopCh)
+	sync.dmtx.Unlock()
+	klog.Info("Synchronizer cache (re)started")
+}
+
 func (sync *KubeSynchronizer) rediscoverResource() {
-	sync.rmtx.Lock()
-	if sync.resetcache {
-		sync.stopCaching()
-	}
-	sync.rmtx.Unlock()
-
+	sync.stopDynamicClientCaching()
 	sync.discoverResourcesOnce()
-
-	sync.rmtx.Lock()
-	if sync.resetcache {
-		sync.dmtx.Lock()
-		sync.stopCh = make(chan struct{})
-		sync.dynamicFactory.Start(sync.stopCh)
-		sync.dmtx.Unlock()
-		klog.Info("Synchronizer cache (re)started")
-	}
-
-	sync.resetcache = false
-	sync.rmtx.Unlock()
+	sync.startDynamicClientCache()
 }
 
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
@@ -214,9 +204,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 				DeleteFunc: func(old interface{}) {
 					obj := old.(*unstructured.Unstructured)
 					if obj.GetKind() == crdKind {
-						sync.rmtx.Lock()
-						sync.resetcache = true
-						sync.rmtx.Unlock()
+						sync.rediscoverResource()
 					}
 
 					if obj.GetKind() == crdKind || sync.Extension.IsObjectOwnedBySynchronizer(obj, sync.SynchronizerID) {
