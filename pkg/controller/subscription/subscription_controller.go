@@ -303,11 +303,11 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 
 		errLocal := r.Client.Get(context.TODO(), subcfgkeyL, subitem.SubscriptionConfigMap)
-		errRemote := r.hubclient.Get(context.TODO(), subcfgkeyL, subitem.SubscriptionConfigMap)
+		errRemote := r.hubclient.Get(context.TODO(), subcfgkeyR, subitem.SubscriptionConfigMap)
 
 		if errRemote != nil && errLocal != nil {
 			return gerr.Wrapf(errRemote, "failed to get reference configMap at local %v or hub %v of subsciption %v from hub",
-				subcfgkeyL.String(), subcfgkeyL.String(), instance.GetName())
+				subcfgkeyL.String(), subcfgkeyR.String(), instance.GetName())
 		}
 	}
 
