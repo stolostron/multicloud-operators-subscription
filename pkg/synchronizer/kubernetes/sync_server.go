@@ -264,7 +264,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
 			//nothing
-			if _, ok := keySet[reskey]; !ok {
+			if _, ok := keySet[reskey]; ok {
 				continue
 			}
 

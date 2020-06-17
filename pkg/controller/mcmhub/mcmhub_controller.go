@@ -124,7 +124,8 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 
 	rec := &ReconcileSubscription{
-		Client:        mgr.GetClient(),
+		Client: mgr.GetClient(),
+		// used for the helm to run get the resource list
 		cfg:           mgr.GetConfig(),
 		scheme:        mgr.GetScheme(),
 		eventRecorder: erecorder,
