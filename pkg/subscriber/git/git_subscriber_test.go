@@ -139,10 +139,6 @@ var (
 			Channel: bitbucketsharedkey.String(),
 		},
 	}
-	bitbucketsubitem = &appv1alpha1.SubscriberItem{
-		Subscription: bitbucketsub,
-		Channel:      bitbucketchn,
-	}
 )
 
 var _ = Describe("github subscriber reconcile logic", func() {
