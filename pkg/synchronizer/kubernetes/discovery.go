@@ -162,6 +162,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 		sync.kmtx.Lock()
 		resmap, ok := sync.KubeResources[gvk]
 		sync.kmtx.Unlock()
+
 		valid[gvk] = true
 
 		if !ok {
