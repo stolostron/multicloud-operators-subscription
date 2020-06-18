@@ -76,7 +76,7 @@ func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, re
 		if !ok {
 			// Harvest from system
 			if obj.GetDeletionTimestamp() == nil {
-				klog.Infof("Havesting tplunit from cluster host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
+				klog.V(3).Infof("Havesting tplunit from cluster host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
 
 				unit := &TemplateUnit{
 					ResourceUpdated: false,
@@ -551,11 +551,6 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	klog.V(4).Info("overrode template: ", template)
 	// skip no-op to template
-
-	//if existingTemplateUnit != nil && reflect.DeepEqual(existingTemplateUnit.Unstructured, template) {
-	//	klog.V(2).Info("Skipping.. template in registry is the same ", existingTemplateUnit)
-	//	return nil
-	//}
 
 	templateUnit := &TemplateUnit{
 		ResourceUpdated: false,
