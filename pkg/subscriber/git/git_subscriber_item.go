@@ -136,6 +136,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
+	klog.Info("Git commit: ", commitID)
+
 	ghsi.resources = []kubesynchronizer.DplUnit{}
 
 	err = ghsi.sortClonedGitRepo()
