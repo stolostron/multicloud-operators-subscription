@@ -133,6 +133,7 @@ type ReconcileSubscription struct {
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.Info("Standalone/Endpoint Reconciling subscription: ", request.NamespacedName)
+	defer klog.Info("Exit Reconciling subscription: ", request.NamespacedName)
 
 	instance := &appv1.Subscription{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
@@ -290,16 +291,23 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 	if instance.Spec.PackageFilter != nil && instance.Spec.PackageFilter.FilterRef != nil {
 		subitem.SubscriptionConfigMap = &corev1.ConfigMap{}
-		subcfgkey := types.NamespacedName{
+		subcfgkeyL := types.NamespacedName{
 			Name:      instance.Spec.PackageFilter.FilterRef.Name,
-			Namespace: instance.Namespace,
+			Namespace: instance.GetNamespace(),
 		}
 
-		errLocal := r.Client.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
-		errRemote := r.hubclient.Get(context.TODO(), subcfgkey, subitem.SubscriptionConfigMap)
+		subcfgkeyR := types.NamespacedName{
+			Name: instance.Spec.PackageFilter.FilterRef.Name,
+			// the reference should sitting in side the channels namespace
+			Namespace: chnkey.Namespace,
+		}
+
+		errLocal := r.Client.Get(context.TODO(), subcfgkeyL, subitem.SubscriptionConfigMap)
+		errRemote := r.hubclient.Get(context.TODO(), subcfgkeyR, subitem.SubscriptionConfigMap)
 
 		if errRemote != nil && errLocal != nil {
-			return gerr.Wrapf(err, "failed to get reference configMap %v of subsciption %v from hub", subcfgkey.String(), instance.GetName())
+			return gerr.Wrapf(errRemote, "failed to get reference configMap at local %v or hub %v of subsciption %v from hub",
+				subcfgkeyL.String(), subcfgkeyR.String(), instance.GetName())
 		}
 	}
 
