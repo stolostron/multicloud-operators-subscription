@@ -382,11 +382,11 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 					crdsAndNamespaceFiles = append(crdsAndNamespaceFiles, path)
 				} else if strings.EqualFold(t.Kind, "namespace") {
 					crdsAndNamespaceFiles = append(crdsAndNamespaceFiles, path)
-				} else if strings.EqualFold(t.Kind, "serviceaccount") {
-					rbacFiles = append(rbacFiles, path)
-				} else if strings.EqualFold(t.Kind, "clusterrole") {
-					rbacFiles = append(rbacFiles, path)
-				} else if strings.EqualFold(t.Kind, "role") {
+				} else if strings.EqualFold(t.Kind, "serviceaccount") ||
+					strings.EqualFold(t.Kind, "clusterrole") ||
+					strings.EqualFold(t.Kind, "role") ||
+					strings.EqualFold(t.Kind, "clusterrolebinding") ||
+					strings.EqualFold(t.Kind, "rolebinding") {
 					rbacFiles = append(rbacFiles, path)
 				} else {
 					otherFiles = append(otherFiles, path)
