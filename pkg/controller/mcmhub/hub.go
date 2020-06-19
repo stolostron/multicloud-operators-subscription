@@ -998,45 +998,8 @@ func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployab
 	return true
 }
 
-func (r *ReconcileSubscription) checkResourcePath(sub *appv1alpha1.Subscription, dplAnnotations map[string]string) bool {
-	resourcePath := ""
-
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.FilterRef != nil {
-		subscriptionConfigMap := &corev1.ConfigMap{}
-		subcfgkey := types.NamespacedName{
-			Name:      sub.Spec.PackageFilter.FilterRef.Name,
-			Namespace: sub.Namespace,
-		}
-
-		err := r.Get(context.TODO(), subcfgkey, subscriptionConfigMap)
-		if err != nil {
-			klog.Error("Failed to get PackageFilter.FilterRef of subsciption, error: ", err)
-			return true
-		}
-
-		resourcePath = subscriptionConfigMap.Data["path"]
-	} else {
-		annotations := sub.GetAnnotations()
-		resourcePath = annotations[appv1alpha1.AnnotationGithubPath]
-	}
-
-	if resourcePath != "" {
-		if dplAnnotations[dplv1alpha1.AnnotationExternalSource] != "" {
-			return strings.HasPrefix(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath+"/") ||
-				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource], resourcePath) ||
-				strings.EqualFold(dplAnnotations[dplv1alpha1.AnnotationExternalSource]+"/", resourcePath)
-		}
-	}
-
-	return true
-}
-
 func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
 	dplanno := dpl.GetAnnotations()
-
-	if !r.checkResourcePath(sub, dplanno) {
-		return false
-	}
 
 	if sub.Spec.PackageFilter != nil {
 		if dplanno == nil {

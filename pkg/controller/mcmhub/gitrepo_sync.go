@@ -94,34 +94,28 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			sub.SetAnnotations(annotations)
 		}
 
-		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) {
-			klog.Info("Repo commit = " + commit)
-			klog.Info("Subscription commit = " + annotations[appv1.AnnotationGitCommit])
-			klog.Info("The repo has changed. Update deployables.")
+		// Delete the existing deployables and recreate them
+		r.deleteSubscriptionDeployables(sub)
 
-			// Delete the existing deployables and recreate them
-			r.deleteSubscriptionDeployables(sub)
+		annotations[appv1.AnnotationGitCommit] = commit
+		sub.SetAnnotations(annotations)
 
-			annotations[appv1.AnnotationGitCommit] = commit
-			sub.SetAnnotations(annotations)
+		baseDir := utils.GetLocalGitFolder(channel, sub)
+		resourcePath := getResourcePath(channel, sub)
 
-			baseDir := utils.GetLocalGitFolder(channel, sub)
-			resourcePath := getResourcePath(channel, sub)
+		err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
 
-			err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
-
-			if err != nil {
-				klog.Error(err.Error())
-				return false
-			}
-
-			r.updateGitSubDeployablesAnnotation(sub)
-
-			// Check and add cluster-admin annotation for multi-namepsace application
-			r.AddClusterAdminAnnotation(sub)
-
-			updated = true
+		if err != nil {
+			klog.Error(err.Error())
+			return false
 		}
+
+		r.updateGitSubDeployablesAnnotation(sub)
+
+		// Check and add cluster-admin annotation for multi-namepsace application
+		r.AddClusterAdminAnnotation(sub)
+
+		updated = true
 
 		if annotations[appv1.AnnotationDeployables] == "" {
 			// this might have failed previously. Try again.
