@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
@@ -67,8 +68,17 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 			return true
 		}
 
+		// In hub cluster, these annotations get updated by subscription reconcile
+		// so remove them before comparison to avoid triggering another reconciliation.
+		oldAnnotations := subOld.GetAnnotations()
+		newAnnotations := subNew.GetAnnotations()
+		delete(oldAnnotations, appv1.AnnotationDeployables)
+		delete(oldAnnotations, appv1.AnnotationTopo)
+		delete(newAnnotations, appv1.AnnotationDeployables)
+		delete(newAnnotations, appv1.AnnotationTopo)
+
 		// we care annotation change. pass it down
-		if !reflect.DeepEqual(subOld.GetAnnotations(), subNew.GetAnnotations()) {
+		if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
 			return true
 		}
 
@@ -85,6 +95,43 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 
 		klog.V(5).Info("Something we don't care changed")
 		return false
+	},
+}
+
+// DeployablePredicateFunctions filters status update
+var DeployablePredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newdpl := e.ObjectNew.(*dplv1.Deployable)
+		olddpl := e.ObjectOld.(*dplv1.Deployable)
+
+		return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		newdpl := e.Object.(*dplv1.Deployable)
+
+		labels := newdpl.GetLabels()
+
+		// Git type subscription reconciliation deletes and recreates deployables.
+		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
+			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
+			return false
+		}
+
+		return true
+	},
+
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		dpl := e.Object.(*dplv1.Deployable)
+
+		labels := dpl.GetLabels()
+
+		// Git type subscription reconciliation deletes and recreates deployables.
+		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
+			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
+			return false
+		}
+
+		return true
 	},
 }
 

@@ -29,10 +29,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -219,17 +217,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// in hub, watch the deployable created by the subscription
-	err = c.Watch(&source.Kind{Type: &dplv1.Deployable{}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &appv1.Subscription{},
-	}, predicate.Funcs{
-		UpdateFunc: func(e event.UpdateEvent) bool {
-			newdpl := e.ObjectNew.(*dplv1.Deployable)
-			olddpl := e.ObjectOld.(*dplv1.Deployable)
-
-			return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
-		},
-	})
+	err = c.Watch(
+		&source.Kind{Type: &dplv1.Deployable{}},
+		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
+		utils.DeployablePredicateFunctions)
 	if err != nil {
 		return err
 	}
