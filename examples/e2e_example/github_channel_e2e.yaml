@@ -67,6 +67,8 @@ metadata:
   namespace: git-sub-ns
   labels:
     name: git-sub
+  annotations:
+    apps.open-cluster-management.io/github-path: git-ops/bookinfo/guestbook
 spec:
   channel: ch-git/git
   placement:
