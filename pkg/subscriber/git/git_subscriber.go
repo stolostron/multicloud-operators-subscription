@@ -108,9 +108,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	ghs.itemmap[itemkey] = ghssubitem
 
-	// Set it back to false so subscription retries until it is set to true
-	ghssubitem.successful = false
-
 	// If the channel has annotation webhookenabled="true", do not poll the repo.
 	// Do subscription only on webhook events.
 	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
