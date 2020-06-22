@@ -49,7 +49,10 @@ import (
 )
 
 const (
-	sep = ","
+	sep              = ","
+	sepRes           = "/"
+	deployableParent = "deployable"
+	helmChartParent  = "helmchart"
 )
 
 func ObjectString(obj metav1.Object) string {
@@ -94,27 +97,33 @@ func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease)
 			return "", gerr.Wrap(err, "failed to get resource string")
 		}
 
-		res = append(res, parseResourceList(resList))
+		res = append(res, parseHelmResourceList(fmt.Sprintf("%v-", helmRl.GetName()), resList))
 	}
 
 	return strings.Join(res, sep), nil
 }
 
 type resourceUnit struct {
-	name      string
-	namespace string
-	kind      string
-	addition  int
+	// it should be deployable or helmchart
+	parentType string
+	// for helm resource, it will prefix with this when doing dry-run
+	namePrefix string
+	name       string
+	namespace  string
+	kind       string
+	addition   int
 }
 
 func (r resourceUnit) String() string {
-	return fmt.Sprintf("%v/%v/%v/%v", r.kind, r.namespace, r.name, r.addition)
+	return fmt.Sprintf("%v/%v/%v/%v/%v/%v", r.parentType, r.namePrefix, r.kind, r.namespace, r.name, r.addition)
 }
 
-func parseResourceList(rs kube.ResourceList) string {
+func parseHelmResourceList(helmName string, rs kube.ResourceList) string {
 	res := make([]string, 0)
+
 	for _, resInfo := range rs {
-		res = append(res, infoToUnit(resInfo).String())
+		t := infoToUnit(resInfo)
+		res = append(res, addParentInfo(&t, helmChartParent, helmName).String())
 	}
 
 	return strings.Join(res, sep)
@@ -129,6 +138,16 @@ func infoToUnit(ri *resource.Info) resourceUnit {
 		kind:      ri.Object.GetObjectKind().GroupVersionKind().Kind,
 		addition:  addition,
 	}
+}
+
+func addParentInfo(ri *resourceUnit, ptype, prefix string) resourceUnit {
+	ri.parentType = ptype
+	ri.namePrefix = prefix
+
+	rname := ri.name
+	ri.name = strings.Replace(rname, prefix, "", 1)
+
+	return *ri
 }
 
 func processAddition(obj runtime.Object) int {
@@ -159,6 +178,7 @@ func getAdditionValue(obj runtime.Object) int {
 	return -1
 }
 
+// generate resource string from a deployable map
 func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (string, error) {
 	res := []string{}
 
@@ -169,10 +189,12 @@ func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (s
 		}
 
 		rUnit := resourceUnit{
-			name:      tpl.GetName(),
-			namespace: tpl.GetNamespace(),
-			kind:      tpl.GetKind(),
-			addition:  processAddition(tpl),
+			parentType: deployableParent,
+			namePrefix: "",
+			name:       tpl.GetName(),
+			namespace:  tpl.GetNamespace(),
+			kind:       tpl.GetKind(),
+			addition:   processAddition(tpl),
 		}
 
 		res = append(res, rUnit.String())

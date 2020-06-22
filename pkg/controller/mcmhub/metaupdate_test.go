@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/onsi/gomega"
@@ -388,4 +389,156 @@ func TestDeployableTemplateConversion(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestTopoAnnotationUpdateHelmChannel(t *testing.T) {
+	var (
+		tpChnKey = types.NamespacedName{
+			Name:      "test-chn-helm",
+			Namespace: "tp-chn-helm-namespace",
+		}
+
+		cfgMapKey = types.NamespacedName{
+			Name:      "skip-cert-verify",
+			Namespace: tpChnKey.Namespace,
+		}
+
+		tpCfgMap = &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "ConfigMap",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      cfgMapKey.Name,
+				Namespace: cfgMapKey.Namespace,
+			},
+			Data: map[string]string{
+				"insecureSkipVerify": "true",
+			},
+		}
+
+		tpChn = &chnv1.Channel{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Channel",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      tpChnKey.Name,
+				Namespace: tpChnKey.Namespace,
+			},
+			Spec: chnv1.ChannelSpec{
+				Type:     chnv1.ChannelTypeHelmRepo,
+				Pathname: "https://ianzhang366.github.io/guestbook-chart/",
+				ConfigMapRef: &corev1.ObjectReference{
+					Name:      cfgMapKey.Name,
+					Namespace: cfgMapKey.Namespace,
+				},
+			},
+		}
+	)
+
+	var (
+		tpSubKey = types.NamespacedName{
+			Name:      "topo-anno-helm-sub",
+			Namespace: "topo-helm-sub-ns",
+		}
+
+		tpSub = &subv1.Subscription{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "apps.open-cluster-management.io/v1",
+				Kind:       "Subscription",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      tpSubKey.Name,
+				Namespace: tpSubKey.Namespace,
+			},
+			Spec: subv1.SubscriptionSpec{
+				Channel: tpChnKey.String(),
+			},
+		}
+
+		expectStr = "helmchart/gbapp-00fca-/Service/topo-helm-sub-ns/gbapp-frontend/0"
+	)
+
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	ctx := context.TODO()
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	g.Expect(c.Create(ctx, tpCfgMap)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(c.Delete(ctx, tpCfgMap)).Should(gomega.Succeed())
+	}()
+
+	cfgMapDpl := tpCfgMap.DeepCopy()
+	// somehow the kind will get lost which fails the unstructured conversion
+	gvk := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
+	cfgMapDpl.SetGroupVersionKind(gvk)
+
+	rec := newReconciler(mgr).(*ReconcileSubscription)
+
+	g.Expect(c.Create(ctx, tpChn)).NotTo(gomega.HaveOccurred())
+
+	defer func() {
+		g.Expect(c.Delete(ctx, tpChn)).Should(gomega.Succeed())
+	}()
+
+	g.Expect(c.Create(ctx, tpSub)).NotTo(gomega.HaveOccurred())
+
+	defer func() {
+		g.Expect(c.Delete(ctx, tpSub)).Should(gomega.Succeed())
+	}()
+
+	g.Expect(rec.doMCMHubReconcile(tpSub)).NotTo(gomega.HaveOccurred())
+
+	subAnno := tpSub.GetAnnotations()
+	g.Expect(subAnno).ShouldNot(gomega.HaveLen(0))
+
+	topoAnno := subAnno[subv1.AnnotationTopo]
+	g.Expect(topoAnno).ShouldNot(gomega.HaveLen(0))
+
+	g.Expect(assertTopo(topoAnno, expectStr)).Should(gomega.Succeed())
+}
+
+func assertTopo(topoStr, target string) error {
+	if len(topoStr) == 0 {
+		return fmt.Errorf("topo is empty")
+	}
+
+	arr := strings.Split(topoStr, sep)
+	helmName := strings.Split(arr[0], sepRes)[1]
+
+	set := make(map[string]bool)
+	for _, str := range arr {
+		set[str] = true
+	}
+
+	target = replaceHelmName(helmName, target)
+
+	if _, ok := set[target]; !ok {
+		return fmt.Errorf("target string is missing")
+	}
+
+	return nil
+}
+
+func replaceHelmName(helmName, target string) string {
+	sTarget := strings.Split(target, sepRes)
+	sTarget[1] = helmName
+
+	return strings.Join(sTarget, sepRes)
 }
