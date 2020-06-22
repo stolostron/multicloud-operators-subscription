@@ -528,6 +528,7 @@ func assertTopo(topoStr, target string) error {
 	}
 
 	target = replaceHelmName(helmName, target)
+
 	if _, ok := set[target]; !ok {
 		return fmt.Errorf("target string is missing")
 	}
