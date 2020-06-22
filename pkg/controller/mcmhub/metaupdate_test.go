@@ -488,6 +488,7 @@ func TestTopoAnnotationUpdateHelmChannel(t *testing.T) {
 	// somehow the kind will get lost which fails the unstructured conversion
 	gvk := schema.GroupVersionKind{Version: "v1", Kind: "ConfigMap"}
 	cfgMapDpl.SetGroupVersionKind(gvk)
+
 	rec := newReconciler(mgr).(*ReconcileSubscription)
 
 	g.Expect(c.Create(ctx, tpChn)).NotTo(gomega.HaveOccurred())
@@ -537,5 +538,6 @@ func assertTopo(topoStr, target string) error {
 func replaceHelmName(helmName, target string) string {
 	sTarget := strings.Split(target, sepRes)
 	sTarget[1] = helmName
+
 	return strings.Join(sTarget, sepRes)
 }

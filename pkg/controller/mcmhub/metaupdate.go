@@ -120,6 +120,7 @@ func (r resourceUnit) String() string {
 
 func parseHelmResourceList(helmName string, rs kube.ResourceList) string {
 	res := make([]string, 0)
+
 	for _, resInfo := range rs {
 		t := infoToUnit(resInfo)
 		res = append(res, addParentInfo(&t, helmChartParent, helmName).String())
