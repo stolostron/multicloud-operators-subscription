@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/ubi-minimal:8.1-398
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 RUN  microdnf update -y \ 
         && rpm -e --nodeps tzdata \
