@@ -424,7 +424,7 @@ func IsGitChannel(chType string) bool {
 		strings.EqualFold(chType, chnv1.ChannelTypeGit)
 }
 
-func IsClusterAdmin(client client.Client, sub *appv1.Subscription) bool {
+func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder *EventRecorder) bool {
 	isClusterAdmin := false
 	isUserSubAdmin := false
 	isSubPropagatedFromHub := false
@@ -466,7 +466,19 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription) bool {
 		isUserSubAdmin = matchUserSubAdmin(client, userIdentity, userGroups)
 	}
 
-	if (isClusterAdminAnnotationTrue && isSubPropagatedFromHub && !doesWebhookExist) || isUserSubAdmin {
+	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub && !doesWebhookExist {
+		if eventRecorder != nil {
+			eventRecorder.RecordEvent(sub, "RoleElevation",
+				"Role was elevated to cluster admin for subscription "+sub.Name, nil)
+		}
+
+		isClusterAdmin = true
+	} else if isUserSubAdmin {
+		if eventRecorder != nil {
+			eventRecorder.RecordEvent(sub, "RoleElevation",
+				"Role was elevated to cluster admin for subscription "+sub.Name+" by user "+userIdentity, nil)
+		}
+
 		isClusterAdmin = true
 	}
 

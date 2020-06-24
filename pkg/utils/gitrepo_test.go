@@ -428,7 +428,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -446,7 +446,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -465,7 +465,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -484,7 +484,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -502,7 +502,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
@@ -548,7 +548,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 }
 
 func TestIsClusterAdminRemote(t *testing.T) {
@@ -627,7 +627,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 
 	// user group: subscription-admin,test-group
 	// user identity: joe
@@ -650,7 +650,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 
 	// user group: test-group
 	// user identity: jane
@@ -673,7 +673,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 }
 
 func subAdminClusterRole() *rbacv1.ClusterRole {
