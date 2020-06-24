@@ -85,12 +85,15 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber) reconcile.Reconciler {
+	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
+
 	rec := &ReconcileSubscription{
-		Client:      mgr.GetClient(),
-		scheme:      mgr.GetScheme(),
-		hubclient:   hubclient,
-		subscribers: subscribers,
-		clk:         time.Now,
+		Client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		hubclient:     hubclient,
+		subscribers:   subscribers,
+		clk:           time.Now,
+		eventRecorder: erecorder,
 	}
 
 	return rec
@@ -123,10 +126,11 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	hubclient   client.Client
-	scheme      *runtime.Scheme
-	subscribers map[string]appv1.Subscriber
-	clk         clock
+	hubclient     client.Client
+	scheme        *runtime.Scheme
+	subscribers   map[string]appv1.Subscriber
+	clk           clock
+	eventRecorder *utils.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -316,7 +320,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) {
 		annotations := instance.GetAnnotations()
 
-		if utils.IsClusterAdmin(r.Client, instance) {
+		if utils.IsClusterAdmin(r.Client, instance, r.eventRecorder) {
 			klog.Info("ADDING apps.open-cluster-management.io/cluster-admin: true")
 
 			annotations[appv1.AnnotationClusterAdmin] = "true"
