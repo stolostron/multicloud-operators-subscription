@@ -102,10 +102,20 @@ func CreateOrUpdateHelmChart(
 	err = client.Get(context.TODO(),
 		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
 
+	var validURLs []string
+
+	for _, url := range chartVersions[0].URLs {
+		if IsURL(url) {
+			validURLs = append(validURLs, url)
+		} else {
+			validURLs = append(validURLs, channel.Spec.Pathname+"/"+url)
+		}
+	}
+
 	source := &releasev1.Source{
 		SourceType: releasev1.HelmRepoSourceType,
 		HelmRepo: &releasev1.HelmRepo{
-			Urls: chartVersions[0].URLs,
+			Urls: validURLs,
 		},
 	}
 
@@ -539,4 +549,10 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 			klog.Info("helmrelease CRD removed")
 		}
 	}
+}
+
+//IsURL return true if string is a valid URL
+func IsURL(str string) bool {
+	u, err := url.Parse(str)
+	return err == nil && u.Scheme != "" && u.Host != ""
 }
