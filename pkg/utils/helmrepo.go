@@ -102,22 +102,7 @@ func CreateOrUpdateHelmChart(
 	err = client.Get(context.TODO(),
 		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
 
-	var validURLs []string
-
-	for _, url := range chartVersions[0].URLs {
-		if IsURL(url) {
-			validURLs = append(validURLs, url)
-		} else {
-			validURLs = append(validURLs, channel.Spec.Pathname+"/"+url)
-		}
-	}
-
-	source := &releasev1.Source{
-		SourceType: releasev1.HelmRepoSourceType,
-		HelmRepo: &releasev1.HelmRepo{
-			Urls: validURLs,
-		},
-	}
+	var source *releasev1.Source
 
 	if IsGitChannel(string(channel.Spec.Type)) {
 		source = &releasev1.Source{
@@ -126,6 +111,27 @@ func CreateOrUpdateHelmChart(
 				Urls:      []string{channel.Spec.Pathname},
 				ChartPath: chartVersions[0].URLs[0],
 				Branch:    GetSubscriptionBranch(sub).Short(),
+			},
+		}
+	} else {
+		var validURLs []string
+
+		for _, url := range chartVersions[0].URLs {
+			if IsURL(url) {
+				validURLs = append(validURLs, url)
+			} else if IsURL(channel.Spec.Pathname + "/" + url) {
+				validURLs = append(validURLs, channel.Spec.Pathname+"/"+url)
+			}
+		}
+
+		if len(validURLs) == 0 {
+			return nil, fmt.Errorf("no valid URLs are found for package: %s", packageName)
+		}
+
+		source = &releasev1.Source{
+			SourceType: releasev1.HelmRepoSourceType,
+			HelmRepo: &releasev1.HelmRepo{
+				Urls: validURLs,
 			},
 		}
 	}
