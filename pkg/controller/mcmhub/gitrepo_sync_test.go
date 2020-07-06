@@ -83,7 +83,8 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.
-	ret := rec.UpdateGitDeployablesAnnotation(githubsub)
+	ret, err := rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(ret).To(gomega.BeFalse())
 
 	err = c.Create(context.TODO(), githubchn)
@@ -91,7 +92,8 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	ret = rec.UpdateGitDeployablesAnnotation(githubsub)
+	ret, err = rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(ret).To(gomega.BeTrue())
 
 	time.Sleep(2 * time.Second)
