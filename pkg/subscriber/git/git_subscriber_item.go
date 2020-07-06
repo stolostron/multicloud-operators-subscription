@@ -109,6 +109,12 @@ func (ghsi *SubscriberItem) Start() {
 			}
 		}
 
+		// if the subscription pause lable is true, stop subscription here.
+		if utils.GetPauseLabel(ghsi.SubscriberItem.Subscription) {
+			klog.Infof("Git Subscription %v/%v is paused.", ghsi.SubscriberItem.Subscription.GetNamespace(), ghsi.SubscriberItem.Subscription.GetName())
+			return
+		}
+
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
