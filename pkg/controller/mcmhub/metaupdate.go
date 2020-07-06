@@ -267,6 +267,12 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 		return nil, err
 	}
 
+	defer func() {
+		if err := os.RemoveAll(chartDir); err != nil {
+			klog.Error(err, "failed to delete the tmp directory for the dry run")
+		}
+	}()
+
 	var values map[string]interface{}
 
 	reqBodyBytes := new(bytes.Buffer)
