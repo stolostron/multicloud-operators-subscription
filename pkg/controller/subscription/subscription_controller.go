@@ -173,12 +173,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// if the subscription pause lable is true, stop subscription here.
-	if subutil.GetPauseLabel(instance) {
-		klog.Info("Subscription: ", request.NamespacedName, " is paused")
-		return reconcile.Result{}, nil
-	}
-
 	pl := instance.Spec.Placement
 	if pl != nil && pl.Local != nil && *pl.Local {
 		reconcileErr := r.doReconcile(instance)
@@ -191,6 +185,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 	} else {
 		// no longer local
+
+		// if the subscription pause lable is true, stop unsubscription here.
+		if subutil.GetPauseLabel(instance) {
+			klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
+			return reconcile.Result{}, nil
+		}
+
 		for _, sub := range r.subscribers {
 			_ = sub.UnsubscribeItem(request.NamespacedName)
 		}
@@ -204,6 +205,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if instance.Status.Statuses != nil {
 			delete(instance.Status.Statuses, types.NamespacedName{}.String())
 		}
+	}
+
+	// if the subscription pause lable is true, stop updating subscription status.
+	if subutil.GetPauseLabel(instance) {
+		klog.Info("updating subscription status: ", request.NamespacedName, " is paused")
+		return reconcile.Result{}, nil
 	}
 
 	instance.Status.LastUpdateTime = metav1.Now()

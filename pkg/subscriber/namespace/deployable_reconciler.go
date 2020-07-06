@@ -103,6 +103,12 @@ func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.R
 		}
 	}
 
+	// if the subscription pause lable is true, stop subscription here.
+	if utils.GetPauseLabel(r.subscriber.itemmap[r.itemkey].Subscription) {
+		klog.Infof("Namspace Subscription %v is paused.", request.NamespacedName.String())
+		return reconcile.Result{}, nil
+	}
+
 	result := reconcile.Result{}
 	err := r.doSubscription()
 
