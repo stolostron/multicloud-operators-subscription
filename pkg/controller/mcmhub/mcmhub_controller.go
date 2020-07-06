@@ -320,7 +320,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
-	if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+	if pl == nil {
+		instance.Status.Phase = appv1.SubscriptionPropagationFailed
+		instance.Status.Reason = "Placement must be specified"
+	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		err = r.doMCMHubReconcile(instance)
 
 		if err != nil {

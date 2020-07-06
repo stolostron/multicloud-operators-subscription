@@ -58,14 +58,14 @@ type kubeResourceMetadata struct {
 }
 
 // UpdateGitDeployablesAnnotation clones the git repo and regenerate deployables and update annotation if needed
-func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscription) bool {
+func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscription) (bool, error) {
 	updated := false
 
 	channel, err := r.getChannel(sub)
 
 	if err != nil {
 		klog.Errorf("Failed to find a channel for subscription: %s", sub.GetName())
-		return false
+		return false, err
 	}
 
 	if utils.IsGitChannel(string(channel.Spec.Type)) {
@@ -75,6 +75,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		if err != nil {
 			klog.Errorf("Failed to get secret for channel: %s", channel.GetName())
+			return false, err
 		}
 
 		commit, err := utils.CloneGitRepo(channel.Spec.Pathname,
@@ -85,7 +86,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		if err != nil {
 			klog.Error(err.Error())
-			return false
+			return false, err
 		}
 
 		annotations := sub.GetAnnotations()
@@ -107,7 +108,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		if err != nil {
 			klog.Error(err.Error())
-			return false
+			return false, err
 		}
 
 		r.updateGitSubDeployablesAnnotation(sub)
@@ -125,7 +126,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		}
 	}
 
-	return updated
+	return updated, nil
 }
 
 // AddClusterAdminAnnotation adds cluster-admin annotation if conditions are met
