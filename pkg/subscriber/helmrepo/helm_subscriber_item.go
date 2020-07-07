@@ -53,7 +53,6 @@ type SubscriberItem struct {
 	hash         string
 	stopch       chan struct{}
 	syncinterval int
-	success      bool
 	synchronizer SyncSource
 }
 
@@ -123,16 +122,10 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	klog.V(4).Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
 
-	if hash != hrsi.hash || !hrsi.success {
-		if err := hrsi.processSubscription(); err != nil {
-			klog.Error("Failed to process helm repo subscription with error:", err)
+	if err := hrsi.processSubscription(); err != nil {
+		klog.Error("Failed to process helm repo subscription with error:", err)
 
-			hrsi.success = false
-
-			return
-		}
-
-		hrsi.success = true
+		return
 	}
 }
 
