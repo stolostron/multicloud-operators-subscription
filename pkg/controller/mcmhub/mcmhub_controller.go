@@ -270,6 +270,27 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	}
 }
 
+func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
+	// Get propagation status from the subscription deployable
+	hubdpl := &dplv1.Deployable{}
+	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
+
+	if err == nil {
+		sub.Status.Reason = hubdpl.Status.Reason
+		sub.Status.Message = hubdpl.Status.Message
+
+		if hubdpl.Status.Phase == dplv1.DeployableFailed {
+			sub.Status.Phase = appv1.SubscriptionPropagationFailed
+		} else if hubdpl.Status.Phase == dplv1.DeployableUnknown {
+			sub.Status.Phase = appv1.SubscriptionUnknown
+		} else {
+			sub.Status.Phase = appv1.SubscriptionPropagated
+		}
+	} else {
+		klog.Error(err)
+	}
+}
+
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
@@ -299,13 +320,18 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
-	if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+	if pl == nil {
+		instance.Status.Phase = appv1.SubscriptionPropagationFailed
+		instance.Status.Reason = "Placement must be specified"
+	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		err = r.doMCMHubReconcile(instance)
 
-		instance.Status.Phase = appv1.SubscriptionPropagated
 		if err != nil {
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
+		} else {
+			// Get propagation status from the subscription deployable
+			r.setHubSubscriptionStatus(instance)
 		}
 	} else {
 		// no longer hub subscription

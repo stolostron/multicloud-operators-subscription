@@ -79,6 +79,12 @@ func (obsi *SubscriberItem) Start() {
 			}
 		}
 
+		// if the subscription pause lable is true, stop subscription here.
+		if utils.GetPauseLabel(obsi.SubscriberItem.Subscription) {
+			klog.Infof("Object bucket Subscription %v/%v is paused.", obsi.SubscriberItem.Subscription.GetNamespace(), obsi.SubscriberItem.Subscription.GetName())
+			return
+		}
+
 		if !obsi.successful {
 			err := obsi.doSubscription()
 

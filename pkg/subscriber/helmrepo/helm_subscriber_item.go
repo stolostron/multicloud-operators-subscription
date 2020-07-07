@@ -86,6 +86,12 @@ func (hrsi *SubscriberItem) Start() {
 			}
 		}
 
+		// if the subscription pause lable is true, stop subscription here.
+		if utils.GetPauseLabel(hrsi.SubscriberItem.Subscription) {
+			klog.Infof("Helm Subscription %v/%v is paused.", hrsi.SubscriberItem.Subscription.GetNamespace(), hrsi.SubscriberItem.Subscription.GetName())
+			return
+		}
+
 		hrsi.doSubscription()
 	}, time.Duration(hrsi.syncinterval)*time.Second, hrsi.stopch)
 }

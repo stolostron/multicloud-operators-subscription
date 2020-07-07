@@ -62,11 +62,16 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
-		updateSubDplAnno = r.UpdateGitDeployablesAnnotation(sub)
+		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
 		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub)
 	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+	}
+
+	if err != nil {
+		klog.Errorf("Failed to update deployable annotation for git: %s", sub.GetName())
+		return err
 	}
 
 	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)

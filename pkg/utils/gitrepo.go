@@ -276,7 +276,7 @@ func mergeKustomization(kustomizeYamlFilePath string, override map[string]interf
 
 // GetLocalGitFolder returns the local Git repo clone directory
 func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
-	return filepath.Join(os.TempDir(), chn.Namespace, chn.Name, GetSubscriptionBranch(sub).Short())
+	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
 }
 
 // SortResources sorts kube resources into different arrays for processing them later.
