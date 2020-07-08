@@ -494,7 +494,7 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 	err := client.Get(context.TODO(), types.NamespacedName{Name: appv1.SubscriptionAdmin}, foundClusterRoleBinding)
 
 	if err == nil {
-		klog.Info("ClusterRoleBinding acm-subscription-admin found.")
+		klog.Infof("ClusterRoleBinding %s found.", appv1.SubscriptionAdmin)
 
 		for _, subject := range foundClusterRoleBinding.Subjects {
 			if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
