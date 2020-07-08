@@ -25,10 +25,18 @@ import (
 
 	"k8s.io/klog"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/open-cluster-management/multicloud-operators-subscription/cmd/manager/exec"
 )
 
 func main() {
+	// for pprof
+	go func() {
+		http.ListenAndServe("0.0.0.0:6060", nil)
+	}()
+
 	exec.ProcessFlags()
 
 	klog.InitFlags(nil)

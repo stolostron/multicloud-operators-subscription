@@ -12,6 +12,8 @@ require (
 	github.com/go-openapi/spec v0.19.4
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
+	github.com/google/pprof v0.0.0-20200630070148-6609db78bf68 // indirect
+	github.com/ianlancetaylor/demangle v0.0.0-20200705045648-b855e248e31b // indirect
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/mattn/go-colorable v0.1.4 // indirect
 	github.com/onsi/ginkgo v1.12.0
@@ -26,6 +28,7 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	helm.sh/helm/v3 v3.2.0
 	k8s.io/api v0.18.2
