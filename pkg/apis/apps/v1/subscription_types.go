@@ -61,9 +61,9 @@ var (
 	// AnnotationClusterAdmin indicates the subscription has cluster admin access
 	AnnotationClusterAdmin = SchemeGroupVersion.Group + "/cluster-admin"
 	// AnnotationUserGroup is subscription user group
-	AnnotationUserGroup = "mcm.ibm.com/user-group"
+	AnnotationUserGroup = "open-cluster-management.io/user-group"
 	// AnnotationUserIdentity is subscription user id
-	AnnotationUserIdentity = "mcm.ibm.com/user-identity"
+	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
