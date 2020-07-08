@@ -44,7 +44,7 @@ import (
 const clusterRole = `apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: acm-subscription-admin
+  name: open-cluster-management:subscription-admin
 rules:
 - apiGroups:
   - app.k8s.io

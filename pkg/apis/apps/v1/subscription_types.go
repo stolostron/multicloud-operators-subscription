@@ -74,7 +74,7 @@ const (
 	// DefaultRollingUpdateMaxUnavailablePercentage defines the percentage for rolling update
 	DefaultRollingUpdateMaxUnavailablePercentage = 25
 	// SubscriptionAdmin is used as RBAC resource name for multi-namespace app deployment
-	SubscriptionAdmin = "acm-subscription-admin"
+	SubscriptionAdmin = "open-cluster-management:subscription-admin"
 	// AcmWebhook is the ACM foundation mutation webhook that adds user identity and group annotations
 	AcmWebhook = "mcm-mutating-webhook"
 )
