@@ -74,7 +74,8 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	klog.Infof("update Subscription: %v, update Subscription Deployable Annotation: %v", updateSub, updateSubDplAnno)
+	klog.Infof("subscription: %v/%v, update Subscription: %v, update Subscription Deployable Annotation: %v",
+		sub.GetNamespace(), sub.GetName(), updateSub, updateSubDplAnno)
 
 	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)
 	if err != nil {
@@ -161,21 +162,6 @@ func (r *ReconcileSubscription) setNewSubscription(sub *appv1alpha1.Subscription
 			klog.Infof("Updating Subscription failed. subscription: %#v, error: %#v", sub, err)
 			return err
 		}
-
-		newSub := &appv1alpha1.Subscription{}
-		subKey := types.NamespacedName{
-			Namespace: sub.Namespace,
-			Name:      sub.Name,
-		}
-		err = r.Get(context.TODO(), subKey, newSub)
-
-		if err != nil {
-			klog.Infof("Feching new Subscription failed. new subscription: %#v, error: %#v", newSub, err)
-			return err
-		}
-
-		klog.V(1).Infof("new Subscription updated: %#v", newSub)
-		sub = newSub
 	}
 
 	return nil
@@ -841,6 +827,7 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
 
 	if !reflect.DeepEqual(newsubstatus, sub.Status) {
+		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v", sub.Namespace, sub.Name, sub.Status, newsubstatus)
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 	}
