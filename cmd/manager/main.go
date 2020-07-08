@@ -34,7 +34,9 @@ import (
 func main() {
 	// for pprof
 	go func() {
-		http.ListenAndServe("0.0.0.0:6060", nil)
+		if err := http.ListenAndServe("0.0.0.0:6060", nil); err != nil {
+			klog.Errorf("failed to start pprof, err: %v ", err)
+		}
 	}()
 
 	exec.ProcessFlags()
