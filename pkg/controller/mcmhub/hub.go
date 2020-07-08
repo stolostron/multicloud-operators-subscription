@@ -827,7 +827,8 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
 
 	if !reflect.DeepEqual(newsubstatus, sub.Status) {
-		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v", sub.Namespace, sub.Name, sub.Status, newsubstatus)
+		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
+			sub.Namespace, sub.Name, sub.Status, newsubstatus)
 		newsubstatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 	}

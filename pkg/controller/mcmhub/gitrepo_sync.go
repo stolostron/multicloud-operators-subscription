@@ -163,7 +163,8 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 
 	if len(origdplmap) > 0 && len(newdplmap) > 0 {
 		if !reflect.DeepEqual(origdplmap, newdplmap) {
-			klog.V(1).Infof("different Git Subscription deployable annotations. origdplmap: %v, newdplmap: %v", origdplmap, newdplmap)
+			klog.V(1).Infof("different Git Subscription deployable annotations. origdplmap: %v, newdplmap: %v",
+				origdplmap, newdplmap)
 			return true
 		}
 	}
@@ -172,7 +173,8 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 	if origGitCommit, origok := origanno[appv1.AnnotationGitCommit]; origok {
 		if newGitCommit, newok := newanno[appv1.AnnotationGitCommit]; newok {
 			if origGitCommit != newGitCommit {
-				klog.V(1).Infof("different Git Subscription git-commit annotations. origGitCommit: %v, newGitCommit: %v", origGitCommit, newGitCommit)
+				klog.V(1).Infof("different Git Subscription git-commit annotations. origGitCommit: %v, newGitCommit: %v",
+					origGitCommit, newGitCommit)
 				return true
 			}
 		}
@@ -182,9 +184,43 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 	if origClusterAdmin, origok := origanno[appv1.AnnotationClusterAdmin]; origok {
 		if newClusterAdmin, newok := newanno[appv1.AnnotationClusterAdmin]; newok {
 			if origClusterAdmin != newClusterAdmin {
-				klog.V(1).Infof("different Git Subscription cluster-admin annotations. origClusterAdmin: %v, newClusterAdmin: %v", origClusterAdmin, newClusterAdmin)
+				klog.V(1).Infof("different Git Subscription cluster-admin annotations. origClusterAdmin: %v, newClusterAdmin: %v",
+					origClusterAdmin, newClusterAdmin)
 				return true
 			}
+		}
+	}
+
+	// 4. compare topo annoation
+	origtopomap := make(map[string]bool)
+
+	if origanno != nil {
+		dpls := origanno[appv1.AnnotationTopo]
+		if dpls != "" {
+			dplkeys := strings.Split(dpls, ",")
+			for _, dplkey := range dplkeys {
+				origtopomap[dplkey] = true
+			}
+		}
+	}
+
+	newtopomap := make(map[string]bool)
+
+	if newanno != nil {
+		dpls := newanno[appv1.AnnotationTopo]
+		if dpls != "" {
+			dplkeys := strings.Split(dpls, ",")
+			for _, dplkey := range dplkeys {
+				newtopomap[dplkey] = true
+			}
+		}
+	}
+
+	if len(origtopomap) > 0 && len(newtopomap) > 0 {
+		if !reflect.DeepEqual(origtopomap, newtopomap) {
+			klog.V(1).Infof("different Git Subscription topo annotations. origtopomap: %v, newtopomap: %v",
+				origtopomap, newtopomap)
+			return true
 		}
 	}
 
