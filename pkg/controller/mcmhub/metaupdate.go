@@ -56,18 +56,6 @@ const (
 	helmChartParent  = "helmchart"
 )
 
-// set this as a global variable to make sure, we don't fire up to much event
-// recorder for helm chart dry run
-var dryRunEventRecorder record.EventBroadcaster
-
-func getDryRunEventRecorder() record.EventBroadcaster {
-	if dryRunEventRecorder == nil {
-		return record.NewBroadcaster()
-	}
-
-	return dryRunEventRecorder
-}
-
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
@@ -340,11 +328,12 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 //test case.
 //generates the resource list for given HelmRelease
 func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
+	dryRunEventRecorder := record.NewBroadcaster()
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 		DryRunClient:       true,
-		EventBroadcaster:   getDryRunEventRecorder(),
+		EventBroadcaster:   dryRunEventRecorder,
 	})
 
 	if err != nil {
@@ -361,7 +350,7 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 
 	defer func() {
 		close(stop)
-		getDryRunEventRecorder().Shutdown()
+		dryRunEventRecorder.Shutdown()
 	}()
 
 	if mgr.GetCache().WaitForCacheSync(stop) {
