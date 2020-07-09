@@ -361,6 +361,7 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 
 	defer func() {
 		close(stop)
+		getDryRunEventRecorder().Shutdown()
 	}()
 
 	if mgr.GetCache().WaitForCacheSync(stop) {
