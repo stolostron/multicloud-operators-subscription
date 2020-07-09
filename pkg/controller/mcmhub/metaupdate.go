@@ -58,7 +58,15 @@ const (
 
 // set this as a global variable to make sure, we don't fire up to much event
 // recorder for helm chart dry run
-var dryRunEventRecorder = record.NewBroadcaster()
+var dryRunEventRecorder record.EventBroadcaster
+
+func getDryRunEventRecorder() record.EventBroadcaster {
+	if dryRunEventRecorder == nil {
+		return record.NewBroadcaster()
+	}
+
+	return dryRunEventRecorder
+}
 
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
@@ -336,7 +344,7 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 		DryRunClient:       true,
-		EventBroadcaster:   dryRunEventRecorder,
+		EventBroadcaster:   getDryRunEventRecorder(),
 	})
 
 	if err != nil {
