@@ -35,6 +35,7 @@ import (
 
 	helmclient "github.com/operator-framework/operator-sdk/pkg/helm/client"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -54,6 +55,10 @@ const (
 	deployableParent = "deployable"
 	helmChartParent  = "helmchart"
 )
+
+// set this as a global variable to make sure, we don't fire up to much event
+// recorder for helm chart dry run
+var dryRunEventRecorder = record.NewBroadcaster()
 
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
@@ -330,6 +335,8 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
+		DryRunClient:       true,
+		EventBroadcaster:   dryRunEventRecorder,
 	})
 
 	if err != nil {
