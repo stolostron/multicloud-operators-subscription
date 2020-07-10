@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 )
@@ -101,12 +100,6 @@ func (sync *KubeSynchronizer) rediscoverResource() {
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.V(1).Info("Discovering cluster resources")
 	defer klog.V(1).Info("Discovered cluster resources, done")
-
-	sync.dmtx.Lock()
-	if sync.dynamicFactory == nil {
-		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
-	}
-	sync.dmtx.Unlock()
 
 	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
 	if err != nil {
