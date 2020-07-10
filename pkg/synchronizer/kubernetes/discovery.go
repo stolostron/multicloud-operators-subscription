@@ -79,7 +79,6 @@ var crdKind = "CustomResourceDefinition"
 func (sync *KubeSynchronizer) stopDynamicClientCaching() {
 	sync.dmtx.Lock()
 	close(sync.stopCh)
-	sync.dynamicFactory = nil
 	sync.dmtx.Unlock()
 }
 

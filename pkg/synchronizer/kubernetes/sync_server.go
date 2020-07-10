@@ -154,7 +154,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		return nil, err
 	}
 
-	sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
+	s.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(s.DynamicClient, informerFactoryPeriod)
 	s.discoverResourcesOnce()
 
 	return s, nil
