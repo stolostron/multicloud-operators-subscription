@@ -35,6 +35,7 @@ import (
 
 	helmclient "github.com/operator-framework/operator-sdk/pkg/helm/client"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -327,9 +328,13 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 //test case.
 //generates the resource list for given HelmRelease
 func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
+	dryRunEventRecorder := record.NewBroadcaster()
+
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
+		DryRunClient:       true,
+		EventBroadcaster:   dryRunEventRecorder,
 	})
 
 	if err != nil {
@@ -346,6 +351,7 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 
 	defer func() {
 		close(stop)
+		dryRunEventRecorder.Shutdown()
 	}()
 
 	if mgr.GetCache().WaitForCacheSync(stop) {
