@@ -192,7 +192,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 // propagateStatus
 func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
-	return notEqualResourceUnitStatus(oldResSt, inResSt)
+	return !isEqualResourceUnitStatus(oldResSt, inResSt)
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
@@ -203,21 +203,21 @@ func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
 	return true
 }
 
-func notEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
+func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
-		return false
+		return true
 	}
 
 	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
-		return true
+		return false
 	}
 
 	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
-		return true
+		return false
 	}
 
 	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
-		return true
+		return false
 	}
 
 	//status from cluster
@@ -225,22 +225,22 @@ func notEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	bRes := b.ResourceStatus
 
 	if aRes == nil && bRes == nil {
-		return false
+		return true
 	}
 
 	if aRes == nil && bRes != nil {
-		return true
+		return false
 	}
 
 	if aRes != nil && bRes == nil {
-		return true
+		return false
 	}
 
 	if !reflect.DeepEqual(aRes, bRes) {
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
