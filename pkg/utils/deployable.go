@@ -170,7 +170,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 	klog.Infof("old status: %v; new status: %v", dpl.Status, newStatus)
-	if IsStatusUpdated(dpl.Status, newStatus) {
+	if isStatusUpdated(dpl.Status, newStatus) {
 		klog.Infof("updating old %v, new %v", dpl.Status, newStatus)
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
@@ -185,26 +185,11 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	return nil
 }
 
-func IsStatusUpdated(old, in dplv1.DeployableStatus) bool {
+// since this is on the managed cluster, so we don't need to check up the
+// propagateStatus
+func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
-	if equalResourceUnitStatus(oldResSt, inResSt) {
-		return true
-	}
-
-	olProSt, inProSt := old.PropagatedStatus, in.PropagatedStatus
-	for k, _ := range olProSt {
-		if equalResourceUnitStatus(*olProSt[k], *inProSt[k]) {
-			return true
-		}
-	}
-
-	for k, _ := range inProSt {
-		if equalResourceUnitStatus(*olProSt[k], *inProSt[k]) {
-			return true
-		}
-	}
-
-	return false
+	return !equalResourceUnitStatus(oldResSt, inResSt)
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
@@ -232,6 +217,7 @@ func equalResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return true
 	}
 
+	//status from cluster
 	aRes := a.ResourceStatus
 	bRes := b.ResourceStatus
 
@@ -244,7 +230,7 @@ func equalResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	}
 
 	if aRes != nil && bRes == nil {
-		return false
+		return true
 	}
 
 	if !reflect.DeepEqual(aRes, bRes) {
