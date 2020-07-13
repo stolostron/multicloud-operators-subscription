@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"reflect"
 	"strings"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -145,38 +146,112 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		return err
 	}
 
-	klog.V(10).Info("Trying to update deployable status:", host, templateerr)
-
 	dpl.Status.PropagatedStatus = nil
-	if templateerr == nil {
-		dpl.Status.Phase = dplv1.DeployableDeployed
-		dpl.Status.Reason = ""
-	} else {
-		dpl.Status.Phase = dplv1.DeployableFailed
-		dpl.Status.Reason = templateerr.Error()
-	}
 
-	if status != nil {
-		if dpl.Status.ResourceStatus == nil {
-			dpl.Status.ResourceStatus = &runtime.RawExtension{}
+	newStatus := func() dplv1.DeployableStatus {
+		a := dplv1.DeployableStatus{}
+		if templateerr == nil {
+			a.Phase = dplv1.DeployableDeployed
+			a.Reason = ""
+		} else {
+			a.Phase = dplv1.DeployableFailed
+			a.Reason = templateerr.Error()
 		}
 
-		dpl.Status.ResourceStatus.Raw, err = json.Marshal(status)
+		a.ResourceStatus = &runtime.RawExtension{}
+		if status != nil {
+			a.ResourceStatus.Raw, err = json.Marshal(status)
+			if err != nil {
+				klog.Info("Failed to mashall status for ", host, status, " with err:", err)
+			}
+		}
+		return a
+	}()
 
+	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
+	klog.Infof("old status: %v; new status: %v", dpl.Status, newStatus)
+	if IsStatusUpdated(dpl.Status, newStatus) {
+		klog.Infof("updating old %v, new %v", dpl.Status, newStatus)
+		now := metav1.Now()
+		dpl.Status.LastUpdateTime = &now
+		err = statusClient.Status().Update(context.Background(), dpl)
+		// want to print out the error log before leave
 		if err != nil {
-			klog.Info("Failed to mashall status for ", host, status, " with err:", err)
+			klog.Error("Failed to update status of deployable ", dpl)
+			return err
 		}
 	}
 
-	now := metav1.Now()
-	dpl.Status.LastUpdateTime = &now
-	err = statusClient.Status().Update(context.Background(), dpl)
-	// want to print out the error log before leave
-	if err != nil {
-		klog.Error("Failed to update status of deployable ", dpl)
+	return nil
+}
+
+func IsStatusUpdated(old, in dplv1.DeployableStatus) bool {
+	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+	if equalResourceUnitStatus(oldResSt, inResSt) {
+		return true
 	}
 
-	return err
+	olProSt, inProSt := old.PropagatedStatus, in.PropagatedStatus
+	for k, _ := range olProSt {
+		if equalResourceUnitStatus(*olProSt[k], *inProSt[k]) {
+			return true
+		}
+	}
+
+	for k, _ := range inProSt {
+		if equalResourceUnitStatus(*olProSt[k], *inProSt[k]) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
+	if len(a.Message) != 0 && len(a.Phase) != 0 || len(a.Reason) != 0 || a.ResourceStatus != nil {
+		return false
+	}
+
+	return true
+}
+
+func equalResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
+	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
+		return true
+	}
+
+	aRes := a.ResourceStatus
+	bRes := b.ResourceStatus
+
+	if aRes == nil && bRes == nil {
+		return false
+	}
+
+	if aRes == nil && bRes != nil {
+		return true
+	}
+
+	if aRes != nil && bRes == nil {
+		return false
+	}
+
+	if !reflect.DeepEqual(aRes, bRes) {
+		return true
+	}
+
+	return false
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
