@@ -139,9 +139,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		klog.Info("Failed to find hosting deployable for ", tplunit)
 	}
 
-	err := statusClient.Get(context.TODO(), *host, dpl)
-
-	if err != nil {
+	if err := statusClient.Get(context.TODO(), *host, dpl); err != nil {
 		// for all errors including not found return
 		return err
 	}
@@ -159,6 +157,9 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		}
 
 		a.ResourceStatus = &runtime.RawExtension{}
+
+		var err error
+
 		if status != nil {
 			a.ResourceStatus.Raw, err = json.Marshal(status)
 			if err != nil {
@@ -170,13 +171,15 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 	klog.Infof("old status: %v; new status: %v", dpl.Status, newStatus)
+
 	if isStatusUpdated(dpl.Status, newStatus) {
 		klog.Infof("updating old %v, new %v", dpl.Status, newStatus)
+
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
-		err = statusClient.Status().Update(context.Background(), dpl)
+
 		// want to print out the error log before leave
-		if err != nil {
+		if err := statusClient.Status().Update(context.Background(), dpl); err != nil {
 			klog.Error("Failed to update status of deployable ", dpl)
 			return err
 		}
