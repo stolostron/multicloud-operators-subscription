@@ -192,7 +192,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 // propagateStatus
 func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
-	return !equalResourceUnitStatus(oldResSt, inResSt)
+	return notEqualResourceUnitStatus(oldResSt, inResSt)
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
@@ -203,7 +203,7 @@ func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
 	return true
 }
 
-func equalResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
+func notEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
 		return false
 	}
