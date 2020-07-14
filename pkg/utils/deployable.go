@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -26,11 +27,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+)
+
+var (
+	logf = log.Log.WithName("DUBUG DEPLOYABLE STATUS")
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -169,10 +176,10 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	}()
 
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
-	klog.Infof("old status: %v; new status: %v", dpl.Status, newStatus)
 
 	if isStatusUpdated(dpl.Status, newStatus) {
-		klog.Infof("updating old %v, new %v", dpl.Status, newStatus)
+		statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
+		logf.Info(statuStr, "host", host.String())
 
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
@@ -185,6 +192,16 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	}
 
 	return nil
+}
+
+func prettyStatus(a dplv1.DeployableStatus) string {
+	if a.ResourceStatus != nil {
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
+			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
+	}
+
+	return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
+		a.LastUpdateTime, a.Phase, a.Reason, a.Message, 0)
 }
 
 // since this is on the managed cluster, so we don't need to check up the
