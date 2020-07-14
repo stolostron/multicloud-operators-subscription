@@ -21,7 +21,6 @@ import (
 	"os"
 	"reflect"
 	"strings"
-	"time"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -179,6 +178,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	oldStatus := dpl.Status.DeepCopy()
 	if isStatusUpdated(*oldStatus, newStatus) {
 		klog.Infof("IN DEGUB_DEPLOYABLE: host %v cmp status %v ", host.String(), statuStr)
+		klog.Infof("IN DEGUB_DEPLOYABLE: %v ", status)
 
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
@@ -188,15 +188,9 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			klog.Errorf("Failed to update status of deployable %v, err %v", dpl, err)
 			return err
 		}
+
+		klog.Info("IN DEGUB_DEPLOYABLE: DOOOOON ")
 	}
-
-	time.Sleep(3 * time.Second)
-
-	t := &dplv1.Deployable{}
-
-	_ = statusClient.Get(context.TODO(), *host, t)
-
-	klog.Infof("DEGUB_DEPLOYABLE: updated deployable info %v  ", t)
 
 	return nil
 }
