@@ -342,6 +342,14 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
 		if k != subtype {
+			klog.V(1).Infof("k: %v, sub: %v, subtype:%v,  unsubscribe %v/%v", k, sub, subtype, subitem.Subscription.Namespace, subitem.Subscription.Name)
+
+			// if the subscription pause lable is true, stop unsubscription here.
+			if subutil.GetPauseLabel(subitem.Subscription) {
+				klog.Infof("unsubscription: %v/%v is paused.", subitem.Subscription.Namespace, subitem.Subscription.Name)
+				continue
+			}
+
 			if err := sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}); err != nil {
 				klog.Errorf("failed to unsubscribe with subscriber %v error %+v", k, err)
 			}
