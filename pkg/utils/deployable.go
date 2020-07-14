@@ -175,7 +175,8 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
 	klog.Infof("DEGUB_DEPLOYABLE: host %v cmp status %v ", host.String(), statuStr)
 
-	if isStatusUpdated(dpl.Status, newStatus) {
+	oldStatus := dpl.Status.DeepCopy()
+	if isStatusUpdated(*oldStatus, newStatus) {
 		klog.Infof("IN DEGUB_DEPLOYABLE: host %v cmp status %v ", host.String(), statuStr)
 
 		now := metav1.Now()
@@ -193,7 +194,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 func prettyStatus(a dplv1.DeployableStatus) string {
 	if a.ResourceStatus != nil {
-		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
+		return fmt.Sprintf("---> time: %v, phase %v, reason %v, msg %v, resource %v\n",
 			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
 	}
 
