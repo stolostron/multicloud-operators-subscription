@@ -191,8 +191,11 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	}
 
 	time.Sleep(3 * time.Second)
+
 	t := &dplv1.Deployable{}
+
 	_ = statusClient.Get(context.TODO(), *host, t)
+
 	klog.Infof("DEGUB_DEPLOYABLE: updated deployable info %v  ", t)
 
 	return nil
