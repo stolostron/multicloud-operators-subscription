@@ -184,7 +184,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 		// want to print out the error log before leave
 		if err := statusClient.Status().Update(context.Background(), dpl); err != nil {
-			klog.Error("Failed to update status of deployable ", dpl)
+			klog.Errorf("Failed to update status of deployable %v, err %v", dpl, err)
 			return err
 		}
 	}
