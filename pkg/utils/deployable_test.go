@@ -67,6 +67,7 @@ func TestDeleteDeployableCRD(t *testing.T) {
 
 func TestIsUpdateStatus(t *testing.T) {
 	var now = metav1.Now()
+
 	var tests = []struct {
 		name     string
 		expected bool
@@ -86,7 +87,7 @@ func TestIsUpdateStatus(t *testing.T) {
 			},
 			cur: dplv1.DeployableStatus{
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -104,7 +105,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					LastUpdateTime: &metav1.Time{},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -124,7 +125,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					LastUpdateTime: &metav1.Time{},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -143,7 +144,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					LastUpdateTime: &metav1.Time{},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -199,7 +200,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -252,7 +253,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -273,7 +274,7 @@ func TestIsUpdateStatus(t *testing.T) {
 					ResourceStatus: nil,
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
@@ -294,11 +295,12 @@ func TestIsUpdateStatus(t *testing.T) {
 					ResourceStatus: &runtime.RawExtension{},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
-					"a": &dplv1.ResourceUnitStatus{Reason: "no"},
+					"a": {Reason: "no"},
 				},
 			},
 		},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
@@ -306,8 +308,6 @@ func TestIsUpdateStatus(t *testing.T) {
 			if actual != tt.expected {
 				t.Errorf("(%v, %v): expected %v, actual %v", tt.old, tt.cur, tt.expected, actual)
 			}
-
 		})
 	}
-
 }
