@@ -21,6 +21,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -188,6 +189,11 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			return err
 		}
 	}
+
+	time.Sleep(3 * time.Second)
+	t := &dplv1.Deployable{}
+	_ = statusClient.Get(context.TODO(), *host, t)
+	klog.Infof("DEGUB_DEPLOYABLE: updated deployable info %v  ", t)
 
 	return nil
 }
