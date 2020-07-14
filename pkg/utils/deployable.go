@@ -156,11 +156,10 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			a.Reason = templateerr.Error()
 		}
 
-		a.ResourceStatus = &runtime.RawExtension{}
-
 		var err error
 
 		if status != nil {
+			a.ResourceStatus = &runtime.RawExtension{}
 			a.ResourceStatus.Raw, err = json.Marshal(status)
 			if err != nil {
 				klog.Info("Failed to mashall status for ", host, status, " with err:", err)
@@ -236,11 +235,7 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return false
 	}
 
-	if !reflect.DeepEqual(aRes, bRes) {
-		return false
-	}
-
-	return true
+	return reflect.DeepEqual(aRes, bRes)
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
