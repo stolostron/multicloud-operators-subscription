@@ -205,8 +205,8 @@ func TestIsUpdateStatus(t *testing.T) {
 			},
 		},
 
-		{name: "should be true resource a status is not the same string time",
-			expected: true,
+		{name: "should be false resource a status is not the same string time",
+			expected: false,
 			old: dplv1.DeployableStatus{
 				ResourceUnitStatus: dplv1.ResourceUnitStatus{
 					Reason: "yes",
@@ -215,17 +215,14 @@ func TestIsUpdateStatus(t *testing.T) {
   resourceStatus:
     message: Active
     phase: Subscribed
-    statuses:
-      /:
-        packages:
-          github-redhat-sa-brazil-demo-summitgov-cy20-Deployment-muyi:
-            lastUpdateTime: "2020-07-14T14:09:43Z"
-            phase: Subscribed
-            resourceStatus:
-              observedGeneration: 7658
-              replicas: 1
-              unavailableReplicas: 1
-              updatedReplicas: 1`),
+    resourceStatus:
+      lastUpdateTime: "2020-07-14T15:09:43Z"
+      phase: Subscribed
+      resourceStatus:
+        observedGeneration: 7658
+        replicas: 1
+        unavailableReplicas: 1
+        updatedReplicas: 1`),
 					},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{},
@@ -239,17 +236,14 @@ func TestIsUpdateStatus(t *testing.T) {
   resourceStatus:
     message: Active
     phase: Subscribed
-    statuses:
-      /:
-        packages:
-          github-redhat-sa-brazil-demo-summitgov-cy20-Deployment-muyi:
-            lastUpdateTime: "2020-07-14T14:00:43Z"
-            phase: Subscribed
-            resourceStatus:
-              observedGeneration: 7658
-              replicas: 1
-              unavailableReplicas: 1
-              updatedReplicas: 1`),
+    resourceStatus:
+      lastUpdateTime: "2020-07-14T14:00:43Z"
+      phase: Subscribed
+      resourceStatus:
+        observedGeneration: 7658
+        replicas: 1
+        unavailableReplicas: 1
+        updatedReplicas: 1`),
 					},
 				},
 				PropagatedStatus: map[string]*dplv1.ResourceUnitStatus{
