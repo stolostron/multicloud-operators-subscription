@@ -27,17 +27,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-)
-
-var (
-	logf = log.Log.WithName("DEGUG-DEPLOY-STATUS")
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -177,13 +172,10 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 
-	statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
-	logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), host.String(), "dplstatus:before")
-
 	oldStatus := dpl.Status.DeepCopy()
 	if isStatusUpdated(*oldStatus, newStatus) {
-		logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), host.String(), "dplstatus:after")
-		logf.Info(fmt.Sprintf("resource status %v ", status), host.String(), "dplstatus:after")
+		statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
+		klog.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr))
 
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
@@ -194,7 +186,6 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			return err
 		}
 
-		logf.Info("dplstatus:after:done")
 	}
 
 	return nil
@@ -202,7 +193,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 func prettyStatus(a dplv1.DeployableStatus) string {
 	if a.ResourceStatus != nil {
-		return fmt.Sprintf("---> time: %v, phase %v, reason %v, msg %v, resource %v\n",
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v\n",
 			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
 	}
 
