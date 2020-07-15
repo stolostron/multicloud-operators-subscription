@@ -204,7 +204,6 @@ func TestIsUpdateStatus(t *testing.T) {
 				},
 			},
 		},
-
 		{name: "should be false resource a status is not the same string time",
 			expected: false,
 			old: dplv1.DeployableStatus{
