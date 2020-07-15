@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"reflect"
 	"strings"
@@ -26,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -156,11 +158,10 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			a.Reason = templateerr.Error()
 		}
 
-		a.ResourceStatus = &runtime.RawExtension{}
-
 		var err error
 
 		if status != nil {
+			a.ResourceStatus = &runtime.RawExtension{}
 			a.ResourceStatus.Raw, err = json.Marshal(status)
 			if err != nil {
 				klog.Info("Failed to mashall status for ", host, status, " with err:", err)
@@ -170,22 +171,34 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	}()
 
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
-	klog.Infof("old status: %v; new status: %v", dpl.Status, newStatus)
 
-	if isStatusUpdated(dpl.Status, newStatus) {
-		klog.Infof("updating old %v, new %v", dpl.Status, newStatus)
+	oldStatus := dpl.Status.DeepCopy()
+	if isStatusUpdated(*oldStatus, newStatus) {
+		statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
+		klog.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr))
 
 		now := metav1.Now()
+		dpl.Status = newStatus
 		dpl.Status.LastUpdateTime = &now
 
 		// want to print out the error log before leave
-		if err := statusClient.Status().Update(context.Background(), dpl); err != nil {
-			klog.Error("Failed to update status of deployable ", dpl)
+		if err := statusClient.Status().Update(context.TODO(), dpl); err != nil {
+			klog.Errorf("Failed to update status of deployable %v, err %v", dpl, err)
 			return err
 		}
 	}
 
 	return nil
+}
+
+func prettyStatus(a dplv1.DeployableStatus) string {
+	if a.ResourceStatus != nil {
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v\n",
+			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
+	}
+
+	return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
+		a.LastUpdateTime, a.Phase, a.Reason, a.Message, 0)
 }
 
 // since this is on the managed cluster, so we don't need to check up the
@@ -236,11 +249,23 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return false
 	}
 
-	if !reflect.DeepEqual(aRes, bRes) {
-		return false
+	aUnitStatus := &dplv1.ResourceUnitStatus{}
+	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
+
+	bUnitStatus := &dplv1.ResourceUnitStatus{}
+	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
+
+	if aerr != nil || berr != nil {
+		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
+		return true
 	}
 
-	return true
+	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
+
+	aUnitStatus.LastUpdateTime = nil
+	bUnitStatus.LastUpdateTime = nil
+
+	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
