@@ -178,6 +178,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		klog.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr))
 
 		now := metav1.Now()
+		dpl.Status = newStatus
 		dpl.Status.LastUpdateTime = &now
 
 		// want to print out the error log before leave
