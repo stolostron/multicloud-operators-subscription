@@ -178,12 +178,12 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 
 	statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
-	logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), "dplstatus:before")
+	logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), host.String(), "dplstatus:before")
 
 	oldStatus := dpl.Status.DeepCopy()
 	if isStatusUpdated(*oldStatus, newStatus) {
-		logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), "dplstatus:after")
-		logf.Info(fmt.Sprintf("resource status %v ", status), "dplstatus:after")
+		logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), host.String(), "dplstatus:after")
+		logf.Info(fmt.Sprintf("resource status %v ", status), host.String(), "dplstatus:after")
 
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
