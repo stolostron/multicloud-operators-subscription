@@ -20,11 +20,14 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/open-cluster-management/multicloud-operators-channel/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+
 	"github.com/prometheus/common/log"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -57,6 +60,7 @@ func printVersion() {
 
 func RunManager(sig <-chan struct{}) {
 	printVersion()
+	logf.SetLogger(zap.Logger())
 
 	// Get watch namespace setting of controller
 	namespace, err := k8sutil.GetWatchNamespace()

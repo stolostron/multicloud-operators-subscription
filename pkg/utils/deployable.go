@@ -27,12 +27,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+)
+
+var (
+	logf = log.Log.WithName("DEGUG-DEPLOY-STATUS")
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -173,12 +178,12 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 
 	statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
-	klog.Infof("DEGUB_DEPLOYABLE: host %v cmp status %v ", host.String(), statuStr)
+	logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), "dplstatus:before")
 
 	oldStatus := dpl.Status.DeepCopy()
 	if isStatusUpdated(*oldStatus, newStatus) {
-		klog.Infof("IN DEGUB_DEPLOYABLE: host %v cmp status %v ", host.String(), statuStr)
-		klog.Infof("IN DEGUB_DEPLOYABLE: %v ", status)
+		logf.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr), "dplstatus:after")
+		logf.Info(fmt.Sprintf("resource status %v ", status), "dplstatus:after")
 
 		now := metav1.Now()
 		dpl.Status.LastUpdateTime = &now
@@ -189,7 +194,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			return err
 		}
 
-		klog.Info("IN DEGUB_DEPLOYABLE: DOOOOON ")
+		logf.Info("dplstatus:after:done")
 	}
 
 	return nil
