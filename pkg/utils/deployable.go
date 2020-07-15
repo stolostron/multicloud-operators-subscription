@@ -258,7 +258,23 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return false
 	}
 
-	return reflect.DeepEqual(aRes, bRes)
+	aUnitStatus := &dplv1.ResourceUnitStatus{}
+	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
+
+	bUnitStatus := &dplv1.ResourceUnitStatus{}
+	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
+
+	if aerr != nil || berr != nil {
+		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
+		return true
+	}
+
+	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
+
+	aUnitStatus.LastUpdateTime = nil
+	bUnitStatus.LastUpdateTime = nil
+
+	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
