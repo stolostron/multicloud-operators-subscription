@@ -185,7 +185,6 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 			klog.Errorf("Failed to update status of deployable %v, err %v", dpl, err)
 			return err
 		}
-
 	}
 
 	return nil
