@@ -146,6 +146,7 @@ func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []s
 	klog.V(4).Infof("Calculating the HelmRelease names")
 
 	var hrNames []string
+
 	for packageName := range indexFile.Entries {
 		releaseCRName, err := utils.PkgToReleaseCRName(sub, packageName)
 		if err != nil {
