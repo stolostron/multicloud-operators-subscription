@@ -163,10 +163,12 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		if status != nil {
 			a.ResourceStatus = &runtime.RawExtension{}
 			a.ResourceStatus.Raw, err = json.Marshal(status)
+
 			if err != nil {
 				klog.Info("Failed to mashall status for ", host, status, " with err:", err)
 			}
 		}
+
 		return a
 	}()
 
@@ -174,8 +176,8 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	oldStatus := dpl.Status.DeepCopy()
 	if isStatusUpdated(*oldStatus, newStatus) {
-		statuStr := fmt.Sprintf("updating old %v, new %v", prettyStatus(dpl.Status), prettyStatus(newStatus))
-		klog.Info(fmt.Sprintf("host %v cmp status %v ", host.String(), statuStr))
+		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
+		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
 		now := metav1.Now()
 		dpl.Status = newStatus
