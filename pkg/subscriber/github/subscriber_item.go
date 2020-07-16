@@ -16,10 +16,12 @@ package github
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,6 +31,7 @@ import (
 	"github.com/ghodss/yaml"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
+	gclient "gopkg.in/src-d/go-git.v4/plumbing/transport/client"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,6 +61,8 @@ const (
 	UserID = "user"
 	// AccessToken is key of GitHub user password or personal token in secret
 	AccessToken = "accessToken"
+	// SkipVerify is used to access a git server with private certificate
+	SkipVerify = "insecureSkipVerify"
 	// Path is the key of GitHub package filter config map
 	Path = "path"
 )
@@ -572,6 +577,41 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		options.Auth = &githttp.BasicAuth{
 			Username: username,
 			Password: accessToken,
+		}
+	}
+
+	// refer to https://git-scm.com/book/fa/v2/Appendix-B%3A-Embedding-Git-in-your-Applications-go-git for details
+	if ghsi.Channel.Spec.ConfigMapRef != nil {
+		config := &corev1.ConfigMap{}
+		subns := ghsi.Subscription.Namespace
+		ns := ghsi.Channel.Spec.ConfigMapRef.Namespace
+		if ns == "" {
+			ns = ghsi.Channel.Namespace
+		}
+
+		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.ConfigMapRef.Name, Namespace: subns}, config)
+		if err != nil {
+			klog.Error(err, "Unable to get configMap from local cluster.")
+
+			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.ConfigMapRef.Name, Namespace: ns}, config)
+			if err != nil {
+				klog.Error(err, "Unable to get configMap from hub cluster.")
+				return "", err
+			}
+		}
+
+		insecureSkipVerify := strings.EqualFold(config.Data[SkipVerify], "true")
+
+		if insecureSkipVerify {
+			// Create a custom http(s) client with your config
+			customClient := &http.Client{
+				// accept any certificate (might be useful for testing)
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				},
+			}
+			// Override http(s) default protocol to use our custom client
+			gclient.InstallProtocol("https", githttp.NewClient(customClient))
 		}
 	}
 
