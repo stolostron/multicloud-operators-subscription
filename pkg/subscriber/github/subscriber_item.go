@@ -580,6 +580,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
+	// refer to https://git-scm.com/book/fa/v2/Appendix-B%3A-Embedding-Git-in-your-Applications-go-git for details
 	if ghsi.Channel.Spec.ConfigMapRef != nil {
 		config := &corev1.ConfigMap{}
 		subns := ghsi.Subscription.Namespace
