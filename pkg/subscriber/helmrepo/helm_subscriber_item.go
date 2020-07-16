@@ -151,6 +151,7 @@ func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []s
 		releaseCRName, err := utils.PkgToReleaseCRName(sub, packageName)
 		if err != nil {
 			klog.Error(err, "Unable to get HelmRelease name for package: ", packageName)
+			continue
 		}
 
 		hrNames = append(hrNames, releaseCRName)
