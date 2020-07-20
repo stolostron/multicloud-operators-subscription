@@ -402,6 +402,7 @@ func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscrip
 	if !isEqualSubscriptionStatus(oldStatus, upStatus) {
 		oldSub.Status = *upStatus
 		oldSub.Status.LastUpdateTime = metav1.Now()
+
 		if err := clt.Status().Update(context.TODO(), oldSub); err != nil {
 			return err
 		}
