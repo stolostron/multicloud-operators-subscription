@@ -16,11 +16,15 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -61,4 +65,94 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 	slist = &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+}
+
+func TestSetInClusterStatus(t *testing.T) {
+	now := metav1.Now()
+	resStatus := corev1.PodStatus{
+		Reason: "ok",
+	}
+
+	rawResStatus, _ := json.Marshal(resStatus)
+
+	var tests = []struct {
+		name           string
+		expectedStatus *appv1.SubscriptionStatus
+		givenSubStatus *appv1.SubscriptionStatus
+		givenPkgName   string
+		givenPkgErr    error
+		givenStatus    interface{}
+	}{
+
+		{
+			name: "status should change due to timestamp",
+			expectedStatus: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": &appv1.SubscriptionUnitStatus{
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
+			},
+			givenSubStatus: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+			},
+			givenPkgName: "resource",
+			givenPkgErr:  nil,
+			givenStatus:  nil,
+		},
+
+		{
+			name: "status should change the status due to the resource input",
+			expectedStatus: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": &appv1.SubscriptionUnitStatus{
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenSubStatus: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": &appv1.SubscriptionUnitStatus{
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
+			},
+			givenPkgName: "resource",
+			givenPkgErr:  nil,
+			givenStatus:  resStatus,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			_ = SetInClusterPackageStatus(tt.givenSubStatus, tt.givenPkgName, tt.givenPkgErr, tt.givenStatus)
+			if !isEqualSubscriptionStatus(tt.givenSubStatus, tt.expectedStatus) {
+				t.Errorf("given (%v): expected %v", tt.givenSubStatus, tt.expectedStatus)
+			}
+
+		})
+	}
 }

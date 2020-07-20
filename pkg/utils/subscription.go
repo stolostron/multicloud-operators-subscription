@@ -188,11 +188,12 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 
 // SetInClusterPackageStatus creates status strcuture and fill status
 func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) error {
-	if substatus.Statuses == nil {
-		substatus.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
+	newStatus := substatus.DeepCopy()
+	if newStatus.Statuses == nil {
+		newStatus.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
 	}
 
-	clst := substatus.Statuses["/"]
+	clst := newStatus.Statuses["/"]
 	if clst == nil || clst.SubscriptionPackageStatus == nil {
 		clst = &appv1.SubscriptionPerClusterStatus{}
 		clst.SubscriptionPackageStatus = make(map[string]*appv1.SubscriptionUnitStatus)
@@ -230,14 +231,96 @@ func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname stri
 		pkgstatus.ResourceStatus = nil
 	}
 
-	klog.V(10).Info("Set package status: ", pkgstatus)
+	klog.V(5).Info("Set package status: ", pkgstatus)
 
 	clst.SubscriptionPackageStatus[pkgname] = pkgstatus
-	substatus.Statuses["/"] = clst
+	newStatus.Statuses["/"] = clst
 
-	substatus.LastUpdateTime = metav1.Now()
+	newStatus.LastUpdateTime = metav1.Now()
+
+	if !isEqualSubscriptionStatus(substatus, newStatus) {
+		newStatus.DeepCopyInto(substatus)
+	}
 
 	return nil
+}
+
+func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a != nil && b == nil {
+		return false
+	}
+
+	if a == nil && b != nil {
+		return false
+	}
+
+	if a.Message != b.Message || a.Phase != b.Phase || a.Reason != b.Reason {
+		return false
+	}
+
+	aMap, bMap := a.Statuses, b.Statuses
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	if len(aMap) == 0 {
+		return true
+	}
+
+	return isEqualSubClusterStatus(aMap, bMap)
+}
+
+func isEqualSubClusterStatus(a, b map[string]*appv1.SubscriptionPerClusterStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v := range a {
+		if w, ok := b[k]; !ok || !isEqualSubPerClusterStatus(v.SubscriptionPackageStatus, w.SubscriptionPackageStatus) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isEqualSubPerClusterStatus(a, b map[string]*appv1.SubscriptionUnitStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v := range a {
+		if w, ok := b[k]; !ok || !isEqualSubscriptionUnitStatus(v, w) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isEqualSubscriptionUnitStatus(a, b *appv1.SubscriptionUnitStatus) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a != nil && b == nil {
+		return false
+	}
+
+	if a == nil && b != nil {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Message != b.Message || a.Reason != b.Reason ||
+		!reflect.DeepEqual(a.ResourceStatus, b.ResourceStatus) {
+		return false
+	}
+
+	return true
 }
 
 // DeleteInClusterPackageStatus deletes a package status
@@ -283,9 +366,8 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	if dplkey == nil {
 		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
 		klog.Info(errmsg)
-		err = errors.New(errmsg)
 
-		return err
+		return errors.New(errmsg)
 	}
 
 	if deletePkg {
