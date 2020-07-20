@@ -92,7 +92,7 @@ func TestSetInClusterStatus(t *testing.T) {
 				Statuses: appv1.SubscriptionClusterStatusMap{
 					"/": &appv1.SubscriptionPerClusterStatus{
 						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-							"resource": &appv1.SubscriptionUnitStatus{
+							"resource": {
 								Phase: appv1.SubscriptionSubscribed,
 							},
 						},
@@ -116,7 +116,7 @@ func TestSetInClusterStatus(t *testing.T) {
 				Statuses: appv1.SubscriptionClusterStatusMap{
 					"/": &appv1.SubscriptionPerClusterStatus{
 						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-							"resource": &appv1.SubscriptionUnitStatus{
+							"resource": {
 								Phase: appv1.SubscriptionSubscribed,
 								ResourceStatus: &runtime.RawExtension{
 									Raw: rawResStatus,
@@ -132,7 +132,7 @@ func TestSetInClusterStatus(t *testing.T) {
 				Statuses: appv1.SubscriptionClusterStatusMap{
 					"/": &appv1.SubscriptionPerClusterStatus{
 						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-							"resource": &appv1.SubscriptionUnitStatus{
+							"resource": {
 								Phase: appv1.SubscriptionSubscribed,
 							},
 						},
@@ -152,7 +152,6 @@ func TestSetInClusterStatus(t *testing.T) {
 			if !isEqualSubscriptionStatus(tt.givenSubStatus, tt.expectedStatus) {
 				t.Errorf("given (%v): expected %v", tt.givenSubStatus, tt.expectedStatus)
 			}
-
 		})
 	}
 }
