@@ -389,6 +389,27 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	return err
 }
 
+func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
+	oldSub := &appv1.Subscription{}
+
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: updateSub.GetName(), Namespace: updateSub.GetNamespace()}, oldSub); err != nil {
+		return err
+	}
+
+	oldStatus := &oldSub.Status
+	upStatus := &updateSub.Status
+
+	if !isEqualSubscriptionStatus(oldStatus, upStatus) {
+		oldSub.Status = *upStatus
+		oldSub.Status.LastUpdateTime = metav1.Now()
+		if err := clt.Status().Update(context.TODO(), oldSub); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages
 func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1.Subscription, pkgMap map[string]bool) error {
 	var err error
