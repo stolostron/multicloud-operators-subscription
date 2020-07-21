@@ -296,6 +296,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
 		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, (res.GroupVersionResource == serviceGVR))
+
 		if err != nil {
 			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
 		}
