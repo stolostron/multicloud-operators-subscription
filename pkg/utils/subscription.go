@@ -370,23 +370,29 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		return errors.New(errmsg)
 	}
 
+	newStatus := sub.Status.DeepCopy()
+
 	if deletePkg {
-		DeleteInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+		DeleteInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
 	} else {
-		err = SetInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+		err = SetInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
 		if err != nil {
 			klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
 			return err
 		}
 	}
 
-	err = statusClient.Status().Update(context.TODO(), sub)
-	// want to print out the error log before leave
-	if err != nil {
-		klog.Error("Failed to update status of deployable ", err)
+	if !isEqualSubscriptionStatus(&sub.Status, newStatus) {
+		sub.Status = *newStatus
+		sub.Status.LastUpdateTime = metav1.Now()
+		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
+			// want to print out the error log before leave
+			klog.Error("Failed to update status of deployable ", err)
+			return err
+		}
 	}
 
-	return err
+	return nil
 }
 
 func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
