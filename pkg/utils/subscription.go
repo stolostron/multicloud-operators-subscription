@@ -385,6 +385,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	if !isEqualSubscriptionStatus(&sub.Status, newStatus) {
 		sub.Status = *newStatus
 		sub.Status.LastUpdateTime = metav1.Now()
+
 		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
 			// want to print out the error log before leave
 			klog.Error("Failed to update status of deployable ", err)
