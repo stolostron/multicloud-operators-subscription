@@ -175,13 +175,18 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
 
 	oldStatus := dpl.Status.DeepCopy()
-	if isStatusUpdated(*oldStatus, newStatus) {
+
+	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
+
+	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isStatusUpdated(*oldStatus, newStatus) {
 		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
 		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
 		now := metav1.Now()
 		dpl.Status = newStatus
 		dpl.Status.LastUpdateTime = &now
+
+		klog.V(1).Infof("new new deploayble: %#v", dpl)
 
 		// want to print out the error log before leave
 		if err := statusClient.Status().Update(context.TODO(), dpl); err != nil {
@@ -211,7 +216,7 @@ func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
-	if len(a.Message) != 0 && len(a.Phase) != 0 || len(a.Reason) != 0 || a.ResourceStatus != nil {
+	if len(a.Message) != 0 || len(a.Phase) != 0 || len(a.Reason) != 0 || a.ResourceStatus != nil {
 		return false
 	}
 
