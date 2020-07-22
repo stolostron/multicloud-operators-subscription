@@ -394,10 +394,10 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	klog.Infof("what's going on old status %v, new status %v", sub.Status, newStatus)
+	klog.V(1).Infof("what's going on old status %v, new status %v", sub.Status, newStatus)
 
 	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		klog.Infof("innnnn what's going on old status %v, new status %v", sub.Status, newStatus)
+		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus)
 
 		sub.Status = *newStatus
 		sub.Status.LastUpdateTime = metav1.Now()
@@ -412,15 +412,6 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	return nil
 }
 
-func printSubscriptionStatusStatus(s appv1.SubscriptionClusterStatusMap) {
-	for k, v := range s {
-		klog.Infof("resource key %v\n", k)
-		for kk, vv := range v.SubscriptionPackageStatus {
-			klog.Infof("resource key ---> %v %v\n", kk, vv)
-		}
-	}
-}
-
 func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
 	oldSub := &appv1.Subscription{}
 
@@ -431,7 +422,7 @@ func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscrip
 	oldStatus := &oldSub.Status
 	upStatus := &updateSub.Status
 
-	if !isEqualSubscriptionStatus(oldStatus, upStatus) {
+	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
 		oldSub.Status = *upStatus
 		oldSub.Status.LastUpdateTime = metav1.Now()
 
