@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -67,7 +68,7 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
 }
 
-func TestSetInClusterStatus(t *testing.T) {
+func TestIsEqaulSubscriptionStatus(t *testing.T) {
 	now := metav1.Now()
 	resStatus := corev1.PodStatus{
 		Reason: "ok",
@@ -76,17 +77,22 @@ func TestSetInClusterStatus(t *testing.T) {
 	rawResStatus, _ := json.Marshal(resStatus)
 
 	var tests = []struct {
-		name           string
-		expectedStatus *appv1.SubscriptionStatus
-		givenSubStatus *appv1.SubscriptionStatus
-		givenPkgName   string
-		givenPkgErr    error
-		givenStatus    interface{}
+		name     string
+		givenb   *appv1.SubscriptionStatus
+		givena   *appv1.SubscriptionStatus
+		expected bool
 	}{
 
 		{
-			name: "status should change due to timestamp",
-			expectedStatus: &appv1.SubscriptionStatus{
+			name:     "empty status should be equal",
+			givena:   &appv1.SubscriptionStatus{},
+			givenb:   &appv1.SubscriptionStatus{},
+			expected: true,
+		},
+
+		{
+			name: "should be equal even lastUpdateTime is different",
+			givena: &appv1.SubscriptionStatus{
 				Reason:         "test",
 				LastUpdateTime: now,
 				Statuses: appv1.SubscriptionClusterStatusMap{
@@ -99,18 +105,25 @@ func TestSetInClusterStatus(t *testing.T) {
 					},
 				},
 			},
-			givenSubStatus: &appv1.SubscriptionStatus{
+			givenb: &appv1.SubscriptionStatus{
 				Reason:         "test",
-				LastUpdateTime: now,
+				LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
 			},
-			givenPkgName: "resource",
-			givenPkgErr:  nil,
-			givenStatus:  nil,
+			expected: true,
 		},
 
 		{
-			name: "status should change the status due to the resource input",
-			expectedStatus: &appv1.SubscriptionStatus{
+			name: "should be different due to resource status",
+			givena: &appv1.SubscriptionStatus{
 				Reason:         "test",
 				LastUpdateTime: now,
 				Statuses: appv1.SubscriptionClusterStatusMap{
@@ -126,7 +139,7 @@ func TestSetInClusterStatus(t *testing.T) {
 					},
 				},
 			},
-			givenSubStatus: &appv1.SubscriptionStatus{
+			givenb: &appv1.SubscriptionStatus{
 				Reason:         "test",
 				LastUpdateTime: now,
 				Statuses: appv1.SubscriptionClusterStatusMap{
@@ -139,19 +152,78 @@ func TestSetInClusterStatus(t *testing.T) {
 					},
 				},
 			},
-			givenPkgName: "resource",
-			givenPkgErr:  nil,
-			givenStatus:  resStatus,
+			expected: false,
+		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"a": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
 		},
 	}
 
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
-			_ = SetInClusterPackageStatus(tt.givenSubStatus, tt.givenPkgName, tt.givenPkgErr, tt.givenStatus)
-			if !isEqualSubscriptionStatus(tt.givenSubStatus, tt.expectedStatus) {
-				t.Errorf("given (%v): expected %v", tt.givenSubStatus, tt.expectedStatus)
+			actual := isEqualSubscriptionStatus(tt.givena, tt.givenb)
+
+			if actual != tt.expected {
+				t.Errorf("given (a: %#v b: %#v): expected %v", tt.givena, tt.givenb, tt.expected)
 			}
 		})
 	}
+}
+
+func TestIsEmptySubscriptionStatus(t *testing.T) {
+	var tests = []struct {
+		name     string
+		expected bool
+		given    *appv1.SubscriptionStatus
+	}{
+		{name: "should be true, nil pointer", expected: true, given: nil},
+		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{}},
+		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{Statuses: appv1.SubscriptionClusterStatusMap{}}},
+	}
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			actual := isEmptySubscriptionStatus(tt.given)
+			if actual != tt.expected {
+				t.Errorf("(%v): expected %v, actual %v", tt.given, tt.expected, actual)
+			}
+
+		})
+	}
+
 }

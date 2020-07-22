@@ -238,11 +238,23 @@ func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname stri
 
 	newStatus.LastUpdateTime = metav1.Now()
 
-	if !isEqualSubscriptionStatus(substatus, newStatus) {
+	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(substatus, newStatus) {
 		newStatus.DeepCopyInto(substatus)
 	}
 
 	return nil
+}
+
+func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
+	if a == nil {
+		return true
+	}
+
+	if len(a.Message) == 0 || len(a.Phase) == 0 || len(a.Reason) == 0 || len(a.Statuses) == 0 {
+		return true
+	}
+
+	return false
 }
 
 func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
@@ -382,7 +394,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	if !isEqualSubscriptionStatus(&sub.Status, newStatus) {
+	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
 		sub.Status = *newStatus
 		sub.Status.LastUpdateTime = metav1.Now()
 
