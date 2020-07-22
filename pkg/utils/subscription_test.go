@@ -215,6 +215,7 @@ func TestIsEmptySubscriptionStatus(t *testing.T) {
 		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{}},
 		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{Statuses: appv1.SubscriptionClusterStatusMap{}}},
 	}
+
 	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
@@ -222,8 +223,6 @@ func TestIsEmptySubscriptionStatus(t *testing.T) {
 			if actual != tt.expected {
 				t.Errorf("(%v): expected %v, actual %v", tt.given, tt.expected, actual)
 			}
-
 		})
 	}
-
 }
