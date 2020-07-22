@@ -191,6 +191,104 @@ func TestIsEqaulSubscriptionStatus(t *testing.T) {
 			},
 			expected: false,
 		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -214,6 +312,7 @@ func TestIsEmptySubscriptionStatus(t *testing.T) {
 		{name: "should be true, nil pointer", expected: true, given: nil},
 		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{}},
 		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{Statuses: appv1.SubscriptionClusterStatusMap{}}},
+		{name: "should be true, default status", expected: false, given: &appv1.SubscriptionStatus{Message: "test"}},
 	}
 
 	for _, tt := range tests {
