@@ -166,9 +166,6 @@ update the status to a subscription sitting in the current cluster.
 
 Here're a list of the caller of `UpdateHostStatus`:
 ```
-func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind,
-res *ResourceMap) error{}
-
 func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri
 dynamic.ResourceInterface, tplunit *TemplateUnit) error {}
 
