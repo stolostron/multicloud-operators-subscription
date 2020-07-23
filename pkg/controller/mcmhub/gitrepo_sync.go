@@ -81,11 +81,20 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			return false, err
 		}
 
+		skipVerify, err := utils.GetChannelSkipVerify(r.Client, channel)
+
+		if err != nil {
+			klog.Errorf("Failed to get configMap for channel: %s", channel.GetName())
+			return false, err
+		}
+
 		commit, err := utils.CloneGitRepo(channel.Spec.Pathname,
 			utils.GetSubscriptionBranch(sub),
 			user,
 			pwd,
-			utils.GetLocalGitFolder(channel, sub))
+			utils.GetLocalGitFolder(channel, sub),
+			skipVerify,
+		)
 
 		if err != nil {
 			klog.Error(err.Error())
