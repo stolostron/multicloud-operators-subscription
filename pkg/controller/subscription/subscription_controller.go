@@ -177,7 +177,14 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if pl != nil && pl.Local != nil && *pl.Local {
 		reconcileErr := r.doReconcile(instance)
 
+		// doReconcile updates the subscription. Later this function fails to update the subscription status
+		// if the same subscription resource is used because it has already been updated by reconcile.
+		// Get the newly updated subscription resource.
+		_ = r.Get(context.TODO(), request.NamespacedName, instance)
+
 		instance.Status.Phase = appv1.SubscriptionSubscribed
+		instance.Status.Reason = ""
+
 		if reconcileErr != nil {
 			instance.Status.Phase = appv1.SubscriptionFailed
 			instance.Status.Reason = reconcileErr.Error()
@@ -342,6 +349,14 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
 		if k != subtype {
+			klog.V(1).Infof("k: %v, sub: %v, subtype:%v,  unsubscribe %v/%v", k, sub, subtype, subitem.Subscription.Namespace, subitem.Subscription.Name)
+
+			// if the subscription pause lable is true, stop unsubscription here.
+			if subutil.GetPauseLabel(subitem.Subscription) {
+				klog.Infof("unsubscription: %v/%v is paused.", subitem.Subscription.Namespace, subitem.Subscription.Name)
+				continue
+			}
+
 			if err := sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}); err != nil {
 				klog.Errorf("failed to unsubscribe with subscriber %v error %+v", k, err)
 			}

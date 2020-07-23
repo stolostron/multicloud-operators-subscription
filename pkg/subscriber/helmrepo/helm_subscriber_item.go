@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ghodss/yaml"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -114,7 +115,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 		return
 	}
 
-	_, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
+	indexFile, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
 
 	if err != nil {
 		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
@@ -123,38 +124,66 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	klog.V(4).Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
 
-	if hash != hrsi.hash || !hrsi.success {
-		if err := hrsi.processSubscription(); err != nil {
-			klog.Error("Failed to process helm repo subscription with error:", err)
+	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
 
-			hrsi.success = false
+	for _, hrName := range hrNames {
+		if hash != hrsi.hash || !hrsi.success ||
+			!isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName) {
+			if err := hrsi.processSubscription(indexFile, hash); err != nil {
+				klog.Error("Failed to process helm repo subscription with error:", err)
 
-			return
+				hrsi.success = false
+
+				return
+			}
+
+			hrsi.success = true
 		}
-
-		hrsi.success = true
 	}
 }
 
-func (hrsi *SubscriberItem) processSubscription() error {
+func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []string {
+	klog.V(4).Infof("Calculating the HelmRelease names")
+
+	var hrNames []string
+
+	for packageName := range indexFile.Entries {
+		releaseCRName, err := utils.PkgToReleaseCRName(sub, packageName)
+		if err != nil {
+			klog.Error(err, "Unable to get HelmRelease name for package: ", packageName)
+			continue
+		}
+
+		hrNames = append(hrNames, releaseCRName)
+	}
+
+	return hrNames
+}
+
+func isHelmReleaseExists(client client.Client, namespace string, releaseCRName string) bool {
+	klog.V(4).Infof("Checking to see if the HelmRelease %s exists", releaseCRName)
+
+	helmRelease := &releasev1.HelmRelease{}
+
+	if err := client.Get(context.TODO(),
+		types.NamespacedName{Name: releaseCRName, Namespace: namespace}, helmRelease); err != nil {
+		if errors.IsNotFound(err) {
+			return false
+		}
+
+		klog.Error(err, "Unable to get HelmRelease", releaseCRName)
+
+		return false
+	}
+
+	return true
+}
+
+func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash string) error {
 	repoURL := hrsi.Channel.Spec.Pathname
 	klog.V(4).Info("Proecssing HelmRepo:", repoURL)
 
-	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap)
-	if err != nil {
-		klog.Error(err, "Unable to create client for helm repo", repoURL)
-		return err
-	}
-
-	indexFile, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
-	if err != nil {
-		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
-		return err
-	}
-
-	err = hrsi.manageHelmCR(indexFile, repoURL)
-
-	if err != nil {
+	if err := hrsi.manageHelmCR(indexFile, repoURL); err != nil {
 		return err
 	}
 

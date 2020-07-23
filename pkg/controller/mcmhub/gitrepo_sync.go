@@ -61,7 +61,8 @@ type kubeResourceMetadata struct {
 // UpdateGitDeployablesAnnotation clones the git repo and regenerate deployables and update annotation if needed
 func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscription) (bool, error) {
 	updated := false
-	origsub := sub
+	origsub := &appv1.Subscription{}
+	sub.DeepCopyInto(origsub)
 
 	channel, err := r.getChannel(sub)
 
@@ -137,91 +138,71 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 	newanno := newsub.GetAnnotations()
 
 	// 1. compare deployables list annoation
+	if ifUpdateAnnotation(origanno, newanno, appv1.AnnotationDeployables) {
+		return true
+	}
+
+	// 2. compare git-commit annoation
+	origGitCommit, origok := origanno[appv1.AnnotationGitCommit]
+	newGitCommit, newok := newanno[appv1.AnnotationGitCommit]
+
+	if (!origok && newok) || (origok && !newok) || (origGitCommit != newGitCommit) {
+		klog.V(1).Infof("different Git Subscription git-commit annotations. origGitCommit: %v, newGitCommit: %v",
+			origGitCommit, newGitCommit)
+		return true
+	}
+
+	// 3. compare cluster-admin annoation
+	origClusterAdmin, origok := origanno[appv1.AnnotationClusterAdmin]
+	newClusterAdmin, newok := newanno[appv1.AnnotationClusterAdmin]
+
+	if (!origok && newok) || (origok && !newok) || origClusterAdmin != newClusterAdmin {
+		klog.V(1).Infof("different Git Subscription cluster-admin annotations. origClusterAdmin: %v, newClusterAdmin: %v",
+			origClusterAdmin, newClusterAdmin)
+		return true
+	}
+
+	// 4. compare topo annoation
+	if ifUpdateAnnotation(origanno, newanno, appv1.AnnotationTopo) {
+		return true
+	}
+
+	return false
+}
+
+func ifUpdateAnnotation(origanno, newanno map[string]string, annoString string) bool {
 	origdplmap := make(map[string]bool)
 
 	if origanno != nil {
-		dpls := origanno[appv1.AnnotationDeployables]
+		dpls := origanno[annoString]
 		if dpls != "" {
 			dplkeys := strings.Split(dpls, ",")
 			for _, dplkey := range dplkeys {
 				origdplmap[dplkey] = true
 			}
 		}
+
+		klog.V(1).Infof("orig dpl map: %v", origdplmap)
 	}
 
 	newdplmap := make(map[string]bool)
 
 	if newanno != nil {
-		dpls := newanno[appv1.AnnotationDeployables]
+		dpls := newanno[annoString]
 		if dpls != "" {
 			dplkeys := strings.Split(dpls, ",")
 			for _, dplkey := range dplkeys {
 				newdplmap[dplkey] = true
 			}
 		}
+
+		klog.V(1).Infof("new dpl map: %v", newdplmap)
 	}
 
-	if len(origdplmap) > 0 && len(newdplmap) > 0 {
-		if !reflect.DeepEqual(origdplmap, newdplmap) {
-			klog.V(1).Infof("different Git Subscription deployable annotations. origdplmap: %v, newdplmap: %v",
-				origdplmap, newdplmap)
-			return true
-		}
-	}
-
-	// 2. compare git-commit annoation
-	if origGitCommit, origok := origanno[appv1.AnnotationGitCommit]; origok {
-		if newGitCommit, newok := newanno[appv1.AnnotationGitCommit]; newok {
-			if origGitCommit != newGitCommit {
-				klog.V(1).Infof("different Git Subscription git-commit annotations. origGitCommit: %v, newGitCommit: %v",
-					origGitCommit, newGitCommit)
-				return true
-			}
-		}
-	}
-
-	// 3. compare cluster-admin annoation
-	if origClusterAdmin, origok := origanno[appv1.AnnotationClusterAdmin]; origok {
-		if newClusterAdmin, newok := newanno[appv1.AnnotationClusterAdmin]; newok {
-			if origClusterAdmin != newClusterAdmin {
-				klog.V(1).Infof("different Git Subscription cluster-admin annotations. origClusterAdmin: %v, newClusterAdmin: %v",
-					origClusterAdmin, newClusterAdmin)
-				return true
-			}
-		}
-	}
-
-	// 4. compare topo annoation
-	origtopomap := make(map[string]bool)
-
-	if origanno != nil {
-		dpls := origanno[appv1.AnnotationTopo]
-		if dpls != "" {
-			dplkeys := strings.Split(dpls, ",")
-			for _, dplkey := range dplkeys {
-				origtopomap[dplkey] = true
-			}
-		}
-	}
-
-	newtopomap := make(map[string]bool)
-
-	if newanno != nil {
-		dpls := newanno[appv1.AnnotationTopo]
-		if dpls != "" {
-			dplkeys := strings.Split(dpls, ",")
-			for _, dplkey := range dplkeys {
-				newtopomap[dplkey] = true
-			}
-		}
-	}
-
-	if len(origtopomap) > 0 && len(newtopomap) > 0 {
-		if !reflect.DeepEqual(origtopomap, newtopomap) {
-			klog.V(1).Infof("different Git Subscription topo annotations. origtopomap: %v, newtopomap: %v",
-				origtopomap, newtopomap)
-			return true
-		}
+	if !reflect.DeepEqual(origdplmap, newdplmap) {
+		klog.V(1).Infof("different Git Subscription deployable annotations. origdplmap: %v, newdplmap: %v",
+			origdplmap, newdplmap)
+		return true
 	}
 
 	return false

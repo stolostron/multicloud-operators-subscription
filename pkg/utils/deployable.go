@@ -17,7 +17,9 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -25,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,45 +141,138 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 		klog.Info("Failed to find hosting deployable for ", tplunit)
 	}
 
-	err := statusClient.Get(context.TODO(), *host, dpl)
-
-	if err != nil {
+	if err := statusClient.Get(context.TODO(), *host, dpl); err != nil {
 		// for all errors including not found return
 		return err
 	}
 
-	klog.V(10).Info("Trying to update deployable status:", host, templateerr)
-
 	dpl.Status.PropagatedStatus = nil
-	if templateerr == nil {
-		dpl.Status.Phase = dplv1.DeployableDeployed
-		dpl.Status.Reason = ""
-	} else {
-		dpl.Status.Phase = dplv1.DeployableFailed
-		dpl.Status.Reason = templateerr.Error()
-	}
 
-	if status != nil {
-		if dpl.Status.ResourceStatus == nil {
-			dpl.Status.ResourceStatus = &runtime.RawExtension{}
+	newStatus := func() dplv1.DeployableStatus {
+		a := dplv1.DeployableStatus{}
+		if templateerr == nil {
+			a.Phase = dplv1.DeployableDeployed
+			a.Reason = ""
+		} else {
+			a.Phase = dplv1.DeployableFailed
+			a.Reason = templateerr.Error()
 		}
 
-		dpl.Status.ResourceStatus.Raw, err = json.Marshal(status)
+		var err error
 
-		if err != nil {
-			klog.Info("Failed to mashall status for ", host, status, " with err:", err)
+		if status != nil {
+			a.ResourceStatus = &runtime.RawExtension{}
+			a.ResourceStatus.Raw, err = json.Marshal(status)
+
+			if err != nil {
+				klog.Info("Failed to mashall status for ", host, status, " with err:", err)
+			}
+		}
+
+		return a
+	}()
+
+	klog.V(1).Info("Trying to update deployable status:", host, templateerr)
+
+	oldStatus := dpl.Status.DeepCopy()
+
+	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
+
+	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isStatusUpdated(*oldStatus, newStatus) {
+		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
+		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
+
+		now := metav1.Now()
+		dpl.Status = newStatus
+		dpl.Status.LastUpdateTime = &now
+
+		klog.V(1).Infof("new new deploayble: %#v", dpl)
+
+		// want to print out the error log before leave
+		if err := statusClient.Status().Update(context.TODO(), dpl); err != nil {
+			klog.Errorf("Failed to update status of deployable %v, err %v", dpl, err)
+			return err
 		}
 	}
 
-	now := metav1.Now()
-	dpl.Status.LastUpdateTime = &now
-	err = statusClient.Status().Update(context.Background(), dpl)
-	// want to print out the error log before leave
-	if err != nil {
-		klog.Error("Failed to update status of deployable ", dpl)
+	return nil
+}
+
+func prettyStatus(a dplv1.DeployableStatus) string {
+	if a.ResourceStatus != nil {
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v\n",
+			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
 	}
 
-	return err
+	return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
+		a.LastUpdateTime, a.Phase, a.Reason, a.Message, 0)
+}
+
+// since this is on the managed cluster, so we don't need to check up the
+// propagateStatus
+func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
+	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+	return !isEqualResourceUnitStatus(oldResSt, inResSt)
+}
+
+func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
+	if len(a.Message) != 0 || len(a.Phase) != 0 || len(a.Reason) != 0 || a.ResourceStatus != nil {
+		return false
+	}
+
+	return true
+}
+
+func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
+	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
+		return false
+	}
+
+	//status from cluster
+	aRes := a.ResourceStatus
+	bRes := b.ResourceStatus
+
+	if aRes == nil && bRes == nil {
+		return true
+	}
+
+	if aRes == nil && bRes != nil {
+		return false
+	}
+
+	if aRes != nil && bRes == nil {
+		return false
+	}
+
+	aUnitStatus := &dplv1.ResourceUnitStatus{}
+	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
+
+	bUnitStatus := &dplv1.ResourceUnitStatus{}
+	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
+
+	if aerr != nil || berr != nil {
+		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
+		return true
+	}
+
+	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
+
+	aUnitStatus.LastUpdateTime = nil
+	bUnitStatus.LastUpdateTime = nil
+
+	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
 
 //DeleteDeployableCRD deletes the Deployable CRD
