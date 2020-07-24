@@ -305,13 +305,18 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
 	k string, tplunit *TemplateUnit, isService bool) error {
-	klog.V(3).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
+	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 	var ri dynamic.ResourceInterface
 	if namespaced {
 		ri = nri.Namespace(tplunit.GetNamespace())
 	} else {
 		ri = nri
+	}
+
+	if !utils.AllowApplyTemplate(sync.LocalClient, tplunit.Unstructured) {
+		klog.Infof("Applying template is paused: %v/%v", tplunit.GetName(), tplunit.GetNamespace())
+		return nil
 	}
 
 	obj, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
