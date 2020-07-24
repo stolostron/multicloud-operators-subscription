@@ -188,11 +188,12 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 
 // SetInClusterPackageStatus creates status strcuture and fill status
 func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) error {
-	if substatus.Statuses == nil {
-		substatus.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
+	newStatus := substatus.DeepCopy()
+	if newStatus.Statuses == nil {
+		newStatus.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
 	}
 
-	clst := substatus.Statuses["/"]
+	clst := newStatus.Statuses["/"]
 	if clst == nil || clst.SubscriptionPackageStatus == nil {
 		clst = &appv1.SubscriptionPerClusterStatus{}
 		clst.SubscriptionPackageStatus = make(map[string]*appv1.SubscriptionUnitStatus)
@@ -230,14 +231,108 @@ func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname stri
 		pkgstatus.ResourceStatus = nil
 	}
 
-	klog.V(10).Info("Set package status: ", pkgstatus)
+	klog.V(5).Info("Set package status: ", pkgstatus)
 
 	clst.SubscriptionPackageStatus[pkgname] = pkgstatus
-	substatus.Statuses["/"] = clst
+	newStatus.Statuses["/"] = clst
 
-	substatus.LastUpdateTime = metav1.Now()
+	newStatus.LastUpdateTime = metav1.Now()
+
+	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(substatus, newStatus) {
+		newStatus.DeepCopyInto(substatus)
+	}
 
 	return nil
+}
+
+func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
+	if a == nil {
+		return true
+	}
+
+	if len(a.Message) != 0 || len(a.Phase) != 0 || len(a.Reason) != 0 || len(a.Statuses) != 0 {
+		return false
+	}
+
+	return true
+}
+
+func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a != nil && b == nil {
+		return false
+	}
+
+	if a == nil && b != nil {
+		return false
+	}
+
+	if a.Message != b.Message || a.Phase != b.Phase || a.Reason != b.Reason {
+		return false
+	}
+
+	aMap, bMap := a.Statuses, b.Statuses
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	if len(aMap) == 0 {
+		return true
+	}
+
+	return isEqualSubClusterStatus(aMap, bMap)
+}
+
+func isEqualSubClusterStatus(a, b map[string]*appv1.SubscriptionPerClusterStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v := range a {
+		if w, ok := b[k]; !ok || !isEqualSubPerClusterStatus(v.SubscriptionPackageStatus, w.SubscriptionPackageStatus) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isEqualSubPerClusterStatus(a, b map[string]*appv1.SubscriptionUnitStatus) bool {
+	if len(a) != len(b) {
+		return false
+	}
+
+	for k, v := range a {
+		if w, ok := b[k]; !ok || !isEqualSubscriptionUnitStatus(v, w) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func isEqualSubscriptionUnitStatus(a, b *appv1.SubscriptionUnitStatus) bool {
+	if a == nil && b == nil {
+		return true
+	}
+
+	if a != nil && b == nil {
+		return false
+	}
+
+	if a == nil && b != nil {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Message != b.Message || a.Reason != b.Reason ||
+		!reflect.DeepEqual(a.ResourceStatus, b.ResourceStatus) {
+		return false
+	}
+
+	return true
 }
 
 // DeleteInClusterPackageStatus deletes a package status
@@ -283,28 +378,60 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	if dplkey == nil {
 		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
 		klog.Info(errmsg)
-		err = errors.New(errmsg)
 
-		return err
+		return errors.New(errmsg)
 	}
 
+	newStatus := sub.Status.DeepCopy()
+
 	if deletePkg {
-		DeleteInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+		DeleteInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
 	} else {
-		err = SetInClusterPackageStatus(&sub.Status, dplkey.Name, templateerr, status)
+		err = SetInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
 		if err != nil {
 			klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
 			return err
 		}
 	}
 
-	err = statusClient.Status().Update(context.TODO(), sub)
-	// want to print out the error log before leave
-	if err != nil {
-		klog.Error("Failed to update status of deployable ", err)
+	klog.V(1).Infof("what's going on old status %v, new status %v", sub.Status, newStatus)
+
+	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
+		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus)
+
+		sub.Status = *newStatus
+		sub.Status.LastUpdateTime = metav1.Now()
+
+		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
+			// want to print out the error log before leave
+			klog.Error("Failed to update status of deployable ", err)
+			return err
+		}
 	}
 
-	return err
+	return nil
+}
+
+func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
+	oldSub := &appv1.Subscription{}
+
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: updateSub.GetName(), Namespace: updateSub.GetNamespace()}, oldSub); err != nil {
+		return err
+	}
+
+	oldStatus := &oldSub.Status
+	upStatus := &updateSub.Status
+
+	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
+		oldSub.Status = *upStatus
+		oldSub.Status.LastUpdateTime = metav1.Now()
+
+		if err := clt.Status().Update(context.TODO(), oldSub); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages

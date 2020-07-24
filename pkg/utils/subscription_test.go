@@ -16,11 +16,16 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -61,4 +66,262 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 	slist = &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
 	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+}
+
+func TestIsEqaulSubscriptionStatus(t *testing.T) {
+	now := metav1.Now()
+	resStatus := corev1.PodStatus{
+		Reason: "ok",
+	}
+
+	rawResStatus, _ := json.Marshal(resStatus)
+
+	var tests = []struct {
+		name     string
+		givenb   *appv1.SubscriptionStatus
+		givena   *appv1.SubscriptionStatus
+		expected bool
+	}{
+
+		{
+			name:     "empty status should be equal",
+			givena:   &appv1.SubscriptionStatus{},
+			givenb:   &appv1.SubscriptionStatus{},
+			expected: true,
+		},
+
+		{
+			name: "should be equal even lastUpdateTime is different",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+
+		{
+			name: "should be different due to resource status",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"a": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"resource": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: true,
+		},
+
+		{
+			name: "should be different due to cluster key",
+			givena: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+
+							"package-b": {
+								Phase: appv1.SubscriptionSubscribed,
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			givenb: &appv1.SubscriptionStatus{
+				Reason:         "test",
+				LastUpdateTime: now,
+				Statuses: appv1.SubscriptionClusterStatusMap{
+					"/": &appv1.SubscriptionPerClusterStatus{
+						SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+							"package-a": {
+								Phase:          appv1.SubscriptionSubscribed,
+								LastUpdateTime: metav1.NewTime(now.Add(5 * time.Second)),
+								ResourceStatus: &runtime.RawExtension{
+									Raw: rawResStatus,
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			actual := isEqualSubscriptionStatus(tt.givena, tt.givenb)
+
+			if actual != tt.expected {
+				t.Errorf("given (a: %#v b: %#v): expected %v", tt.givena, tt.givenb, tt.expected)
+			}
+		})
+	}
+}
+
+func TestIsEmptySubscriptionStatus(t *testing.T) {
+	var tests = []struct {
+		name     string
+		expected bool
+		given    *appv1.SubscriptionStatus
+	}{
+		{name: "should be true, nil pointer", expected: true, given: nil},
+		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{}},
+		{name: "should be true, default status", expected: true, given: &appv1.SubscriptionStatus{Statuses: appv1.SubscriptionClusterStatusMap{}}},
+		{name: "should be true, default status", expected: false, given: &appv1.SubscriptionStatus{Message: "test"}},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			actual := isEmptySubscriptionStatus(tt.given)
+			if actual != tt.expected {
+				t.Errorf("(%v): expected %v, actual %v", tt.given, tt.expected, actual)
+			}
+		})
+	}
 }
