@@ -613,6 +613,38 @@ func GetPauseLabel(instance *appv1.Subscription) bool {
 	return false
 }
 
+// AllowApplyTemplate check if the template is allowed to apply based on its hosting subscription pause label
+// return false if the hosting subscription is paused.
+func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstructured) bool {
+	// if the template is subscription kind, allow its update
+	if strings.EqualFold(template.GetKind(), "Subscription") {
+		return true
+	}
+
+	//if the template is not subscription kind, check if its hosting subscription is paused.
+	sub := &appv1.Subscription{}
+	subkey := GetHostSubscriptionFromObject(template)
+
+	if subkey == nil {
+		klog.V(1).Infof("The template does not have hosting subscription. template: %v/%v, annoation: %#v",
+			template.GetNamespace(), template.GetName(), template.GetAnnotations())
+		return true
+	}
+
+	err := localClient.Get(context.TODO(), *subkey, sub)
+
+	if err != nil {
+		klog.V(1).Infof("Failed to get subscription object. sub: %v, error: %v", *subkey, err)
+		return true
+	}
+
+	if GetPauseLabel(sub) {
+		return false
+	}
+
+	return true
+}
+
 //DeleteSubscriptionCRD deletes the Subscription CRD
 func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
 	sublist := &appv1.SubscriptionList{}
