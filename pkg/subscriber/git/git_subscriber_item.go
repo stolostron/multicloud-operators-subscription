@@ -503,7 +503,13 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		return "", err
 	}
 
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, ghsi.repoRoot)
+	skipVerify, err := utils.GetChannelSkipVerify(ghsi.synchronizer.GetLocalClient(), ghsi.Channel)
+
+	if err != nil {
+		return "", err
+	}
+
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, ghsi.repoRoot, skipVerify)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

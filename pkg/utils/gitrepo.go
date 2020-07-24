@@ -16,10 +16,12 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -37,6 +39,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
+	gclient "gopkg.in/src-d/go-git.v4/plumbing/transport/client"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -50,6 +53,8 @@ const (
 	UserID = "user"
 	// AccessToken is key of GitHub user password or personal token in secret
 	AccessToken = "accessToken"
+	// SkipVerify is used to access a git server with private certificate
+	SkipVerify = "insecureSkipVerify"
 )
 
 type kubeResource struct {
@@ -87,7 +92,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 }
 
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string) (commitID string, err error) {
+func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string, skipVerify bool) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -115,6 +120,18 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 			klog.Error(err, "Failed to remove directory ", destDir)
 			return "", err
 		}
+	}
+
+	if skipVerify {
+		// Create a custom http(s) client with your config
+		customClient := &http.Client{
+			// accept any certificate (might be useful for testing)
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+		}
+		// Override http(s) default protocol to use our custom client
+		gclient.InstallProtocol("https", githttp.NewClient(customClient))
 	}
 
 	klog.Info("Cloning ", repoURL, " into ", destDir)
@@ -202,6 +219,31 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 	}
 
 	return username, accessToken, nil
+}
+
+// GetChannelSkipVerify returns a boolean to tell whether to turn on insecure-skip-verify
+func GetChannelSkipVerify(client client.Client, chn *chnv1.Channel) (bool, error) {
+	insecureSkipVerify := false
+
+	// refer to https://git-scm.com/book/fa/v2/Appendix-B%3A-Embedding-Git-in-your-Applications-go-git for details
+	if chn.Spec.ConfigMapRef != nil {
+		config := &corev1.ConfigMap{}
+		cfgns := chn.Spec.ConfigMapRef.Namespace
+		if cfgns == "" {
+			cfgns = chn.Namespace
+		}
+
+		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.ConfigMapRef.Name, Namespace: cfgns}, config)
+		if err != nil {
+			klog.Error(err, "Unable to get configMap from local cluster.")
+
+			return false, err
+		}
+
+		insecureSkipVerify = strings.EqualFold(config.Data[SkipVerify], "true")
+	}
+
+	return insecureSkipVerify, nil
 }
 
 func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
