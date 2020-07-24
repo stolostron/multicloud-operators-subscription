@@ -228,6 +228,7 @@ func GetChannelSkipVerify(client client.Client, chn *chnv1.Channel) (bool, error
 	// refer to https://git-scm.com/book/fa/v2/Appendix-B%3A-Embedding-Git-in-your-Applications-go-git for details
 	if chn.Spec.ConfigMapRef != nil {
 		config := &corev1.ConfigMap{}
+
 		cfgns := chn.Spec.ConfigMapRef.Namespace
 		if cfgns == "" {
 			cfgns = chn.Namespace
