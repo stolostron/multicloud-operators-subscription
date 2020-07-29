@@ -33,19 +33,6 @@ metadata:
 spec:
   type: Git
   pathname: https://github.com/ianzhang366/acm-applifecycle-samples.git
-  configMapRef:
-    name: guestbook
-    kind: configmap
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: guestbook
-  namespace: ch-git
-  labels:
-    name: git-sub
-data:
-  path: git-ops/bookinfo/guestbook
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
@@ -75,6 +62,3 @@ spec:
     placementRef: 
       name: towhichcluster
       kind: PlacementRule
-  packageFilter:
-    filterRef:
-      name: guestbook
