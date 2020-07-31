@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"math/rand"
 	"reflect"
 	"time"
 
@@ -320,11 +321,32 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
+
+	klog.Infof("Subscription: %v", request.NamespacedName.String())
+
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		err = r.doMCMHubReconcile(instance)
+
+		// ask the cluster for the latest version of the instace, since the
+		// doMCMHubReconcile() func might update the instance
+		sub := &appv1.Subscription{}
+		if err := r.Get(context.TODO(), request.NamespacedName, sub); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// for object store, it takes a while for the object to be downloaded,
+		// so we want to requeue to get a valid topo annotation
+		if !isTopoAnnoExist(sub) {
+			//skip gosec G404 since the random number is only used for requeue
+			//timer
+			// #nosec G404
+			return reconcile.Result{RequeueAfter: time.Second * time.Duration(rand.Intn(10))}, nil
+		}
+
+		sub.DeepCopyInto(instance)
 
 		if err != nil {
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
@@ -374,4 +396,24 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	return result, nil
+}
+
+func isTopoAnnoExist(sub *appv1.Subscription) bool {
+	if sub == nil {
+		return false
+	}
+
+	annotation := sub.GetAnnotations()
+
+	if len(annotation) == 0 {
+		return false
+	}
+
+	v, ok := annotation[appv1.AnnotationTopo]
+
+	if !ok {
+		return false
+	}
+
+	return len(v) != 0
 }
