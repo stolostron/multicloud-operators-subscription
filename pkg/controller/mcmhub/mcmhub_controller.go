@@ -340,6 +340,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		// for object store, it takes a while for the object to be downloaded,
 		// so we want to requeue to get a valid topo annotation
 		if !isTopoAnnoExist(sub) {
+			//skip gosec G404 since the random number is only used for requeue
+			//timer
+			// #nosec G404
 			return reconcile.Result{RequeueAfter: time.Second * time.Duration(rand.Intn(10))}, nil
 		}
 
