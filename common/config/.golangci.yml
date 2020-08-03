@@ -58,7 +58,7 @@ linters-settings:
     min-confidence: 0.0
   gocognit:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 40
+    min-complexity: 50
   gofmt:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true
