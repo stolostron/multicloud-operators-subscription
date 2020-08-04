@@ -10,7 +10,6 @@ require (
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-openapi/spec v0.19.4
-	github.com/golangci/golangci-lint v1.20.0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1

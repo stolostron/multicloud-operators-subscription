@@ -135,6 +135,23 @@ var DeployablePredicateFunctions = predicate.Funcs{
 	},
 }
 
+// ChannelPredicateFunctions filters channel spec update
+var ChannelPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newChn := e.ObjectNew.(*chnv1.Channel)
+		oldChn := e.ObjectOld.(*chnv1.Channel)
+
+		return !reflect.DeepEqual(newChn.Spec, oldChn.Spec)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
+}
+
 // GetSourceFromObject extract the namespacedname of subscription hosting the object resource
 func GetSourceFromObject(obj metav1.Object) string {
 	if obj == nil {
