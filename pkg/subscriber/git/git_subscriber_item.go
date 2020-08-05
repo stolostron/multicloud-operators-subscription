@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -31,10 +32,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/cli-runtime/pkg/kustomize"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
-	"sigs.k8s.io/kustomize/pkg/fs"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -224,6 +223,11 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 
 		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
 			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
+
+			if ovKustomizeDir == "" {
+				ovKustomizeDir = relativePath
+			}
+
 			if !strings.EqualFold(ovKustomizeDir, relativePath) {
 				continue
 			} else {
@@ -237,15 +241,18 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 			}
 		}
 
-		fSys := fs.MakeRealFS()
+		cmd := exec.Command("kustomize", "build", kustomizeDir)
 
 		var out bytes.Buffer
 
-		err := kustomize.RunKustomizeBuild(&out, fSys, kustomizeDir)
+		cmd.Stdout = &out
+		err := cmd.Run()
+
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
 			return err
 		}
+
 		// Split the output of kustomize build output into individual kube resource YAML files
 		resources := strings.Split(out.String(), "---")
 		for _, resource := range resources {
