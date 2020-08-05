@@ -447,7 +447,7 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 			}
 		}
 
-		cmd := exec.Command("kustomize", "build", kustomizeDir)
+		cmd := exec.Command("kustomize", "build", kustomizeDir) // #nosec G204 kustomizeDirs is not user input. Determined internally.
 
 		var out bytes.Buffer
 
