@@ -15,12 +15,10 @@
 package mcmhub
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -447,19 +445,14 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 			}
 		}
 
-		cmd := exec.Command("kustomize", "build", kustomizeDir) // #nosec G204 kustomizeDirs is not user input. Determined internally.
-
-		var out bytes.Buffer
-
-		cmd.Stdout = &out
-		err := cmd.Run()
+		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
 		}
 
 		// Split the output of kustomize build output into individual kube resource YAML files
-		resources := strings.Split(out.String(), "---")
+		resources := strings.Split(string(out), "---")
 		for _, resource := range resources {
 			resourceFile := []byte(strings.Trim(resource, "\t \n"))
 

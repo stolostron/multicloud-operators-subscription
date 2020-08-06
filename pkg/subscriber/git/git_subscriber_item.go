@@ -15,12 +15,10 @@
 package git
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -241,12 +239,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 			}
 		}
 
-		cmd := exec.Command("kustomize", "build", kustomizeDir)
-
-		var out bytes.Buffer
-
-		cmd.Stdout = &out
-		err := cmd.Run()
+		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
@@ -254,7 +247,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 		}
 
 		// Split the output of kustomize build output into individual kube resource YAML files
-		resources := strings.Split(out.String(), "---")
+		resources := strings.Split(string(out), "---")
 		for _, resource := range resources {
 			resourceFile := []byte(strings.Trim(resource, "\t \n"))
 
