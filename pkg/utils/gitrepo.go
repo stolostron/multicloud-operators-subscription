@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -208,6 +209,8 @@ func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
 	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
 	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
 
+	klog.Info("Kustomize parse : ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
+
 	if err != nil {
 		klog.Error("Kustomize parse error: ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
 		return err
@@ -217,9 +220,13 @@ func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
 
 	var override map[string]interface{}
 
-	if err := yaml.Unmarshal([]byte(str), &override); err != nil {
-		klog.Error("Failed to override kustomize with error: ", err)
-		return err
+	if strings.EqualFold(reflect.ValueOf(ovuobj["value"]).Kind().String(), "string") {
+		if err := yaml.Unmarshal([]byte(str), &override); err != nil {
+			klog.Error("Failed to override kustomize with error: ", err)
+			return err
+		}
+	} else {
+		override = ovuobj["value"].(map[string]interface{})
 	}
 
 	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
