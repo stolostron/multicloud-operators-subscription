@@ -40,6 +40,7 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 
 	k := krusty.MakeKustomizer(fSys, options)
 	mapOut, err := k.Run(kustomizeDir)
+
 	if err != nil {
 		return nil, err
 	}
