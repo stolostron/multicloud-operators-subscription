@@ -22,14 +22,12 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 
@@ -42,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -203,82 +200,6 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 	}
 
 	return username, accessToken, nil
-}
-
-func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
-	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
-	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
-
-	klog.Info("Kustomize parse : ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
-
-	if err != nil {
-		klog.Error("Kustomize parse error: ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
-		return err
-	}
-
-	str := fmt.Sprintf("%v", ovuobj["value"])
-
-	var override map[string]interface{}
-
-	if strings.EqualFold(reflect.ValueOf(ovuobj["value"]).Kind().String(), "string") {
-		if err := yaml.Unmarshal([]byte(str), &override); err != nil {
-			klog.Error("Failed to override kustomize with error: ", err)
-			return err
-		}
-	} else {
-		override = ovuobj["value"].(map[string]interface{})
-	}
-
-	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")
-
-	if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
-		kustomizeYamlFilePath = filepath.Join(kustomizeDir, "kustomization.yml")
-		if _, err := os.Stat(kustomizeYamlFilePath); os.IsNotExist(err) {
-			klog.Error("Kustomization file not found in ", kustomizeDir)
-			return err
-		}
-	}
-
-	err = mergeKustomization(kustomizeYamlFilePath, override)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
-	var master map[string]interface{}
-
-	bs, err := ioutil.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
-
-	if err != nil {
-		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
-		return err
-	}
-
-	if err := yaml.Unmarshal(bs, &master); err != nil {
-		klog.Error("Failed to unmarshal kustomize file ", " err: ", err)
-		return err
-	}
-
-	for k, v := range override {
-		master[k] = v
-	}
-
-	bs, err = yaml.Marshal(master)
-
-	if err != nil {
-		klog.Error("Failed to marshal kustomize file ", " err: ", err)
-		return err
-	}
-
-	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0600); err != nil {
-		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
-		return err
-	}
-
-	return nil
 }
 
 // GetLocalGitFolder returns the local Git repo clone directory
