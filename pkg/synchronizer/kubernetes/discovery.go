@@ -124,7 +124,8 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	}
 
 	// return the right version of gv
-	for gvk := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for gvk := range kubeResources {
 		if valid.GroupKind() == gvk.GroupKind() {
 			return &gvk
 		}
@@ -158,9 +159,12 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 
 	klog.V(5).Info("valid resources remain:", valid)
 
-	for k := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for k := range kubeResources {
 		if _, ok := valid[k]; !ok {
+			sync.Kmtx.Lock()
 			delete(sync.KubeResources, k)
+			sync.Kmtx.Unlock()
 		}
 	}
 }
@@ -189,7 +193,10 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			continue
 		}
 
+		sync.Kmtx.Lock()
 		resmap, ok := sync.KubeResources[gvk]
+		sync.Kmtx.Unlock()
+
 		valid[gvk] = true
 
 		if !ok {
@@ -210,7 +217,10 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 
 			resmap.GroupVersionResource = gvr
 			resmap.Namespaced = res.Namespaced
+
+			sync.Kmtx.Lock()
 			sync.KubeResources[gvk] = resmap
+			sync.Kmtx.Unlock()
 
 			sync.dynamicFactory.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
 				AddFunc: func(new interface{}) {
@@ -236,13 +246,16 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 					}
 				},
 			})
+
 			klog.V(5).Info("Start watching kind: ", res.Kind, ", resource: ", gvr, " objects in it: ", len(resmap.TemplateMap))
 		}
 	}
 }
 
 func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
+	sync.Kmtx.Lock()
 	if resmap, ok := sync.KubeResources[gvk]; ok {
 		resmap.ServerUpdated = true
 	}
+	sync.Kmtx.Unlock()
 }
