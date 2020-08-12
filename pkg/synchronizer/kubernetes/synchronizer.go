@@ -272,7 +272,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 
 		newBytes, _ := newobj.MarshalJSON()
-		sync.DynamicClient.Resource(gvr).Namespace(obj.GetNamespace()).Patch(context.TODO(),
+		_, err = sync.DynamicClient.Resource(gvr).Namespace(obj.GetNamespace()).Patch(context.TODO(),
 			obj.GetName(), types.StrategicMergePatchType, newBytes, metav1.PatchOptions{})
 	}
 
