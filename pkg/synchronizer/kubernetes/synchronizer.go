@@ -262,7 +262,18 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
 		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		//thies ashdf  _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+
+		gvk := schema.FromAPIVersionAndKind(obj.GetAPIVersion(), obj.GetKind())
+		gvr := schema.GroupVersionResource{
+			Group:    gvk.Group,
+			Version:  gvk.Version,
+			Resource: gvk.Kind,
+		}
+
+		newBytes, _ := newobj.MarshalJSON()
+		sync.DynamicClient.Resource(gvr).Namespace(obj.GetNamespace()).Patch(context.TODO(),
+			obj.GetName(), types.StrategicMergePatchType, newBytes, metav1.PatchOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
