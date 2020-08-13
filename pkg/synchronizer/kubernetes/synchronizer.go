@@ -263,7 +263,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
 		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		//this is intented be be commented _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		// be commented _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 
 		newBytes, _ := newobj.MarshalJSON()
 
