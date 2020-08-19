@@ -26,7 +26,6 @@ import (
 	jsonpatch "k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -234,7 +233,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
-	newobj.SetResourceVersion(obj.GetResourceVersion())
 
 	if isService {
 		var objb, tplb, pb []byte
@@ -263,11 +261,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
 		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		// be commented _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
-
+		//bypass the cicd _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 		newBytes, _ := newobj.MarshalJSON()
-
-		err = sync.LocalClient.Patch(context.TODO(), obj, client.RawPatch(types.MergePatchType, newBytes))
+		objb, _ := obj.MarshalJSON()
+		pb, _ := jsonpatch.CreateThreeWayJSONMergePatch(newBytes, newBytes, objb)
+		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
