@@ -1,0 +1,97 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: obj-sub-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-obj
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: obj-sub-app
+  namespace: obj-sub-ns
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: obj-sub
+--- 
+apiVersion: apps.open-cluster-management.io/v1
+kind: Deployable
+metadata: 
+  name: payload-cfg-obj-channel
+  annotations: 
+    apps.open-cluster-management.io/is-local-deployable: "false"
+  namespace: default
+  labels:
+    name: obj-sub
+spec: 
+  channels: 
+  - deva
+  template: 
+    apiVersion: v1
+    data: 
+      database: mongodb
+    kind: ConfigMap
+    metadata: 
+      name: cfg-from-ch-qa
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: deva
+  namespace: ch-obj
+  labels:
+    name: obj-sub
+spec:
+  type: ObjectBucket
+  pathname: http://ec2-100-26-232-156.compute-1.amazonaws.com:9000/deva
+  sourceNamespaces:
+    - default
+  secretRef:
+    name: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev
+  namespace: ch-obj
+  labels:
+    name: obj-sub
+data:
+  AccessKeyID: YWRtaW4=
+  SecretAccessKey: cGFzc3dvcmRhZG1pbg==
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: towhichcluster
+  namespace: obj-sub-ns
+  labels:
+    name: obj-sub
+spec:
+  clusterReplicas: 1
+  clusterLabels:
+    matchLabels:
+      environment: Dev
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: obj-sub
+  namespace: obj-sub-ns
+  labels:
+    name: obj-sub
+spec:
+  channel: ch-obj/deva
+  placement:
+    placementRef: 
+      name: towhichcluster
+      kind: PlacementRule
