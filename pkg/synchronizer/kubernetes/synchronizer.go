@@ -267,7 +267,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 		newBytes, _ := newobj.MarshalJSON()
 
-		err = sync.LocalClient.Patch(context.TODO(), obj, client.RawPatch(types.StrategicMergePatchType, newBytes))
+		err = sync.LocalClient.Patch(context.TODO(), obj, client.RawPatch(types.MergePatchType, newBytes))
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
