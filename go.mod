@@ -26,6 +26,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.2.0
 	k8s.io/api v0.18.3
 	k8s.io/apiextensions-apiserver v0.18.2

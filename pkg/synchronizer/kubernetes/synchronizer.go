@@ -212,6 +212,12 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	return err
 }
 
+//updateResourceByTemplateUnit will have a NamespaceableResourceInterface,
+//when calling, the ri will have the namespace and GVR information already.
+//ri gets GVR from applyKindTemplates func
+//ri gets namespace info from applyTemplate func
+//
+//updateResourceByTemplateUnit will then update,patch the obj given tplunit.
 func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface,
 	obj *unstructured.Unstructured, tplunit *TemplateUnit, isService bool) error {
 	var err error
@@ -233,7 +239,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
-	newobj.SetResourceVersion(obj.GetResourceVersion())
 
 	if isService {
 		var objb, tplb, pb []byte
@@ -262,7 +267,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
 		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		//bypass the cicd _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		newBytes, _ := newobj.MarshalJSON()
+		objb, _ := obj.MarshalJSON()
+		pb, _ := jsonpatch.CreateThreeWayJSONMergePatch(newBytes, newBytes, objb)
+		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
