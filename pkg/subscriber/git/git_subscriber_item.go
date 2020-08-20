@@ -405,11 +405,6 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		}
 	}
 
-	testAnnotations := make(map[string]string)
-	testAnnotations[appv1.AnnotationClusterAdmin] = "true"
-	testAnnotations[appv1.AnnotationResourceOverwriteOption] = appv1.MergeOverwrite
-	ghsi.Subscription.SetAnnotations(testAnnotations)
-
 	subAnnotations := ghsi.Subscription.GetAnnotations()
 	if subAnnotations != nil {
 		rscAnnotations := rsc.GetAnnotations()
@@ -425,10 +420,6 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		}
 		rsc.SetAnnotations(rscAnnotations)
 	}
-
-	rscAnnotations2 := rsc.GetAnnotations()
-	klog.Info("ROKEROKE rscAnnotations2[appv1.AnnotationClusterAdmin] = " + rscAnnotations2[appv1.AnnotationClusterAdmin])
-	klog.Info("ROKEROKE rscAnnotations2[appv1.AnnotationResourceOverwriteOption] = " + rscAnnotations2[appv1.AnnotationResourceOverwriteOption])
 
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)

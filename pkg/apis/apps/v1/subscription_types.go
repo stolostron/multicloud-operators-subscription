@@ -81,8 +81,8 @@ const (
 	AcmWebhook = "ocm-mutating-webhook"
 	// MergeOverwrite creates or updates fields in resources using kubernetes patch
 	MergeOverwrite = "merge"
-	// UpdateOverwrite simply updates resources using kubernetes update
-	UpdateOverwrite = "update"
+	// Overwrite overwrites fields in resources using kubernetes update
+	Overwrite = "overwrite"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
