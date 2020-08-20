@@ -128,7 +128,9 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	for _, hrName := range hrNames {
 		if hash != hrsi.hash || !hrsi.success ||
-			!isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName) {
+			!isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName) ||
+			!isHelmReleaseStatusUpdated(hrsi.synchronizer.GetLocalClient(), types.NamespacedName{Name: hrsi.Subscription.Name,
+				Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName) {
 			if err := hrsi.processSubscription(indexFile, hash); err != nil {
 				klog.Error("Failed to process helm repo subscription with error:", err)
 
@@ -173,6 +175,46 @@ func isHelmReleaseExists(client client.Client, namespace string, releaseCRName s
 
 		klog.Error(err, "Unable to get HelmRelease", releaseCRName)
 
+		return false
+	}
+
+	return true
+}
+
+func isHelmReleaseStatusUpdated(client client.Client, hostSub types.NamespacedName, namespace string, releaseCRName string) bool {
+	helmRelease := &releasev1.HelmRelease{}
+
+	if err := client.Get(context.TODO(),
+		types.NamespacedName{Name: releaseCRName, Namespace: namespace}, helmRelease); err != nil {
+		return false
+	}
+
+	sub := &appv1.Subscription{}
+	if err := client.Get(context.TODO(), hostSub, sub); err != nil {
+		return false
+	}
+
+	statuses := sub.Status.Statuses
+	if len(statuses) == 0 {
+		return false
+	}
+
+	localStatus := statuses["/"]
+	if localStatus == nil {
+		return false
+	}
+
+	pkgStatus := localStatus.SubscriptionPackageStatus
+	if len(pkgStatus) == 0 {
+		return false
+	}
+
+	hostDpl := utils.GetHostDeployableFromObject(helmRelease)
+	if hostDpl == nil {
+		return true
+	}
+
+	if pkgStatus[hostDpl.Name] == nil || pkgStatus[hostDpl.Name].ResourceStatus == nil || len(pkgStatus[hostDpl.Name].ResourceStatus.Raw) == 0 {
 		return false
 	}
 
