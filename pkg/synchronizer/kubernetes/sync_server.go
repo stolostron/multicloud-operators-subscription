@@ -206,10 +206,8 @@ func (sync *KubeSynchronizer) processTplChan(stopCh <-chan struct{}) {
 func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub types.NamespacedName) error {
 	var err error
 
-	sync.kmtx.Lock()
-	defer sync.kmtx.Unlock()
-
-	for _, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for _, resmap := range kubeResources {
 		for _, tplunit := range resmap.TemplateMap {
 			tplhost := sync.Extension.GetHostFromObject(tplunit)
 			tpldpl := utils.GetHostDeployableFromObject(tplunit)
@@ -259,8 +257,8 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	}
 
 	// handle orphan resource
-	sync.kmtx.Lock()
-	for resgvk, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for resgvk, resmap := range kubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
 			//nothing
@@ -287,11 +285,23 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 		sync.applyKindTemplates(resmap)
 	}
-	sync.kmtx.Unlock()
 
 	if crdFlag {
 		sync.rediscoverResource()
 	}
 
 	return err
+}
+
+// CloneKubeResources returns a copy of its KubeResources map
+func (sync *KubeSynchronizer) CloneKubeResources() map[schema.GroupVersionKind]*ResourceMap {
+	clone := make(map[schema.GroupVersionKind]*ResourceMap)
+
+	sync.kmtx.Lock()
+	for gvk, resmap := range sync.KubeResources {
+		clone[gvk] = resmap
+	}
+	sync.kmtx.Unlock()
+
+	return clone
 }

@@ -349,7 +349,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
 
-	for _, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for _, resmap := range kubeResources {
 		// all templates are added with annotations, no need to check nil
 		if len(resmap.TemplateMap) > 0 {
 			klog.V(5).Info("Checking valid resource map: ", resmap.GroupVersionResource)
@@ -469,7 +470,9 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	template.SetGroupVersionKind(*validgvk)
 
+	sync.kmtx.Lock()
 	resmap, ok := sync.KubeResources[*validgvk]
+	sync.kmtx.Unlock()
 
 	if !ok {
 		// register new kind
@@ -567,7 +570,9 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		Source:          source,
 	}
 	resmap.TemplateMap[reskey] = templateUnit
+	sync.kmtx.Lock()
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
+	sync.kmtx.Unlock()
 
 	klog.V(2).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind(), "for source: ", source)
 

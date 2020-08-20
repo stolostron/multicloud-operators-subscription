@@ -42,7 +42,8 @@ func (sync *KubeSynchronizer) CreateValiadtor(syncsource string) *Validator {
 func (sync *KubeSynchronizer) ApplyValiadtor(v *Validator) {
 	var err error
 
-	for resgvk, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for resgvk, resmap := range kubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			if v.Store[resgvk] == nil || !v.Store[resgvk][reskey] {
 				// will ignore non-syncsource templates

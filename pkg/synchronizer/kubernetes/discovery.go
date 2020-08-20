@@ -126,13 +126,14 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 
 	klog.V(5).Info("valid resources remain:", valid)
 
-	sync.kmtx.Lock()
-	for k := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for k := range kubeResources {
 		if _, ok := valid[k]; !ok {
+			sync.kmtx.Lock()
 			delete(sync.KubeResources, k)
+			sync.kmtx.Unlock()
 		}
 	}
-	sync.kmtx.Unlock()
 }
 
 func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList, valid map[schema.GroupVersionKind]bool) {
@@ -239,9 +240,8 @@ func kubeResourceAddVersionToGK(kubeResource map[schema.GroupVersionKind]*Resour
 
 func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
 	sync.kmtx.Lock()
-	defer sync.kmtx.Unlock()
-
 	if resmap, ok := sync.KubeResources[gvk]; ok {
 		resmap.ServerUpdated = true
 	}
+	sync.kmtx.Unlock()
 }

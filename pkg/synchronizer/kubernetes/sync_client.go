@@ -84,7 +84,8 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	var regGvk schema.GroupVersionKind
 
 	// return the right version of gv
-	for gvk := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for gvk := range kubeResources {
 		if valid.GroupKind() == gvk.GroupKind() {
 			if valid.Version == gvk.Version {
 				return &gvk
@@ -101,7 +102,9 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 	// user would get deploy failed error, which would aligned with the kubectl
 	// behavior
 	if found {
+		sync.kmtx.Lock()
 		kubeResourceAddVersionToGK(sync.KubeResources, regGvk, *valid)
+		sync.kmtx.Unlock()
 		return valid
 	}
 
@@ -109,7 +112,11 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 }
 
 func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) bool {
-	return sync.KubeResources[gvk].Namespaced
+	sync.kmtx.Lock()
+	isNamespaced := sync.KubeResources[gvk].Namespaced
+	sync.kmtx.Unlock()
+
+	return isNamespaced
 }
 
 func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []DplUnit) error {
