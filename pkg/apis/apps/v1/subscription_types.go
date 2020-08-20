@@ -64,6 +64,8 @@ var (
 	AnnotationUserGroup = "open-cluster-management.io/user-group"
 	// AnnotationUserIdentity is subscription user id
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
+	// ResourceOverwriteOption is for overwriting existing resource
+	AnnotationResourceOverwriteOption = "open-cluster-management.io/overwrite-option"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
@@ -77,6 +79,10 @@ const (
 	SubscriptionAdmin = "open-cluster-management:subscription-admin"
 	// AcmWebhook is the ACM foundation mutation webhook that adds user identity and group annotations
 	AcmWebhook = "ocm-mutating-webhook"
+	// MergeOverwrite creates or updates fields in resources using kubernetes patch
+	MergeOverwrite = "merge"
+	// UpdateOverwrite simply updates resources using kubernetes update
+	UpdateOverwrite = "update"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

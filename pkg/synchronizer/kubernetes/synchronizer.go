@@ -216,12 +216,21 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	obj *unstructured.Unstructured, tplunit *TemplateUnit, isService bool) error {
 	var err error
 
+	overwrite := false
+	merge := false
 	tplown := sync.Extension.GetHostFromObject(tplunit)
+
+	tmplAnnotations := tplunit.GetAnnotations()
+	klog.Info("ROKEROKE tmplAnnotations[appv1alpha1.AnnotationClusterAdmin] = " + tmplAnnotations[appv1alpha1.AnnotationClusterAdmin])
+	klog.Info("ROKEROKE tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption] = " + tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
+
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
 		errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
 		klog.Info(errmsg)
 
-		tplunit.ResourceUpdated = false
+		overwrite = true
+		merge = true
+		/*tplunit.ResourceUpdated = false
 
 		err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil, false)
 
@@ -229,7 +238,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			klog.Error("Failed to update host status for existing resource with error:", err)
 		}
 
-		return err
+		return err*/
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
@@ -257,12 +266,46 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		klog.V(1).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
+		klog.Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		if overwrite {
+			if merge {
+				newobj = utils.RemoveSubAnnotations(newobj)
+
+				var objb, tplb, pb []byte
+				objb, err = obj.MarshalJSON()
+
+				if err != nil {
+					klog.Error("Failed to marshall obj with error:", err)
+					return err
+				}
+
+				tplb, err = newobj.MarshalJSON()
+
+				if err != nil {
+					klog.Error("Failed to marshall tplunit with error:", err)
+					return err
+				}
+
+				pb, err = jsonpatch.CreateThreeWayJSONMergePatch(tplb, tplb, objb)
+				if err != nil {
+					klog.Error("Failed to make patch with error:", err)
+					return err
+				}
+
+				klog.Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
+				_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+			} else {
+				newobj = utils.RemoveSubAnnotations(newobj)
+				klog.Infof("Update non-service object. newobj: %#v", newobj)
+				_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+			}
+		} else {
+			klog.Infof("Update non-service object. newobj: %#v", newobj)
+			_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		}
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",

@@ -690,3 +690,16 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 		}
 	}
 }
+
+func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	objanno := obj.GetAnnotations()
+	if objanno != nil {
+		delete(objanno, appv1.AnnotationClusterAdmin)
+		delete(objanno, appv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationSyncSource)
+		delete(objanno, dplv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationResourceOverwriteOption)
+	}
+	obj.SetAnnotations(objanno)
+	return obj
+}
