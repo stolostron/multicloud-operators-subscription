@@ -15,7 +15,6 @@
 package mcmhub
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -31,11 +30,9 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/cli-runtime/pkg/kustomize"
 	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/kustomize/pkg/fs"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -448,16 +445,14 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 			}
 		}
 
-		fSys := fs.MakeRealFS()
+		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
-		var out bytes.Buffer
-
-		err := kustomize.RunKustomizeBuild(&out, fSys, kustomizeDir)
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
 		}
+
 		// Split the output of kustomize build output into individual kube resource YAML files
-		resources := strings.Split(out.String(), "---")
+		resources := strings.Split(string(out), "---")
 		for _, resource := range resources {
 			resourceFile := []byte(strings.Trim(resource, "\t \n"))
 

@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"math/rand"
 	"reflect"
 	"time"
 
@@ -36,6 +37,7 @@ import (
 
 	"github.com/ghodss/yaml"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -160,6 +162,48 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 	return requests
 }
 
+type channelMapper struct {
+	client.Client
+}
+
+func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
+	// if channel is created/updated/deleted, its relative subscriptions should be reconciled.
+
+	chn := obj.Meta.GetNamespace() + "/" + obj.Meta.GetName()
+
+	var requests []reconcile.Request
+
+	subList := &appv1.SubscriptionList{}
+	listopts := &client.ListOptions{}
+	err := mapper.List(context.TODO(), subList, listopts)
+
+	if err != nil {
+		klog.Error("Listing all subscriptions in channelMapper and got error:", err)
+	}
+
+	for _, sub := range subList.Items {
+		if sub.Spec.Channel == chn {
+			objkey := types.NamespacedName{
+				Name:      sub.GetName(),
+				Namespace: sub.GetNamespace(),
+			}
+
+			requests = append(requests, reconcile.Request{NamespacedName: objkey})
+		}
+	}
+
+	klog.V(1).Info("Out channel mapper with requests:", requests)
+
+	return requests
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
@@ -182,6 +226,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &dplv1.Deployable{}},
 		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
 		utils.DeployablePredicateFunctions)
+	if err != nil {
+		return err
+	}
+
+	// in hub, watch for channel changes
+	err = c.Watch(
+		&source.Kind{Type: &chnv1.Channel{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}},
+		utils.ChannelPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -320,6 +373,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
+
+	klog.Infof("Subscription: %v", request.NamespacedName.String())
+
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
@@ -329,6 +385,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if err != nil {
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
+			instance.Status.Statuses = nil
 		} else {
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
@@ -373,5 +430,43 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
+	if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+		// ask the cluster for the latest version of the instace, since the
+		// doMCMHubReconcile() func might update the instance
+		sub := &appv1.Subscription{}
+		if err := r.Get(context.TODO(), request.NamespacedName, sub); err != nil {
+			return reconcile.Result{}, err
+		}
+
+		// for object store, it takes a while for the object to be downloaded,
+		// so we want to requeue to get a valid topo annotation
+		if !isTopoAnnoExist(sub) {
+			//skip gosec G404 since the random number is only used for requeue
+			//timer
+			// #nosec G404
+			return reconcile.Result{RequeueAfter: time.Second * time.Duration(rand.Intn(10))}, nil
+		}
+	}
+
 	return result, nil
+}
+
+func isTopoAnnoExist(sub *appv1.Subscription) bool {
+	if sub == nil {
+		return false
+	}
+
+	annotation := sub.GetAnnotations()
+
+	if len(annotation) == 0 {
+		return false
+	}
+
+	v, ok := annotation[appv1.AnnotationTopo]
+
+	if !ok {
+		return false
+	}
+
+	return len(v) != 0
 }

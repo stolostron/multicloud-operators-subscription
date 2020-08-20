@@ -3,7 +3,7 @@ os:
 
 language: go
 go:
-  - "1.13"
+  - "1.15"
 
 services:
   - docker
@@ -12,6 +12,7 @@ branches:
   only:
     - master
     - dev
+    - ibm-*
     - /^[0-9]+\..*$/
     - /^v[0-9]+\..*$/
     - /^release-[0-9]+\..*$/

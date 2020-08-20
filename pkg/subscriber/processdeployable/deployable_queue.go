@@ -15,8 +15,6 @@
 package processdeployable
 
 import (
-	"context"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -49,15 +47,8 @@ func Units(sub *subv1.Subscription, synchronizer SyncSource,
 		return err
 	}
 
-	if err := utils.ValidatePackagesInSubscriptionStatus(synchronizer.GetLocalClient(), sub, pkgMap); err != nil {
-		if err := synchronizer.GetLocalClient().Get(context.TODO(), hostkey, sub); err != nil {
-			klog.Error("Failed to get and subscription resource with error:", err)
-		}
-
-		if err := utils.ValidatePackagesInSubscriptionStatus(synchronizer.GetLocalClient(), sub, pkgMap); err != nil {
-			klog.Error("error in setting in cluster package status :", err)
-		}
-
+	//apply the update subscription status to cluster
+	if err := utils.SkipOrUpdateSubscriptionStatus(synchronizer.GetLocalClient(), sub); err != nil {
 		// if fail to update status, we want to retry as well
 		return err
 	}

@@ -46,6 +46,11 @@ import (
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
 func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
+	substr := fmt.Sprintf("%v/%v", sub.GetNamespace(), sub.GetName())
+	klog.V(2).Infof("entry doMCMHubReconcile %v", substr)
+
+	defer klog.V(2).Infof("exix doMCMHubReconcile %v", substr)
+
 	targetSub, updateSub, err := r.updateSubscriptionToTarget(sub)
 	if err != nil {
 		return err

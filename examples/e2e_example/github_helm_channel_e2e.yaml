@@ -33,20 +33,6 @@ metadata:
 spec:
   type: Git
   pathname: https://github.com/open-cluster-management/multicloud-operators-subscription
-  #  configMapRef:
-  #    name: helm-chart
-  #    kind: configmap
-#---
-# it seems we are using annotations to specify the path and branch info
-#apiVersion: v1
-#kind: ConfigMap
-#metadata:
-#  name: helm-chart
-#  namespace: ch-git-helm
-#  labels:
-#    name: git-sub
-#data:
-#  path: test/github/helmcharts/chart1
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule

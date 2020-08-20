@@ -4,7 +4,7 @@ RUN  microdnf update -y \
         && rpm -e --nodeps tzdata \
         && microdnf install tzdata \
         && microdnf install git \
-        &&  microdnf clean all
+        && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     USER_UID=1001 \
@@ -18,7 +18,7 @@ COPY build/_output/bin/uninstall-crd /usr/local/bin
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
-
+     
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 USER ${USER_UID}
