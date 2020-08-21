@@ -357,6 +357,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	instance := &appv1.Subscription{}
 	err = r.Get(context.TODO(), request.NamespacedName, instance)
 
+	//pre-hook
+
+	//post-hook
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
