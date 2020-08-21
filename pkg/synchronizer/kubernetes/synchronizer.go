@@ -228,8 +228,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	tplown := sync.Extension.GetHostFromObject(tplunit)
 
 	tmplAnnotations := tplunit.GetAnnotations()
-	klog.Info("tmplAnnotations[appv1alpha1.AnnotationClusterAdmin] = " + tmplAnnotations[appv1alpha1.AnnotationClusterAdmin])
-	klog.Info("tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption] = " + tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
 
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
 		// If the subscription is created by a subscription admin and overwrite option exists,
@@ -238,7 +236,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		// When we update other owner's resources, make sure these annnotations along with other
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
-			tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption] != "" {
+			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.MergeOverwrite) ||
+				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.ReplaceOverwrite)) {
 			klog.Infof("Resource %s/%s will be updated with overwrite option: %s.", tplunit.GetNamespace(), tplunit.GetName(), tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
 
 			overwrite = true
