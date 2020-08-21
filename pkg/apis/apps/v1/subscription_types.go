@@ -60,12 +60,14 @@ var (
 	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-commit"
 	// AnnotationClusterAdmin indicates the subscription has cluster admin access
 	AnnotationClusterAdmin = SchemeGroupVersion.Group + "/cluster-admin"
+	// AnnotationChannelType indicates the channel type for subscription
+	AnnotationChannelType = SchemeGroupVersion.Group + "/channel-type"
 	// AnnotationUserGroup is subscription user group
 	AnnotationUserGroup = "open-cluster-management.io/user-group"
 	// AnnotationUserIdentity is subscription user id
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
 	// ResourceOverwriteOption is for overwriting existing resource
-	AnnotationResourceOverwriteOption = "open-cluster-management.io/overwrite-option"
+	AnnotationResourceOverwriteOption = SchemeGroupVersion.Group + "/overwrite-option"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
@@ -81,8 +83,8 @@ const (
 	AcmWebhook = "ocm-mutating-webhook"
 	// MergeOverwrite creates or updates fields in resources using kubernetes patch
 	MergeOverwrite = "merge"
-	// Overwrite overwrites fields in resources using kubernetes update
-	Overwrite = "overwrite"
+	// ReplaceOverwrite replaces fields in resources using kubernetes update
+	ReplaceOverwrite = "replace"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
