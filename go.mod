@@ -18,7 +18,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20200813201238-cf522bb8e5a9
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200817152717-50b364f569c6
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20200807201102-490a98ba6cd5
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20200819124024-818f01d780ff
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.9.1
@@ -26,13 +26,13 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	gopkg.in/src-d/go-git.v4 v4.13.1
+	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.2.0
 	k8s.io/api v0.18.3
 	k8s.io/apiextensions-apiserver v0.18.2
 	k8s.io/apimachinery v0.18.3
 	k8s.io/cli-runtime v0.18.2
 	k8s.io/client-go v13.0.0+incompatible
-	k8s.io/cluster-registry v0.0.6 // indirect
 	k8s.io/helm v2.16.3+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6

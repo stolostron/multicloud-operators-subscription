@@ -213,6 +213,12 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	return err
 }
 
+//updateResourceByTemplateUnit will have a NamespaceableResourceInterface,
+//when calling, the ri will have the namespace and GVR information already.
+//ri gets GVR from applyKindTemplates func
+//ri gets namespace info from applyTemplate func
+//
+//updateResourceByTemplateUnit will then update,patch the obj given tplunit.
 func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface,
 	obj *unstructured.Unstructured, tplunit *TemplateUnit, isService bool) error {
 	var err error
@@ -257,6 +263,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
+
 	if overwrite {
 		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
 		newobj = utils.RemoveSubAnnotations(newobj)

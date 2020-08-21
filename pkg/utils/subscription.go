@@ -411,12 +411,11 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	klog.V(1).Infof("what's going on old status %v, new status %v", sub.Status, newStatus)
+	klog.V(1).Infof("what's going on old status %v, new status %v status: %v", sub.Status, newStatus, newStatus.Statuses)
 
 	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus)
-
-		sub.Status = *newStatus
+		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus.Statuses["/"].SubscriptionPackageStatus[dplkey.Name])
+		newStatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
 		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
@@ -429,15 +428,15 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	return nil
 }
 
-func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
-	oldSub := &appv1.Subscription{}
+func SkipOrUpdateSubscriptionStatus(clt client.Client, oldSub *appv1.Subscription) error {
+	curSub := &appv1.Subscription{}
 
-	if err := clt.Get(context.TODO(), types.NamespacedName{Name: updateSub.GetName(), Namespace: updateSub.GetNamespace()}, oldSub); err != nil {
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: oldSub.GetName(), Namespace: oldSub.GetNamespace()}, oldSub); err != nil {
 		return err
 	}
 
 	oldStatus := &oldSub.Status
-	upStatus := &updateSub.Status
+	upStatus := &curSub.Status
 
 	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
 		oldSub.Status = *upStatus
