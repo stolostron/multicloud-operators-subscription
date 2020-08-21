@@ -8,6 +8,16 @@ spec:
     description: subscription status
     name: Status
     type: string
+  - description: local placement
+    jsonPath: .spec.placement.local
+    name: Local placement
+    priority: 1
+    type: boolean
+  - description: deployment time window type
+    jsonPath: .spec.timewindow.windowtype
+    name: Time window
+    type: string
+    priority: 1
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
