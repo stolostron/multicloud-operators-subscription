@@ -47,11 +47,5 @@ func Units(sub *subv1.Subscription, synchronizer SyncSource,
 		return err
 	}
 
-	//apply the update subscription status to cluster
-	if err := utils.SkipOrUpdateSubscriptionStatus(synchronizer.GetLocalClient(), sub); err != nil {
-		// if fail to update status, we want to retry as well
-		return err
-	}
-
 	return nil
 }
