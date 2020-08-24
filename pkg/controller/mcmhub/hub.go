@@ -553,6 +553,9 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		sub.SetAnnotations(subanno)
 	}
 
+	// Check and add cluster-admin annotation for multi-namepsace application
+	updated = r.AddClusterAdminAnnotation(sub)
+
 	topoFlag := extracResourceListFromDeployables(sub, allDpls)
 
 	return updated || topoFlag

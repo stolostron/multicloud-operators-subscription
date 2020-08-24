@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
 	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
@@ -43,7 +43,7 @@ var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-manageme
 
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
-	appv1alpha1.SubscriberItem
+	appv1.SubscriberItem
 
 	bucket       string
 	objectStore  awsutils.ObjectStore
@@ -165,7 +165,7 @@ func (obsi *SubscriberItem) initObjectStore() error {
 }
 
 func (obsi *SubscriberItem) doSubscription() error {
-	var dpls []*dplv1alpha1.Deployable
+	var dpls []*dplv1.Deployable
 
 	keys, err := obsi.objectStore.List(obsi.bucket)
 	klog.V(5).Infof("object keys: %v", keys)
@@ -181,12 +181,12 @@ func (obsi *SubscriberItem) doSubscription() error {
 			return err
 		}
 
-		dpl := &dplv1alpha1.Deployable{}
+		dpl := &dplv1.Deployable{}
 		dpl.Name = key
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
 		dpl.GenerateName = tplb.GenerateName
-		verionAnno := map[string]string{dplv1alpha1.AnnotationDeployableVersion: tplb.Version}
+		verionAnno := map[string]string{dplv1.AnnotationDeployableVersion: tplb.Version}
 		dpl.SetAnnotations(verionAnno)
 		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
 
@@ -242,8 +242,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 	return doErr
 }
 
-func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
-	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1alpha1.Deployable, *schema.GroupVersionKind, error) {
+func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
+	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
 	var annotations map[string]string
 
 	template := &unstructured.Unstructured{}
@@ -355,6 +355,24 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
 		return nil, nil, errors.New(errmsg)
 	}
 
+	subAnnotations := obsi.Subscription.GetAnnotations()
+	if subAnnotations != nil {
+		rscAnnotations := template.GetAnnotations()
+		if rscAnnotations == nil {
+			rscAnnotations = make(map[string]string)
+		}
+
+		if strings.EqualFold(subAnnotations[appv1.AnnotationClusterAdmin], "true") {
+			rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
+		}
+
+		if subAnnotations[appv1.AnnotationResourceOverwriteOption] != "" {
+			rscAnnotations[appv1.AnnotationResourceOverwriteOption] = subAnnotations[appv1.AnnotationResourceOverwriteOption]
+		}
+
+		template.SetAnnotations(rscAnnotations)
+	}
+
 	dpl.Spec.Template.Raw, err = json.Marshal(template)
 
 	if err != nil {
@@ -367,7 +385,7 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1alpha1.Deployable,
 	dpl.Namespace = obsi.Subscription.Namespace
 
 	annotations = make(map[string]string)
-	annotations[dplv1alpha1.AnnotationLocal] = "true"
+	annotations[dplv1.AnnotationLocal] = "true"
 
 	dpl.SetAnnotations(annotations)
 

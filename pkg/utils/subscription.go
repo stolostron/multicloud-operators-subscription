@@ -690,6 +690,7 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 	}
 }
 
+// RemoveSubAnnotations removes RHACM specific annotations from subscription
 func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstructured {
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
@@ -700,6 +701,32 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 		delete(objanno, appv1.AnnotationChannelType)
 		delete(objanno, appv1.AnnotationResourceOverwriteOption)
 	}
-	obj.SetAnnotations(objanno)
+
+	if len(objanno) > 0 {
+		obj.SetAnnotations(objanno)
+	} else {
+		obj.SetAnnotations(nil)
+	}
+
+	return obj
+}
+
+// RemoveSubAnnotations removes RHACM specific owner reference from subscription
+func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	ownerRefs := obj.GetOwnerReferences()
+	newOwnerRefs := []metav1.OwnerReference{}
+
+	for _, ownerRef := range ownerRefs {
+		if !strings.EqualFold(ownerRef.Kind, "Subscription") {
+			newOwnerRefs = append(newOwnerRefs, ownerRef)
+		}
+	}
+
+	if len(newOwnerRefs) > 0 {
+		obj.SetOwnerReferences(newOwnerRefs)
+	} else {
+		obj.SetOwnerReferences(nil)
+	}
+
 	return obj
 }

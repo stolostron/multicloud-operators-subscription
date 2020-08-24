@@ -66,7 +66,7 @@ var (
 	AnnotationUserGroup = "open-cluster-management.io/user-group"
 	// AnnotationUserIdentity is subscription user id
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
-	// ResourceOverwriteOption is for overwriting existing resource
+	// AnnotationResourceOverwriteOption is for overwriting existing resource
 	AnnotationResourceOverwriteOption = SchemeGroupVersion.Group + "/overwrite-option"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"

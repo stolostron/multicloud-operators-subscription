@@ -238,7 +238,10 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
 			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.MergeOverwrite) ||
 				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.ReplaceOverwrite)) {
-			klog.Infof("Resource %s/%s will be updated with overwrite option: %s.", tplunit.GetNamespace(), tplunit.GetName(), tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
+			klog.Infof("Resource %s/%s will be updated with overwrite option: %s.",
+				tplunit.GetNamespace(),
+				tplunit.GetName(),
+				tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
 
 			overwrite = true
 		} else {
@@ -266,6 +269,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	if overwrite {
 		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
+		newobj = utils.RemoveSubOwnerRef(newobj)
 	}
 
 	if merge || isService {
