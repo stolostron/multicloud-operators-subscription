@@ -18,21 +18,24 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	job "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
+	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
+
 	"k8s.io/klog"
+	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	ctrlLog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -41,8 +44,8 @@ const (
 )
 
 var (
-	preAnnotation  = subv1.SchemeGroupVersion.Group + "pre-ansible"
-	postAnnotation = subv1.SchemeGroupVersion.Group + "post-ansible"
+	preAnnotation  = subv1.SchemeGroupVersion.Group + "/pre-ansible"
+	postAnnotation = subv1.SchemeGroupVersion.Group + "/post-ansible"
 )
 
 type HookProcessor interface {
@@ -50,18 +53,18 @@ type HookProcessor interface {
 	RegisterSubscription(types.NamespacedName) error
 	DegisterSubscription(types.NamespacedName) error
 	//GetPreHook returns a type.NamespacedName of the preHook
-	GetPreHook(types.NamespacedName) (types.NamespacedName, error)
+	ApplyPreHook(types.NamespacedName) (types.NamespacedName, error)
 	IsPreHookCompleted(types.NamespacedName) (bool, error)
-	GetPostHook(types.NamespacedName) (types.NamespacedName, error)
+	ApplyPostHook(types.NamespacedName) (types.NamespacedName, error)
 	IsPostHookCompleted(types.NamespacedName) (bool, error)
 	IsSubscriptionCompleted(types.NamespacedName) (bool, error)
 }
 
 type Hooks struct {
-	pre       *job.AnsibleJob
-	post      *job.AnsibleJob
-	preHooks  []*job.AnsibleJob
-	postHooks []*job.AnsibleJob
+	pre       unstructured.Unstructured
+	post      unstructured.Unstructured
+	preHooks  []unstructured.Unstructured
+	postHooks []unstructured.Unstructured
 	lastSub   *subv1.Subscription
 }
 
@@ -77,8 +80,11 @@ var _ HookProcessor = (*AnsibleHooks)(nil)
 
 func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	if logger == nil {
-		logger = ctrlLog.Log.WithValues("ansiblehook")
+		logger = klogr.New()
+		logger.WithName("ansiblehook")
 	}
+
+	fmt.Fprintln(os.Stderr, "NewAnsibleHooks")
 	return &AnsibleHooks{
 		clt:      clt,
 		registry: map[types.NamespacedName]*Hooks{},
@@ -133,52 +139,62 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return err
 	}
 
+	printJobs(jobs, a.logger)
 	//update the base Ansible job and append a generated job to the preHooks
 	return a.addNewHook(subKey, subIns, preHook, postHook, jobs)
 }
 
-func (a *AnsibleHooks) addNewHook(subKey types.NamespacedName, subIns *subv1.Subscription, preHook, postHook string, jobs []*job.AnsibleJob) error {
+func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
+	for _, job := range jobs {
+		logger.V(2).Info(fmt.Sprintf("download jobs %#v", job))
+	}
+}
+
+func (a *AnsibleHooks) addNewHook(subKey types.NamespacedName, subIns *subv1.Subscription, preHook, postHook string, jobs []unstructured.Unstructured) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
-	pre := &job.AnsibleJob{}
-	post := &job.AnsibleJob{}
 	a.registry[subKey] = &Hooks{
+		pre:       unstructured.Unstructured{},
+		post:      unstructured.Unstructured{},
 		lastSub:   subIns,
-		pre:       pre,
-		post:      post,
-		preHooks:  []*job.AnsibleJob{},
-		postHooks: []*job.AnsibleJob{},
+		preHooks:  []unstructured.Unstructured{},
+		postHooks: []unstructured.Unstructured{},
 	}
 
 	suffix := subIns.GetUID()[:5]
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
+		//need to skip the status, otherwise the creation will fail
 		if strings.EqualFold(jobKey.String(), preHook) {
 			a.registry[subKey].pre = job
-
-			ins := job.DeepCopy()
+			ins := a.registry[subKey].pre.DeepCopy()
 			ins.SetName(fmt.Sprintf("%s-%s", ins.GetName(), suffix))
-			a.registry[subKey].preHooks = append(a.registry[subKey].preHooks, ins)
+			a.registry[subKey].preHooks = append(a.registry[subKey].preHooks, *ins)
 		}
 
 		if strings.EqualFold(jobKey.String(), postHook) {
 			a.registry[subKey].post = job
-
-			ins := job.DeepCopy()
+			ins := a.registry[subKey].post.DeepCopy()
 			ins.SetName(fmt.Sprintf("%s-%s", ins.GetName(), suffix))
-			a.registry[subKey].postHooks = append(a.registry[subKey].postHooks, ins)
+			a.registry[subKey].postHooks = append(a.registry[subKey].postHooks, *ins)
 		}
 	}
 
 	return nil
 }
 
-func (a *AnsibleHooks) GetPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {
+func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {
 	hks, ok := a.registry[subKey]
 	if ok {
 
-		t := hks.preHooks[len(hks.preHooks)-1]
+		t := &hks.preHooks[len(hks.preHooks)-1]
+
+		a.logger.Info(fmt.Sprintf("--------------> %#v\n", t))
+		if err := a.clt.Create(context.TODO(), t); err != nil {
+			return types.NamespacedName{}, err
+		}
+
 		return types.NamespacedName{Name: t.GetName(), Namespace: t.GetNamespace()}, nil
 	}
 
@@ -186,18 +202,22 @@ func (a *AnsibleHooks) GetPreHook(subKey types.NamespacedName) (types.Namespaced
 }
 
 func (a *AnsibleHooks) isUpdateSubscription(subKey types.NamespacedName) bool {
-	return false
+	return true
 }
 
 func (a *AnsibleHooks) IsPreHookCompleted(preKey types.NamespacedName) (bool, error) {
 	return a.isJobDone(preKey)
 }
 
-func (a *AnsibleHooks) GetPostHook(subKey types.NamespacedName) (types.NamespacedName, error) {
+func (a *AnsibleHooks) ApplyPostHook(subKey types.NamespacedName) (types.NamespacedName, error) {
 	hks, ok := a.registry[subKey]
 	if ok {
 
-		t := hks.postHooks[len(hks.postHooks)-1]
+		t := &hks.postHooks[len(hks.postHooks)-1]
+		if err := a.clt.Create(context.TODO(), t); err != nil {
+			return types.NamespacedName{}, err
+		}
+
 		return types.NamespacedName{Name: t.GetName(), Namespace: t.GetNamespace()}, nil
 	}
 
@@ -209,7 +229,7 @@ func (a *AnsibleHooks) IsPostHookCompleted(postKey types.NamespacedName) (bool, 
 }
 
 func (a *AnsibleHooks) isJobDone(key types.NamespacedName) (bool, error) {
-	job := &job.AnsibleJob{}
+	job := &ansiblejob.AnsibleJob{}
 
 	if err := a.clt.Get(context.TODO(), key, job); err != nil {
 		return false, err
@@ -236,16 +256,16 @@ func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (boo
 }
 
 // get channel
-func DonwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]*job.AnsibleJob, error) {
+func DonwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]unstructured.Unstructured, error) {
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	_, err := cloneGitRepo(clt, repoRoot, chn, sub)
 	if err != nil {
-		return []*job.AnsibleJob{}, err
+		return []unstructured.Unstructured{}, err
 	}
 
 	kubeRes, err := sortClonedGitRepo(repoRoot, sub, logger)
 	if err != nil {
-		return []*job.AnsibleJob{}, err
+		return []unstructured.Unstructured{}, err
 	}
 
 	return ParseAnsibleJobs(kubeRes, ParseAnsibleJobResoures)
@@ -313,28 +333,28 @@ func ParseAnsibleJobResoures(file []byte) [][]byte {
 	return ret
 }
 
-func ParseAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]*job.AnsibleJob, error) {
-	jobs := []*job.AnsibleJob{}
+func ParseAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]unstructured.Unstructured, error) {
+	jobs := []unstructured.Unstructured{}
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
-			return []*job.AnsibleJob{}, err
+			return []unstructured.Unstructured{}, err
 		}
 
 		resources := paser(file)
 
 		if len(resources) > 0 {
 			for _, resource := range resources {
-				job := &job.AnsibleJob{}
+				job := &unstructured.Unstructured{}
 				err := yaml.Unmarshal(resource, job)
 
 				if err != nil {
 					continue
 				}
 
-				jobs = append(jobs, job)
+				jobs = append(jobs, *job)
 			}
 		}
 	}

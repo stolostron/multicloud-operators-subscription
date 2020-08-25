@@ -355,9 +355,14 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 
 	defer klog.Info("Exit hub reconcile subscription:  ", request.String())
 
-	preHook, herr := r.hooks.GetPreHook(request.NamespacedName)
+	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
+		klog.Errorf("failed to register hooks, skip the subscription reconcile, err: %v", err)
+		return reconcile.Result{}, nil
+	}
+
+	preHook, herr := r.hooks.ApplyPreHook(request.NamespacedName)
 	if herr != nil {
-		klog.Errorf("failed to get preHook, skip the subscription reconcile, err: %v", herr)
+		klog.Errorf("failed to apply preHook, skip the subscription reconcile, err: %v", herr)
 		return reconcile.Result{}, nil
 	}
 
@@ -369,9 +374,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	}
 
 	defer func() (reconcile.Result, error) {
-		postHook, err := r.hooks.GetPostHook(request.NamespacedName)
+		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
 		if err != nil {
-			klog.Errorf("failed to get postHook, skip the subscription reconcile, err: %v", err)
+			klog.Errorf("failed to apply postHook, skip the subscription reconcile, err: %v", err)
 			return reconcile.Result{}, nil
 		}
 
