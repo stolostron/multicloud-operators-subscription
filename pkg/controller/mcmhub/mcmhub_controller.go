@@ -69,6 +69,8 @@ rules:
   verbs:
   - '*'`
 
+const hookRequeueInterval = time.Minute * 1
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -90,6 +92,7 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		cfg:           mgr.GetConfig(),
 		scheme:        mgr.GetScheme(),
 		eventRecorder: erecorder,
+		hooks:         NewAnsibleHooks(mgr.GetClient(), nil),
 	}
 
 	return rec
@@ -253,6 +256,7 @@ type ReconcileSubscription struct {
 	cfg           *rest.Config
 	scheme        *runtime.Scheme
 	eventRecorder *utils.EventRecorder
+	hooks         HookProcessor
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
@@ -349,6 +353,45 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.Info("MCM Hub Reconciling subscription: ", request.NamespacedName)
 
+	defer klog.Info("Exit hub reconcile subscription:  ", request.String())
+
+	preHook, herr := r.hooks.GetPreHook(request.NamespacedName)
+	if herr != nil {
+		klog.Errorf("failed to get preHook, skip the subscription reconcile, err: %v", herr)
+		return reconcile.Result{}, nil
+	}
+
+	if preHook.String() != "/" {
+		b, err := r.hooks.IsPreHookCompleted(preHook)
+		if !b || err != nil {
+			return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+		}
+	}
+
+	defer func() (reconcile.Result, error) {
+		postHook, err := r.hooks.GetPostHook(request.NamespacedName)
+		if err != nil {
+			klog.Errorf("failed to get postHook, skip the subscription reconcile, err: %v", err)
+			return reconcile.Result{}, nil
+		}
+
+		if postHook.String() != "/" {
+			//wait till the subscription is propagated
+			f, err := r.hooks.IsSubscriptionCompleted(request.NamespacedName)
+			if !f || err != nil {
+				return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+			}
+
+			// wait till the post hook job is completed
+			b, err := r.hooks.IsPostHookCompleted(postHook)
+			if !b || err != nil {
+				return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+			}
+		}
+
+		return reconcile.Result{}, nil
+	}()
+
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
 		return reconcile.Result{}, err
@@ -357,14 +400,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	instance := &appv1.Subscription{}
 	err = r.Get(context.TODO(), request.NamespacedName, instance)
 
-	//pre-hook
-
-	//post-hook
-
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			// Object not found, delete existing subscriberitem if any
+			if err := r.hooks.DegisterSubscription(request.NamespacedName); err != nil {
+				return reconcile.Result{}, err
+			}
 
 			return reconcile.Result{}, nil
 		}
