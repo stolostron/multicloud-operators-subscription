@@ -502,6 +502,50 @@ var _ = Describe("harvest existing", func() {
 	})
 })
 
+var _ = Describe("update existing resource not owned by subscription", func() {
+	It("annotated service resource can be updated by subscription", func() {
+		configmap := &corev1.ConfigMap{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-config-map",
+				Namespace: "default",
+			},
+			Data: map[string]string{
+				"name": "joe",
+			},
+		}
+
+		Expect(k8sClient.Create(context.TODO(), configmap)).NotTo(HaveOccurred())
+	})
+	/*time.Sleep(k8swait)
+	defer k8sClient.Delete(context.TODO(), configmap)
+
+	// Create a subscription
+	subinstance := appv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-sub",
+			Namespace: "default",
+		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			Channel: sharedkey.String(),
+		},
+	}
+
+	sub := subinstance.DeepCopy()
+	subAnnotations := make(map[string]string)
+	subAnnotations[appv1alpha1.AnnotationClusterAdmin] = "true"
+	subAnnotations[appv1alpha1.AnnotationResourceReconcileOption] = "merge"
+	subinstance.SetAnnotations(subAnnotations)
+	Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+	time.Sleep(k8swait)
+	defer k8sClient.Delete(context.TODO(), sub)*/
+
+})
+
 var _ = Describe("test service resource", func() {
 	var (
 		svcSharedkey = types.NamespacedName{

@@ -531,6 +531,13 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	// Try to get template object, take error as not exist, will check again anyway.
 	if len(instance.GetObjectMeta().GetFinalizers()) > 0 {
+		klog.Info("ROKEROKE Deployable has finalizers, ready to delete object", instance)
+
+		for f := range instance.GetObjectMeta().GetFinalizers() {
+			klog.Info(f)
+		}
+		klog.Info("ROKEROKE ======")
+
 		// Deployable in being deleted, de-register template and return
 		klog.V(5).Info("Deployable has finalizers, ready to delete object", instance)
 
