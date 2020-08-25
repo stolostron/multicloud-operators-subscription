@@ -230,18 +230,18 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	tmplAnnotations := tplunit.GetAnnotations()
 
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
-		// If the subscription is created by a subscription admin and overwrite option exists,
+		// If the subscription is created by a subscription admin and reconcile option exists,
 		// we can update the resource even if it is not owned by this subscription.
 		// These subscription annotations are passed down to deployable payload by the subscribers.
 		// When we update other owner's resources, make sure these annnotations along with other
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
-			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.MergeOverwrite) ||
-				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.ReplaceOverwrite)) {
-			klog.Infof("Resource %s/%s will be updated with overwrite option: %s.",
+			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) ||
+				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile)) {
+			klog.Infof("Resource %s/%s will be updated with reconcile option: %s.",
 				tplunit.GetNamespace(),
 				tplunit.GetName(),
-				tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption])
+				tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption])
 
 			overwrite = true
 		} else {
@@ -260,11 +260,12 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 	}
 
-	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceOverwriteOption], appv1alpha1.MergeOverwrite) {
+	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) {
 		merge = true
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
+	newobj.SetResourceVersion(obj.GetResourceVersion())
 
 	if overwrite {
 		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc

@@ -416,8 +416,8 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 			rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		}
 
-		if subAnnotations[appv1.AnnotationResourceOverwriteOption] != "" {
-			rscAnnotations[appv1.AnnotationResourceOverwriteOption] = subAnnotations[appv1.AnnotationResourceOverwriteOption]
+		if subAnnotations[appv1.AnnotationResourceReconcileOption] != "" {
+			rscAnnotations[appv1.AnnotationResourceReconcileOption] = subAnnotations[appv1.AnnotationResourceReconcileOption]
 		}
 
 		rsc.SetAnnotations(rscAnnotations)

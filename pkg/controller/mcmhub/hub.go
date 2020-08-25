@@ -754,8 +754,8 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationClusterAdmin] = origsubanno[appv1alpha1.AnnotationClusterAdmin]
 	}
 
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationResourceOverwriteOption], "") {
-		subepanno[appv1alpha1.AnnotationResourceOverwriteOption] = origsubanno[appv1alpha1.AnnotationResourceOverwriteOption]
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationResourceReconcileOption], "") {
+		subepanno[appv1alpha1.AnnotationResourceReconcileOption] = origsubanno[appv1alpha1.AnnotationResourceReconcileOption]
 	}
 
 	// Add annotation for git path and branch

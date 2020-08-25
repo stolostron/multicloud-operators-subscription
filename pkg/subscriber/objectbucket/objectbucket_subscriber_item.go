@@ -366,8 +366,8 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
 			rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		}
 
-		if subAnnotations[appv1.AnnotationResourceOverwriteOption] != "" {
-			rscAnnotations[appv1.AnnotationResourceOverwriteOption] = subAnnotations[appv1.AnnotationResourceOverwriteOption]
+		if subAnnotations[appv1.AnnotationResourceReconcileOption] != "" {
+			rscAnnotations[appv1.AnnotationResourceReconcileOption] = subAnnotations[appv1.AnnotationResourceReconcileOption]
 		}
 
 		template.SetAnnotations(rscAnnotations)
