@@ -411,10 +411,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	klog.V(1).Infof("what's going on old status %v, new status %v status: %v", sub.Status, newStatus, newStatus.Statuses)
-
 	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus.Statuses["/"].SubscriptionPackageStatus[dplkey.Name])
 		newStatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
