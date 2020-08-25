@@ -33,7 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/klog"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -185,14 +185,17 @@ func (a *AnsibleHooks) addNewHook(subKey types.NamespacedName, subIns *subv1.Sub
 }
 
 func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {
+	a.logger.WithName(subKey.String()).V(2).Info("entry ApplyPreHook")
+	defer a.logger.WithName(subKey.String()).V(2).Info("exit ApplyPreHook")
 	hks, ok := a.registry[subKey]
 	if ok {
 
 		t := &hks.preHooks[len(hks.preHooks)-1]
 
-		a.logger.Info(fmt.Sprintf("--------------> %#v\n", t))
 		if err := a.clt.Create(context.TODO(), t); err != nil {
-			return types.NamespacedName{}, err
+			if !k8serrors.IsAlreadyExists(err) {
+				return types.NamespacedName{}, err
+			}
 		}
 
 		return types.NamespacedName{Name: t.GetName(), Namespace: t.GetNamespace()}, nil
@@ -272,7 +275,6 @@ func DonwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1
 }
 
 func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *subv1.Subscription) (commitID string, err error) {
-
 	user, pwd, err := utils.GetChannelSecret(clt, chn)
 
 	if err != nil {
@@ -319,7 +321,6 @@ func ParseAnsibleJobResoures(file []byte) [][]byte {
 
 		if err != nil {
 			// Ignore item that cannot be unmarshalled..
-			klog.Warning(err, "Failed to unmarshal YAML content")
 			continue
 		}
 

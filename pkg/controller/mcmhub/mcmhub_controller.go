@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
 	"reflect"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -36,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -70,6 +73,7 @@ rules:
   - '*'`
 
 const hookRequeueInterval = time.Minute * 1
+const hubLogger = "subscription-hub-reconciler"
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -85,6 +89,7 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
+	logger := klogr.New().WithName(hubLogger)
 
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
@@ -92,7 +97,8 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 		cfg:           mgr.GetConfig(),
 		scheme:        mgr.GetScheme(),
 		eventRecorder: erecorder,
-		hooks:         NewAnsibleHooks(mgr.GetClient(), nil),
+		logger:        logger,
+		hooks:         NewAnsibleHooks(mgr.GetClient(), logger),
 	}
 
 	return rec
@@ -253,6 +259,7 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
+	logger        logr.Logger
 	cfg           *rest.Config
 	scheme        *runtime.Scheme
 	eventRecorder *utils.EventRecorder
@@ -351,18 +358,19 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("MCM Hub Reconciling subscription: ", request.NamespacedName)
+	logger := r.logger.WithName(request.String())
+	logger.Info(fmt.Sprintln("entry MCM Hub Reconciling subscription: ", request.String()))
 
-	defer klog.Info("Exit hub reconcile subscription:  ", request.String())
+	defer logger.Info(fmt.Sprintln("exist Hub Reconciling subscription: ", request.String()))
 
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
-		klog.Errorf("failed to register hooks, skip the subscription reconcile, err: %v", err)
+		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")
 		return reconcile.Result{}, nil
 	}
 
 	preHook, herr := r.hooks.ApplyPreHook(request.NamespacedName)
 	if herr != nil {
-		klog.Errorf("failed to apply preHook, skip the subscription reconcile, err: %v", herr)
+		logger.Error(herr, "failed to apply preHook, skip the subscription reconcile, err: ")
 		return reconcile.Result{}, nil
 	}
 
@@ -376,7 +384,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	defer func() (reconcile.Result, error) {
 		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
 		if err != nil {
-			klog.Errorf("failed to apply postHook, skip the subscription reconcile, err: %v", err)
+			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 			return reconcile.Result{}, nil
 		}
 
