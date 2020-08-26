@@ -55,8 +55,23 @@ type kubeResource struct {
 	Kind       string `yaml:"kind"`
 }
 
+//KKubeResource export the kuKubeResource for other package
+type KubeResource struct {
+	kubeResource
+}
+
 // ParseKubeResoures parses a YAML content and returns kube resources in byte array from the file
 func ParseKubeResoures(file []byte) [][]byte {
+	cond := func(t KubeResource) bool {
+		return t.APIVersion == "" || t.Kind == ""
+	}
+
+	return KubeResourcePaser(file, cond)
+}
+
+type Kube func(KubeResource) bool
+
+func KubeResourcePaser(file []byte, cond Kube) [][]byte {
 	var ret [][]byte
 
 	items := strings.Split(string(file), "---")
@@ -64,7 +79,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 	for _, i := range items {
 		item := []byte(strings.Trim(i, "\t \n"))
 
-		t := kubeResource{}
+		t := KubeResource{}
 		err := yaml.Unmarshal(item, &t)
 
 		if err != nil {
@@ -73,7 +88,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 			continue
 		}
 
-		if t.APIVersion == "" || t.Kind == "" {
+		if cond(t) {
 			// Ignore item that does not have apiVersion or kind.
 			klog.Warning("Not a Kubernetes resource")
 		} else {
@@ -82,6 +97,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 	}
 
 	return ret
+
 }
 
 // CloneGitRepo clones a GitHub repository
@@ -275,7 +291,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 			return nil
 		})
 
-	klog.Info("otherFiles size " + string(len(otherFiles)))
+	klog.Infof("otherFiles size %d", len(otherFiles))
 
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 }
