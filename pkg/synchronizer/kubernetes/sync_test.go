@@ -935,6 +935,84 @@ var _ = Describe("test resource overwrite", func() {
 		// The name in config map should not have been updated. If it did, the value should be joe
 		Expect(cm.Data["name"]).Should(Equal("bob"))
 	})
+
+	It("resource owned by subscription can be merged", func() {
+		// Create a config map that is not owned by any subscription
+		cm := configMap.DeepCopy()
+		source := sourceprefix + configMapSharedkey.String()
+
+		var anno = map[string]string{
+			"apps.open-cluster-management.io/hosting-deployable":   configMapSharedkey.Namespace + "/" + configMapSharedkey.Name,
+			"apps.open-cluster-management.io/hosting-subscription": configMapSharedkey.Namespace + "/" + configMapSharedkey.Name,
+			appv1alpha1.AnnotationSyncSource:                       source,
+		}
+
+		cm.SetAnnotations(anno)
+
+		Expect(k8sClient.Create(context.TODO(), cm)).NotTo(HaveOccurred())
+
+		// Create a subscription with overwrite annotations
+		sub := subinstance.DeepCopy()
+		subAnnotations := make(map[string]string)
+		subAnnotations[appv1alpha1.AnnotationClusterAdmin] = "true"
+		subAnnotations[appv1alpha1.AnnotationResourceReconcileOption] = "merge"
+		sub.SetAnnotations(subAnnotations)
+		Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+		time.Sleep(k8swait)
+		defer k8sClient.Delete(context.TODO(), sub)
+
+		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
+		Expect(cm.Data["name"]).To(Equal("bob"))
+
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		resgvk := schema.GroupVersionKind{
+			Version: "v1",
+			Kind:    "ConfigMap",
+		}
+
+		// object should be havested back before source is found
+		resmap := sync.KubeResources[resgvk]
+		hostnn := configMapSharedkey
+		dplnn := configMapSharedkey
+
+		reskey := sync.generateResourceMapKey(hostnn, dplnn)
+
+		// havest existing from cluster
+		Expect(sync.checkServerObjects(resgvk, resmap)).NotTo(HaveOccurred())
+
+		// load template before start, pretend to be added by subscribers
+		dpl := dplinstance.DeepCopy()
+		tplcm := templateConfigMap.DeepCopy()
+		anno = map[string]string{
+			"apps.open-cluster-management.io/hosting-deployable":   configMapSharedkey.Namespace + "/" + configMapSharedkey.Name,
+			"apps.open-cluster-management.io/hosting-subscription": configMapSharedkey.Namespace + "/" + configMapSharedkey.Name,
+			"apps.open-cluster-management.io/reconcile-option":     "merge",
+			appv1alpha1.AnnotationSyncSource:                       source,
+		}
+		tplcm.SetAnnotations(anno)
+		dpl.Spec.Template = &runtime.RawExtension{
+			Object: tplcm,
+		}
+
+		Expect(sync.RegisterTemplate(configMapSharedkey, dpl, source)).NotTo(HaveOccurred())
+
+		tplunit, ok := resmap.TemplateMap[reskey]
+		Expect(ok).Should(BeTrue())
+		Expect(tplunit.Source).Should(Equal(source))
+
+		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
+
+		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), cm)
+
+		Expect(cm.Data["name"]).Should(Equal("joe"))
+		// age field should be kept because the reconcile option was merge
+		Expect(cm.Data["age"]).Should(Equal("19"))
+	})
 })
 
 func printOut(kubeResources map[schema.GroupVersionKind]*ResourceMap, filters ...schema.GroupVersionKind) {
