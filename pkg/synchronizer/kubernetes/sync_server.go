@@ -215,7 +215,7 @@ func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub ty
 			tpldpl := utils.GetHostDeployableFromObject(tplunit)
 
 			if tplhost != nil && tplhost.String() == hostSub.String() {
-				klog.Infof("PURGE Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
+				klog.V(10).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, subType)
 
 				if err != nil {
@@ -275,7 +275,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 				tplhost := sync.Extension.GetHostFromObject(tplunit)
 				tpldpl := utils.GetHostDeployableFromObject(tplunit)
 
-				klog.Infof("PROCESS ORDER Start DeRegister, with resgvk: %v, reskey: %s", resgvk, reskey)
+				klog.V(10).Infof("Start DeRegister, with resgvk: %v, reskey: %s", resgvk, reskey)
 
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, order.subType)
 
