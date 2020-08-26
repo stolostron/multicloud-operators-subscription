@@ -411,10 +411,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	klog.V(1).Infof("what's going on old status %v, new status %v status: %v", sub.Status, newStatus, newStatus.Statuses)
-
 	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus.Statuses["/"].SubscriptionPackageStatus[dplkey.Name])
 		newStatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
@@ -688,4 +685,45 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 			klog.Info("subscription CRD removed")
 		}
 	}
+}
+
+// RemoveSubAnnotations removes RHACM specific annotations from subscription
+func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	objanno := obj.GetAnnotations()
+	if objanno != nil {
+		delete(objanno, appv1.AnnotationClusterAdmin)
+		delete(objanno, appv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationSyncSource)
+		delete(objanno, dplv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationChannelType)
+		delete(objanno, appv1.AnnotationResourceReconcileOption)
+	}
+
+	if len(objanno) > 0 {
+		obj.SetAnnotations(objanno)
+	} else {
+		obj.SetAnnotations(nil)
+	}
+
+	return obj
+}
+
+// RemoveSubAnnotations removes RHACM specific owner reference from subscription
+func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	ownerRefs := obj.GetOwnerReferences()
+	newOwnerRefs := []metav1.OwnerReference{}
+
+	for _, ownerRef := range ownerRefs {
+		if !strings.EqualFold(ownerRef.Kind, "Subscription") {
+			newOwnerRefs = append(newOwnerRefs, ownerRef)
+		}
+	}
+
+	if len(newOwnerRefs) > 0 {
+		obj.SetOwnerReferences(newOwnerRefs)
+	} else {
+		obj.SetOwnerReferences(nil)
+	}
+
+	return obj
 }

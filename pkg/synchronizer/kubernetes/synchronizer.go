@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -222,25 +223,57 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	obj *unstructured.Unstructured, tplunit *TemplateUnit, isService bool) error {
 	var err error
 
+	overwrite := false
+	merge := false
 	tplown := sync.Extension.GetHostFromObject(tplunit)
+
+	tmplAnnotations := tplunit.GetAnnotations()
+
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
-		errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
-		klog.Info(errmsg)
+		// If the subscription is created by a subscription admin and reconcile option exists,
+		// we can update the resource even if it is not owned by this subscription.
+		// These subscription annotations are passed down to deployable payload by the subscribers.
+		// When we update other owner's resources, make sure these annnotations along with other
+		// subscription specific annotations are removed.
+		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
+			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) ||
+				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile)) {
+			klog.Infof("Resource %s/%s will be updated with reconcile option: %s.",
+				tplunit.GetNamespace(),
+				tplunit.GetName(),
+				tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption])
 
-		tplunit.ResourceUpdated = false
+			overwrite = true
+		} else {
+			errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
+			klog.Info(errmsg)
 
-		err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil, false)
+			tplunit.ResourceUpdated = false
 
-		if err != nil {
-			klog.Error("Failed to update host status for existing resource with error:", err)
+			err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil, false)
+
+			if err != nil {
+				klog.Error("Failed to update host status for existing resource with error:", err)
+			}
+
+			return err
 		}
+	}
 
-		return err
+	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) {
+		merge = true
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
+	newobj.SetResourceVersion(obj.GetResourceVersion())
 
-	if isService {
+	if overwrite {
+		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
+		newobj = utils.RemoveSubAnnotations(newobj)
+		newobj = utils.RemoveSubOwnerRef(newobj)
+	}
+
+	if merge || isService {
 		var objb, tplb, pb []byte
 		objb, err = obj.MarshalJSON()
 
@@ -249,7 +282,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		tplb, err = tplunit.MarshalJSON()
+		tplb, err = newobj.MarshalJSON()
 
 		if err != nil {
 			klog.Error("Failed to marshall tplunit with error:", err)
@@ -262,16 +295,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		klog.V(1).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
-
+		klog.Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		klog.V(1).Infof("Update non-service object. newobj: %#v", newobj)
-		//bypass the cicd _, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
-		newBytes, _ := newobj.MarshalJSON()
-		objb, _ := obj.MarshalJSON()
-		pb, _ := jsonpatch.CreateThreeWayJSONMergePatch(newBytes, newBytes, objb)
-		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+		klog.Infof("Update non-service object. newobj: %#v", newobj)
+		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
