@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -33,8 +32,11 @@ import (
 )
 
 const (
-	JobCompleted   = "successful"
-	AnsibleJobKind = "AnsibleJob"
+	JobCompleted      = "successful"
+	AnsibleJobKind    = "AnsibleJob"
+	AnsibleJobVersion = "tower.ansible.com/v1alpha1"
+	Status            = "status"
+	AnsibleJobResult  = "ansiblejobresult"
 )
 
 var (
@@ -57,11 +59,14 @@ type HookProcessor interface {
 }
 
 type Hooks struct {
-	pre       unstructured.Unstructured
-	post      unstructured.Unstructured
+	pre  unstructured.Unstructured
+	post unstructured.Unstructured
+	//store all the applied prehook instance
 	preHooks  []unstructured.Unstructured
 	postHooks []unstructured.Unstructured
-	lastSub   *subv1.Subscription
+
+	//store last subscription instance used for the hook operation
+	lastSub *subv1.Subscription
 }
 
 type AnsibleHooks struct {
@@ -73,7 +78,8 @@ type AnsibleHooks struct {
 	logger logr.Logger
 }
 
-var _ HookProcessor = (*AnsibleHooks)(nil)
+// make sure the AnsibleHooks implementate the HookProcessor
+var _ HookProcessor = &AnsibleHooks{}
 
 func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	if logger == nil {
@@ -81,7 +87,6 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 		logger.WithName("ansiblehook")
 	}
 
-	fmt.Fprintln(os.Stderr, "NewAnsibleHooks")
 	return &AnsibleHooks{
 		clt:      clt,
 		gitClt:   NewHookGit(clt, logger),
@@ -115,8 +120,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	preHook := subAn[preAnnotation]
-	postHook := subAn[postAnnotation]
+	preHook := subIns.Spec.Prehook
+	postHook := subIns.Spec.Posthook
 
 	if len(preHook) == 0 && len(postHook) == 0 {
 		return nil
@@ -139,7 +144,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
 	for _, job := range jobs {
-		logger.V(2).Info(fmt.Sprintf("download jobs %#v", job))
+		logger.V(3).Info(fmt.Sprintf("download jobs %#v", job))
 	}
 }
 
@@ -181,8 +186,7 @@ func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.Namespac
 	a.logger.WithName(subKey.String()).V(2).Info("entry ApplyPreHook")
 	defer a.logger.WithName(subKey.String()).V(2).Info("exit ApplyPreHook")
 	hks, ok := a.registry[subKey]
-	if ok {
-
+	if ok && len(hks.preHooks) != 0 {
 		t := &hks.preHooks[len(hks.preHooks)-1]
 
 		if err := a.clt.Create(context.TODO(), t); err != nil {
@@ -207,8 +211,7 @@ func (a *AnsibleHooks) IsPreHookCompleted(preKey types.NamespacedName) (bool, er
 
 func (a *AnsibleHooks) ApplyPostHook(subKey types.NamespacedName) (types.NamespacedName, error) {
 	hks, ok := a.registry[subKey]
-	if ok {
-
+	if ok && len(hks.postHooks) != 0 {
 		t := &hks.postHooks[len(hks.postHooks)-1]
 		if err := a.clt.Create(context.TODO(), t); err != nil {
 			return types.NamespacedName{}, err
@@ -225,17 +228,27 @@ func (a *AnsibleHooks) IsPostHookCompleted(postKey types.NamespacedName) (bool, 
 }
 
 func (a *AnsibleHooks) isJobDone(key types.NamespacedName) (bool, error) {
+	a.logger.WithName(key.String()).V(2).Info("entry isJobDone")
+	defer a.logger.WithName(key.String()).V(2).Info("exit isJobDone")
+
 	job := &ansiblejob.AnsibleJob{}
 
 	if err := a.clt.Get(context.TODO(), key, job); err != nil {
 		return false, err
 	}
 
-	if strings.EqualFold(job.Status.AnsibleJobResult.Status, JobCompleted) {
+	if isJobRunSuccessful(job, a.logger) {
 		return true, nil
 	}
 
 	return false, nil
+}
+
+func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
+	curStatus := job.Status.AnsibleJobResult.Status
+	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
+
+	return strings.EqualFold(curStatus, JobCompleted)
 }
 
 func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {

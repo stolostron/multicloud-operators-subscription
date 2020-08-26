@@ -72,7 +72,6 @@ rules:
   verbs:
   - '*'`
 
-const hookRequeueInterval = time.Minute * 1
 const hubLogger = "subscription-hub-reconciler"
 
 /**
@@ -87,18 +86,24 @@ func Add(mgr manager.Manager) error {
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, hInterval ...time.Duration) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 	logger := klogr.New().WithName(hubLogger)
+
+	interval := time.Minute * 1
+	if len(hInterval) != 0 {
+		interval = hInterval[0]
+	}
 
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
 		// used for the helm to run get the resource list
-		cfg:           mgr.GetConfig(),
-		scheme:        mgr.GetScheme(),
-		eventRecorder: erecorder,
-		logger:        logger,
-		hooks:         NewAnsibleHooks(mgr.GetClient(), logger),
+		cfg:                 mgr.GetConfig(),
+		scheme:              mgr.GetScheme(),
+		eventRecorder:       erecorder,
+		logger:              logger,
+		hookRequeueInterval: interval,
+		hooks:               NewAnsibleHooks(mgr.GetClient(), logger),
 	}
 
 	return rec
@@ -259,11 +264,12 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	logger        logr.Logger
-	cfg           *rest.Config
-	scheme        *runtime.Scheme
-	eventRecorder *utils.EventRecorder
-	hooks         HookProcessor
+	logger              logr.Logger
+	cfg                 *rest.Config
+	scheme              *runtime.Scheme
+	eventRecorder       *utils.EventRecorder
+	hookRequeueInterval time.Duration
+	hooks               HookProcessor
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
@@ -377,7 +383,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	if preHook.String() != "/" {
 		b, err := r.hooks.IsPreHookCompleted(preHook)
 		if !b || err != nil {
-			return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+			if err != nil {
+				logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
+				return reconcile.Result{}, nil
+			}
+
+			return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
 		}
 	}
 
@@ -392,13 +403,17 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			//wait till the subscription is propagated
 			f, err := r.hooks.IsSubscriptionCompleted(request.NamespacedName)
 			if !f || err != nil {
-				return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+				return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
 			}
 
 			// wait till the post hook job is completed
 			b, err := r.hooks.IsPostHookCompleted(postHook)
 			if !b || err != nil {
-				return reconcile.Result{RequeueAfter: hookRequeueInterval}, nil
+				if err != nil {
+					logger.Error(err, "failed to check posthook status, skip the subscription reconcile, err: ")
+					return reconcile.Result{}, nil
+				}
+				return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
 			}
 		}
 
