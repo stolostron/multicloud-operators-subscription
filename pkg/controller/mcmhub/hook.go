@@ -114,12 +114,6 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return err
 	}
 
-	subAn := subIns.GetAnnotations()
-	//subsription doesn't have preHook defined
-	if len(subAn) == 0 {
-		return nil
-	}
-
 	preHook := subIns.Spec.Prehook
 	postHook := subIns.Spec.Posthook
 

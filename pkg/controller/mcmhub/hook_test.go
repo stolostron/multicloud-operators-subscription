@@ -82,5 +82,4 @@ func TestPreHookLogic(t *testing.T) {
 	//subscription with prehook, then after reconcile, we should be able to
 	//detect the ansibleJob instance from cluster and the subscription status
 	//shouldn't be propagated
-
 }
