@@ -93,7 +93,7 @@ type PackageFilter struct {
 
 // PackageOverride describes rules for override
 type PackageOverride struct {
-	runtime.RawExtension `json:"-"`
+	runtime.RawExtension `json:",inline"`
 }
 
 // Overrides field in deployable
