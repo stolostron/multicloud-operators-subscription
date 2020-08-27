@@ -37,6 +37,8 @@ const (
 	AnsibleJobVersion = "tower.ansible.com/v1alpha1"
 	Status            = "status"
 	AnsibleJobResult  = "ansiblejobresult"
+
+	DebugLog = 3
 )
 
 //HOHookProcessor tracks the pre and post hook informantion of subscriptions.
@@ -110,8 +112,8 @@ func (a *AnsibleHooks) DegisterSubscription(subKey types.NamespacedName) error {
 }
 
 func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
-	a.logger.Info("entry register subscription")
-	defer a.logger.Info("exit register subscription")
+	a.logger.V(DebugLog).Info("entry register subscription")
+	defer a.logger.V(DebugLog).Info("exit register subscription")
 
 	subIns := &subv1.Subscription{}
 	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {

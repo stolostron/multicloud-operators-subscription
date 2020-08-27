@@ -75,6 +75,7 @@ rules:
 const (
 	hubLogger                  = "subscription-hub-reconciler"
 	defaultHookRequeueInterval = time.Minute * 1
+	INFOLevel                  = 1
 )
 
 /**
@@ -370,9 +371,9 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	logger := r.logger.WithName(request.String())
-	logger.Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
+	logger.V(INFOLevel).Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
-	defer logger.Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
+	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")
