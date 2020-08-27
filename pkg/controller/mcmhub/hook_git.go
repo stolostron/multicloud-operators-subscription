@@ -108,7 +108,7 @@ func sortClonedGitRepo(repoRoot string, sub *subv1.Subscription, logger logr.Log
 	// otherFiles contains all other Kubernetes resource file paths
 	_, _, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
 	if err != nil {
-		logger.Error(err, "Failed to sort kubernetes resources and helm charts.")
+		logger.Error(err, "failed to sort kubernetes resources.")
 		return []string{}, err
 	}
 

@@ -132,7 +132,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	if !a.isUpdateSubscription(subKey) {
+	//check if the subIns have being changed compare to the hook registry
+	if !a.isUpdateSubscription(subIns) {
 		return nil
 	}
 
@@ -221,8 +222,11 @@ func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.Namespac
 	return types.NamespacedName{}, nil
 }
 
-func (a *AnsibleHooks) isUpdateSubscription(subKey types.NamespacedName) bool {
-	return true
+func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	record, ok := a.registry[subKey]
+
+	return !ok || strings.EqualFold(record.lastSub.GetResourceVersion(), subIns.GetResourceVersion())
 }
 
 func (a *AnsibleHooks) IsPreHookCompleted(preKey types.NamespacedName) (bool, error) {

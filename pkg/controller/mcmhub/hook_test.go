@@ -30,6 +30,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const (
+	ansibleGitURl = "https://github.com/ianzhang366/acm-applifecycle-samples"
+)
+
 //Prehook should:
 // 1. download from git, if the subscription asks for the prehook
 // 2. create the prehook resource on the cluster, while keep the subscription
@@ -67,7 +71,6 @@ func newPreHookTest() *preHookTest {
 	subKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
 	chnKey := types.NamespacedName{Name: "t-chn", Namespace: testNs}
 	preAnsibleKey := types.NamespacedName{Name: "prehook-test", Namespace: testNs}
-	ansibleGitURl := "https://github.com/ianzhang366/acm-applifecycle-samples"
 
 	chn := &chnv1.Channel{
 		ObjectMeta: metav1.ObjectMeta{
@@ -111,7 +114,12 @@ func newPreHookTest() *preHookTest {
 
 }
 
-func TestPreHookLogic(t *testing.T) {
+// happyPath is defined as the following:
+//asumming the github have the ansible YAML
+//subscription, with prehook, after reconcile, should be able to
+//detect the ansibleJob instance from cluster and the subscription status
+//shouldn't be propagated
+func TestPrehookHappyPath(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -128,38 +136,88 @@ func TestPreHookLogic(t *testing.T) {
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
-	// happyPath is defined as the following:
-	//asumming the github have the ansible YAML
-	//subscription with prehook, then after reconcile, we should be able to
-	//detect the ansibleJob instance from cluster and the subscription status
-	//shouldn't be propagated
-	happyPath := newPreHookTest()
+	testPath := newPreHookTest()
 
-	rec := newReconciler(mgr, happyPath.hookRequeueInterval, happyPath.suffixFunc).(*ReconcileSubscription)
+	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
 
 	ctx := context.TODO()
-	g.Expect(k8sClt.Create(ctx, happyPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 
 	defer func() {
-		g.Expect(k8sClt.Delete(ctx, happyPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 	}()
 
-	g.Expect(k8sClt.Create(ctx, happyPath.subIns.DeepCopy())).Should(gomega.Succeed())
+	g.Expect(k8sClt.Create(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
 
 	defer func() {
-		g.Expect(k8sClt.Delete(ctx, happyPath.subIns.DeepCopy())).Should(gomega.Succeed())
+		g.Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
 	}()
 
-	r, err := rec.Reconcile(reconcile.Request{NamespacedName: happyPath.subKey})
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(happyPath.interval))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
-	g.Expect(k8sClt.Get(ctx, happyPath.preAnsibleKey, ansibleIns)).Should(gomega.Succeed())
+	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
 	}()
+}
+
+// GitResourceNoneExistPath is defined as the following:
+//asumming the github doesn't the ansible YAML or channel is pointing to a wrong
+//path or download from git failed
+//A subscription with prehook, after reconcile, we should be able to
+//1. print error to trace
+//2. stop requeue the give subscritpion
+
+func TestPrehookGitResourceNoneExistPath(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	k8sClt := mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	testPath := newPreHookTest()
+
+	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	a := testPath.subIns.GetAnnotations()
+	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
+	testPath.subIns.SetAnnotations(a)
+
+	g.Expect(k8sClt.Create(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
+
+	ansibleIns := &ansiblejob.AnsibleJob{}
+
+	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
 }
