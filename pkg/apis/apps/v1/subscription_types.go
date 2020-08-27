@@ -247,6 +247,7 @@ type SubscriberItem struct {
 }
 
 // Subscriber efines common interface of different channel types
+// +kubebuilder:object:generate=false
 type Subscriber interface {
 	SubscribeItem(*SubscriberItem) error
 	UnsubscribeItem(types.NamespacedName) error
