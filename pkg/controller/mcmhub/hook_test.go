@@ -48,7 +48,19 @@ func TestPreHookLogic(t *testing.T) {
 	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
 	hookRequeueInterval := time.Second * 1
-	rec := newReconciler(mgr, hookRequeueInterval).(*ReconcileSubscription)
+	setRequeueInterval := func(r *ReconcileSubscription) {
+		r.hookRequeueInterval = hookRequeueInterval
+	}
+
+	setSufficFunc := func(r *ReconcileSubscription) {
+		sf := func(s *subv1.Subscription) string {
+			return ""
+		}
+
+		r.hooks.SetSuffixFunc(sf)
+	}
+
+	rec := newReconciler(mgr, setRequeueInterval, setSufficFunc).(*ReconcileSubscription)
 
 	testNs := "ansible"
 	subKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
@@ -106,7 +118,7 @@ func TestPreHookLogic(t *testing.T) {
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
-	g.Eventually(k8sClt.Get(ctx, preAnsibleKey, ansibleIns), time.Second*5).Should(gomega.Succeed())
+	g.Expect(k8sClt.Get(ctx, preAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())

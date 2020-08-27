@@ -72,7 +72,10 @@ rules:
   verbs:
   - '*'`
 
-const hubLogger = "subscription-hub-reconciler"
+const (
+	hubLogger                  = "subscription-hub-reconciler"
+	defaultHookRequeueInterval = time.Minute * 1
+)
 
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
@@ -85,15 +88,13 @@ func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
+//Option provide easy way to test the reconciler
+type Option func(*ReconcileSubscription)
+
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, hInterval ...time.Duration) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 	logger := klogr.New().WithName(hubLogger)
-
-	interval := time.Minute * 1
-	if len(hInterval) != 0 {
-		interval = hInterval[0]
-	}
 
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
@@ -102,8 +103,12 @@ func newReconciler(mgr manager.Manager, hInterval ...time.Duration) reconcile.Re
 		scheme:              mgr.GetScheme(),
 		eventRecorder:       erecorder,
 		logger:              logger,
-		hookRequeueInterval: interval,
+		hookRequeueInterval: defaultHookRequeueInterval,
 		hooks:               NewAnsibleHooks(mgr.GetClient(), logger),
+	}
+
+	for _, f := range op {
+		f(rec)
 	}
 
 	return rec
@@ -365,9 +370,9 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	logger := r.logger.WithName(request.String())
-	logger.Info(fmt.Sprintln("entry MCM Hub Reconciling subscription: ", request.String()))
+	logger.Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
-	defer logger.Info(fmt.Sprintln("exist Hub Reconciling subscription: ", request.String()))
+	defer logger.Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")

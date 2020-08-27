@@ -50,6 +50,10 @@ type HookProcessor interface {
 	// register subsription to the HookProcessor
 	RegisterSubscription(types.NamespacedName) error
 	DegisterSubscription(types.NamespacedName) error
+
+	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
+	//of hook instance name
+	SetSuffixFunc(SuffixFunc)
 	//ApplyPreHook returns a type.NamespacedName of the preHook
 	ApplyPreHook(types.NamespacedName) (types.NamespacedName, error)
 	IsPreHookCompleted(types.NamespacedName) (bool, error)
@@ -73,7 +77,8 @@ type AnsibleHooks struct {
 	gitClt GitOps
 	clt    client.Client
 	// subscription namespacedName will points to hooks
-	registry map[types.NamespacedName]*Hooks
+	registry   map[types.NamespacedName]*Hooks
+	suffixFunc SuffixFunc
 	//logger
 	logger logr.Logger
 }
@@ -88,11 +93,20 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	}
 
 	return &AnsibleHooks{
-		clt:      clt,
-		gitClt:   NewHookGit(clt, logger),
-		registry: map[types.NamespacedName]*Hooks{},
-		logger:   logger,
+		clt:        clt,
+		gitClt:     NewHookGit(clt, logger),
+		registry:   map[types.NamespacedName]*Hooks{},
+		logger:     logger,
+		suffixFunc: suffixFromUUID,
 	}
+}
+
+func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
+	if f == nil {
+		return
+	}
+
+	a.suffixFunc = f
 }
 
 func (a *AnsibleHooks) DegisterSubscription(subKey types.NamespacedName) error {
@@ -133,7 +147,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	printJobs(jobs, a.logger)
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addNewHook(subKey, subIns, preHook, postHook, jobs)
+	return a.addHookToResitry(subIns, jobs)
 }
 
 func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
@@ -142,9 +156,24 @@ func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
 	}
 }
 
-func (a *AnsibleHooks) addNewHook(subKey types.NamespacedName, subIns *subv1.Subscription, preHook, postHook string, jobs []unstructured.Unstructured) error {
+type SuffixFunc func(*subv1.Subscription) string
+
+func suffixFromUUID(subIns *subv1.Subscription) string {
+	return fmt.Sprintf("-%s", subIns.GetUID()[:5])
+}
+
+func (a *AnsibleHooks) addHookToResitry(subIns *subv1.Subscription, jobs []unstructured.Unstructured) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
+
+	if len(jobs) == 0 {
+		return fmt.Errorf("failed to get the prehook from git")
+	}
+
 	defer a.logger.V(2).Info("exit addNewHook subscription")
+
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	preHook := subIns.Spec.Prehook
+	postHook := subIns.Spec.Posthook
 
 	a.registry[subKey] = &Hooks{
 		pre:       unstructured.Unstructured{},
@@ -154,21 +183,21 @@ func (a *AnsibleHooks) addNewHook(subKey types.NamespacedName, subIns *subv1.Sub
 		postHooks: []unstructured.Unstructured{},
 	}
 
-	suffix := subIns.GetUID()[:5]
+	suffix := a.suffixFunc(subIns)
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		//need to skip the status, otherwise the creation will fail
 		if strings.EqualFold(jobKey.String(), preHook) {
 			a.registry[subKey].pre = job
 			ins := a.registry[subKey].pre.DeepCopy()
-			ins.SetName(fmt.Sprintf("%s-%s", ins.GetName(), suffix))
+			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
 			a.registry[subKey].preHooks = append(a.registry[subKey].preHooks, *ins)
 		}
 
 		if strings.EqualFold(jobKey.String(), postHook) {
 			a.registry[subKey].post = job
 			ins := a.registry[subKey].post.DeepCopy()
-			ins.SetName(fmt.Sprintf("%s-%s", ins.GetName(), suffix))
+			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
 			a.registry[subKey].postHooks = append(a.registry[subKey].postHooks, *ins)
 		}
 	}
