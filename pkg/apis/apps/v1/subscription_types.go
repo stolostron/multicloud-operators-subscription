@@ -93,7 +93,7 @@ type PackageFilter struct {
 
 // PackageOverride describes rules for override
 type PackageOverride struct {
-	runtime.RawExtension `json:",inline"`
+	runtime.RawExtension `json:"-"`
 }
 
 // Overrides field in deployable
@@ -138,6 +138,10 @@ type SubscriptionSpec struct {
 	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
+	// +optional
+	Prehook string `json:"prehook,omitempty"`
+	// +optional
+	Posthook string `json:"posthook,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription
