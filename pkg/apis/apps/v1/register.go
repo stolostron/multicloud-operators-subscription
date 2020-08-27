@@ -15,8 +15,9 @@
 // NOTE: Boilerplate only.  Ignore this file.
 
 // Package v1 contains API Schema definitions for the apps v1 API group
-// +k8s:deepcopy-gen=package,register
+// +kubebuilder:object:generate=true
 // +groupName=apps.open-cluster-management.io
+// +versionName=v1
 package v1
 
 import (
