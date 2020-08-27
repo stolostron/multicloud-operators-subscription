@@ -214,7 +214,7 @@ type SubscriptionStatus struct {
 }
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // Subscription is the Schema for the subscriptions API
 // +k8s:openapi-gen=true
@@ -230,7 +230,7 @@ type Subscription struct {
 	Status SubscriptionStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // SubscriptionList contains a list of Subscription
 type SubscriptionList struct {
