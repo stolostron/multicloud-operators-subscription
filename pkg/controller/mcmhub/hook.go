@@ -39,11 +39,6 @@ const (
 	AnsibleJobResult  = "ansiblejobresult"
 )
 
-var (
-	preAnnotation  = subv1.SchemeGroupVersion.Group + "/pre-ansible"
-	postAnnotation = subv1.SchemeGroupVersion.Group + "/post-ansible"
-)
-
 //HOHookProcessor tracks the pre and post hook informantion of subscriptions.
 
 type HookProcessor interface {

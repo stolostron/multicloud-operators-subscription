@@ -30,23 +30,26 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func TestPreHookLogic(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+//Prehook should:
+// 1. download from git, if the subscription asks for the prehook
+// 2. create the prehook resource on the cluster, while keep the subscription
+// wait for the prehook resource status
+// 3. subscription can resume properly once the prehook resource is deployed
+type preHookTest struct {
+	interval            time.Duration
+	hookRequeueInterval Option
+	suffixFunc          Option
+	chnIns              *chnv1.Channel
+	subIns              *subv1.Subscription
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	testNs string
 
-	k8sClt := mgr.GetClient()
+	chnKey        types.NamespacedName
+	subKey        types.NamespacedName
+	preAnsibleKey types.NamespacedName
+}
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
-
+func newPreHookTest() *preHookTest {
 	hookRequeueInterval := time.Second * 1
 	setRequeueInterval := func(r *ReconcileSubscription) {
 		r.hookRequeueInterval = hookRequeueInterval
@@ -59,8 +62,6 @@ func TestPreHookLogic(t *testing.T) {
 
 		r.hooks.SetSuffixFunc(sf)
 	}
-
-	rec := newReconciler(mgr, setRequeueInterval, setSufficFunc).(*ReconcileSubscription)
 
 	testNs := "ansible"
 	subKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
@@ -79,7 +80,7 @@ func TestPreHookLogic(t *testing.T) {
 		},
 	}
 
-	subInsWithoutPrehook := &subv1.Subscription{
+	subInsPrehook := &subv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      subKey.Name,
 			Namespace: subKey.Namespace,
@@ -94,31 +95,69 @@ func TestPreHookLogic(t *testing.T) {
 		},
 	}
 
-	ctx := context.TODO()
-	g.Expect(k8sClt.Create(ctx, chn.DeepCopy())).Should(gomega.Succeed())
+	return &preHookTest{
+		interval:            hookRequeueInterval,
+		hookRequeueInterval: setRequeueInterval,
+		suffixFunc:          setSufficFunc,
+		chnIns:              chn,
+		subIns:              subInsPrehook,
+
+		testNs: testNs,
+
+		chnKey:        chnKey,
+		subKey:        subKey,
+		preAnsibleKey: preAnsibleKey,
+	}
+
+}
+
+func TestPreHookLogic(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	k8sClt := mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
 	defer func() {
-		g.Expect(k8sClt.Delete(ctx, chn.DeepCopy())).Should(gomega.Succeed())
+		close(stopMgr)
+		mgrStopped.Wait()
 	}()
 
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	// happyPath is defined as the following:
 	//asumming the github have the ansible YAML
 	//subscription with prehook, then after reconcile, we should be able to
 	//detect the ansibleJob instance from cluster and the subscription status
 	//shouldn't be propagated
-	g.Expect(k8sClt.Create(ctx, subInsWithoutPrehook.DeepCopy())).Should(gomega.Succeed())
+	happyPath := newPreHookTest()
+
+	rec := newReconciler(mgr, happyPath.hookRequeueInterval, happyPath.suffixFunc).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, happyPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 
 	defer func() {
-		g.Expect(k8sClt.Delete(ctx, subInsWithoutPrehook.DeepCopy())).Should(gomega.Succeed())
+		g.Expect(k8sClt.Delete(ctx, happyPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 	}()
 
-	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(k8sClt.Create(ctx, happyPath.subIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, happyPath.subIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: happyPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(hookRequeueInterval))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(happyPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
-	g.Expect(k8sClt.Get(ctx, preAnsibleKey, ansibleIns)).Should(gomega.Succeed())
+	g.Expect(k8sClt.Get(ctx, happyPath.preAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
