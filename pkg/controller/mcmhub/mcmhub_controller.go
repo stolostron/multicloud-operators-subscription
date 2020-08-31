@@ -369,7 +369,7 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
 	logger := r.logger.WithName(request.String())
 	logger.V(INFOLevel).Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
@@ -394,37 +394,32 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				return reconcile.Result{}, nil
 			}
 
-			return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
+			result.RequeueAfter = r.hookRequeueInterval
+			return result, nil
 		}
 	}
 
-	defer func() (reconcile.Result, error) {
-		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
-		if err != nil {
-			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-			return reconcile.Result{}, nil
-		}
-
-		if postHook.String() != "/" {
-			//wait till the subscription is propagated
-			f, err := r.hooks.IsSubscriptionCompleted(request.NamespacedName)
-			if !f || err != nil {
-				return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
-			}
-
-			// wait till the post hook job is completed
-			b, err := r.hooks.IsPostHookCompleted(postHook)
-			if !b || err != nil {
-				if err != nil {
-					logger.Error(err, "failed to check posthook status, skip the subscription reconcile, err: ")
-					return reconcile.Result{}, nil
-				}
-				return reconcile.Result{RequeueAfter: r.hookRequeueInterval}, nil
-			}
-		}
-
-		return reconcile.Result{}, nil
-	}()
+	//	defer func() {
+	//		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
+	//		if err != nil {
+	//			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+	//			return
+	//		}
+	//
+	//		if postHook.String() != "/" {
+	//			// wait till the post hook job is completed
+	//			b, err := r.hooks.IsPostHookCompleted(postHook)
+	//			if !b || err != nil {
+	//				if err != nil {
+	//					logger.Error(err, "failed to check posthook status, skip the subscription reconcile, err: ")
+	//					return
+	//				}
+	//
+	//				result.RequeueAfter = r.hookRequeueInterval
+	//				return
+	//			}
+	//		}
+	//	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
@@ -494,8 +489,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
-	result := reconcile.Result{}
-
 	if !reflect.DeepEqual(*orgst, instance.Status) {
 		klog.Info("MCM Hub updating subscriptoin status to ", instance.Status)
 
@@ -524,7 +517,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			//skip gosec G404 since the random number is only used for requeue
 			//timer
 			// #nosec G404
-			return reconcile.Result{RequeueAfter: time.Second * time.Duration(rand.Intn(10))}, nil
+			if result.RequeueAfter == 0 {
+
+				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
+			}
 		}
 	}
 

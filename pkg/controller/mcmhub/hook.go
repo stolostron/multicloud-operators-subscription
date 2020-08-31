@@ -234,7 +234,14 @@ func (a *AnsibleHooks) IsPreHookCompleted(preKey types.NamespacedName) (bool, er
 }
 
 func (a *AnsibleHooks) ApplyPostHook(subKey types.NamespacedName) (types.NamespacedName, error) {
+	//wait till the subscription is propagated
+	f, err := a.IsSubscriptionCompleted(subKey)
+	if !f || err != nil {
+		return types.NamespacedName{}, err
+	}
+
 	hks, ok := a.registry[subKey]
+
 	if ok && len(hks.postHooks) != 0 {
 		t := &hks.postHooks[len(hks.postHooks)-1]
 		if err := a.clt.Create(context.TODO(), t); err != nil {

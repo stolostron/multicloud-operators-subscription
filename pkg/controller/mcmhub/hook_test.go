@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -39,7 +41,7 @@ const (
 // 2. create the prehook resource on the cluster, while keep the subscription
 // wait for the prehook resource status
 // 3. subscription can resume properly once the prehook resource is deployed
-type preHookTest struct {
+type hookTest struct {
 	interval            time.Duration
 	hookRequeueInterval Option
 	suffixFunc          Option
@@ -48,12 +50,13 @@ type preHookTest struct {
 
 	testNs string
 
-	chnKey        types.NamespacedName
-	subKey        types.NamespacedName
-	preAnsibleKey types.NamespacedName
+	chnKey         types.NamespacedName
+	subKey         types.NamespacedName
+	preAnsibleKey  types.NamespacedName
+	postAnsibleKey types.NamespacedName
 }
 
-func newPreHookTest() *preHookTest {
+func newHookTest() *hookTest {
 	hookRequeueInterval := time.Second * 1
 	setRequeueInterval := func(r *ReconcileSubscription) {
 		r.hookRequeueInterval = hookRequeueInterval
@@ -71,6 +74,7 @@ func newPreHookTest() *preHookTest {
 	subKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
 	chnKey := types.NamespacedName{Name: "t-chn", Namespace: testNs}
 	preAnsibleKey := types.NamespacedName{Name: "prehook-test", Namespace: testNs}
+	postAnsibleKey := types.NamespacedName{Name: "posthook-test", Namespace: testNs}
 
 	chn := &chnv1.Channel{
 		ObjectMeta: metav1.ObjectMeta{
@@ -83,7 +87,7 @@ func newPreHookTest() *preHookTest {
 		},
 	}
 
-	subInsPrehook := &subv1.Subscription{
+	subIns := &subv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      subKey.Name,
 			Namespace: subKey.Namespace,
@@ -94,22 +98,29 @@ func newPreHookTest() *preHookTest {
 		},
 		Spec: subv1.SubscriptionSpec{
 			Channel: chnKey.String(),
-			Prehook: preAnsibleKey.String(),
+			Placement: &plrv1alpha1.Placement{
+				GenericPlacementFields: plrv1alpha1.GenericPlacementFields{
+					Clusters: []plrv1alpha1.GenericClusterReference{
+						plrv1alpha1.GenericClusterReference{Name: "test-cluster"},
+					},
+				},
+			},
 		},
 	}
 
-	return &preHookTest{
+	return &hookTest{
 		interval:            hookRequeueInterval,
 		hookRequeueInterval: setRequeueInterval,
 		suffixFunc:          setSufficFunc,
-		chnIns:              chn,
-		subIns:              subInsPrehook,
+		chnIns:              chn.DeepCopy(),
+		subIns:              subIns.DeepCopy(),
 
 		testNs: testNs,
 
-		chnKey:        chnKey,
-		subKey:        subKey,
-		preAnsibleKey: preAnsibleKey,
+		chnKey:         chnKey,
+		subKey:         subKey,
+		preAnsibleKey:  preAnsibleKey,
+		postAnsibleKey: postAnsibleKey,
 	}
 
 }
@@ -136,7 +147,7 @@ func TestPrehookHappyPath(t *testing.T) {
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
-	testPath := newPreHookTest()
+	testPath := newHookTest()
 
 	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
 
@@ -147,10 +158,13 @@ func TestPrehookHappyPath(t *testing.T) {
 		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 	}()
 
-	g.Expect(k8sClt.Create(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
+	applyIns := testPath.subIns.DeepCopy()
+	applyIns.Spec.Prehook = testPath.preAnsibleKey.String()
+
+	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
 
 	defer func() {
-		g.Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
+		g.Expect(k8sClt.Delete(ctx, applyIns)).Should(gomega.Succeed())
 	}()
 
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
@@ -191,7 +205,7 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
-	testPath := newPreHookTest()
+	testPath := newHookTest()
 
 	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
 
@@ -202,11 +216,14 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
 	}()
 
+	applyIns := testPath.subIns.DeepCopy()
+	applyIns.Spec.Prehook = testPath.preAnsibleKey.String()
+
 	a := testPath.subIns.GetAnnotations()
 	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
-	testPath.subIns.SetAnnotations(a)
+	applyIns.SetAnnotations(a)
 
-	g.Expect(k8sClt.Create(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
+	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
@@ -220,4 +237,125 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
+}
+
+//Happy path should be, the subscription status is set, then the postHook should
+//be deployed
+func TestPosthookHappyPath(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	k8sClt := mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	testPath := newHookTest()
+
+	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	subIns := testPath.subIns.DeepCopy()
+	postSubName := "test-posthook"
+	subIns.SetName(postSubName)
+	subIns.Spec.Posthook = testPath.postAnsibleKey.String()
+
+	fmt.Printf("%#v", subIns)
+	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
+
+	subIns.Status.Phase = subv1.SubscriptionSubscribed
+	subIns.Status.LastUpdateTime = metav1.Now()
+	g.Expect(k8sClt.Status().Update(ctx, subIns)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
+	}()
+
+	subKey := testPath.subKey
+	subKey.Name = postSubName
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
+
+	ansibleIns := &ansiblejob.AnsibleJob{}
+
+	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
+	}()
+}
+
+//Happy path should be, the subscription status is set, then the postHook should
+//be deployed
+func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	k8sClt := mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	testPath := newHookTest()
+
+	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	subIns := testPath.subIns.DeepCopy()
+	subIns.Spec.Posthook = testPath.postAnsibleKey.String()
+
+	subIns.Status.Statuses = subv1.SubscriptionClusterStatusMap{
+		"spoke": &subv1.SubscriptionPerClusterStatus{
+			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
+				"pkg1": &subv1.SubscriptionUnitStatus{
+					Phase: subv1.SubscriptionSubscribed,
+				},
+			},
+		},
+	}
+
+	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
+	}()
+
+	_, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.BeNil())
+	//	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+
+	ansibleIns := &ansiblejob.AnsibleJob{}
+
+	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
 }
