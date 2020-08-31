@@ -46,7 +46,7 @@ const (
 type HookProcessor interface {
 	// register subsription to the HookProcessor
 	RegisterSubscription(types.NamespacedName) error
-	DegisterSubscription(types.NamespacedName) error
+	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
 	//of hook instance name
@@ -106,7 +106,7 @@ func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
 	a.suffixFunc = f
 }
 
-func (a *AnsibleHooks) DegisterSubscription(subKey types.NamespacedName) error {
+func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error {
 	delete(a.registry, subKey)
 	return nil
 }
@@ -157,7 +157,7 @@ func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
 type SuffixFunc func(*subv1.Subscription) string
 
 func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%s", subIns.GetUID()[:5])
+	return fmt.Sprintf("-%s", subIns.GetResourceVersion())
 }
 
 func (a *AnsibleHooks) addHookToResitry(subIns *subv1.Subscription, jobs []unstructured.Unstructured) error {
@@ -275,14 +275,37 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	return strings.EqualFold(curStatus, JobCompleted)
 }
 
+// IIsSubscriptionCompleted will check:
+// a, if the subscription itself is processed
+// b, for each of the subscription created on managed cluster, it will check if
+// it is 1, propagated and 2, subscribed
 func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {
 	subIns := &subv1.Subscription{}
 	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
 		return false, err
 	}
 
+	//check up the hub cluster status
 	if subIns.Status.Phase != subv1.SubscriptionPropagated {
 		return false, nil
+	}
+
+	managedStatus := subIns.Status.Statuses
+	if len(managedStatus) == 0 {
+		return true, nil
+	}
+
+	for cluster, cSt := range managedStatus {
+		if len(cSt.SubscriptionPackageStatus) == 0 {
+			continue
+		}
+
+		for pkg, pSt := range cSt.SubscriptionPackageStatus {
+			if pSt.Phase != subv1.SubscriptionSubscribed {
+				a.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase))
+				return false, nil
+			}
+		}
 	}
 
 	return true, nil

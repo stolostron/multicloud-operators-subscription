@@ -438,7 +438,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			// Object not found, delete existing subscriberitem if any
-			if err := r.hooks.DegisterSubscription(request.NamespacedName); err != nil {
+			if err := r.hooks.DeregisterSubscription(request.NamespacedName); err != nil {
 				return reconcile.Result{}, err
 			}
 
