@@ -6,11 +6,13 @@ require (
 	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/bombsimon/wsl v1.2.5 // indirect
 	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.5
+	github.com/golangci/lint-1 v0.0.0-20191013205115-297bf364a8e0 // indirect
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
@@ -26,6 +28,7 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
+	github.com/yujunz/go-getter v1.4.1-lite // indirect
 	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gotest.tools v2.2.0+incompatible
@@ -39,7 +42,8 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.6.0
-	sigs.k8s.io/kustomize/api v0.5.1
+	sigs.k8s.io/kustomize/api v0.1.1
+	sigs.k8s.io/kustomize/kyaml v0.4.1 // indirect
 )
 
 replace (

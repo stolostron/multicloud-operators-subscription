@@ -302,7 +302,8 @@ func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (boo
 
 		for pkg, pSt := range cSt.SubscriptionPackageStatus {
 			if pSt.Phase != subv1.SubscriptionSubscribed {
-				a.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase))
+				a.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
+					"subscription is not completed")
 				return false, nil
 			}
 		}
