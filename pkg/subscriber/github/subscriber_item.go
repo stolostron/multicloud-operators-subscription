@@ -292,9 +292,11 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte, pkgMap map[string]boo
 		return nil, nil, gvkerr
 	}
 
+	ghsi.synchronizer.Kmtx.Lock()
 	if ghsi.synchronizer.KubeResources[*validgvk].Namespaced {
 		rsc.SetNamespace(ghsi.Subscription.Namespace)
 	}
+	ghsi.synchronizer.Kmtx.Unlock()
 
 	if ghsi.Subscription.Spec.PackageFilter != nil {
 		errMsg := ghsi.checkFilters(rsc)

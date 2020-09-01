@@ -195,9 +195,11 @@ func (s *SecretReconciler) RegisterToResourceMap(dpls []*dplv1alpha1.Deployable)
 			continue
 		}
 
+		kubesync.Kmtx.Lock()
 		if kubesync.KubeResources[*validgvk].Namespaced {
 			template.SetNamespace(subscription.Namespace)
 		}
+		kubesync.Kmtx.Unlock()
 
 		dpltosync := dpl.DeepCopy()
 		dpltosync.Spec.Template.Raw, err = json.Marshal(template)

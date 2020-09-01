@@ -256,11 +256,13 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *SubscriberItem, dp
 		return dpl, nil, gvkerr
 	}
 
+	r.subscriber.synchronizer.Kmtx.Lock()
 	if r.subscriber.synchronizer.KubeResources[*validgvk].Namespaced {
 		if !subitem.clusterscoped || template.GetNamespace() == "" {
 			template.SetNamespace(subitem.Subscription.Namespace)
 		}
 	}
+	r.subscriber.synchronizer.Kmtx.Unlock()
 
 	dpl.Spec.Template.Raw, err = json.Marshal(template)
 

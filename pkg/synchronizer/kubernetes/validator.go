@@ -33,7 +33,8 @@ type Validator struct {
 func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) {
 	var err error
 
-	for _, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for _, resmap := range kubeResources {
 		for _, tplunit := range resmap.TemplateMap {
 			tplhost := sync.Extension.GetHostFromObject(tplunit)
 			tpldpl := utils.GetHostDeployableFromObject(tplunit)
@@ -41,7 +42,6 @@ func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsourc
 			if tplhost != nil && tplhost.String() == host.String() {
 				klog.V(10).Infof("Start DeRegister, with host: %s, dpl: %s", tplhost, tpldpl)
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, syncsource)
-
 				if err != nil {
 					klog.Error("Failed to deregister template for cleanup by host with error: ", err)
 				}
@@ -63,7 +63,8 @@ func (sync *KubeSynchronizer) CreateValiadtor(syncsource string) *Validator {
 func (sync *KubeSynchronizer) ApplyValiadtor(v *Validator) {
 	var err error
 
-	for resgvk, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for resgvk, resmap := range kubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			if v.Store[resgvk] == nil || !v.Store[resgvk][reskey] {
 				// will ignore non-syncsource templates
@@ -73,7 +74,6 @@ func (sync *KubeSynchronizer) ApplyValiadtor(v *Validator) {
 				klog.V(10).Infof("Start DeRegister, with resgvk: %v, reskey: %s", resgvk, reskey)
 
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, v.syncsource)
-
 				if err != nil {
 					klog.Error("Failed to deregister template for applying validator with error: ", err)
 				}

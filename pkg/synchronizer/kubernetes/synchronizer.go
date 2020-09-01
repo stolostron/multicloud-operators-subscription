@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -64,11 +65,11 @@ type KubeSynchronizer struct {
 	RemoteClient   client.Client
 	localConfig    *rest.Config
 	DynamicClient  dynamic.Interface
+	Kmtx           sync.Mutex // lock the kubeResource
 	KubeResources  map[schema.GroupVersionKind]*ResourceMap
 	SynchronizerID *types.NamespacedName
 	Extension      Extension
 	eventrecorder  *utils.EventRecorder
-
 	stopCh         chan struct{}
 	resetcache     bool
 	dynamicFactory dynamicinformer.DynamicSharedInformerFactory
@@ -117,6 +118,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		SynchronizerID: syncid,
 		DynamicClient:  dynamicClient,
 		localConfig:    config,
+		Kmtx:           sync.Mutex{},
 		KubeResources:  make(map[schema.GroupVersionKind]*ResourceMap),
 		Extension:      ext,
 	}
@@ -182,7 +184,8 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 func (sync *KubeSynchronizer) houseKeeping() {
 	crdUpdated := false
 	// make sure the template map and the actual resource are aligned
-	for gvk, res := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for gvk, res := range kubeResources {
 		var err error
 
 		klog.V(5).Infof("Applying templates in gvk: %#v, res: %#v", gvk, res)
@@ -500,7 +503,8 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 	// check resource template map for deployables
 	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
 
-	for _, resmap := range sync.KubeResources {
+	kubeResources := sync.CloneKubeResources()
+	for _, resmap := range kubeResources {
 		// all templates are added with annotations, no need to check nil
 		if len(resmap.TemplateMap) > 0 {
 			klog.V(5).Info("Checking valid resource map: ", resmap.GroupVersionResource)
@@ -547,7 +551,7 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 					sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil)
 
 					if sterr != nil {
-						klog.Error("Failed to update host status, with error:", err)
+						klog.Error("Failed to update host status, with error:", sterr)
 					}
 				}
 			}
@@ -620,7 +624,9 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	template.SetGroupVersionKind(*validgvk)
 
+	sync.Kmtx.Lock()
 	resmap, ok := sync.KubeResources[*validgvk]
+	sync.Kmtx.Unlock()
 
 	if !ok {
 		// register new kind
@@ -723,7 +729,10 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 		Source:          source,
 	}
 	resmap.TemplateMap[reskey] = templateUnit
+
+	sync.Kmtx.Lock()
 	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
+	sync.Kmtx.Unlock()
 
 	klog.V(2).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind(), "for source: ", source)
 
@@ -732,4 +741,17 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 func (sync *KubeSynchronizer) generateResourceMapKey(host, dpl types.NamespacedName) string {
 	return host.String() + "/" + dpl.String()
+}
+
+// CloneKubeResources returns a copy of its KubeResources map
+func (sync *KubeSynchronizer) CloneKubeResources() map[schema.GroupVersionKind]*ResourceMap {
+	clone := make(map[schema.GroupVersionKind]*ResourceMap)
+
+	sync.Kmtx.Lock()
+	for gvk, resmap := range sync.KubeResources {
+		clone[gvk] = resmap
+	}
+	sync.Kmtx.Unlock()
+
+	return clone
 }
