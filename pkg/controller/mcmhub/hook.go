@@ -145,7 +145,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	printJobs(jobs, a.logger)
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addHookToResitry(subIns, jobs)
+	return a.addHookToRegisitry(subIns, jobs)
 }
 
 func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
@@ -160,7 +160,7 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 	return fmt.Sprintf("-%s", subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) addHookToResitry(subIns *subv1.Subscription, jobs []unstructured.Unstructured) error {
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []unstructured.Unstructured) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 
 	if len(jobs) == 0 {
@@ -206,10 +206,12 @@ func (a *AnsibleHooks) addHookToResitry(subIns *subv1.Subscription, jobs []unstr
 func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {
 	a.logger.WithName(subKey.String()).V(2).Info("entry ApplyPreHook")
 	defer a.logger.WithName(subKey.String()).V(2).Info("exit ApplyPreHook")
+
 	hks, ok := a.registry[subKey]
 	if ok && len(hks.preHooks) != 0 {
 		t := &hks.preHooks[len(hks.preHooks)-1]
 
+		t.SetResourceVersion("")
 		if err := a.clt.Create(context.TODO(), t); err != nil {
 			if !k8serrors.IsAlreadyExists(err) {
 				return types.NamespacedName{}, err

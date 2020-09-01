@@ -74,7 +74,7 @@ rules:
 
 const (
 	hubLogger                  = "subscription-hub-reconciler"
-	defaultHookRequeueInterval = time.Minute * 1
+	defaultHookRequeueInterval = time.Second * 5
 	INFOLevel                  = 1
 )
 
@@ -375,30 +375,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
-	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
-		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")
-		return reconcile.Result{}, nil
-	}
-
-	preHook, herr := r.hooks.ApplyPreHook(request.NamespacedName)
-	if herr != nil {
-		logger.Error(herr, "failed to apply preHook, skip the subscription reconcile, err: ")
-		return reconcile.Result{}, nil
-	}
-
-	if preHook.String() != "/" {
-		b, err := r.hooks.IsPreHookCompleted(preHook)
-		if !b || err != nil {
-			if err != nil {
-				logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
-				return reconcile.Result{}, nil
-			}
-
-			result.RequeueAfter = r.hookRequeueInterval
-			return result, nil
-		}
-	}
-
 	//	defer func() {
 	//		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
 	//		if err != nil {
@@ -441,6 +417,30 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		}
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
+	}
+
+	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
+		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")
+		return reconcile.Result{}, nil
+	}
+
+	preHook, herr := r.hooks.ApplyPreHook(request.NamespacedName)
+	if herr != nil {
+		logger.Error(herr, "failed to apply preHook, skip the subscription reconcile, err: ")
+		return reconcile.Result{}, nil
+	}
+
+	if preHook.String() != "/" {
+		b, err := r.hooks.IsPreHookCompleted(preHook)
+		if !b || err != nil {
+			if err != nil {
+				logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
+				return reconcile.Result{}, nil
+			}
+
+			result.RequeueAfter = r.hookRequeueInterval
+			return result, nil
+		}
 	}
 
 	// save original status
