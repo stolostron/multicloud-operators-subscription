@@ -257,6 +257,15 @@ func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.Namespac
 		t := &hks.preHooks[len(hks.preHooks)-1]
 
 		t.SetResourceVersion("")
+		// avoid the error:
+		// status.conditions.lastTransitionTime in body must be of type string: \"null\""
+		t.Status = ansiblejob.AnsibleJobStatus{
+			Condition: ansiblejob.Condition{
+				LastTransitionTime: metav1.Now(),
+			},
+		}
+
+		fmt.Printf("izhang -----> %#v\n", t)
 		if err := a.clt.Create(context.TODO(), t); err != nil {
 			if !k8serrors.IsAlreadyExists(err) {
 				return types.NamespacedName{}, err

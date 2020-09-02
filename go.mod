@@ -16,9 +16,9 @@ require (
 	github.com/google/go-cmp v0.4.0
 	github.com/google/go-github/v28 v28.1.1
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
-	github.com/onsi/ginkgo v1.12.0
-	github.com/onsi/gomega v1.9.0
-	github.com/open-cluster-management/ansiblejob-go-lib v0.0.0-20200824173331-f4474cf873bc
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
+	github.com/open-cluster-management/ansiblejob-go-lib v0.1.1
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20200813201238-cf522bb8e5a9
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200817152717-50b364f569c6
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f
@@ -29,7 +29,7 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
 	github.com/yujunz/go-getter v1.4.1-lite // indirect
-	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
+	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	gotest.tools v2.2.0+incompatible
 	helm.sh/helm/v3 v3.2.0
