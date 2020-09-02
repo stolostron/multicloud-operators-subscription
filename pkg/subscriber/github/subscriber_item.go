@@ -543,16 +543,21 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 
 	if ghsi.Channel.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
+		subns := ghsi.Subscription.Namespace
 		secns := ghsi.Channel.Spec.SecretRef.Namespace
-
 		if secns == "" {
 			secns = ghsi.Channel.Namespace
 		}
 
-		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: secns}, secret)
+		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: subns}, secret)
 		if err != nil {
-			klog.Error(err, "Unable to get secret.")
-			return "", err
+			klog.Error(err, "Unable to get secret from local cluster.")
+
+			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.SecretRef.Name, Namespace: secns}, secret)
+			if err != nil {
+				klog.Error(err, "Unable to get secret from hub cluster.")
+				return "", err
+			}
 		}
 
 		username := ""
@@ -586,16 +591,16 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	if ghsi.Channel.Spec.ConfigMapRef != nil {
 		config := &corev1.ConfigMap{}
 		subns := ghsi.Subscription.Namespace
-		ns := ghsi.Channel.Spec.ConfigMapRef.Namespace
-		if ns == "" {
-			ns = ghsi.Channel.Namespace
+		cmns := ghsi.Channel.Spec.ConfigMapRef.Namespace
+		if cmns == "" {
+			cmns = ghsi.Channel.Namespace
 		}
 
 		err := ghsi.synchronizer.LocalClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.ConfigMapRef.Name, Namespace: subns}, config)
 		if err != nil {
 			klog.Error(err, "Unable to get configMap from local cluster.")
 
-			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.ConfigMapRef.Name, Namespace: ns}, config)
+			err := ghsi.synchronizer.RemoteClient.Get(context.TODO(), types.NamespacedName{Name: ghsi.Channel.Spec.ConfigMapRef.Name, Namespace: cmns}, config)
 			if err != nil {
 				klog.Error(err, "Unable to get configMap from hub cluster.")
 				return "", err
