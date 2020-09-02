@@ -342,6 +342,11 @@ func TestPosthookHappyPath(t *testing.T) {
 
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
+	//test if the ansiblejob have a owner set
+	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
+
+	g.Expect(ansibleIns.Spec.TowerAuthSecret).Should(gomega.Equal(referSrt))
+
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
 	}()

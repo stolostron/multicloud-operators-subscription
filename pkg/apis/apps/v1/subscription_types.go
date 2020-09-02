@@ -123,17 +123,6 @@ type HourRange struct {
 	End   string `json:"end,omitempty"`
 }
 
-type Hooks struct {
-	// +optional
-	Prehook string `json:"prehook,omitempty"`
-	// +optional
-	PrehookRef *corev1.ObjectReference `json:"prehookref,omitempty"`
-	// +optional
-	Posthook string `json:"posthook,omitempty"`
-	// +optional
-	PosthookRef *corev1.ObjectReference `json:"posthookref,omitempty"`
-}
-
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
@@ -150,7 +139,7 @@ type SubscriptionSpec struct {
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 	// +optional
-	Hooks *Hooks `json:"prehook,omitempty"`
+	HookSecret *corev1.ObjectReference `json:"prehook,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription

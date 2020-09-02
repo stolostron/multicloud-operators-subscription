@@ -227,6 +227,15 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []ans
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
 //secret file of ansibleJob
 func overrideAnsibleInstance(subIns *subv1.Subscription, hookFlag string, job ansiblejob.AnsibleJob) ansiblejob.AnsibleJob {
+	job.SetResourceVersion("")
+	// avoid the error:
+	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
+	job.Status = ansiblejob.AnsibleJobStatus{
+		Condition: ansiblejob.Condition{
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+
 	//set owerreferce
 	setOwnerReferences(subIns, &job)
 
@@ -255,15 +264,6 @@ func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.Namespac
 	hks, ok := a.registry[subKey]
 	if ok && len(hks.preHooks) != 0 {
 		t := &hks.preHooks[len(hks.preHooks)-1]
-
-		t.SetResourceVersion("")
-		// avoid the error:
-		// status.conditions.lastTransitionTime in body must be of type string: \"null\""
-		t.Status = ansiblejob.AnsibleJobStatus{
-			Condition: ansiblejob.Condition{
-				LastTransitionTime: metav1.Now(),
-			},
-		}
 
 		fmt.Printf("izhang -----> %#v\n", t)
 		if err := a.clt.Create(context.TODO(), t); err != nil {
