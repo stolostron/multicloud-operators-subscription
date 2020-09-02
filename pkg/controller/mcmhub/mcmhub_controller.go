@@ -375,27 +375,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
-	//	defer func() {
-	//		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
-	//		if err != nil {
-	//			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-	//			return
-	//		}
-	//
-	//		if postHook.String() != "/" {
-	//			// wait till the post hook job is completed
-	//			b, err := r.hooks.IsPostHookCompleted(postHook)
-	//			if !b || err != nil {
-	//				if err != nil {
-	//					logger.Error(err, "failed to check posthook status, skip the subscription reconcile, err: ")
-	//					return
-	//				}
-	//
-	//				result.RequeueAfter = r.hookRequeueInterval
-	//				return
-	//			}
-	//		}
-	//	}()
+	defer func() {
+		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
+		fmt.Printf("izhang-----> posthook----> old:\n %#v\n, new:\n%#v\n, error: %v\n", postHook, request, err)
+		if err != nil {
+			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+			result.RequeueAfter = r.hookRequeueInterval
+			return
+		}
+	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
@@ -462,6 +450,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
 		} else {
+
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
 		}

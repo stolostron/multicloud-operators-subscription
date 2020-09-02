@@ -16,7 +16,7 @@ package mcmhub
 
 import (
 	"context"
-	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -26,15 +26,43 @@ import (
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
 	ansibleGitURl = "https://github.com/ianzhang366/acm-applifecycle-samples"
 )
+
+type TSetUp struct {
+	g    *gomega.GomegaWithT
+	mgr  manager.Manager
+	stop chan struct{}
+	wg   *sync.WaitGroup
+}
+
+func NewTSetUp(t *testing.T) *TSetUp {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
+
+	return &TSetUp{
+		g:    g,
+		mgr:  mgr,
+		stop: stopMgr,
+		wg:   mgrStopped,
+	}
+}
 
 //Prehook should:
 // 1. download from git, if the subscription asks for the prehook
@@ -131,21 +159,15 @@ func newHookTest() *hookTest {
 //detect the ansibleJob instance from cluster and the subscription status
 //shouldn't be propagated
 func TestPrehookHappyPath(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	tSetup := NewTSetUp(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
+	g := tSetup.g
+	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
 	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
+		close(tSetup.stop)
+		tSetup.wg.Wait()
 	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
 	testPath := newHookTest()
 
@@ -189,21 +211,15 @@ func TestPrehookHappyPath(t *testing.T) {
 //2. stop requeue the give subscritpion
 
 func TestPrehookGitResourceNoneExistPath(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	tSetup := NewTSetUp(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
+	g := tSetup.g
+	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
 	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
+		close(tSetup.stop)
+		tSetup.wg.Wait()
 	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
 	testPath := newHookTest()
 
@@ -242,21 +258,15 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
 func TestPosthookHappyPath(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	tSetup := NewTSetUp(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
+	g := tSetup.g
+	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
 	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
+		close(tSetup.stop)
+		tSetup.wg.Wait()
 	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
 	testPath := newHookTest()
 
@@ -274,12 +284,7 @@ func TestPosthookHappyPath(t *testing.T) {
 	subIns.SetName(postSubName)
 	subIns.Spec.Posthook = testPath.postAnsibleKey.String()
 
-	fmt.Printf("%#v", subIns)
 	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
-
-	subIns.Status.Phase = subv1.SubscriptionSubscribed
-	subIns.Status.LastUpdateTime = metav1.Now()
-	g.Expect(k8sClt.Status().Update(ctx, subIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
@@ -287,10 +292,36 @@ func TestPosthookHappyPath(t *testing.T) {
 
 	subKey := testPath.subKey
 	subKey.Name = postSubName
+
+	// mock the subscription deployable status,which is copied over to the
+	// subsritption status
+	forceUpdateSubDpl := func() {
+		hubdpl := &dplv1.Deployable{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subIns.Name + "-deployable",
+				Namespace: subIns.Namespace,
+			},
+			Spec: dplv1.DeployableSpec{
+				Template: &runtime.RawExtension{
+					Object: &corev1.ConfigMap{},
+				},
+			},
+		}
+
+		g.Expect(k8sClt.Create(context.TODO(), hubdpl)).Should(gomega.Succeed())
+
+		hubdpl.Status.Phase = dplv1.DeployablePropagated
+
+		g.Expect(k8sClt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
+	}
+
+	forceUpdateSubDpl()
+
+	//reconcile will create an ansible job for the subscription
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -304,21 +335,15 @@ func TestPosthookHappyPath(t *testing.T) {
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
 func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	tSetup := NewTSetUp(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
+	g := tSetup.g
+	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
 	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
+		close(tSetup.stop)
+		tSetup.wg.Wait()
 	}()
-
-	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
 	testPath := newHookTest()
 
@@ -334,23 +359,53 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	subIns := testPath.subIns.DeepCopy()
 	subIns.Spec.Posthook = testPath.postAnsibleKey.String()
 
-	subIns.Status.Statuses = subv1.SubscriptionClusterStatusMap{
-		"spoke": &subv1.SubscriptionPerClusterStatus{
-			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
-				"pkg1": &subv1.SubscriptionUnitStatus{
-					Phase: subv1.SubscriptionSubscribed,
-				},
-			},
-		},
-	}
-
 	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
 	}()
 
-	_, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+	statusTS := metav1.Now()
+	subIns.Status.LastUpdateTime = statusTS
+	subIns.Status.Statuses = subv1.SubscriptionClusterStatusMap{
+		"spoke": &subv1.SubscriptionPerClusterStatus{
+			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
+				"pkg1": &subv1.SubscriptionUnitStatus{
+					Phase:          subv1.SubscriptionSubscribed,
+					LastUpdateTime: statusTS,
+				},
+			},
+		},
+	}
+
+	g.Expect(k8sClt.Status().Update(context.TODO(), subIns)).Should(gomega.Succeed())
+	// mock the subscription deployable status,which is copied over to the
+	// subsritption status
+	forceUpdateSubDpl := func() {
+		hubdpl := &dplv1.Deployable{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subIns.Name + "-deployable",
+				Namespace: subIns.Namespace,
+			},
+			Spec: dplv1.DeployableSpec{
+				Template: &runtime.RawExtension{
+					Object: &corev1.ConfigMap{},
+				},
+			},
+		}
+
+		g.Expect(k8sClt.Create(context.TODO(), hubdpl)).Should(gomega.Succeed())
+
+		hubdpl.Status.Phase = dplv1.DeployablePropagated
+
+		g.Expect(k8sClt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
+	}
+
+	forceUpdateSubDpl()
+
+	//reconcile should be able to find the subscription and it should able to
+	//pares status.statues
+	_, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.BeNil())
 	//	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))

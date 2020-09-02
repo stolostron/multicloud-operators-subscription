@@ -23,7 +23,7 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,6 +37,9 @@ const (
 	AnsibleJobVersion = "tower.ansible.com/v1alpha1"
 	Status            = "status"
 	AnsibleJobResult  = "ansiblejobresult"
+	SubLabel          = "ownersub"
+	isPreHook         = "pre"
+	isPostHook        = "post"
 
 	DebugLog = 3
 )
@@ -60,11 +63,11 @@ type HookProcessor interface {
 }
 
 type Hooks struct {
-	pre  unstructured.Unstructured
-	post unstructured.Unstructured
+	pre  ansiblejob.AnsibleJob
+	post ansiblejob.AnsibleJob
 	//store all the applied prehook instance
-	preHooks  []unstructured.Unstructured
-	postHooks []unstructured.Unstructured
+	preHooks  []ansiblejob.AnsibleJob
+	postHooks []ansiblejob.AnsibleJob
 
 	//store last subscription instance used for the hook operation
 	lastSub *subv1.Subscription
@@ -125,10 +128,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return err
 	}
 
-	preHook := subIns.Spec.Prehook
-	postHook := subIns.Spec.Posthook
-
-	if len(preHook) == 0 && len(postHook) == 0 {
+	if subIns.Spec.Hooks == nil {
+		a.logger.V(DebugLog).Info("subscription doesn't have hook to process")
 		return nil
 	}
 
@@ -137,7 +138,25 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	jobs, err := a.gitClt.DownloadHookResource(subIns)
+	preHook := subIns.Spec.Hooks.Prehook
+	postHook := subIns.Spec.Hooks.Posthook
+
+	if len(preHook) == 0 && len(postHook) == 0 {
+		return nil
+	}
+
+	preHookRef := subIns.Spec.Hooks.PrehookRef
+	postHookRef := subIns.Spec.Hooks.PosthookRef
+
+	if len(preHook) != 0 && preHookRef == nil {
+		return fmt.Errorf("empty object reference for hook %v", preHook)
+	}
+
+	if len(postHook) != 0 && postHookRef == nil {
+		return fmt.Errorf("empty object reference for hook %v", preHook)
+	}
+
+	jobs, err := a.gitClt.DownloadAnsibleHookResource(subIns)
 
 	if err != nil {
 		return err
@@ -148,9 +167,9 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 	return a.addHookToRegisitry(subIns, jobs)
 }
 
-func printJobs(jobs []unstructured.Unstructured, logger logr.Logger) {
+func printJobs(jobs []ansiblejob.AnsibleJob, logger logr.Logger) {
 	for _, job := range jobs {
-		logger.V(3).Info(fmt.Sprintf("download jobs %#v", job))
+		logger.V(DebugLog).Info(fmt.Sprintf("download jobs %v", job))
 	}
 }
 
@@ -160,7 +179,7 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 	return fmt.Sprintf("-%s", subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []unstructured.Unstructured) error {
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []ansiblejob.AnsibleJob) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 
 	if len(jobs) == 0 {
@@ -170,15 +189,15 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []uns
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-	preHook := subIns.Spec.Prehook
-	postHook := subIns.Spec.Posthook
+	preHook := subIns.Spec.Hooks.Prehook
+	postHook := subIns.Spec.Hooks.Posthook
 
 	a.registry[subKey] = &Hooks{
-		pre:       unstructured.Unstructured{},
-		post:      unstructured.Unstructured{},
+		pre:       ansiblejob.AnsibleJob{},
+		post:      ansiblejob.AnsibleJob{},
 		lastSub:   subIns,
-		preHooks:  []unstructured.Unstructured{},
-		postHooks: []unstructured.Unstructured{},
+		preHooks:  []ansiblejob.AnsibleJob{},
+		postHooks: []ansiblejob.AnsibleJob{},
 	}
 
 	suffix := a.suffixFunc(subIns)
@@ -186,21 +205,47 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []uns
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		//need to skip the status, otherwise the creation will fail
 		if strings.EqualFold(jobKey.String(), preHook) {
-			a.registry[subKey].pre = job
+			a.registry[subKey].pre = overrideAnsibleInstance(subIns, isPreHook, job)
 			ins := a.registry[subKey].pre.DeepCopy()
+
 			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
 			a.registry[subKey].preHooks = append(a.registry[subKey].preHooks, *ins)
 		}
 
 		if strings.EqualFold(jobKey.String(), postHook) {
-			a.registry[subKey].post = job
+			a.registry[subKey].post = overrideAnsibleInstance(subIns, isPostHook, job)
 			ins := a.registry[subKey].post.DeepCopy()
+
 			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
 			a.registry[subKey].postHooks = append(a.registry[subKey].postHooks, *ins)
 		}
 	}
 
 	return nil
+}
+
+//overrideAnsibleInstance adds the owner reference to job, and also reset the
+//secret file of ansibleJob
+func overrideAnsibleInstance(subIns *subv1.Subscription, hookFlag string, job ansiblejob.AnsibleJob) ansiblejob.AnsibleJob {
+	//set owerreferce
+	setOwnerReferences(subIns, &job)
+
+	if hookFlag == isPreHook {
+		preHookRef := subIns.Spec.Hooks.PrehookRef
+
+		job.Spec.TowerAuthSecret = types.NamespacedName{Name: preHookRef.Name, Namespace: preHookRef.Namespace}.String()
+		return job
+	}
+
+	postHookRef := subIns.Spec.Hooks.PosthookRef
+	job.Spec.TowerAuthSecret = types.NamespacedName{Name: postHookRef.Name, Namespace: postHookRef.Namespace}.String()
+	return job
+
+}
+
+func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
+	obj.SetOwnerReferences([]metav1.OwnerReference{
+		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
 }
 
 func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {

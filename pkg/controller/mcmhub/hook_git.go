@@ -22,6 +22,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
+	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -35,6 +36,7 @@ type GitOps interface {
 	//DownloadHookResource downloads the ansible job from the git and marshal
 	//the resource to unstructured.Unstructured
 	DownloadHookResource(*subv1.Subscription) ([]unstructured.Unstructured, error)
+	DownloadAnsibleHookResource(*subv1.Subscription) ([]ansiblejob.AnsibleJob, error)
 }
 
 type HookGit struct {
@@ -60,11 +62,10 @@ func (h *HookGit) DownloadHookResource(subIns *subv1.Subscription) ([]unstructur
 		return []unstructured.Unstructured{}, err
 	}
 
-	return h.donwloadAnsibleJobFromGit(h.clt, chn, subIns, h.logger)
+	return h.donwloadFromGitAsUnstructure(h.clt, chn, subIns, h.logger)
 }
 
-// get channel
-func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]unstructured.Unstructured, error) {
+func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]unstructured.Unstructured, error) {
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
 	if err != nil {
@@ -78,7 +79,34 @@ func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channe
 		return []unstructured.Unstructured{}, err
 	}
 
-	return parseAnsibleJobs(kubeRes, parseAnsibleJobResoures)
+	return parseAsUnstructure(kubeRes, parseAnsibleJobResoures)
+}
+
+func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) ([]ansiblejob.AnsibleJob, error) {
+	chn := &chnv1.Channel{}
+	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	return h.donwloadAnsibleJobFromGit(h.clt, chn, subIns, h.logger)
+}
+
+func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
+	repoRoot := utils.GetLocalGitFolder(chn, sub)
+	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
+	if err != nil {
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	h.lastCommitID[types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}] = commitID
+
+	kubeRes, err := sortClonedGitRepo(repoRoot, sub, logger)
+	if err != nil {
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	return parseAsAnsibleJobs(kubeRes, parseAnsibleJobResoures)
 }
 
 func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *subv1.Subscription) (commitID string, err error) {
@@ -123,7 +151,7 @@ func parseAnsibleJobResoures(file []byte) [][]byte {
 	return utils.KubeResourcePaser(file, cond)
 }
 
-func parseAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]unstructured.Unstructured, error) {
+func parseAsUnstructure(rscFiles []string, paser func([]byte) [][]byte) ([]unstructured.Unstructured, error) {
 	jobs := []unstructured.Unstructured{}
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
@@ -138,6 +166,35 @@ func parseAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]unstruc
 		if len(resources) > 0 {
 			for _, resource := range resources {
 				job := &unstructured.Unstructured{}
+				err := yaml.Unmarshal(resource, job)
+
+				if err != nil {
+					continue
+				}
+
+				jobs = append(jobs, *job)
+			}
+		}
+	}
+
+	return jobs, nil
+}
+
+func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansiblejob.AnsibleJob, error) {
+	jobs := []ansiblejob.AnsibleJob{}
+	// sync kube resource deployables
+	for _, rscFile := range rscFiles {
+		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+
+		if err != nil {
+			return []ansiblejob.AnsibleJob{}, err
+		}
+
+		resources := paser(file)
+
+		if len(resources) > 0 {
+			for _, resource := range resources {
+				job := &ansiblejob.AnsibleJob{}
 				err := yaml.Unmarshal(resource, job)
 
 				if err != nil {
