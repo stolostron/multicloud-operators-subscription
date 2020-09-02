@@ -424,8 +424,15 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 	}
 }
 
+type kustomizeResourceUnit struct {
+	path string
+	file []byte
+}
+
 func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub *appv1.Subscription, kustomizeDirs map[string]string, baseDir string) {
+	overrideResources := []kustomizeResourceUnit{}
 	for _, kustomizeDir := range kustomizeDirs {
+		fmt.Println("izhang----->", kustomizeDir)
 		klog.Info("Applying kustomization ", kustomizeDir)
 
 		relativePath := kustomizeDir
@@ -471,13 +478,20 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 			if t.APIVersion == "" || t.Kind == "" {
 				klog.Info("Not a Kubernetes resource")
 			} else {
-				err := r.createDeployable(chn, sub, strings.Trim(relativePath, "/"), resourceFile)
+				p := strings.Trim(relativePath, "/")
+				overrideResources = append(overrideResources, kustomizeResourceUnit{
+					path: p,
+					file: resourceFile,
+				})
+				err := r.createDeployable(chn, sub, p, resourceFile)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
 				}
 			}
 		}
 	}
+
+	fmt.Println("izhang----->", len(overrideResources))
 }
 
 func (r *ReconcileSubscription) createDeployable(

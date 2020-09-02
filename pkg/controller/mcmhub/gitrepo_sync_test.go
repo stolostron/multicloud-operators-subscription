@@ -111,3 +111,57 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	err = c.Delete(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
+
+func TestUpdateGitDeployablesAnnotationKustomizePath(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	rec := newReconciler(mgr).(*ReconcileSubscription)
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	githubsub.UID = "dummyid"
+
+	annotations := make(map[string]string)
+	annotations[appv1.AnnotationGitPath] = "examples/wordpress"
+	githubsub.SetAnnotations(annotations)
+
+	// No channel yet. It will fail and return false.
+	ret, err := rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(ret).To(gomega.BeFalse())
+
+	githubchn.Spec.Pathname = "https://github.com/jnpacker/kustomize"
+	err = c.Create(context.TODO(), githubchn)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(2 * time.Second)
+
+	ret, err = rec.UpdateGitDeployablesAnnotation(githubsub)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(ret).To(gomega.BeTrue())
+
+	time.Sleep(2 * time.Second)
+
+	subDeployables := rec.getSubscriptionDeployables(githubsub)
+	g.Expect(len(subDeployables)).To(gomega.Equal(5))
+
+	rec.deleteSubscriptionDeployables(githubsub)
+
+	time.Sleep(2 * time.Second)
+
+	subDeployables = rec.getSubscriptionDeployables(githubsub)
+	g.Expect(len(subDeployables)).To(gomega.Equal(0))
+
+	err = c.Delete(context.TODO(), githubchn)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
