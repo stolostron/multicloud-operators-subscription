@@ -225,15 +225,23 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 	return nil
 }
 
+func getShortSubUID(subUID string) string {
+	shortUID := subUID
+
+	if len(subUID) >= 5 {
+		shortUID = subUID[:5]
+	}
+
+	return shortUID
+}
+
 func PkgToReleaseCRName(sub *appv1.Subscription, packageName string) (string, error) {
 	releaseCRName := GetPackageAlias(sub, packageName)
 	if releaseCRName == "" {
 		releaseCRName = packageName
 		subUID := string(sub.UID)
 
-		if len(subUID) >= 5 {
-			releaseCRName += "-" + subUID[:5]
-		}
+		releaseCRName += "-" + getShortSubUID(subUID)
 	}
 
 	releaseCRName, err := GetReleaseName(releaseCRName)
@@ -301,13 +309,8 @@ func CreateHelmCRDeployable(
 	}
 
 	dpl := &dplv1.Deployable{}
-	if channel == nil {
-		dpl.Name = sub.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
-		dpl.Namespace = sub.Namespace
-	} else {
-		dpl.Name = channel.Name + "-" + packageName + "-" + chartVersions[0].GetVersion()
-		dpl.Namespace = channel.Namespace
-	}
+	dpl.Name = sub.Name + "-" + getShortSubUID(string(sub.UID)) + "-" + packageName
+	dpl.Namespace = sub.Namespace
 
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(helmRelease)

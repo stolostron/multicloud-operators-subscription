@@ -553,6 +553,9 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		sub.SetAnnotations(subanno)
 	}
 
+	// Check and add cluster-admin annotation for multi-namepsace application
+	updated = r.AddClusterAdminAnnotation(sub)
+
 	topoFlag := extracResourceListFromDeployables(sub, allDpls)
 
 	return updated || topoFlag
@@ -749,6 +752,10 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") {
 		subepanno[appv1alpha1.AnnotationClusterAdmin] = origsubanno[appv1alpha1.AnnotationClusterAdmin]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationResourceReconcileOption], "") {
+		subepanno[appv1alpha1.AnnotationResourceReconcileOption] = origsubanno[appv1alpha1.AnnotationResourceReconcileOption]
 	}
 
 	// Add annotation for git path and branch

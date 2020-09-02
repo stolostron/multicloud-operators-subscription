@@ -411,12 +411,8 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 		}
 	}
 
-	klog.V(1).Infof("what's going on old status %v, new status %v", sub.Status, newStatus)
-
 	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		klog.V(1).Infof("innnnn %v, new status %v", sub.Status, newStatus)
-
-		sub.Status = *newStatus
+		newStatus.DeepCopyInto(&sub.Status)
 		sub.Status.LastUpdateTime = metav1.Now()
 
 		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
@@ -429,15 +425,15 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 	return nil
 }
 
-func SkipOrUpdateSubscriptionStatus(clt client.Client, updateSub *appv1.Subscription) error {
-	oldSub := &appv1.Subscription{}
+func SkipOrUpdateSubscriptionStatus(clt client.Client, oldSub *appv1.Subscription) error {
+	curSub := &appv1.Subscription{}
 
-	if err := clt.Get(context.TODO(), types.NamespacedName{Name: updateSub.GetName(), Namespace: updateSub.GetNamespace()}, oldSub); err != nil {
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: oldSub.GetName(), Namespace: oldSub.GetNamespace()}, oldSub); err != nil {
 		return err
 	}
 
 	oldStatus := &oldSub.Status
-	upStatus := &updateSub.Status
+	upStatus := &curSub.Status
 
 	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
 		oldSub.Status = *upStatus
@@ -689,4 +685,45 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 			klog.Info("subscription CRD removed")
 		}
 	}
+}
+
+// RemoveSubAnnotations removes RHACM specific annotations from subscription
+func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	objanno := obj.GetAnnotations()
+	if objanno != nil {
+		delete(objanno, appv1.AnnotationClusterAdmin)
+		delete(objanno, appv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationSyncSource)
+		delete(objanno, dplv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationChannelType)
+		delete(objanno, appv1.AnnotationResourceReconcileOption)
+	}
+
+	if len(objanno) > 0 {
+		obj.SetAnnotations(objanno)
+	} else {
+		obj.SetAnnotations(nil)
+	}
+
+	return obj
+}
+
+// RemoveSubAnnotations removes RHACM specific owner reference from subscription
+func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructured {
+	ownerRefs := obj.GetOwnerReferences()
+	newOwnerRefs := []metav1.OwnerReference{}
+
+	for _, ownerRef := range ownerRefs {
+		if !strings.EqualFold(ownerRef.Kind, "Subscription") {
+			newOwnerRefs = append(newOwnerRefs, ownerRef)
+		}
+	}
+
+	if len(newOwnerRefs) > 0 {
+		obj.SetOwnerReferences(newOwnerRefs)
+	} else {
+		obj.SetOwnerReferences(nil)
+	}
+
+	return obj
 }

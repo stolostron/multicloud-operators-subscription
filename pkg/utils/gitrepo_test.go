@@ -277,7 +277,7 @@ func TestGetChannelSecret(t *testing.T) {
 	g.Expect(err).To(gomega.HaveOccurred())
 }
 
-func TestKustomize(t *testing.T) {
+func TestKustomizeOverrideString(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
@@ -316,7 +316,81 @@ spec:
       - value: |
           namePrefix: production-testtest-
           commonLabels:
-            org: acmeCorporation-roke
+            org: acmeCorporation-test
+          patchesStrategicMerge:
+          - deployment.yaml
+          - configMap.yaml`
+
+	subscription := &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ov := subscription.Spec.PackageOverrides[0]
+
+	// Set the cloned Git repo root directory to this Git repository root.
+	repoRoot := "../.."
+	kustomizeDir := filepath.Join(repoRoot, "test/github/kustomize/overlays/production")
+
+	kustomizeDirs := make(map[string]string)
+	kustomizeDirs[kustomizeDir+"/"] = kustomizeDir + "/"
+
+	// backup the original kustomization.yaml
+	orig := kustomizeDir + "/kustomization.yml"
+	backup := kustomizeDir + "/kustomization.yml.BAK"
+	err = copy(orig, backup)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	pov := ov.PackageOverrides[0]
+	err = OverrideKustomize(pov, kustomizeDir)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = copy(backup, orig)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = os.Remove(backup)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestKustomizeOverrideYAML(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test Git clone with a secret
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	stop := make(chan struct{})
+	defer close(stop)
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: github-resource-subscription
+  namespace: default
+spec:
+  channel: github-ns/github-ch
+  placement:
+  local: true
+  packageOverrides:
+    - packageName: kustomize/overlays/production/kustomization.yaml
+      packageOverrides:
+      - value:
+          namePrefix: production-testtest-
+          commonLabels:
+            org: acmeCorporation-test
           patchesStrategicMerge:
           - deployment.yaml
           - configMap.yaml`
