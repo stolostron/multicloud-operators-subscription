@@ -375,15 +375,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
-	defer func() {
-		postHook, err := r.hooks.ApplyPostHook(request.NamespacedName)
-		fmt.Printf("izhang-----> posthook----> old:\n %#v\n, new:\n%#v\n, error: %v\n", postHook, request, err)
-		if err != nil {
-			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-			result.RequeueAfter = r.hookRequeueInterval
-			return
-		}
-	}()
+	//	defer func() {
+	//		err := r.hooks.ApplyPostHooks(request.NamespacedName)
+	//		fmt.Printf("izhang-----> posthook----> new:\n%#v\n, error: %v\n", request, err)
+	//		if err != nil {
+	//			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+	//			result.RequeueAfter = r.hookRequeueInterval
+	//			return
+	//		}
+	//	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
@@ -412,23 +412,20 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
-	preHook, herr := r.hooks.ApplyPreHook(request.NamespacedName)
-	if herr != nil {
-		logger.Error(herr, "failed to apply preHook, skip the subscription reconcile, err: ")
+	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+		logger.Error(err, "failed to apply preHook, skip the subscription reconcile, err: ")
 		return reconcile.Result{}, nil
 	}
 
-	if preHook.String() != "/" {
-		b, err := r.hooks.IsPreHookCompleted(preHook)
-		if !b || err != nil {
-			if err != nil {
-				logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
-				return reconcile.Result{}, nil
-			}
-
-			result.RequeueAfter = r.hookRequeueInterval
-			return result, nil
+	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+	if !b || err != nil {
+		if err != nil {
+			logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
+			return reconcile.Result{}, nil
 		}
+
+		result.RequeueAfter = r.hookRequeueInterval
+		return result, nil
 	}
 
 	// save original status

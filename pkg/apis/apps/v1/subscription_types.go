@@ -139,7 +139,7 @@ type SubscriptionSpec struct {
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 	// +optional
-	HookSecret *corev1.ObjectReference `json:"prehook,omitempty"`
+	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription

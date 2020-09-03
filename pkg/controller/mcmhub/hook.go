@@ -21,17 +21,19 @@ import (
 
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
+	PrehookDirSuffix  = "/prehook/"
+	PosthookDirSuffix = "/posthook/"
 	JobCompleted      = "successful"
 	AnsibleJobKind    = "AnsibleJob"
 	AnsibleJobVersion = "tower.ansible.com/v1alpha1"
@@ -55,19 +57,90 @@ type HookProcessor interface {
 	//of hook instance name
 	SetSuffixFunc(SuffixFunc)
 	//ApplyPreHook returns a type.NamespacedName of the preHook
-	ApplyPreHook(types.NamespacedName) (types.NamespacedName, error)
-	IsPreHookCompleted(types.NamespacedName) (bool, error)
-	ApplyPostHook(types.NamespacedName) (types.NamespacedName, error)
-	IsPostHookCompleted(types.NamespacedName) (bool, error)
+	ApplyPreHooks(types.NamespacedName) error
+	IsPreHooksCompleted(types.NamespacedName) (bool, error)
+	ApplyPostHooks(types.NamespacedName) error
+	IsPostHooksCompleted(types.NamespacedName) (bool, error)
 	IsSubscriptionCompleted(types.NamespacedName) (bool, error)
 }
 
+type Job struct {
+	Original ansiblejob.AnsibleJob
+	Instance []ansiblejob.AnsibleJob
+}
+
+func (j *Job) nextJob() ansiblejob.AnsibleJob {
+	n := len(j.Instance)
+	if n == 0 {
+		return ansiblejob.AnsibleJob{}
+	}
+
+	return j.Instance[n-1]
+}
+
+// JobInstances can be applied and can be quired to see if the most applied
+// instance is succeeded or not
+type JobInstances map[types.NamespacedName]*Job
+
+func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob) {
+
+	for _, job := range jobs {
+		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
+		ins := overrideAnsibleInstance(subIns, job)
+
+		if _, ok := (*jIns)[jobKey]; !ok {
+			(*jIns)[jobKey] = &Job{}
+		}
+
+		(*jIns)[jobKey].Original = ins
+
+		suffix := suffixFunc(subIns)
+		ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
+		(*jIns)[jobKey].Instance = append((*jIns)[jobKey].Instance, ins)
+	}
+}
+
+func (jIns *JobInstances) applyJobs(clt client.Client) error {
+	for k, j := range *jIns {
+		nx := j.nextJob()
+
+		fmt.Printf("izhang ----> %#v\n", nx)
+		if err := clt.Create(context.TODO(), nx.DeepCopy()); err != nil {
+			return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+		}
+	}
+
+	return nil
+}
+
+func (jIns *JobInstances) isJobsCompleted(clt client.Client, logger logr.Logger) (bool, error) {
+	for k, _ := range *jIns {
+		if ok, err := isJobDone(clt, k, logger); err != nil || !ok {
+			return ok, err
+		}
+	}
+
+	return true, nil
+}
+
+func isJobDone(clt client.Client, key types.NamespacedName, logger logr.Logger) (bool, error) {
+	job := &ansiblejob.AnsibleJob{}
+
+	if err := clt.Get(context.TODO(), key, job); err != nil {
+		return false, err
+	}
+
+	if isJobRunSuccessful(job, logger) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 type Hooks struct {
-	pre  ansiblejob.AnsibleJob
-	post ansiblejob.AnsibleJob
 	//store all the applied prehook instance
-	preHooks  []ansiblejob.AnsibleJob
-	postHooks []ansiblejob.AnsibleJob
+	preHooks  *JobInstances
+	postHooks *JobInstances
 
 	//store last subscription instance used for the hook operation
 	lastSub *subv1.Subscription
@@ -128,7 +201,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return err
 	}
 
-	if subIns.Spec.Hooks == nil {
+	if subIns.Spec.HookSecretRef == nil {
 		a.logger.V(DebugLog).Info("subscription doesn't have hook to process")
 		return nil
 	}
@@ -138,33 +211,23 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	preHook := subIns.Spec.Hooks.Prehook
-	postHook := subIns.Spec.Hooks.Posthook
-
-	if len(preHook) == 0 && len(postHook) == 0 {
-		return nil
+	if _, ok := a.registry[subKey]; !ok {
+		a.registry[subKey] = &Hooks{
+			lastSub:   subIns,
+			preHooks:  &JobInstances{},
+			postHooks: &JobInstances{},
+		}
 	}
 
-	preHookRef := subIns.Spec.Hooks.PrehookRef
-	postHookRef := subIns.Spec.Hooks.PosthookRef
+	fmt.Printf("izhang ----> aaaaaaaaaaa %p\n", a.registry)
 
-	if len(preHook) != 0 && preHookRef == nil {
-		return fmt.Errorf("empty object reference for hook %v", preHook)
+	if err := a.gitClt.DownloadAnsibleHookResource(subIns); err != nil {
+		return fmt.Errorf("failed to download from git source, err: %v", err)
 	}
 
-	if len(postHook) != 0 && postHookRef == nil {
-		return fmt.Errorf("empty object reference for hook %v", preHook)
-	}
-
-	jobs, err := a.gitClt.DownloadAnsibleHookResource(subIns)
-
-	if err != nil {
-		return err
-	}
-
-	printJobs(jobs, a.logger)
+	fmt.Printf("izhang ----> aaaaaaaaaaa %p\n", a.registry[subKey])
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addHookToRegisitry(subIns, jobs)
+	return a.addHookToRegisitry(subIns)
 }
 
 func printJobs(jobs []ansiblejob.AnsibleJob, logger logr.Logger) {
@@ -179,46 +242,61 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 	return fmt.Sprintf("-%s", subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []ansiblejob.AnsibleJob) error {
-	a.logger.V(2).Info("entry addNewHook subscription")
+func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetGenerateName()}
 
-	if len(jobs) == 0 {
-		return fmt.Errorf("failed to get the prehook from git")
+	fmt.Printf("izhang registerHook ----> %p\n", a.registry)
+	fmt.Printf("izhang registerHook----> %p\n", a.registry[subKey])
+	if hookFlag == isPreHook {
+		if a.registry[subKey].preHooks == nil {
+			a.registry[subKey].preHooks = &JobInstances{}
+		}
+
+		a.registry[subKey].preHooks.registryJobs(subIns, a.suffixFunc, jobs)
+
+		return nil
 	}
 
+	if a.registry[subKey].postHooks == nil {
+		a.registry[subKey].postHooks = &JobInstances{}
+	}
+
+	a.registry[subKey].postHooks.registryJobs(subIns, a.suffixFunc, jobs)
+
+	return nil
+}
+
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
+	a.logger.V(2).Info("entry addNewHook subscription")
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
-	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-	preHook := subIns.Spec.Hooks.Prehook
-	postHook := subIns.Spec.Hooks.Posthook
+	annotations := subIns.GetAnnotations()
 
-	a.registry[subKey] = &Hooks{
-		pre:       ansiblejob.AnsibleJob{},
-		post:      ansiblejob.AnsibleJob{},
-		lastSub:   subIns,
-		preHooks:  []ansiblejob.AnsibleJob{},
-		postHooks: []ansiblejob.AnsibleJob{},
+	preHookPath, postHookPath := "", ""
+	if annotations[appv1.AnnotationGithubPath] != "" {
+		preHookPath = fmt.Sprintf("%v/prehook", annotations[appv1.AnnotationGithubPath])
+		postHookPath = fmt.Sprintf("%v/posthook", annotations[appv1.AnnotationGithubPath])
+	} else if annotations[appv1.AnnotationGitPath] != "" {
+		preHookPath = fmt.Sprintf("%v/prehook", annotations[appv1.AnnotationGitPath])
+		postHookPath = fmt.Sprintf("%v/posthook", annotations[appv1.AnnotationGitPath])
 	}
 
-	suffix := a.suffixFunc(subIns)
-	for _, job := range jobs {
-		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
-		//need to skip the status, otherwise the creation will fail
-		if strings.EqualFold(jobKey.String(), preHook) {
-			a.registry[subKey].pre = overrideAnsibleInstance(subIns, isPreHook, job)
-			ins := a.registry[subKey].pre.DeepCopy()
+	preJobs, err := a.gitClt.GetHooks(subIns, preHookPath)
+	if err != nil {
+		return fmt.Errorf("failed to get prehook from Git")
+	}
 
-			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
-			a.registry[subKey].preHooks = append(a.registry[subKey].preHooks, *ins)
-		}
+	if len(preJobs) != 0 {
+		a.registerHook(subIns, isPreHook, preJobs)
+	}
 
-		if strings.EqualFold(jobKey.String(), postHook) {
-			a.registry[subKey].post = overrideAnsibleInstance(subIns, isPostHook, job)
-			ins := a.registry[subKey].post.DeepCopy()
+	postJobs, err := a.gitClt.GetHooks(subIns, postHookPath)
+	if err != nil {
+		return fmt.Errorf("failed to get posthook from Git")
+	}
 
-			ins.SetName(fmt.Sprintf("%s%s", ins.GetName(), suffix))
-			a.registry[subKey].postHooks = append(a.registry[subKey].postHooks, *ins)
-		}
+	if len(postJobs) != 0 {
+		a.registerHook(subIns, isPostHook, postJobs)
 	}
 
 	return nil
@@ -226,7 +304,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, jobs []ans
 
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
 //secret file of ansibleJob
-func overrideAnsibleInstance(subIns *subv1.Subscription, hookFlag string, job ansiblejob.AnsibleJob) ansiblejob.AnsibleJob {
+func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob) ansiblejob.AnsibleJob {
 	job.SetResourceVersion("")
 	// avoid the error:
 	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
@@ -236,20 +314,16 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, hookFlag string, job an
 		},
 	}
 
+	//make sure all the ansiblejob is deployed at the subscription namespace
+	job.SetNamespace(subIns.GetNamespace())
+
 	//set owerreferce
 	setOwnerReferences(subIns, &job)
 
-	if hookFlag == isPreHook {
-		preHookRef := subIns.Spec.Hooks.PrehookRef
+	job.Spec.TowerAuthSecretName = subIns.Spec.HookSecretRef.Name
+	job.Spec.TowerAuthSecretNamespace = subIns.Spec.HookSecretRef.Namespace
 
-		job.Spec.TowerAuthSecret = types.NamespacedName{Name: preHookRef.Name, Namespace: preHookRef.Namespace}.String()
-		return job
-	}
-
-	postHookRef := subIns.Spec.Hooks.PosthookRef
-	job.Spec.TowerAuthSecret = types.NamespacedName{Name: postHookRef.Name, Namespace: postHookRef.Namespace}.String()
 	return job
-
 }
 
 func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
@@ -257,25 +331,21 @@ func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
 		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
 }
 
-func (a *AnsibleHooks) ApplyPreHook(subKey types.NamespacedName) (types.NamespacedName, error) {
+func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
 	a.logger.WithName(subKey.String()).V(2).Info("entry ApplyPreHook")
 	defer a.logger.WithName(subKey.String()).V(2).Info("exit ApplyPreHook")
 
-	hks, ok := a.registry[subKey]
-	if ok && len(hks.preHooks) != 0 {
-		t := &hks.preHooks[len(hks.preHooks)-1]
+	fmt.Printf("izhang applyprehooks----> %p\n", a.registry)
+	fmt.Printf("izhang ----> %p\n", a.registry[subKey])
+	fmt.Printf("izhang ----> %#v\n", a.registry[subKey])
 
-		fmt.Printf("izhang -----> %#v\n", t)
-		if err := a.clt.Create(context.TODO(), t); err != nil {
-			if !k8serrors.IsAlreadyExists(err) {
-				return types.NamespacedName{}, err
-			}
-		}
-
-		return types.NamespacedName{Name: t.GetName(), Namespace: t.GetNamespace()}, nil
+	hks := a.registry[subKey].preHooks
+	fmt.Printf("izhang ------> sub %#v, hooks %#v\n", subKey, (*hks))
+	if hks == nil || len(*hks) == 0 {
+		return nil
 	}
 
-	return types.NamespacedName{}, nil
+	return hks.applyJobs(a.clt)
 }
 
 func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
@@ -285,50 +355,40 @@ func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
 	return !ok || strings.EqualFold(record.lastSub.GetResourceVersion(), subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) IsPreHookCompleted(preKey types.NamespacedName) (bool, error) {
-	return a.isJobDone(preKey)
-}
+func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
+	hks := a.registry[subKey].preHooks
 
-func (a *AnsibleHooks) ApplyPostHook(subKey types.NamespacedName) (types.NamespacedName, error) {
-	//wait till the subscription is propagated
-	f, err := a.IsSubscriptionCompleted(subKey)
-	if !f || err != nil {
-		return types.NamespacedName{}, err
-	}
-
-	hks, ok := a.registry[subKey]
-
-	if ok && len(hks.postHooks) != 0 {
-		t := &hks.postHooks[len(hks.postHooks)-1]
-		if err := a.clt.Create(context.TODO(), t); err != nil {
-			return types.NamespacedName{}, err
-		}
-
-		return types.NamespacedName{Name: t.GetName(), Namespace: t.GetNamespace()}, nil
-	}
-
-	return types.NamespacedName{}, nil
-}
-
-func (a *AnsibleHooks) IsPostHookCompleted(postKey types.NamespacedName) (bool, error) {
-	return a.isJobDone(postKey)
-}
-
-func (a *AnsibleHooks) isJobDone(key types.NamespacedName) (bool, error) {
-	a.logger.WithName(key.String()).V(2).Info("entry isJobDone")
-	defer a.logger.WithName(key.String()).V(2).Info("exit isJobDone")
-
-	job := &ansiblejob.AnsibleJob{}
-
-	if err := a.clt.Get(context.TODO(), key, job); err != nil {
-		return false, err
-	}
-
-	if isJobRunSuccessful(job, a.logger) {
+	if hks == nil || len(*hks) == 0 {
 		return true, nil
 	}
 
-	return false, nil
+	return hks.isJobsCompleted(a.clt, a.logger)
+}
+
+func (a *AnsibleHooks) ApplyPostHooks(subKey types.NamespacedName) error {
+	//wait till the subscription is propagated
+	f, err := a.IsSubscriptionCompleted(subKey)
+	if !f || err != nil {
+		return fmt.Errorf("failed to apply post hook, isCompleted %v, err: %v", f, err)
+	}
+
+	hks := a.registry[subKey].postHooks
+
+	if hks == nil || len(*hks) == 0 {
+		return nil
+	}
+
+	return hks.applyJobs(a.clt)
+}
+
+func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, error) {
+	hks := a.registry[subKey].postHooks
+
+	if hks == nil || len(*hks) == 0 {
+		return true, nil
+	}
+
+	return hks.isJobsCompleted(a.clt, a.logger)
 }
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {

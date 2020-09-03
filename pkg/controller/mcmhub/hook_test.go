@@ -80,10 +80,9 @@ type hookTest struct {
 
 	chnKey         types.NamespacedName
 	subKey         types.NamespacedName
+	hookSecretRef  corev1.ObjectReference
 	preAnsibleKey  types.NamespacedName
-	preHookRef     corev1.ObjectReference
 	postAnsibleKey types.NamespacedName
-	postHookRef    corev1.ObjectReference
 }
 
 func newHookTest() *hookTest {
@@ -103,10 +102,10 @@ func newHookTest() *hookTest {
 	testNs := "ansible"
 	subKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
 	chnKey := types.NamespacedName{Name: "t-chn", Namespace: testNs}
+	hookSecretRef := corev1.ObjectReference{Name: "hook-secret", Namespace: "test"}
+
 	preAnsibleKey := types.NamespacedName{Name: "prehook-test", Namespace: testNs}
 	postAnsibleKey := types.NamespacedName{Name: "posthook-test", Namespace: testNs}
-	preHookRef := corev1.ObjectReference{Name: "pre-secret", Namespace: "test"}
-	postHookRef := corev1.ObjectReference{Name: "post-secret", Namespace: "test"}
 
 	chn := &chnv1.Channel{
 		ObjectMeta: metav1.ObjectMeta{
@@ -137,7 +136,6 @@ func newHookTest() *hookTest {
 					},
 				},
 			},
-			Hooks: &subv1.Hooks{},
 		},
 	}
 
@@ -152,10 +150,9 @@ func newHookTest() *hookTest {
 
 		chnKey:         chnKey,
 		subKey:         subKey,
+		hookSecretRef:  hookSecretRef,
 		preAnsibleKey:  preAnsibleKey,
 		postAnsibleKey: postAnsibleKey,
-		preHookRef:     preHookRef,
-		postHookRef:    postHookRef,
 	}
 
 }
@@ -188,10 +185,8 @@ func TestPrehookHappyPath(t *testing.T) {
 	}()
 
 	applyIns := testPath.subIns.DeepCopy()
-	applyIns.Spec.Hooks.Prehook = testPath.preAnsibleKey.String()
 
-	referSrt := types.NamespacedName{Name: testPath.preHookRef.Name, Namespace: testPath.preHookRef.Namespace}.String()
-	applyIns.Spec.Hooks.PrehookRef = testPath.preHookRef.DeepCopy()
+	applyIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
 
@@ -202,7 +197,7 @@ func TestPrehookHappyPath(t *testing.T) {
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -211,7 +206,8 @@ func TestPrehookHappyPath(t *testing.T) {
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
-	g.Expect(ansibleIns.Spec.TowerAuthSecret).Should(gomega.Equal(referSrt))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(testPath.hookSecretRef.Name))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretNamespace).Should(gomega.Equal(testPath.hookSecretRef.Namespace))
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
@@ -248,7 +244,6 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	}()
 
 	applyIns := testPath.subIns.DeepCopy()
-	applyIns.Spec.Hooks.Prehook = testPath.preAnsibleKey.String()
 
 	a := testPath.subIns.GetAnnotations()
 	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
@@ -297,7 +292,6 @@ func TestPosthookHappyPath(t *testing.T) {
 	subIns := testPath.subIns.DeepCopy()
 	postSubName := "test-posthook"
 	subIns.SetName(postSubName)
-	subIns.Spec.Hooks.Posthook = testPath.postAnsibleKey.String()
 
 	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
 
@@ -345,7 +339,8 @@ func TestPosthookHappyPath(t *testing.T) {
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
-	g.Expect(ansibleIns.Spec.TowerAuthSecret).Should(gomega.Equal(referSrt))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(testPath.hookSecretRef.Name))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretNamespace).Should(gomega.Equal(testPath.hookSecretRef.Namespace))
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
@@ -377,7 +372,6 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	}()
 
 	subIns := testPath.subIns.DeepCopy()
-	subIns.Spec.Hooks.Posthook = testPath.postAnsibleKey.String()
 
 	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
 

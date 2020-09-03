@@ -394,7 +394,6 @@ func (r *ReconcileSubscription) deleteSubscriptionDeployables(sub *appv1.Subscri
 func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv1.Subscription, rscFiles []string, baseDir string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
-		klog.Info("Processing ... " + rscFile)
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
@@ -402,7 +401,14 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 			continue
 		}
 
+		//skip pre/posthook folder
 		dir, _ := filepath.Split(rscFile)
+
+		if strings.HasSuffix(dir, PrehookDirSuffix) || strings.HasSuffix(dir, PosthookDirSuffix) {
+			continue
+		}
+
+		klog.Info("Processing ... " + rscFile)
 
 		resourceDir := strings.Split(dir, baseDir)[1]
 		resourceDir = strings.Trim(resourceDir, "/")

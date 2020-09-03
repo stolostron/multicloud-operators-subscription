@@ -306,8 +306,8 @@ func (in *SubscriptionSpec) DeepCopyInto(out *SubscriptionSpec) {
 		*out = new(TimeWindow)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.HookSecret != nil {
-		in, out := &in.HookSecret, &out.HookSecret
+	if in.HookSecretRef != nil {
+		in, out := &in.HookSecretRef, &out.HookSecretRef
 		*out = new(corev1.ObjectReference)
 		**out = **in
 	}

@@ -16,7 +16,9 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -24,7 +26,6 @@ import (
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,14 +36,20 @@ import (
 type GitOps interface {
 	//DownloadHookResource downloads the ansible job from the git and marshal
 	//the resource to unstructured.Unstructured
-	DownloadHookResource(*subv1.Subscription) ([]unstructured.Unstructured, error)
-	DownloadAnsibleHookResource(*subv1.Subscription) ([]ansiblejob.AnsibleJob, error)
+	DownloadHookResource(*subv1.Subscription) error
+	DownloadAnsibleHookResource(*subv1.Subscription) error
+
+	// GetHooks returns the ansiblejob from a given folder, if the folder is
+	// inaccessible, then os.Error is returned
+	GetHooks(*subv1.Subscription, string) ([]ansiblejob.AnsibleJob, error)
+	GetHooksByUnstructure(*subv1.Subscription, string) ([]unstructured.Unstructured, error)
 }
 
 type HookGit struct {
 	clt          client.Client
 	logger       logr.Logger
 	lastCommitID map[types.NamespacedName]string
+	localDir     string
 }
 
 var _ GitOps = (*HookGit)(nil)
@@ -55,26 +62,30 @@ func NewHookGit(clt client.Client, logger logr.Logger) *HookGit {
 	}
 }
 
-func (h *HookGit) DownloadHookResource(subIns *subv1.Subscription) ([]unstructured.Unstructured, error) {
+func (h *HookGit) DownloadHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
 	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
-		return []unstructured.Unstructured{}, err
+		return err
 	}
 
 	return h.donwloadFromGitAsUnstructure(h.clt, chn, subIns, h.logger)
 }
 
-func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]unstructured.Unstructured, error) {
-	repoRoot := utils.GetLocalGitFolder(chn, sub)
-	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
+func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Channel, subIns *subv1.Subscription, logger logr.Logger) error {
+	repoRoot := utils.GetLocalGitFolder(chn, subIns)
+	commitID, err := cloneGitRepo(clt, repoRoot, chn, subIns)
 	if err != nil {
-		return []unstructured.Unstructured{}, err
+		return err
 	}
 
-	h.lastCommitID[types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}] = commitID
+	h.lastCommitID[types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}] = commitID
 
-	kubeRes, err := sortClonedGitRepo(repoRoot, sub, logger)
+	return nil
+}
+
+func (h *HookGit) GetHooksByUnstructure(subIns *subv1.Subscription, hookPath string) ([]unstructured.Unstructured, error) {
+	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, subIns, h.logger)
 	if err != nil {
 		return []unstructured.Unstructured{}, err
 	}
@@ -82,31 +93,27 @@ func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Cha
 	return parseAsUnstructure(kubeRes, parseAnsibleJobResoures)
 }
 
-func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) ([]ansiblejob.AnsibleJob, error) {
+func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
 	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
-		return []ansiblejob.AnsibleJob{}, err
+		return err
 	}
 
 	return h.donwloadAnsibleJobFromGit(h.clt, chn, subIns, h.logger)
 }
 
-func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
+func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) error {
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
+	h.localDir = repoRoot
 	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
 	if err != nil {
-		return []ansiblejob.AnsibleJob{}, err
+		return err
 	}
 
 	h.lastCommitID[types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}] = commitID
 
-	kubeRes, err := sortClonedGitRepo(repoRoot, sub, logger)
-	if err != nil {
-		return []ansiblejob.AnsibleJob{}, err
-	}
-
-	return parseAsAnsibleJobs(kubeRes, parseAnsibleJobResoures)
+	return nil
 }
 
 func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *subv1.Subscription) (commitID string, err error) {
@@ -119,21 +126,11 @@ func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *s
 	return utils.CloneGitRepo(chn.Spec.Pathname, utils.GetSubscriptionBranch(sub), user, pwd, repoRoot)
 }
 
-func sortClonedGitRepo(repoRoot string, sub *subv1.Subscription, logger logr.Logger) ([]string, error) {
-	resourcePath := repoRoot
+//repoRoot is the local path of the git
+// destPath will specify a sub-directory for finding all the relative resource
+func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, sub *subv1.Subscription, logger logr.Logger) ([]string, error) {
+	resourcePath := filepath.Join(repoRoot, destPath)
 
-	annotations := sub.GetAnnotations()
-
-	if annotations[appv1.AnnotationGithubPath] != "" {
-		resourcePath = filepath.Join(repoRoot, annotations[appv1.AnnotationGithubPath])
-	} else if annotations[appv1.AnnotationGitPath] != "" {
-		resourcePath = filepath.Join(repoRoot, annotations[appv1.AnnotationGitPath])
-	}
-
-	// chartDirs contains helm chart directories
-	// crdsAndNamespaceFiles contains CustomResourceDefinition and Namespace Kubernetes resources file paths
-	// rbacFiles contains ServiceAccount, ClusterRole and Role Kubernetes resource file paths
-	// otherFiles contains all other Kubernetes resource file paths
 	_, _, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
 	if err != nil {
 		logger.Error(err, "failed to sort kubernetes resources.")
@@ -207,4 +204,21 @@ func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansib
 	}
 
 	return jobs, nil
+}
+
+//GetHooks will provided the ansibleJobs at the given hookPath(if given a
+//posthook path, then posthook ansiblejob is returned)
+func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error) {
+	fullPath := fmt.Sprintf("%v/%v", h.localDir, hookPath)
+	if _, err := os.Stat(fullPath); err != nil {
+		h.logger.Error(err, "fail to access the hook path")
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, subIns, h.logger)
+	if err != nil {
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	return parseAsAnsibleJobs(kubeRes, parseAnsibleJobResoures)
 }

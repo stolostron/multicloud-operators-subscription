@@ -841,6 +841,8 @@ github.com/open-cluster-management/ansiblejob-go-lib v0.0.0-20200824173331-f4474
 github.com/open-cluster-management/ansiblejob-go-lib v0.0.0-20200824173331-f4474cf873bc/go.mod h1:HYUlT9RsupGpTTtm6YGq2iWpP6zw4OfLJ3vgV4Issw0=
 github.com/open-cluster-management/ansiblejob-go-lib v0.1.1 h1:W3plrJQpnDYFlsRNrgp4X40qYQNLIBz8JWn38mHn+dI=
 github.com/open-cluster-management/ansiblejob-go-lib v0.1.1/go.mod h1:dDL15yXQUna2cVZwjgnQ/HZ95deXgI4Uj8/djY4A5o4=
+github.com/open-cluster-management/ansiblejob-go-lib v0.1.2 h1:mtbr6xQYH3AhFZSjb6hdLkFUEWnVwg0BBp9bndm0pk0=
+github.com/open-cluster-management/ansiblejob-go-lib v0.1.2/go.mod h1:dDL15yXQUna2cVZwjgnQ/HZ95deXgI4Uj8/djY4A5o4=
 github.com/open-cluster-management/api v0.0.0-20200610161514-939cead3902c/go.mod h1:+vUECYB7WkfCb52r0J7rxgD1mseSGAqGi8rTLLRcbgw=
 github.com/open-cluster-management/api v0.0.0-20200623215229-19a96fed707a h1:pn5A3eBIYfORnOaZ6POYZWVG28VybNcmK6mRPqrdPgo=
 github.com/open-cluster-management/api v0.0.0-20200623215229-19a96fed707a/go.mod h1:+vUECYB7WkfCb52r0J7rxgD1mseSGAqGi8rTLLRcbgw=
