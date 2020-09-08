@@ -247,22 +247,26 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 					if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
 						klog.V(4).Info("Found Chart.yaml in ", path)
 						if !strings.HasPrefix(path, currentChartDir) {
-							klog.V(4).Info("This is a helm chart folder.")
+							klog.Info("This is a helm chart folder.")
 							chartDirs[path+"/"] = path + "/"
 							currentChartDir = path + "/"
 						}
 					} else if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
-						klog.V(4).Info("Found kustomization.yaml in ", path)
-						currentKustomizeDir = path
-						kustomizeDirs[path+"/"] = path + "/"
+						if !strings.HasPrefix(path, currentKustomizeDir) {
+							klog.V(4).Info("Found kustomization.yaml in ", path)
+							currentKustomizeDir = path + "/"
+							kustomizeDirs[path+"/"] = path + "/"
+						}
 					} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
-						klog.V(4).Info("Found kustomization.yml in ", path)
-						currentKustomizeDir = path
-						kustomizeDirs[path+"/"] = path + "/"
+						if !strings.HasPrefix(path, currentKustomizeDir) {
+							klog.V(4).Info("Found kustomization.yml in ", path)
+							currentKustomizeDir = path + "/"
+							kustomizeDirs[path+"/"] = path + "/"
+						}
 					}
 				} else if !strings.HasPrefix(path, currentChartDir) &&
 					!strings.HasPrefix(path, repoRoot+"/.git") &&
-					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
+					!strings.HasPrefix(path, currentKustomizeDir) {
 					// Do not process kubernetes YAML files under helm chart or kustomization directory
 					crdsAndNamespaceFiles, rbacFiles, otherFiles, err = sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles, path)
 					if err != nil {

@@ -453,11 +453,27 @@ func TestSortResources(t *testing.T) {
 
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := SortResources("../..", "../../test/github")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(len(chartDirs)).To(gomega.Equal(3))
-	g.Expect(len(kustomizeDirs)).To(gomega.Equal(4))
+	g.Expect(len(chartDirs)).To(gomega.Equal(4))
+	g.Expect(len(kustomizeDirs)).To(gomega.Equal(7))
 	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(2))
 	g.Expect(len(rbacFiles)).To(gomega.Equal(3))
 	g.Expect(len(otherFiles)).To(gomega.Equal(4))
+}
+
+func TestNestedKustomize(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// If there are nested kustomizations, process only the parent kustomization.
+	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := SortResources("../..", "../../test/github/nestedKustomize")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(chartDirs)).To(gomega.Equal(0))
+	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(0))
+	g.Expect(len(rbacFiles)).To(gomega.Equal(0))
+	g.Expect(len(otherFiles)).To(gomega.Equal(0))
+	g.Expect(len(kustomizeDirs)).To(gomega.Equal(2))
+
+	g.Expect(kustomizeDirs["../../test/github/nestedKustomize/wordpress/"]).To(gomega.Equal("../../test/github/nestedKustomize/wordpress/"))
+	g.Expect(kustomizeDirs["../../test/github/nestedKustomize/wordpress2/"]).To(gomega.Equal("../../test/github/nestedKustomize/wordpress2/"))
 }
 
 func TestSimple(t *testing.T) {
@@ -581,7 +597,7 @@ spec:
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: mcm-mutating-webhook
+  name: ocm-mutating-webhook
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -589,7 +605,7 @@ webhooks:
   clientConfig:
     caBundle: ZHVtbXkK
     service:
-      name: mcm-webhook
+      name: ocm-webhook
       namespace: default
       port: 443
   sideEffects: None`
@@ -658,7 +674,7 @@ func TestIsClusterAdminRemote(t *testing.T) {
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
-  name: mcm-mutating-webhook
+  name: ocm-mutating-webhook
 webhooks:
 - admissionReviewVersions:
   - v1beta1
@@ -666,7 +682,7 @@ webhooks:
   clientConfig:
     caBundle: ZHVtbXkK
     service:
-      name: mcm-webhook
+      name: ocm-webhook
       namespace: default
       port: 443
   sideEffects: None`
@@ -688,8 +704,8 @@ metadata:
   name: test-subscription
   namespace: default
   annotations:
-    mcm.ibm.com/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
-    mcm.ibm.com/user-identity: Ym9i
+    open-cluster-management.io/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
+    open-cluster-management.io/user-identity: Ym9i
     apps.open-cluster-management.io/cluster-admin: "true"
   spec:
     channel: github-ns/github-ch
@@ -711,8 +727,8 @@ metadata:
   name: test-subscription
   namespace: default
   annotations:
-    mcm.ibm.com/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
-    mcm.ibm.com/user-identity: am9l
+    open-cluster-management.io/user-group: c3Vic2NyaXB0aW9uLWFkbWluLHRlc3QtZ3JvdXA=
+    open-cluster-management.io/user-identity: am9l
     apps.open-cluster-management.io/cluster-admin: "true"
   spec:
     channel: github-ns/github-ch
@@ -734,8 +750,8 @@ metadata:
   name: test-subscription
   namespace: default
   annotations:
-    mcm.ibm.com/user-group: dGVzdC1ncm91cAo=
-    mcm.ibm.com/user-identity: amFuZQ==
+    open-cluster-management.io/user-group: dGVzdC1ncm91cAo=
+    open-cluster-management.io/user-identity: amFuZQ==
     apps.open-cluster-management.io/cluster-admin: "true"
   spec:
     channel: github-ns/github-ch
