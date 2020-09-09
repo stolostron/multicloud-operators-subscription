@@ -65,6 +65,7 @@ func NewHookGit(clt client.Client, logger logr.Logger) *HookGit {
 func (h *HookGit) DownloadHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+
 	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
 		return err
 	}
@@ -73,8 +74,12 @@ func (h *HookGit) DownloadHookResource(subIns *subv1.Subscription) error {
 }
 
 func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Channel, subIns *subv1.Subscription, logger logr.Logger) error {
+	logger.V(DebugLog).Info("entry donwloadFromGitAsUnstructure")
+	defer logger.V(DebugLog).Info("exit donwloadFromGitAsUnstructure")
+
 	repoRoot := utils.GetLocalGitFolder(chn, subIns)
 	commitID, err := cloneGitRepo(clt, repoRoot, chn, subIns)
+
 	if err != nil {
 		return err
 	}
@@ -85,7 +90,7 @@ func (h *HookGit) donwloadFromGitAsUnstructure(clt client.Client, chn *chnv1.Cha
 }
 
 func (h *HookGit) GetHooksByUnstructure(subIns *subv1.Subscription, hookPath string) ([]unstructured.Unstructured, error) {
-	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, subIns, h.logger)
+	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, h.logger)
 	if err != nil {
 		return []unstructured.Unstructured{}, err
 	}
@@ -96,6 +101,7 @@ func (h *HookGit) GetHooksByUnstructure(subIns *subv1.Subscription, hookPath str
 func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+
 	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
 		return err
 	}
@@ -104,9 +110,13 @@ func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error 
 }
 
 func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) error {
+	logger.V(DebugLog).Info("entry donwloadAnsibleJobFromGit")
+	defer logger.V(DebugLog).Info("exit donwloadAnsibleJobFromGit")
+
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	h.localDir = repoRoot
 	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
+
 	if err != nil {
 		return err
 	}
@@ -128,10 +138,17 @@ func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *s
 
 //repoRoot is the local path of the git
 // destPath will specify a sub-directory for finding all the relative resource
-func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, sub *subv1.Subscription, logger logr.Logger) ([]string, error) {
+func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger logr.Logger) ([]string, error) {
 	resourcePath := filepath.Join(repoRoot, destPath)
 
-	_, _, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
+	sortWrapper := func() ([]string, error) {
+		_, _, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
+
+		return kubeRes, err
+	}
+
+	kubeRes, err := sortWrapper()
+
 	if err != nil {
 		logger.Error(err, "failed to sort kubernetes resources.")
 		return []string{}, err
@@ -215,7 +232,7 @@ func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansib
 		return []ansiblejob.AnsibleJob{}, err
 	}
 
-	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, subIns, h.logger)
+	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, h.logger)
 	if err != nil {
 		return []ansiblejob.AnsibleJob{}, err
 	}

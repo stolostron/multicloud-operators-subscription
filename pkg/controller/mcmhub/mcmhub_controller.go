@@ -386,7 +386,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		err := r.hooks.ApplyPostHooks(request.NamespacedName)
 		if err != nil {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+
 			result.RequeueAfter = r.hookRequeueInterval
+
 			return
 		}
 	}()
@@ -415,6 +417,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+
 		postHookRunable = false
 
 		return reconcile.Result{}, nil
@@ -422,6 +425,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+
 		postHookRunable = false
 
 		return reconcile.Result{}, nil
@@ -459,7 +463,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
 		} else {
-
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
 		}
@@ -516,7 +519,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			//timer
 			// #nosec G404
 			if result.RequeueAfter == 0 {
-
 				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
 			}
 		}

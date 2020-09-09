@@ -97,7 +97,6 @@ func KubeResourcePaser(file []byte, cond Kube) [][]byte {
 	}
 
 	return ret
-
 }
 
 // CloneGitRepo clones a GitHub repository

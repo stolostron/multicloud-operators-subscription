@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	ansibleGitURl = "https://github.com/ianzhang366/acm-applifecycle-samples"
+	ansibleGitURL = "https://github.com/ianzhang366/acm-applifecycle-samples"
 )
 
 type TSetUp struct {
@@ -114,7 +114,7 @@ func newHookTest() *hookTest {
 			Namespace: chnKey.Namespace,
 		},
 		Spec: chnv1.ChannelSpec{
-			Pathname: ansibleGitURl,
+			Pathname: ansibleGitURL,
 			Type:     chnv1.ChannelTypeGit,
 		},
 	}
@@ -133,7 +133,7 @@ func newHookTest() *hookTest {
 			Placement: &plrv1alpha1.Placement{
 				GenericPlacementFields: plrv1alpha1.GenericPlacementFields{
 					Clusters: []plrv1alpha1.GenericClusterReference{
-						plrv1alpha1.GenericClusterReference{Name: "test-cluster"},
+						{Name: "test-cluster"},
 					},
 				},
 			},
@@ -155,7 +155,6 @@ func newHookTest() *hookTest {
 		preAnsibleKey:  preAnsibleKey,
 		postAnsibleKey: postAnsibleKey,
 	}
-
 }
 
 // happyPath is defined as the following:
@@ -169,6 +168,7 @@ func TestPrehookHappyPath(t *testing.T) {
 	g := tSetup.g
 	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
+
 	defer func() {
 		close(tSetup.stop)
 		tSetup.wg.Wait()
@@ -220,6 +220,7 @@ func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
 	g := tSetup.g
 	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
+
 	defer func() {
 		close(tSetup.stop)
 		tSetup.wg.Wait()
@@ -266,7 +267,9 @@ func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
 	g.Expect(k8sClt.List(ctx, ansibleList)).Should(gomega.Succeed())
 	g.Expect(ansibleList.Items).Should(gomega.HaveLen(1))
 
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+	_, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(k8sClt.List(ctx, ansibleList)).Should(gomega.Succeed())
 	g.Expect(ansibleList.Items).Should(gomega.HaveLen(1))
 }
@@ -282,6 +285,7 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	g := tSetup.g
 	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
+
 	defer func() {
 		close(tSetup.stop)
 		tSetup.wg.Wait()
@@ -331,6 +335,7 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	}
 
 	pre.Status.AnsibleJobResult.Status = "successful"
+
 	return clt.Update(context.TODO(), pre)
 }
 
@@ -342,6 +347,7 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	g := tSetup.g
 	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
+
 	defer func() {
 		close(tSetup.stop)
 		tSetup.wg.Wait()
@@ -433,6 +439,7 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	g := tSetup.g
 	mgr := tSetup.mgr
 	k8sClt := mgr.GetClient()
+
 	defer func() {
 		close(tSetup.stop)
 		tSetup.wg.Wait()
@@ -462,7 +469,7 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	subIns.Status.Statuses = subv1.SubscriptionClusterStatusMap{
 		"spoke": &subv1.SubscriptionPerClusterStatus{
 			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
-				"pkg1": &subv1.SubscriptionUnitStatus{
+				"pkg1": {
 					Phase:          subv1.SubscriptionSubscribed,
 					LastUpdateTime: statusTS,
 				},
@@ -500,7 +507,6 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	_, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.BeNil())
-	//	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 

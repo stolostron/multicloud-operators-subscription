@@ -84,7 +84,6 @@ func (j *Job) nextJob() ansiblejob.AnsibleJob {
 type JobInstances map[types.NamespacedName]*Job
 
 func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob) {
-
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins := overrideAnsibleInstance(subIns, job)
@@ -115,7 +114,7 @@ func (jIns *JobInstances) applyJobs(clt client.Client) error {
 }
 
 func (jIns *JobInstances) isJobsCompleted(clt client.Client, logger logr.Logger) (bool, error) {
-	for k, _ := range *jIns {
+	for k := range *jIns {
 		if ok, err := isJobDone(clt, k, logger); err != nil || !ok {
 			return ok, err
 		}
@@ -227,16 +226,10 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 	return a.addHookToRegisitry(subIns)
 }
 
-func printJobs(jobs []ansiblejob.AnsibleJob, logger logr.Logger) {
-	for _, job := range jobs {
-		logger.V(DebugLog).Info(fmt.Sprintf("download jobs %v", job))
-	}
-}
-
 type SuffixFunc func(*subv1.Subscription) string
 
 func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%s", subIns.GetGeneration())
+	return fmt.Sprintf("-%v", subIns.GetGeneration())
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
@@ -291,18 +284,22 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 	}
 
 	if len(preJobs) != 0 {
-		a.registerHook(subIns, isPreHook, preJobs)
+		if err := a.registerHook(subIns, isPreHook, preJobs); err != nil {
+			return err
+		}
 	}
 
 	if len(postJobs) != 0 {
-		a.registerHook(subIns, isPostHook, postJobs)
+		if err := a.registerHook(subIns, isPostHook, postJobs); err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
 func GetReferenceString(ref *corev1.ObjectReference) string {
-	return fmt.Sprintf("%s/%s", ref.Name, ref.Namespace)
+	return fmt.Sprintf("%s", ref.Name)
 }
 
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
