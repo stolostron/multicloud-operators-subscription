@@ -23,6 +23,7 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -103,10 +104,10 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 func (jIns *JobInstances) applyJobs(clt client.Client) error {
 	for k, j := range *jIns {
 		nx := j.nextJob()
-
-		fmt.Printf("izhang ----> %#v\n", nx)
-		if err := clt.Create(context.TODO(), nx.DeepCopy()); err != nil {
-			return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+		if err := clt.Create(context.TODO(), &nx); err != nil {
+			if !kerr.IsAlreadyExists(err) {
+				return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+			}
 		}
 	}
 
@@ -203,7 +204,6 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	if subIns.Spec.HookSecretRef == nil {
 		a.logger.V(DebugLog).Info("subscription doesn't have hook to process")
-		return nil
 	}
 
 	//check if the subIns have being changed compare to the hook registry
@@ -219,13 +219,10 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		}
 	}
 
-	fmt.Printf("izhang ----> aaaaaaaaaaa %p\n", a.registry)
-
 	if err := a.gitClt.DownloadAnsibleHookResource(subIns); err != nil {
 		return fmt.Errorf("failed to download from git source, err: %v", err)
 	}
 
-	fmt.Printf("izhang ----> aaaaaaaaaaa %p\n", a.registry[subKey])
 	//update the base Ansible job and append a generated job to the preHooks
 	return a.addHookToRegisitry(subIns)
 }
@@ -243,10 +240,8 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
-	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetGenerateName()}
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	fmt.Printf("izhang registerHook ----> %p\n", a.registry)
-	fmt.Printf("izhang registerHook----> %p\n", a.registry[subKey])
 	if hookFlag == isPreHook {
 		if a.registry[subKey].preHooks == nil {
 			a.registry[subKey].preHooks = &JobInstances{}
@@ -283,16 +278,20 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 
 	preJobs, err := a.gitClt.GetHooks(subIns, preHookPath)
 	if err != nil {
-		return fmt.Errorf("failed to get prehook from Git")
-	}
-
-	if len(preJobs) != 0 {
-		a.registerHook(subIns, isPreHook, preJobs)
+		a.logger.Error(fmt.Errorf("prehook"), "failed to find hook:")
 	}
 
 	postJobs, err := a.gitClt.GetHooks(subIns, postHookPath)
 	if err != nil {
-		return fmt.Errorf("failed to get posthook from Git")
+		a.logger.Error(fmt.Errorf("posthook"), "failed to find hook:")
+	}
+
+	if len(preJobs) == 0 && len(postJobs) == 0 {
+		return fmt.Errorf("failed to find any hook YAMLs of subscription %v", subIns.GetName())
+	}
+
+	if len(preJobs) != 0 {
+		a.registerHook(subIns, isPreHook, preJobs)
 	}
 
 	if len(postJobs) != 0 {
@@ -300,6 +299,10 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 	}
 
 	return nil
+}
+
+func GetReferenceString(ref *corev1.ObjectReference) string {
+	return fmt.Sprintf("%s/%s", ref.Name, ref.Namespace)
 }
 
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
@@ -314,14 +317,15 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 		},
 	}
 
+	if subIns.Spec.HookSecretRef != nil {
+		job.Spec.TowerAuthSecretName = GetReferenceString(subIns.Spec.HookSecretRef)
+	}
+
 	//make sure all the ansiblejob is deployed at the subscription namespace
 	job.SetNamespace(subIns.GetNamespace())
 
 	//set owerreferce
 	setOwnerReferences(subIns, &job)
-
-	job.Spec.TowerAuthSecretName = subIns.Spec.HookSecretRef.Name
-	job.Spec.TowerAuthSecretNamespace = subIns.Spec.HookSecretRef.Namespace
 
 	return job
 }
@@ -331,16 +335,20 @@ func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
 		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
 }
 
-func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
-	a.logger.WithName(subKey.String()).V(2).Info("entry ApplyPreHook")
-	defer a.logger.WithName(subKey.String()).V(2).Info("exit ApplyPreHook")
+func (a *AnsibleHooks) isRegistered(subKey types.NamespacedName) bool {
+	return a.registry[subKey] != nil
+}
 
-	fmt.Printf("izhang applyprehooks----> %p\n", a.registry)
-	fmt.Printf("izhang ----> %p\n", a.registry[subKey])
-	fmt.Printf("izhang ----> %#v\n", a.registry[subKey])
+func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
+	a.logger.WithName(subKey.String()).V(DebugLog).Info("entry ApplyPreHook")
+	defer a.logger.WithName(subKey.String()).V(DebugLog).Info("exit ApplyPreHook")
+
+	if !a.isRegistered(subKey) {
+		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not prehook registered for %v", subKey.String()))
+		return nil
+	}
 
 	hks := a.registry[subKey].preHooks
-	fmt.Printf("izhang ------> sub %#v, hooks %#v\n", subKey, (*hks))
 	if hks == nil || len(*hks) == 0 {
 		return nil
 	}
@@ -356,6 +364,10 @@ func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
+	if !a.isRegistered(subKey) {
+		return true, nil
+	}
+
 	hks := a.registry[subKey].preHooks
 
 	if hks == nil || len(*hks) == 0 {
@@ -366,10 +378,15 @@ func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, e
 }
 
 func (a *AnsibleHooks) ApplyPostHooks(subKey types.NamespacedName) error {
+	if !a.isRegistered(subKey) {
+		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not posthook registered for %v", subKey.String()))
+		return nil
+	}
+
 	//wait till the subscription is propagated
 	f, err := a.IsSubscriptionCompleted(subKey)
 	if !f || err != nil {
-		return fmt.Errorf("failed to apply post hook, isCompleted %v, err: %v", f, err)
+		return fmt.Errorf("failed to apply post hook, subscription isCompleted %v", f)
 	}
 
 	hks := a.registry[subKey].postHooks

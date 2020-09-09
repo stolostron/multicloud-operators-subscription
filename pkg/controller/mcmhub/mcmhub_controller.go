@@ -375,15 +375,21 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
-	//	defer func() {
-	//		err := r.hooks.ApplyPostHooks(request.NamespacedName)
-	//		fmt.Printf("izhang-----> posthook----> new:\n%#v\n, error: %v\n", request, err)
-	//		if err != nil {
-	//			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-	//			result.RequeueAfter = r.hookRequeueInterval
-	//			return
-	//		}
-	//	}()
+	//flag used to determine if we skip the posthook
+	postHookRunable := true
+
+	defer func() {
+		if !postHookRunable {
+			return
+		}
+
+		err := r.hooks.ApplyPostHooks(request.NamespacedName)
+		if err != nil {
+			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+			result.RequeueAfter = r.hookRequeueInterval
+			return
+		}
+	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
@@ -408,23 +414,29 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	}
 
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
-		logger.Error(err, "failed to register hooks, skip the subscription reconcile, err: ")
+		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+		postHookRunable = false
+
 		return reconcile.Result{}, nil
 	}
 
 	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
-		logger.Error(err, "failed to apply preHook, skip the subscription reconcile, err: ")
+		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+		postHookRunable = false
+
 		return reconcile.Result{}, nil
 	}
 
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
 		if err != nil {
-			logger.Error(err, "failed to check prehook status, skip the subscription reconcile, err: ")
+			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
 			return reconcile.Result{}, nil
 		}
 
 		result.RequeueAfter = r.hookRequeueInterval
+		postHookRunable = false
+
 		return result, nil
 	}
 

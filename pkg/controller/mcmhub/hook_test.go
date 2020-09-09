@@ -33,6 +33,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -197,7 +198,7 @@ func TestPrehookHappyPath(t *testing.T) {
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -206,21 +207,75 @@ func TestPrehookHappyPath(t *testing.T) {
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
-	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(testPath.hookSecretRef.Name))
-	g.Expect(ansibleIns.Spec.TowerAuthSecretNamespace).Should(gomega.Equal(testPath.hookSecretRef.Namespace))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(GetReferenceString(&testPath.hookSecretRef)))
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
 	}()
 }
 
-// GitResourceNoneExistPath is defined as the following:
-//asumming the github doesn't the ansible YAML or channel is pointing to a wrong
-//path or download from git failed
-//A subscription with prehook, after reconcile, we should be able to
-//1. print error to trace
-//2. stop requeue the give subscritpion
+func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
+	tSetup := NewTSetUp(t)
 
+	g := tSetup.g
+	mgr := tSetup.mgr
+	k8sClt := mgr.GetClient()
+	defer func() {
+		close(tSetup.stop)
+		tSetup.wg.Wait()
+	}()
+
+	testPath := newHookTest()
+
+	//use the default instance name generator
+	rec := newReconciler(mgr, testPath.hookRequeueInterval).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	applyIns := testPath.subIns.DeepCopy()
+
+	applyIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+
+	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, applyIns)).Should(gomega.Succeed())
+	}()
+
+	defer func() {
+		ansibleList := &ansiblejob.AnsibleJobList{}
+		g.Expect(k8sClt.List(ctx, ansibleList)).Should(gomega.Succeed())
+
+		for _, ansibleIns := range ansibleList.Items {
+			g.Expect(k8sClt.Delete(ctx, &ansibleIns)).Should(gomega.Succeed())
+		}
+	}()
+
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+
+	ansibleList := &ansiblejob.AnsibleJobList{}
+
+	g.Expect(k8sClt.List(ctx, ansibleList)).Should(gomega.Succeed())
+	g.Expect(ansibleList.Items).Should(gomega.HaveLen(1))
+
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+	g.Expect(k8sClt.List(ctx, ansibleList)).Should(gomega.Succeed())
+	g.Expect(ansibleList.Items).Should(gomega.HaveLen(1))
+}
+
+// GitResourceNoneExistPath is defined as the following:
+//asumming the github doesn't have the ansible YAML or channel is pointing to a wrong
+//path or download from git failed
+// upon the fail of the download, the reconcile of subscription will stop and
+// error message should be print in the log or put the error to the status field
 func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	tSetup := NewTSetUp(t)
 
@@ -249,6 +304,9 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
 	applyIns.SetAnnotations(a)
 
+	// tells the subscription operator to process the hooks
+	applyIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+
 	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
 
 	defer func() {
@@ -265,9 +323,20 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
 }
 
+func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
+	pre := &ansiblejob.AnsibleJob{}
+
+	if err := clt.Get(context.TODO(), preKey, pre); err != nil {
+		return err
+	}
+
+	pre.Status.AnsibleJobResult.Status = "successful"
+	return clt.Update(context.TODO(), pre)
+}
+
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
-func TestPosthookHappyPath(t *testing.T) {
+func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	tSetup := NewTSetUp(t)
 
 	g := tSetup.g
@@ -292,6 +361,9 @@ func TestPosthookHappyPath(t *testing.T) {
 	subIns := testPath.subIns.DeepCopy()
 	postSubName := "test-posthook"
 	subIns.SetName(postSubName)
+
+	// tells the subscription operator to process the hooks
+	subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
 
@@ -332,6 +404,13 @@ func TestPosthookHappyPath(t *testing.T) {
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
+	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
+
+	//reconcile will create an ansible job for the subscription
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
@@ -339,8 +418,7 @@ func TestPosthookHappyPath(t *testing.T) {
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
-	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(testPath.hookSecretRef.Name))
-	g.Expect(ansibleIns.Spec.TowerAuthSecretNamespace).Should(gomega.Equal(testPath.hookSecretRef.Namespace))
+	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(GetReferenceString(&testPath.hookSecretRef)))
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
