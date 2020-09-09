@@ -47,6 +47,7 @@ linters:
     - goerr113
     - godot
     - gofumpt
+    - nestif
   fast: false
 
 linters-settings:
