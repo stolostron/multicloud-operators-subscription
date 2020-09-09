@@ -43,6 +43,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20200410145947-61e04a5be9a6
 	sigs.k8s.io/controller-runtime v0.6.0
 	sigs.k8s.io/kustomize/api v0.6.0
+	sigs.k8s.io/kustomize/kyaml v0.7.1 // indirect
 )
 
 replace (
