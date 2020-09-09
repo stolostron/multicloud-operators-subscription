@@ -46,9 +46,6 @@ linters:
     - gomnd
     - goerr113
     - godot
-    - nlreturn
-    - gci
-    - nestif
   fast: false
 
 linters-settings:
