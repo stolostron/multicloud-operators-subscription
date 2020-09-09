@@ -236,7 +236,7 @@ func printJobs(jobs []ansiblejob.AnsibleJob, logger logr.Logger) {
 type SuffixFunc func(*subv1.Subscription) string
 
 func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%s", subIns.GetResourceVersion())
+	return fmt.Sprintf("-%s", subIns.GetGeneration())
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
