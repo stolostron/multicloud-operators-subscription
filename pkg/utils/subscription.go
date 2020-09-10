@@ -52,49 +52,55 @@ const (
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
+func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
+	// need to process delete with finalizers
+	if !reflect.DeepEqual(oSub.GetFinalizers(), nSub.GetFinalizers()) {
+		return true
+	}
+
+	// we care label change, pass it down
+	if !reflect.DeepEqual(oSub.GetLabels(), nSub.GetLabels()) {
+		return true
+	}
+
+	// In hub cluster, these annotations get updated by subscription reconcile
+	// so remove them before comparison to avoid triggering another reconciliation.
+	oldAnnotations := oSub.GetAnnotations()
+	newAnnotations := nSub.GetAnnotations()
+	delete(oldAnnotations, appv1.AnnotationDeployables)
+	delete(oldAnnotations, appv1.AnnotationTopo)
+	delete(newAnnotations, appv1.AnnotationDeployables)
+	delete(newAnnotations, appv1.AnnotationTopo)
+
+	// we care annotation change. pass it down
+	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
+		return true
+	}
+
+	// we care spec for sure, we use the generation of 2 object to track the
+	// spec version
+	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+	if oSub.GetGeneration() != nSub.GetGeneration() {
+		return true
+	}
+
+	// do we care phase change?
+	if nSub.Status.Phase == "" || nSub.Status.Phase != oSub.Status.Phase {
+		klog.V(5).Info("We care phase..", nSub.Status.Phase, " vs ", oSub.Status.Phase)
+		return true
+	}
+
+	klog.V(5).Info("Something we don't care changed")
+	return false
+}
+
 // SubscriptionPredicateFunctions filters status update
 var SubscriptionPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		subOld := e.ObjectOld.(*appv1.Subscription)
 		subNew := e.ObjectNew.(*appv1.Subscription)
 
-		// need to process delete with finalizers
-		if len(subNew.GetFinalizers()) > 0 {
-			return true
-		}
-
-		// we care label change, pass it down
-		if !reflect.DeepEqual(subOld.GetLabels(), subNew.GetLabels()) {
-			return true
-		}
-
-		// In hub cluster, these annotations get updated by subscription reconcile
-		// so remove them before comparison to avoid triggering another reconciliation.
-		oldAnnotations := subOld.GetAnnotations()
-		newAnnotations := subNew.GetAnnotations()
-		delete(oldAnnotations, appv1.AnnotationDeployables)
-		delete(oldAnnotations, appv1.AnnotationTopo)
-		delete(newAnnotations, appv1.AnnotationDeployables)
-		delete(newAnnotations, appv1.AnnotationTopo)
-
-		// we care annotation change. pass it down
-		if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
-			return true
-		}
-
-		// we care spec for sure
-		if !reflect.DeepEqual(subOld.Spec, subNew.Spec) {
-			return true
-		}
-
-		// do we care phase change?
-		if subNew.Status.Phase == "" || subNew.Status.Phase != subOld.Status.Phase {
-			klog.V(5).Info("We care phase..", subNew.Status.Phase, " vs ", subOld.Status.Phase)
-			return true
-		}
-
-		klog.V(5).Info("Something we don't care changed")
-		return false
+		return IsSubscriptionChanged(subOld, subNew)
 	},
 }
 

@@ -380,6 +380,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer func() {
 		if !postHookRunable {
+			//only write the
+			returnErr = r.hooks.WriteStatusToSubscription(request.NamespacedName)
 			return
 		}
 
@@ -391,6 +393,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 			return
 		}
+
+		returnErr = r.hooks.WriteStatusToSubscription(request.NamespacedName)
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()

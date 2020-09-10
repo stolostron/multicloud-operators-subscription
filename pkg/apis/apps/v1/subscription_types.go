@@ -185,6 +185,15 @@ type SubscriptionPerClusterStatus struct {
 // SubscriptionClusterStatusMap defines per cluster status, key is cluster name
 type SubscriptionClusterStatusMap map[string]*SubscriptionPerClusterStatus
 
+//
+type AnsibleJobsStatus struct {
+	LastPrehookJob     string   `json:"lastprehookjob,omitempty"`
+	PrehookJobsHistory []string `json:"prehookjobshistory,omitempty"`
+
+	LastPosthookJob     string   `json:"lastposthookjob,omitempty"`
+	PosthookJobsHistory []string `json:"posthookjobshistory,omitempty"`
+}
+
 // SubscriptionStatus defines the observed state of Subscription
 // Examples - status of a subscription on hub
 //Status:
@@ -214,6 +223,8 @@ type SubscriptionStatus struct {
 	Reason         string            `json:"reason,omitempty"`
 	LastUpdateTime metav1.Time       `json:"lastUpdateTime,omitempty"`
 
+	// +optional
+	AnsibleJobsStatus AnsibleJobsStatus `json:"ansiblejobs,omitempty"`
 	// For endpoint, it is the status of subscription, key is packagename,
 	// For hub, it aggregates all status, key is cluster name
 	Statuses SubscriptionClusterStatusMap `json:"statuses,omitempty"`

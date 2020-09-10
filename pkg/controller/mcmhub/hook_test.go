@@ -212,6 +212,15 @@ func TestPrehookHappyPath(t *testing.T) {
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
 	}()
+
+	// there's an update request triggered, so we might want to wait for a bit
+	time.Sleep(3 * time.Second)
+
+	updateSub := &subv1.Subscription{}
+	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
+
+	g.Expect(updateSub.Status.AnsibleJobsStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
+	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
 }
 
 func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
@@ -414,7 +423,6 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	//reconcile will create an ansible job for the subscription
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-
 	g.Expect(err).Should(gomega.Succeed())
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
@@ -429,6 +437,21 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
 	}()
+
+	// there's an update request triggered, so we might want to wait for a bit
+	time.Sleep(3 * time.Second)
+
+	updateSub := &subv1.Subscription{}
+
+	g.Expect(k8sClt.Get(context.TODO(), subKey, updateSub)).Should(gomega.Succeed())
+
+	updateStatus := updateSub.Status.AnsibleJobsStatus
+
+	g.Expect(updateStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
+	g.Expect(updateStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
+
+	g.Expect(updateStatus.LastPosthookJob).Should(gomega.Equal(testPath.postAnsibleKey.String()))
+	g.Expect(updateStatus.PosthookJobsHistory).Should(gomega.HaveLen(1))
 }
 
 //Happy path should be, the subscription status is set, then the postHook should
