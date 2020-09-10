@@ -299,7 +299,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 }
 
 func GetReferenceString(ref *corev1.ObjectReference) string {
-	return fmt.Sprintf("%s", ref.Name)
+	return ref.Name
 }
 
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
