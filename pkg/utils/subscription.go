@@ -67,6 +67,7 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	// so remove them before comparison to avoid triggering another reconciliation.
 	oldAnnotations := oSub.GetAnnotations()
 	newAnnotations := nSub.GetAnnotations()
+
 	delete(oldAnnotations, appv1.AnnotationDeployables)
 	delete(oldAnnotations, appv1.AnnotationTopo)
 	delete(newAnnotations, appv1.AnnotationDeployables)
@@ -91,6 +92,7 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	}
 
 	klog.V(5).Info("Something we don't care changed")
+
 	return false
 }
 
