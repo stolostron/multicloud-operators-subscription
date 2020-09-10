@@ -352,6 +352,7 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	chartDirs := make(map[string]string)
 	chartDirs["../../test/github/helmcharts/chart1/"] = "../../test/github/helmcharts/chart1/"
+	chartDirs["../../test/github/helmcharts/chart1Upgrade/"] = "../../test/github/helmcharts/chart1Upgrade/"
 	chartDirs["../../test/github/helmcharts/chart2/"] = "../../test/github/helmcharts/chart2/"
 
 	packageFilter := &appv1alpha1.PackageFilter{}
@@ -373,10 +374,33 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
+	dplName1 := dpl.Name
+
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
 	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
+
+	packageFilter.Version = "1.2.2"
+
+	githubsub.Spec.PackageFilter = packageFilter
+
+	githubsub.Spec.Package = "chart1"
+
+	indexFile, err = GenerateHelmIndexFile(githubsub, "../..", chartDirs)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(indexFile.Entries)).To(gomega.Equal(1))
+
+	time.Sleep(3 * time.Second)
+
+	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(dpl).NotTo(gomega.BeNil())
+
+	dplName2 := dpl.Name
+
+	// Test that the deployable names are the same for the same charts with different versions
+	g.Expect(dplName1).To(gomega.Equal(dplName2))
 }
 
 func TestDeleteHelmReleaseCRD(t *testing.T) {

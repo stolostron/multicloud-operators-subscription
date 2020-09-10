@@ -16,6 +16,7 @@ package git
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -542,5 +544,42 @@ spec:
 
 		err = checkSubscriptionAnnotation(resource)
 		Expect(err).NotTo(HaveOccurred())
+	})
+})
+
+var _ = Describe("github subscriber reconcile options", func() {
+	It("should check apps.open-cluster-management.io/reconcile-option and "+
+		"apps.open-cluster-management.io/cluster-admin annotations in subscription and "+
+		"propagate them to the synchronizer", func() {
+
+		subAnnotations := make(map[string]string)
+		subAnnotations[appv1.AnnotationClusterAdmin] = "true"
+		subAnnotations[appv1.AnnotationResourceReconcileOption] = "merge"
+		githubsub.SetAnnotations(subAnnotations)
+		githubsub.Spec.PackageFilter = nil
+
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		configMapYAML := `apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: path-config-map
+  namespace: default
+data:
+  path: test/github/helmcharts`
+
+		deployable, _, err := subitem.subscribeResource([]byte(configMapYAML))
+		Expect(err).NotTo(HaveOccurred())
+
+		resource := &unstructured.Unstructured{}
+		err = json.Unmarshal(deployable.Spec.Template.Raw, resource)
+		Expect(err).NotTo(HaveOccurred())
+
+		rscAnnotations := resource.GetAnnotations()
+		Expect(rscAnnotations[appv1.AnnotationClusterAdmin]).To(Equal("true"))
+		Expect(rscAnnotations[appv1.AnnotationResourceReconcileOption]).To(Equal("merge"))
 	})
 })

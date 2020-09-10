@@ -60,10 +60,14 @@ var (
 	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-commit"
 	// AnnotationClusterAdmin indicates the subscription has cluster admin access
 	AnnotationClusterAdmin = SchemeGroupVersion.Group + "/cluster-admin"
+	// AnnotationChannelType indicates the channel type for subscription
+	AnnotationChannelType = SchemeGroupVersion.Group + "/channel-type"
 	// AnnotationUserGroup is subscription user group
 	AnnotationUserGroup = "open-cluster-management.io/user-group"
 	// AnnotationUserIdentity is subscription user id
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
+	// AnnotationResourceReconcileOption is for reconciling existing resource
+	AnnotationResourceReconcileOption = SchemeGroupVersion.Group + "/reconcile-option"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
@@ -77,6 +81,10 @@ const (
 	SubscriptionAdmin = "open-cluster-management:subscription-admin"
 	// AcmWebhook is the ACM foundation mutation webhook that adds user identity and group annotations
 	AcmWebhook = "ocm-mutating-webhook"
+	// MergeReconcile creates or updates fields in resources using kubernetes patch
+	MergeReconcile = "merge"
+	// ReplaceReconcile replaces fields in resources using kubernetes update
+	ReplaceReconcile = "replace"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

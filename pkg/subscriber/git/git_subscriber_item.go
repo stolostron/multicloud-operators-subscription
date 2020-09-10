@@ -405,6 +405,24 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		}
 	}
 
+	subAnnotations := ghsi.Subscription.GetAnnotations()
+	if subAnnotations != nil {
+		rscAnnotations := rsc.GetAnnotations()
+		if rscAnnotations == nil {
+			rscAnnotations = make(map[string]string)
+		}
+
+		if strings.EqualFold(subAnnotations[appv1.AnnotationClusterAdmin], "true") {
+			rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
+		}
+
+		if subAnnotations[appv1.AnnotationResourceReconcileOption] != "" {
+			rscAnnotations[appv1.AnnotationResourceReconcileOption] = subAnnotations[appv1.AnnotationResourceReconcileOption]
+		}
+
+		rsc.SetAnnotations(rscAnnotations)
+	}
+
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
 

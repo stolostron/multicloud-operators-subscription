@@ -206,14 +206,18 @@ func ifUpdateAnnotation(origanno, newanno map[string]string, annoString string) 
 }
 
 // AddClusterAdminAnnotation adds cluster-admin annotation if conditions are met
-func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscription) {
+func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscription) bool {
 	annotations := sub.GetAnnotations()
 	delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
 
 	if utils.IsClusterAdmin(r.Client, sub, r.eventRecorder) {
 		annotations[appv1.AnnotationClusterAdmin] = "true"
 		sub.SetAnnotations(annotations)
+
+		return true
 	}
+
+	return false
 }
 
 func getResourcePath(chn *chnv1.Channel, sub *appv1.Subscription) string {
