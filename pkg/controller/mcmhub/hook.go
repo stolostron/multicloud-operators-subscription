@@ -92,7 +92,12 @@ func getJobsString(jobs []ansiblejob.AnsibleJob) []string {
 	}
 
 	formString := func(j ansiblejob.AnsibleJob) string {
-		return fmt.Sprintf("%s/%s", j.GetNamespace(), j.GetName())
+		ns := j.GetNamespace()
+		if len(ns) == 0 {
+			ns = "default"
+		}
+
+		return fmt.Sprintf("%s/%s", ns, j.GetName())
 	}
 
 	res := []string{}
@@ -275,6 +280,10 @@ func (a *AnsibleHooks) WriteStatusToSubscription(subKey types.NamespacedName) er
 	newSub := subIns.DeepCopy()
 	newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
 	newSub.Status.LastUpdateTime = metav1.Now()
+
+	if err := updateSubscriptionAnnotationWithAnsibleJob(a.clt, newSub); err != nil {
+		return fmt.Errorf("failed to %s update subscription annotations, err: %v", subKey.String(), err)
+	}
 
 	if err := a.clt.Status().Update(context.TODO(), newSub); err != nil {
 		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)

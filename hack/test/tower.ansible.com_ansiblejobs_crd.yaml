@@ -38,16 +38,21 @@ spec:
               job_tmeplate_name:
                 type: string
               tower_auth_secret:
+                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file'
                 type: string
             type: object
           status:
             description: AnsibleJobStatus defines the observed state of AnsibleJob
             properties:
-              ansiblejobresult:
+              ansibleJobResult:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run "make" to regenerate code after modifying this file'
                 properties:
+                  changed:
+                    type: boolean
                   elapsed:
                     type: string
+                  failed:
+                    type: boolean
                   finished:
                     type: string
                   started:
@@ -94,10 +99,32 @@ spec:
                     description: ConditionType - type of condition
                     type: string
                 type: object
+              k8sJob:
+                properties:
+                  created:
+                    type: boolean
+                  env:
+                    properties:
+                      secretNamespacedName:
+                        type: string
+                      templateName:
+                        type: string
+                      verifySSL:
+                        type: boolean
+                    type: object
+                  message:
+                    type: string
+                  namespacedName:
+                    type: string
+                type: object
+              message:
+                type: string
             type: object
         type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""

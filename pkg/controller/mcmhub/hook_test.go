@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -221,6 +222,10 @@ func TestPrehookHappyPath(t *testing.T) {
 
 	g.Expect(updateSub.Status.AnsibleJobsStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
 	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
+
+	topoAnno := updateSub.GetAnnotations()[subv1.AnnotationTopo]
+
+	g.Expect(strings.Contains(topoAnno, testPath.preAnsibleKey.Name)).Should(gomega.BeTrue())
 }
 
 func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
@@ -343,9 +348,12 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 		return err
 	}
 
-	pre.Status.AnsibleJobResult.Status = "successful"
+	newPre := pre.DeepCopy()
 
-	return clt.Update(context.TODO(), pre)
+	newPre.Status.AnsibleJobResult.Status = "successful"
+	newPre.Status.Condition.LastTransitionTime = metav1.Now()
+
+	return clt.Status().Update(context.TODO(), newPre)
 }
 
 //Happy path should be, the subscription status is set, then the postHook should
@@ -427,6 +435,7 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
+	time.Sleep(3 * time.Second)
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	//test if the ansiblejob have a owner set
@@ -452,6 +461,11 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	g.Expect(updateStatus.LastPosthookJob).Should(gomega.Equal(testPath.postAnsibleKey.String()))
 	g.Expect(updateStatus.PosthookJobsHistory).Should(gomega.HaveLen(1))
+
+	topoAnno := updateSub.GetAnnotations()[subv1.AnnotationTopo]
+
+	g.Expect(strings.Contains(topoAnno, testPath.preAnsibleKey.Name)).Should(gomega.BeTrue())
+	g.Expect(strings.Contains(topoAnno, testPath.postAnsibleKey.Name)).Should(gomega.BeTrue())
 }
 
 //Happy path should be, the subscription status is set, then the postHook should
