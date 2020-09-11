@@ -89,7 +89,7 @@ func GenerateServerCerts(dir string) error {
 	klog.Infof("tls.crt file was generated successfully.\n")
 
 	keyFilePath := filepath.Join(dir, "tls.key")
-	keyOut, err := os.OpenFile(keyFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	keyOut, err := os.OpenFile(filepath.Clean(keyFilePath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 
 	if err != nil {
 		klog.Errorf("Failed to open tls.key for writing: %v", err)

@@ -11,7 +11,6 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     USER_NAME=multicluster-operators-subscription \
     ZONEINFO=/usr/share/timezone
 
-
 # install operator binary
 COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
 COPY build/_output/bin/uninstall-crd /usr/local/bin
