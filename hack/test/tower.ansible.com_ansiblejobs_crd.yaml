@@ -21,7 +21,7 @@ spec:
         description: AnsibleJob is the Schema for the ansiblejobs API
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. ore info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
             description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
@@ -39,9 +39,6 @@ spec:
                 type: string
               tower_auth_secret:
                 type: string
-              tower_auth_secret_namespace:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file'
-                type: string
             type: object
           status:
             description: AnsibleJobStatus defines the observed state of AnsibleJob
@@ -56,6 +53,8 @@ spec:
                   started:
                     type: string
                   status:
+                    type: string
+                  url:
                     type: string
                 type: object
               conditions:
