@@ -247,7 +247,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 					if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
 						klog.V(4).Info("Found Chart.yaml in ", path)
 						if !strings.HasPrefix(path, currentChartDir) {
-							klog.Info("This is a helm chart folder.")
+							klog.V(4).Info("This is a helm chart folder.")
 							chartDirs[path+"/"] = path + "/"
 							currentChartDir = path + "/"
 						}
