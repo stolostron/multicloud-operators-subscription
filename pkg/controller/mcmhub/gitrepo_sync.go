@@ -307,6 +307,7 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 		klog.Errorf("failed to update topo annotation for git sub %v, err: %v", sub.Name, err)
 	}
 
+	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 	sub.SetAnnotations(subanno)
 }
 

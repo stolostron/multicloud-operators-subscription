@@ -550,6 +550,8 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 		}
 
 		subanno[appv1alpha1.AnnotationDeployables] = dplstr
+
+		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 	}
 

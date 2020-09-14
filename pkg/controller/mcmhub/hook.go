@@ -293,10 +293,6 @@ func (a *AnsibleHooks) WriteStatusToSubscription(subKey types.NamespacedName) er
 	newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
 	newSub.Status.LastUpdateTime = metav1.Now()
 
-	if err := updateSubscriptionAnnotationWithAnsibleJob(a.clt, newSub); err != nil {
-		return fmt.Errorf("failed to %s update subscription annotations, err: %v", subKey.String(), err)
-	}
-
 	if err := a.clt.Status().Update(context.TODO(), newSub); err != nil {
 		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
 	}

@@ -16,7 +16,6 @@ package mcmhub
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -81,6 +80,7 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
+		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 
 		return true
@@ -402,13 +402,14 @@ func ansibleJobsToResourceUnit(jobStr string) string {
 	return strings.Join(res, sep)
 }
 
-func updateSubscriptionAnnotationWithAnsibleJob(clt client.Client, subIns *subv1.Subscription) error {
-	anno := subIns.GetAnnotations()
+func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.AnsibleJobsStatus) map[string]string {
 	if len(anno) == 0 {
 		anno = map[string]string{}
 	}
 
-	st := subIns.Status.AnsibleJobsStatus
+	if st.LastPrehookJob == "" && st.LastPosthookJob == "" {
+		return anno
+	}
 
 	preJobs := ansibleJobsToResourceUnit(st.LastPrehookJob)
 	postJobs := ansibleJobsToResourceUnit(st.LastPosthookJob)
@@ -447,7 +448,5 @@ func updateSubscriptionAnnotationWithAnsibleJob(clt client.Client, subIns *subv1
 	anno[subv1.AnnotationTopo] = topo
 	anno[subv1.AnnotationDeployables] = dpls
 
-	subIns.SetAnnotations(anno)
-
-	return clt.Update(context.TODO(), subIns)
+	return anno
 }

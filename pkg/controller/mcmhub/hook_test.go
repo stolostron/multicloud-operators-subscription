@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -223,7 +224,17 @@ func TestPrehookHappyPath(t *testing.T) {
 	g.Expect(updateSub.Status.AnsibleJobsStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
 	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
 
+	time.Sleep(3 * time.Second)
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).ShouldNot(gomega.Equal(time.Duration(0)))
+
+	updateSub = &subv1.Subscription{}
+	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
+
 	topoAnno := updateSub.GetAnnotations()[subv1.AnnotationTopo]
+	fmt.Printf("izhang -----> annot %#v", topoAnno)
 
 	g.Expect(strings.Contains(topoAnno, testPath.preAnsibleKey.Name)).Should(gomega.BeTrue())
 }
