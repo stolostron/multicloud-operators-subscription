@@ -225,6 +225,7 @@ func TestPrehookHappyPath(t *testing.T) {
 	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
 
 	time.Sleep(3 * time.Second)
+
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
