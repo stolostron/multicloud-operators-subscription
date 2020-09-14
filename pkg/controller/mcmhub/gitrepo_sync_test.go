@@ -99,7 +99,7 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	subDeployables := rec.getSubscriptionDeployables(githubsub)
-	g.Expect(len(subDeployables)).To(gomega.Equal(26))
+	g.Expect(len(subDeployables)).To(gomega.Equal(29))
 
 	rec.deleteSubscriptionDeployables(githubsub)
 

@@ -407,17 +407,17 @@ data:
 
 		err = subitem.sortClonedGitRepo()
 		Expect(err).NotTo(HaveOccurred())
-		// 3 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1
-		Expect(len(subitem.chartDirs)).To(Equal(3))
+		// 4 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1, test/github/helmcharts/chart1Upgrade
+		Expect(len(subitem.chartDirs)).To(Equal(4))
 
 		// Filter out chart2
 		Expect(len(subitem.indexFile.Entries)).To(Equal(1))
 
-		// chart1 has two versions but it will only contain the latest version
-		chartVersion, err := subitem.indexFile.Get("chart1", "1.1.2")
+		// chart1 has two versions but it will only contain the latest version (test/github/helmcharts/chart1Upgrade)
+		chartVersion, err := subitem.indexFile.Get("chart1", "1.2.2")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(chartVersion.GetName()).To(Equal("chart1"))
-		Expect(chartVersion.GetVersion()).To(Equal("1.1.2"))
+		Expect(chartVersion.GetVersion()).To(Equal("1.2.2"))
 
 		_, err = subitem.indexFile.Get("chart1", "1.1.1")
 		Expect(err).To(HaveOccurred())
@@ -448,7 +448,7 @@ data:
 		pathConfigMapYAML := `apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: path-config-map
+  name: path-config-map2
   namespace: default
 data:
   path: test/github/helmcharts`
@@ -462,7 +462,7 @@ data:
 		Expect(err).NotTo(HaveOccurred())
 
 		filterRef := &corev1.LocalObjectReference{}
-		filterRef.Name = "path-config-map"
+		filterRef.Name = "path-config-map2"
 
 		packageFilter := &appv1alpha1.PackageFilter{}
 		packageFilter.FilterRef = filterRef
