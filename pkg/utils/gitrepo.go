@@ -303,7 +303,6 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 			return nil
 		})
 
-
 	klog.Infof("otherFiles size %v", len(otherFiles))
 
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err

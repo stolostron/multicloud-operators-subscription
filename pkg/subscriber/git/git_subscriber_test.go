@@ -407,7 +407,9 @@ data:
 
 		err = subitem.sortClonedGitRepo()
 		Expect(err).NotTo(HaveOccurred())
-		// 4 helm charts: test/github/helmcharts/chart1, test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1, test/github/helmcharts/chart1Upgrade
+		// 4 helm charts: test/github/helmcharts/chart1,
+		//test/github/helmcharts/chart2, test/github/helmcharts/otherCharts/chart1,
+		// test/github/helmcharts/chart1Upgrade
 		Expect(len(subitem.chartDirs)).To(Equal(4))
 
 		// Filter out chart2
