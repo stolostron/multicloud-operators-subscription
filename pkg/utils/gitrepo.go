@@ -252,18 +252,31 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 							currentChartDir = path + "/"
 						}
 					} else if _, err := os.Stat(path + "/kustomization.yaml"); err == nil {
-						klog.V(4).Info("Found kustomization.yaml in ", path)
-						currentKustomizeDir = path
-						kustomizeDirs[path+"/"] = path + "/"
+						// If there are nested kustomizations or any other folder structures containing kube
+						// resources under a kustomization, subscription should not process them and let kustomize
+						// build handle them based on the top-level kustomization.yaml.
+						if !strings.HasPrefix(path, currentKustomizeDir) {
+							klog.V(4).Info("Found kustomization.yaml in ", path)
+							currentKustomizeDir = path + "/"
+							kustomizeDirs[path+"/"] = path + "/"
+						}
 					} else if _, err := os.Stat(path + "/kustomization.yml"); err == nil {
-						klog.V(4).Info("Found kustomization.yml in ", path)
-						currentKustomizeDir = path
-						kustomizeDirs[path+"/"] = path + "/"
+						// If there are nested kustomizations or any other folder structures containing kube
+						// resources under a kustomization, subscription should not process them and let kustomize
+						// build handle them based on the top-level kustomization.yaml
+						if !strings.HasPrefix(path, currentKustomizeDir) {
+							klog.V(4).Info("Found kustomization.yml in ", path)
+							currentKustomizeDir = path + "/"
+							kustomizeDirs[path+"/"] = path + "/"
+						}
 					}
 				} else if !strings.HasPrefix(path, currentChartDir) &&
 					!strings.HasPrefix(path, repoRoot+"/.git") &&
-					!strings.EqualFold(filepath.Dir(path), currentKustomizeDir) {
+					!strings.HasPrefix(path, currentKustomizeDir) {
 					// Do not process kubernetes YAML files under helm chart or kustomization directory
+					// If there are nested kustomizations or any other folder structures containing kube
+					// resources under a kustomization, subscription should not process them and let kustomize
+					// build handle them based on the top-level kustomization.yaml
 					crdsAndNamespaceFiles, rbacFiles, otherFiles, err = sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles, path)
 					if err != nil {
 						klog.Error(err.Error())
@@ -275,7 +288,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 			return nil
 		})
 
-	klog.Info("otherFiles size " + string(len(otherFiles)))
+	klog.Infof("otherFiles size %v", len(otherFiles))
 
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 }
