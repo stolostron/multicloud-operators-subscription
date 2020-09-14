@@ -177,9 +177,21 @@ func (jIns *JobInstances) applyJobs(clt client.Client, suffixFunc SuffixFunc, su
 	return nil
 }
 
+// check the last instance of the ansiblejobs to see if it's applied and
+// completed or not
 func (jIns *JobInstances) isJobsCompleted(clt client.Client, logger logr.Logger) (bool, error) {
-	for k := range *jIns {
-		if ok, err := isJobDone(clt, k, logger); err != nil || !ok {
+	for k, job := range *jIns {
+		logger.V(DebugLog).Info(fmt.Sprintf("checking if%v job for completed or not", k.String()))
+
+		n := len(job.Instance)
+		if n == 0 {
+			return true, nil
+		}
+
+		j := job.Instance[n-1]
+		jKey := types.NamespacedName{Name: j.GetName(), Namespace: j.GetNamespace()}
+
+		if ok, err := isJobDone(clt, jKey, logger); err != nil || !ok {
 			return ok, err
 		}
 	}
