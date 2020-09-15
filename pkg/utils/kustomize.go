@@ -64,6 +64,11 @@ func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
 		return err
 	}
 
+	if ovuobj["value"] == nil {
+		klog.Error("Kustomize PackageOverride has no value")
+		return nil
+	}
+
 	str := fmt.Sprintf("%v", ovuobj["value"])
 
 	var override map[string]interface{}
