@@ -222,9 +222,18 @@ func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
 }
 
+type SkipFunc func(string) *gitignore.GitIgnore
+
 // SortResources sorts kube resources into different arrays for processing them later.
-func SortResources(repoRoot, resourcePath string) (map[string]string, map[string]string, []string, []string, []string, error) {
+func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string]string, map[string]string, []string, []string, []string, error) {
 	klog.V(4).Info("Git repo subscription directory: ", resourcePath)
+
+	var kubeIgnoreFunc SkipFunc
+	if len(skips) == 0 {
+		kubeIgnoreFunc = GetKubeIgnore
+	} else {
+		kubeIgnoreFunc = skips[0]
+	}
 
 	// In the cloned git repo root, find all helm chart directories
 	chartDirs := make(map[string]string)
@@ -242,7 +251,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 	currentChartDir := "NONE"
 	currentKustomizeDir := "NONE"
 
-	kubeIgnore := GetKubeIgnore(resourcePath)
+	kubeIgnore := kubeIgnoreFunc(resourcePath)
 
 	err := filepath.Walk(resourcePath,
 		func(path string, info os.FileInfo, err error) error {
@@ -357,12 +366,35 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 	return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 }
 
+func SkipHooksOnManaged(resourcePath string) *gitignore.GitIgnore {
+	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
+
+	PREHOOK := "prehook"
+	POSTHOOK := "posthook"
+	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
+	// of the resource root.
+	skipHookFolders := func() []string {
+		pre := fmt.Sprintf("%s/%s", resourcePath, PREHOOK)
+		post := fmt.Sprintf("%s/%s", resourcePath, POSTHOOK)
+
+		return []string{pre, post}
+	}
+
+	lines := skipHookFolders()
+	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
+
+	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesignore")); err == nil {
+		klog.V(4).Info("Found .kubernetesignore in ", resourcePath)
+		kubeIgnore, _ = gitignore.CompileIgnoreFile(filepath.Join(resourcePath, ".kubernetesignore"))
+	}
+
+	return kubeIgnore
+}
+
 // GetKubeIgnore get .kubernetesignore list
 func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
 
-	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
-	// of the resource root.
 	lines := []string{""}
 	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
 

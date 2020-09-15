@@ -437,13 +437,26 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
+		ins := instance.DeepCopy()
+		ins.Status.Phase = appv1.SubscriptionPropagationFailed
+
 		if err != nil {
 			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+
+			ins.Status.Reason = err.Error()
+
+			if serr := r.Client.Status().Update(context.TODO(), ins); serr != nil {
+				r.logger.Error(serr, "failed to update the subscription status upon the ansible failure")
+			}
+
 			return reconcile.Result{}, nil
 		}
 
 		result.RequeueAfter = r.hookRequeueInterval
 		postHookRunable = false
+
+		ins.Status.Reason = "subscription is waiting for prehook to be completed"
+		returnErr = r.Client.Status().Update(context.TODO(), ins)
 
 		return result, nil
 	}
