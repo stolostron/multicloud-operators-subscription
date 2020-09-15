@@ -35,7 +35,7 @@ spec:
                 type: object
               inventory:
                 type: string
-              job_tmeplate_name:
+              job_template_name:
                 type: string
               tower_auth_secret:
                 description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file'

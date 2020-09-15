@@ -162,7 +162,7 @@ func newHookTest() *hookTest {
 //subscription, with prehook, after reconcile, should be able to
 //detect the ansibleJob instance from cluster and the subscription status
 //shouldn't be propagated
-func TestPrehookHappyPath(t *testing.T) {
+func TestPrehookHappyPathMain(t *testing.T) {
 	tSetup := NewTSetUp(t)
 
 	g := tSetup.g
@@ -208,6 +208,7 @@ func TestPrehookHappyPath(t *testing.T) {
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
 	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(GetReferenceString(&testPath.hookSecretRef)))
+	g.Expect(ansibleIns.Spec.JobTemplateName).Should(gomega.Equal("Demo Job Template"))
 
 	defer func() {
 		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
