@@ -381,6 +381,8 @@ func SkipHooksOnManaged(resourcePath string) *gitignore.GitIgnore {
 	}
 
 	lines := skipHookFolders()
+	fmt.Printf("izhang ------------> skip lines %v\n", lines)
+
 	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
 
 	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesignore")); err == nil {

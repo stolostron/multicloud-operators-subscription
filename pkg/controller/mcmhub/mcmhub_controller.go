@@ -437,7 +437,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
-		ins := instance.DeepCopy()
+		ins := &appv1.Subscription{}
+
+		if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+			return reconcile.Result{}, nil
+		}
+
 		ins.Status.Phase = appv1.SubscriptionPropagationFailed
 
 		if err != nil {

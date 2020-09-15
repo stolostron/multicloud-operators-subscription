@@ -11,12 +11,12 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.5
-	github.com/google/go-cmp v0.4.0
+	github.com/google/go-cmp v0.5.1
 	github.com/google/go-github/v28 v28.1.1
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/open-cluster-management/ansiblejob-go-lib v0.1.7
+	github.com/open-cluster-management/ansiblejob-go-lib v0.1.8
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20200813201238-cf522bb8e5a9
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200817152717-50b364f569c6
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f
@@ -26,7 +26,7 @@ require (
 	github.com/prometheus/common v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
+	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	helm.sh/helm/v3 v3.2.0
 	k8s.io/api v0.18.3
