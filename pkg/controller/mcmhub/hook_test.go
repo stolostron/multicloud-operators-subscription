@@ -430,7 +430,7 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(10 * time.Second)
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	//test if the ansiblejob have a owner set
