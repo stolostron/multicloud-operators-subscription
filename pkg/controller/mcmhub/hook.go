@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
@@ -67,7 +68,7 @@ type HookProcessor interface {
 
 	//WriteStatusToSubscription copies all the entry from hook registry to
 	//subscription status
-	WriteStatusToSubscription(types.NamespacedName) error
+	WriteStatusToSubscription(error, types.NamespacedName) error
 }
 
 type Job struct {
@@ -268,7 +269,13 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	}
 }
 
-func (a *AnsibleHooks) WriteStatusToSubscription(subKey types.NamespacedName) error {
+func (a *AnsibleHooks) WriteStatusToSubscription(preErr error, subKey types.NamespacedName) error {
+	hooks := a.registry[subKey]
+	if hooks == nil {
+		a.logger.Error(fmt.Errorf("can't find %v from hook registry", subKey.String()), "ansiblejob status update error")
+		return nil
+	}
+
 	subIns := &subv1.Subscription{}
 	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
 		if kerr.IsNotFound(err) {
@@ -283,15 +290,19 @@ func (a *AnsibleHooks) WriteStatusToSubscription(subKey types.NamespacedName) er
 		return nil
 	}
 
-	hooks := a.registry[subKey]
-	if hooks == nil {
-		a.logger.Error(fmt.Errorf("can't find %v from hook registry", subKey.String()), "ansiblejob status update error")
-		return nil
-	}
-
 	newSub := subIns.DeepCopy()
-	newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
 	newSub.Status.LastUpdateTime = metav1.Now()
+
+	if preErr != nil {
+		newSub.Status.Phase = subv1.SubscriptionPropagationFailed
+		newSub.Status.Reason = preErr.Error()
+	} else {
+		newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
+
+		if reflect.DeepEqual(subIns.Status.AnsibleJobsStatus, newSub.Status.AnsibleJobsStatus) {
+			return nil
+		}
+	}
 
 	if err := a.clt.Status().Update(context.TODO(), newSub); err != nil {
 		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)

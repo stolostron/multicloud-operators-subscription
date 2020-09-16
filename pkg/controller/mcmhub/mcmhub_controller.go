@@ -377,15 +377,19 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	//flag used to determine if we skip the posthook
 	postHookRunable := true
+	var preErr error
 
 	defer func() {
 		if !postHookRunable {
 			//only write the
-			returnErr = r.hooks.WriteStatusToSubscription(request.NamespacedName)
+			returnErr = r.hooks.WriteStatusToSubscription(preErr, request.NamespacedName)
 			return
 		}
 
 		err := r.hooks.ApplyPostHooks(request.NamespacedName)
+		// post hook will in a apply and don't report back manner
+		returnErr = r.hooks.WriteStatusToSubscription(nil, request.NamespacedName)
+
 		if err != nil {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 
@@ -393,8 +397,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 			return
 		}
-
-		returnErr = r.hooks.WriteStatusToSubscription(request.NamespacedName)
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
@@ -437,35 +439,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
-		ins := &appv1.Subscription{}
-
-		if err := r.Get(context.TODO(), request.NamespacedName, ins); err != nil {
-			return reconcile.Result{}, nil
-		}
-
-		ins.Status.Phase = appv1.SubscriptionPropagationFailed
-		ins.Status.LastUpdateTime = metav1.Now()
+		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
 		if err != nil {
 			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
-
-			ins.Status.Reason = err.Error()
-
-			if serr := r.Client.Status().Update(context.TODO(), ins); serr != nil {
-				r.logger.Error(serr, "failed to update the subscription status upon the ansible failure")
-			}
-
 			return reconcile.Result{}, nil
 		}
 
 		result.RequeueAfter = r.hookRequeueInterval
 		postHookRunable = false
-
-		ins.Status.Reason = "subscription is waiting for prehook to be completed"
-
-		if err := r.Client.Status().Update(context.TODO(), ins); err != nil {
-			r.logger.Error(err, fmt.Sprintf(" %v failed to update the subscription status upon the ansible failure", instance.GetName()))
-		}
 
 		return result, nil
 	}

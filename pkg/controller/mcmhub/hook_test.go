@@ -220,6 +220,20 @@ func TestPrehookHappyPathMain(t *testing.T) {
 	updateSub := &subv1.Subscription{}
 	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
 
+	// when the prehook is not ready
+	g.Expect(updateSub.Status.Phase).Should(gomega.Equal(subv1.SubscriptionPropagationFailed))
+
+	//after prehook is ready
+	forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+
+	// there's an update request triggered, so we might want to wait for a bit
+	time.Sleep(3 * time.Second)
+	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
+
 	g.Expect(updateSub.Status.AnsibleJobsStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
 	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
 }
