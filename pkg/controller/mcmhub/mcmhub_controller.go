@@ -394,7 +394,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		if err != nil {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 
-			result.RequeueAfter = r.hookRequeueInterval
+			//pprof result.RequeueAfter = r.hookRequeueInterval
 
 			return
 		}
@@ -447,7 +447,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			return reconcile.Result{}, nil
 		}
 
-		result.RequeueAfter = r.hookRequeueInterval
+		//pprof result.RequeueAfter = r.hookRequeueInterval
 		postHookRunable = false
 
 		return result, nil
