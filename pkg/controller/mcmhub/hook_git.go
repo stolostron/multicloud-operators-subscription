@@ -74,15 +74,22 @@ func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channe
 	logger.V(DebugLog).Info("entry donwloadAnsibleJobFromGit")
 	defer logger.V(DebugLog).Info("exit donwloadAnsibleJobFromGit")
 
+	subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	h.localDir = repoRoot
+
+	if _, ok := h.lastCommitID[subKey]; ok {
+		logger.Info("repo already exist")
+		return nil
+	}
+
 	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
 
 	if err != nil {
 		return err
 	}
 
-	h.lastCommitID[types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}] = commitID
+	h.lastCommitID[subKey] = commitID
 
 	return nil
 }
