@@ -74,7 +74,7 @@ rules:
 
 const (
 	hubLogger                  = "subscription-hub-reconciler"
-	defaultHookRequeueInterval = time.Second * 5
+	defaultHookRequeueInterval = time.Second * 45
 	INFOLevel                  = 1
 )
 
@@ -439,11 +439,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	if !b || err != nil {
 		ins := &appv1.Subscription{}
 
-		if err := r.Get(context.TODO(), request.NamespacedName, instance); err != nil {
+		if err := r.Get(context.TODO(), request.NamespacedName, ins); err != nil {
 			return reconcile.Result{}, nil
 		}
 
 		ins.Status.Phase = appv1.SubscriptionPropagationFailed
+		ins.Status.LastUpdateTime = metav1.Now()
 
 		if err != nil {
 			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
@@ -461,7 +462,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		postHookRunable = false
 
 		ins.Status.Reason = "subscription is waiting for prehook to be completed"
-		returnErr = r.Client.Status().Update(context.TODO(), ins)
+
+		if err := r.Client.Status().Update(context.TODO(), ins); err != nil {
+			r.logger.Error(err, fmt.Sprintf(" %v failed to update the subscription status upon the ansible failure", instance.GetName()))
+		}
 
 		return result, nil
 	}

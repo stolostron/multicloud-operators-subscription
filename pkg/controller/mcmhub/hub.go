@@ -208,14 +208,14 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 	}
 
 	if !reflect.DeepEqual(org, fnd) {
-		klog.V(1).Infof("different template: found: %v, dpl: %v", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
+		klog.V(1).Infof("different template: found:\n %v\n, dpl:\n %v\n", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
 		return true
 	}
 
 	return false
 }
 
-// if there exists target subscription, update the source subscription basd on its target subscription.
+// if there exists target subscription, update the source subscription based on its target subscription.
 // return the target subscription and updated flag
 func (r *ReconcileSubscription) updateSubscriptionToTarget(sub *appv1alpha1.Subscription) (*appv1alpha1.Subscription, bool, error) {
 	//Fetch target subcription if exists
