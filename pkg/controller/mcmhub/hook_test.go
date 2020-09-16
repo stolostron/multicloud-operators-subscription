@@ -225,6 +225,7 @@ func TestPrehookHappyPathMain(t *testing.T) {
 
 	//after prehook is ready
 	forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)
+
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())

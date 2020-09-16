@@ -377,6 +377,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	//flag used to determine if we skip the posthook
 	postHookRunable := true
+
 	var preErr error
 
 	defer func() {
