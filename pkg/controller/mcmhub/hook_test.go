@@ -347,7 +347,6 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	newPre := pre.DeepCopy()
 
 	newPre.Status.AnsibleJobResult.Status = "successful"
-	newPre.Status.Condition.LastTransitionTime = metav1.Now()
 
 	return clt.Status().Update(context.TODO(), newPre)
 }

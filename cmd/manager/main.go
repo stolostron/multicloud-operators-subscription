@@ -53,5 +53,4 @@ func main() {
 	}()
 
 	exec.RunManager(signals.SetupSignalHandler())
-
 }

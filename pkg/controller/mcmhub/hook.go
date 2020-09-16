@@ -434,11 +434,7 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 	job.SetResourceVersion("")
 	// avoid the error:
 	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
-	job.Status = ansiblejob.AnsibleJobStatus{
-		Condition: ansiblejob.Condition{
-			LastTransitionTime: metav1.Now(),
-		},
-	}
+	job.Status = ansiblejob.AnsibleJobStatus{}
 
 	if subIns.Spec.HookSecretRef != nil {
 		job.Spec.TowerAuthSecretName = GetReferenceString(subIns.Spec.HookSecretRef)

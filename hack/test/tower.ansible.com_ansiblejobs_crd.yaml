@@ -63,42 +63,44 @@ spec:
                     type: string
                 type: object
               conditions:
-                description: Condition - the condition for the ansible operator.
-                properties:
-                  ansibleResult:
-                    description: bridging from https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/controller/status/types.go AnsibleResult - encapsulation of the ansible result.
-                    properties:
-                      changed:
-                        type: integer
-                      completion:
-                        format: date-time
-                        type: string
-                      failures:
-                        type: integer
-                      ok:
-                        type: integer
-                      skipped:
-                        type: integer
-                    required:
-                    - changed
-                    - completion
-                    - failures
-                    - ok
-                    - skipped
-                    type: object
-                  lastTransitionTime:
-                    format: date-time
-                    type: string
-                  message:
-                    type: string
-                  reason:
-                    type: string
-                  status:
-                    type: string
-                  type:
-                    description: ConditionType - type of condition
-                    type: string
-                type: object
+                items:
+                  description: Condition - the condition for the ansible operator.
+                  properties:
+                    ansibleResult:
+                      description: bridging from https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/controller/status/types.go AnsibleResult - encapsulation of the ansible result.
+                      properties:
+                        changed:
+                          type: integer
+                        completion:
+                          format: date-time
+                          type: string
+                        failures:
+                          type: integer
+                        ok:
+                          type: integer
+                        skipped:
+                          type: integer
+                      required:
+                      - changed
+                      - completion
+                      - failures
+                      - ok
+                      - skipped
+                      type: object
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType - type of condition
+                      type: string
+                  type: object
+                type: array
               k8sJob:
                 properties:
                   created:
