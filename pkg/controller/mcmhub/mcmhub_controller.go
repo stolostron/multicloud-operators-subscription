@@ -39,6 +39,7 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -204,6 +205,57 @@ func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
 	return requests
 }
 
+type placementRuleMapper struct {
+	client.Client
+}
+
+func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Request {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
+	// if placementrule is created/updated/deleted, its relative subscriptions should be reconciled.
+
+	var requests []reconcile.Request
+
+	subList := &appv1.SubscriptionList{}
+	listopts := &client.ListOptions{}
+	err := mapper.List(context.TODO(), subList, listopts)
+
+	if err != nil {
+		klog.Error("Listing all subscriptions in placementRuleMapper and got error:", err)
+	}
+
+	for _, sub := range subList.Items {
+		if sub.Spec.Placement != nil && sub.Spec.Placement.PlacementRef != nil {
+			plRef := sub.Spec.Placement.PlacementRef
+
+			if plRef.Name != "" {
+				plNs := obj.Meta.GetNamespace()
+
+				if plRef.Namespace != "" {
+					plNs = plRef.Namespace
+				}
+
+				objkey := types.NamespacedName{
+					Name:      plRef.Name,
+					Namespace: plNs,
+				}
+
+				requests = append(requests, reconcile.Request{NamespacedName: objkey})
+			}
+		}
+
+	}
+
+	klog.V(1).Info("Out placement mapper with requests:", requests)
+
+	return requests
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
@@ -235,6 +287,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &chnv1.Channel{}},
 		&handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}},
 		utils.ChannelPredicateFunctions)
+	if err != nil {
+		return err
+	}
+
+	// in hub, watch for placement rule changes
+	err = c.Watch(
+		&source.Kind{Type: &plrv1.PlacementRule{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: &placementRuleMapper{mgr.GetClient()}},
+		utils.PlacementRulePredicateFunctions)
 	if err != nil {
 		return err
 	}
