@@ -58,7 +58,7 @@ const (
 
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
-func Add(mgr manager.Manager, hubconfig *rest.Config) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, standalone bool) error {
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to hub cluster with error:", err)
@@ -80,11 +80,11 @@ func Add(mgr manager.Manager, hubconfig *rest.Config) error {
 	subs[chnv1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
-	return add(mgr, newReconciler(mgr, hubclient, subs))
+	return add(mgr, newReconciler(mgr, hubclient, subs, standalone))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber, standalone bool) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 
 	rec := &ReconcileSubscription{
@@ -94,6 +94,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 		subscribers:   subscribers,
 		clk:           time.Now,
 		eventRecorder: erecorder,
+		standalone:    standalone,
 	}
 
 	return rec
@@ -131,6 +132,7 @@ type ReconcileSubscription struct {
 	subscribers   map[string]appv1.Subscriber
 	clk           clock
 	eventRecorder *utils.EventRecorder
+	standalone    bool
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -173,80 +175,89 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
+	annotations := instance.GetAnnotations()
+	klog.Info("ROKEROKE annotations[appv1.AnnotationHosting] = " + annotations[appv1.AnnotationHosting])
+	klog.Infof("ROKEROKE r.standalone = %v", r.standalone)
 	pl := instance.Spec.Placement
 	if pl != nil && pl.Local != nil && *pl.Local {
-		reconcileErr := r.doReconcile(instance)
+		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
+			(!strings.EqualFold(annotations[appv1.AnnotationHosting], "") && !r.standalone) {
+			reconcileErr := r.doReconcile(instance)
 
-		// doReconcile updates the subscription. Later this function fails to update the subscription status
-		// if the same subscription resource is used because it has already been updated by reconcile.
-		// Get the newly updated subscription resource.
-		_ = r.Get(context.TODO(), request.NamespacedName, instance)
+			// doReconcile updates the subscription. Later this function fails to update the subscription status
+			// if the same subscription resource is used because it has already been updated by reconcile.
+			// Get the newly updated subscription resource.
+			_ = r.Get(context.TODO(), request.NamespacedName, instance)
 
-		instance.Status.Phase = appv1.SubscriptionSubscribed
-		instance.Status.Reason = ""
-
-		if reconcileErr != nil {
-			instance.Status.Phase = appv1.SubscriptionFailed
-			instance.Status.Reason = reconcileErr.Error()
-			klog.Errorf("doReconcile got error %v", reconcileErr)
-		}
-	} else {
-		// no longer local
-
-		// if the subscription pause lable is true, stop unsubscription here.
-		if subutil.GetPauseLabel(instance) {
-			klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
-			return reconcile.Result{}, nil
-		}
-
-		for _, sub := range r.subscribers {
-			_ = sub.UnsubscribeItem(request.NamespacedName)
-		}
-
-		if instance.Status.Phase == appv1.SubscriptionFailed || instance.Status.Phase == appv1.SubscriptionSubscribed {
-			instance.Status.Phase = ""
-			instance.Status.Message = ""
+			instance.Status.Phase = appv1.SubscriptionSubscribed
 			instance.Status.Reason = ""
+
+			if reconcileErr != nil {
+				instance.Status.Phase = appv1.SubscriptionFailed
+				instance.Status.Reason = reconcileErr.Error()
+				klog.Errorf("doReconcile got error %v", reconcileErr)
+			}
+
+			/*} else {
+				// no longer local
+
+				// if the subscription pause lable is true, stop unsubscription here.
+				if subutil.GetPauseLabel(instance) {
+					klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
+					return reconcile.Result{}, nil
+				}
+
+				for _, sub := range r.subscribers {
+					_ = sub.UnsubscribeItem(request.NamespacedName)
+				}
+
+				if instance.Status.Phase == appv1.SubscriptionFailed || instance.Status.Phase == appv1.SubscriptionSubscribed {
+					instance.Status.Phase = ""
+					instance.Status.Message = ""
+					instance.Status.Reason = ""
+				}
+
+				if instance.Status.Statuses != nil {
+					delete(instance.Status.Statuses, types.NamespacedName{}.String())
+				}
+			}*/
+
+			// if the subscription pause lable is true, stop updating subscription status.
+			if subutil.GetPauseLabel(instance) {
+				klog.Info("updating subscription status: ", request.NamespacedName, " is paused")
+				return reconcile.Result{}, nil
+			}
+
+			instance.Status.LastUpdateTime = metav1.Now()
+
+			// calculate the requeue time for updating the timewindow status
+			nextStatusUpateAt := time.Duration(0)
+
+			if instance.Spec.TimeWindow == nil {
+				instance.Status.Message = subscriptionActive
+			} else {
+				if utils.IsInWindow(instance.Spec.TimeWindow, r.clk()) {
+					instance.Status.Message = subscriptionActive
+				} else {
+					instance.Status.Message = subscriptionBlock
+				}
+				nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
+			}
+
+			err = r.Status().Update(context.TODO(), instance)
+
+			result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
+
+			if err != nil {
+				klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
+
+				result.RequeueAfter = 1 * time.Second
+			}
+
+			return result, err
 		}
-
-		if instance.Status.Statuses != nil {
-			delete(instance.Status.Statuses, types.NamespacedName{}.String())
-		}
 	}
-
-	// if the subscription pause lable is true, stop updating subscription status.
-	if subutil.GetPauseLabel(instance) {
-		klog.Info("updating subscription status: ", request.NamespacedName, " is paused")
-		return reconcile.Result{}, nil
-	}
-
-	instance.Status.LastUpdateTime = metav1.Now()
-
-	// calculate the requeue time for updating the timewindow status
-	nextStatusUpateAt := time.Duration(0)
-
-	if instance.Spec.TimeWindow == nil {
-		instance.Status.Message = subscriptionActive
-	} else {
-		if utils.IsInWindow(instance.Spec.TimeWindow, r.clk()) {
-			instance.Status.Message = subscriptionActive
-		} else {
-			instance.Status.Message = subscriptionBlock
-		}
-		nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
-	}
-
-	err = r.Status().Update(context.TODO(), instance)
-
-	result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
-
-	if err != nil {
-		klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
-
-		result.RequeueAfter = 1 * time.Second
-	}
-
-	return result, err
+	return reconcile.Result{}, nil
 }
 
 func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error {

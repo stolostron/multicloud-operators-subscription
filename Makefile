@@ -15,7 +15,7 @@
 
 # This repo is build in Travis-ci by default;
 # Override this variable in local env.
-TRAVIS_BUILD  ?= 1
+TRAVIS_BUILD  ?= 0
 
 # Image URL to use all building/pushing image targets;
 # Use your own docker registry and image name for dev/test by overridding the IMG and REGISTRY environment variable.

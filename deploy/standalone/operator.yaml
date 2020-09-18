@@ -1,30 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicloud-operators-subscription
-  namespace: multicloud-operators
+  name: uninstall-crd
+  namespace: open-cluster-management
   labels:
-    name: multicloud-operators-subscription
+    name: uninstall-crd
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicloud-operators-subscription
+      name: uninstall-crd
   template:
     metadata:
       labels:
-        name: multicloud-operators-subscription
+        name: uninstall-crd
     spec:
-      serviceAccountName: multicloud-operators
       containers:
-        - name: multicloud-operators-subscription
-          image: quay.io/open-cluster-management/multicluster-operators-subscription:community-latest
+        - name: uninstall-crd
+          image: docker.io/rokejungibm/multicloud-operators-subscription:18e
           ports:
           - containerPort: 8443
           command:
-          - /usr/local/bin/multicluster-operators-subscription
-          - --sync-interval=10
-          - --standalone
+          - uninstall-crd 
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -41,3 +38,12 @@ spec:
               limits:
                 cpu: 500m
                 memory: 512Mi
+          securityContext:
+            capabilities:
+              drop:
+              - MKNOD
+      securityContext:
+        seLinuxOptions:
+          level: s0:c24,c9
+      serviceAccount: multicluster-operators
+      serviceAccountName: multicluster-operators

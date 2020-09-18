@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
@@ -127,7 +128,12 @@ func RunManager(sig <-chan struct{}) {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
-	} else if err := setupStandalone(mgr, hubconfig, id); err != nil {
+	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+		if err := setupStandalone(mgr, hubconfig, id, false); err != nil {
+			klog.Error("Failed to setup standalone subscription, error:", err)
+			os.Exit(1)
+		}
+	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
 	}
@@ -180,7 +186,7 @@ func RunManager(sig <-chan struct{}) {
 	}
 }
 
-func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName) error {
+func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName, standalone bool) error {
 	// Setup Synchronizer
 	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
@@ -194,7 +200,7 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, standalone); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}

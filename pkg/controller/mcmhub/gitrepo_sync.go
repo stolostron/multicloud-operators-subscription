@@ -95,34 +95,40 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			sub.SetAnnotations(annotations)
 		}
 
-		// Delete the existing deployables and recreate them
-		r.deleteSubscriptionDeployables(sub)
+		// Compare the commit to the Git repo and update deployables only if the commit has changed
+		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) {
 
-		annotations[appv1.AnnotationGitCommit] = commit
-		sub.SetAnnotations(annotations)
+			klog.Infof("The Git commit has changed since the last reconciliation. Regenerating the deployable list.")
 
-		baseDir := utils.GetLocalGitFolder(channel, sub)
-		resourcePath := getResourcePath(channel, sub)
+			// Delete the existing deployables and recreate them
+			r.deleteSubscriptionDeployables(sub)
 
-		err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
+			annotations[appv1.AnnotationGitCommit] = commit
+			sub.SetAnnotations(annotations)
 
-		if err != nil {
-			klog.Error(err.Error())
-			return false, err
-		}
+			baseDir := utils.GetLocalGitFolder(channel, sub)
+			resourcePath := getResourcePath(channel, sub)
 
-		r.updateGitSubDeployablesAnnotation(sub)
+			err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
 
-		// Check and add cluster-admin annotation for multi-namepsace application
-		r.AddClusterAdminAnnotation(sub)
+			if err != nil {
+				klog.Error(err.Error())
+				return false, err
+			}
 
-		if annotations[appv1.AnnotationDeployables] == "" {
-			// this might have failed previously. Try again.
 			r.updateGitSubDeployablesAnnotation(sub)
-		}
 
-		if ifUpdateGitSubscriptionAnnotation(origsub, sub) {
-			updated = true
+			// Check and add cluster-admin annotation for multi-namepsace application
+			r.AddClusterAdminAnnotation(sub)
+
+			if annotations[appv1.AnnotationDeployables] == "" {
+				// this might have failed previously. Try again.
+				r.updateGitSubDeployablesAnnotation(sub)
+			}
+
+			if ifUpdateGitSubscriptionAnnotation(origsub, sub) {
+				updated = true
+			}
 		}
 	}
 

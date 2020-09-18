@@ -117,7 +117,7 @@ func TestReconcileWithoutTimeWindowStatusFlow(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil)
+	rec := newReconciler(mgr, mgr.GetClient(), nil, false)
 	recFn, requests := SetupTestReconcile(rec)
 
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
@@ -164,7 +164,7 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+	rec := newReconciler(mgr, mgr.GetClient(), nil, false).(*ReconcileSubscription)
 
 	// no channel
 	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
