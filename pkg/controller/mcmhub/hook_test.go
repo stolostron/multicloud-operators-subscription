@@ -368,6 +368,28 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	return clt.Status().Update(context.TODO(), newPre)
 }
 
+func forceUpdateSubDpl(g *gomega.GomegaWithT, clt client.Client, subIns *subv1.Subscription) {
+	hubdpl := &dplv1.Deployable{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      subIns.Name + "-deployable",
+			Namespace: subIns.Namespace,
+		},
+		Spec: dplv1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: &corev1.ConfigMap{},
+			},
+		},
+	}
+
+	if err := clt.Create(context.TODO(), hubdpl); err != nil {
+		g.Expect(kerr.IsAlreadyExists(err)).Should(gomega.Succeed())
+	}
+
+	hubdpl.Status.Phase = dplv1.DeployablePropagated
+
+	g.Expect(clt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
+}
+
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
 func TestPosthookHappyPathWithPreHooks(t *testing.T) {
@@ -411,27 +433,6 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	// mock the subscription deployable status,which is copied over to the
 	// subsritption status
-	forceUpdateSubDpl := func() {
-		hubdpl := &dplv1.Deployable{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      subIns.Name + "-deployable",
-				Namespace: subIns.Namespace,
-			},
-			Spec: dplv1.DeployableSpec{
-				Template: &runtime.RawExtension{
-					Object: &corev1.ConfigMap{},
-				},
-			},
-		}
-
-		if err := k8sClt.Create(context.TODO(), hubdpl); err != nil {
-			g.Expect(kerr.IsAlreadyExists(err)).Should(gomega.Succeed())
-		}
-
-		hubdpl.Status.Phase = dplv1.DeployablePropagated
-
-		g.Expect(k8sClt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
-	}
 
 	//reconcile tries to create posthook and failed on the not-ready status
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
@@ -440,7 +441,7 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	//mock the status of managed cluster
-	forceUpdateSubDpl()
+	forceUpdateSubDpl(g, k8sClt, subIns)
 
 	//make sure the prehook is created
 	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
@@ -545,27 +546,8 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	g.Expect(k8sClt.Status().Update(context.TODO(), subIns)).Should(gomega.Succeed())
 	// mock the subscription deployable status,which is copied over to the
 	// subsritption status
-	forceUpdateSubDpl := func() {
-		hubdpl := &dplv1.Deployable{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      subIns.Name + "-deployable",
-				Namespace: subIns.Namespace,
-			},
-			Spec: dplv1.DeployableSpec{
-				Template: &runtime.RawExtension{
-					Object: &corev1.ConfigMap{},
-				},
-			},
-		}
 
-		g.Expect(k8sClt.Create(context.TODO(), hubdpl)).Should(gomega.Succeed())
-
-		hubdpl.Status.Phase = dplv1.DeployablePropagated
-
-		g.Expect(k8sClt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
-	}
-
-	forceUpdateSubDpl()
+	forceUpdateSubDpl(g, k8sClt, subIns)
 
 	//reconcile should be able to find the subscription and it should able to
 	//pares status.statues
