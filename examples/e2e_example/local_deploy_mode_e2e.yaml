@@ -1,0 +1,64 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: helm-local
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: helm-sub-app
+  namespace: helm-local 
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: helm-sub-local
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skip-cert-verify
+  namespace: helm-local
+data:
+  insecureSkipVerify: "true"
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: helm-ch
+  namespace: helm-local
+  labels:
+    name: helm-sub-local
+spec:
+  type: HelmRepo
+  pathname: https://ianzhang366.github.io/guestbook-chart/
+  configMapRef: 
+    name: skip-cert-verify
+    apiVersion: v1
+    kind: ConfigMap
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: local-sub-test
+  namespace: helm-local
+  labels:
+    name: helm-sub-local
+spec:
+  channel: helm-local/helm-ch
+  name: gbapp
+  packageFilter:
+    version: "0.1.0"
+  placement:
+    local: true
+  packageOverrides:
+  - packageName: nginx-ingress
+    packageOverrides:
+    - path: spec
+      value:
+        defaultBackend:
+          replicaCount: 1
