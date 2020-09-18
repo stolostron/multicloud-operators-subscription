@@ -146,6 +146,8 @@ type SubscriptionSpec struct {
 	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
+	// +optional
+	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription
@@ -183,6 +185,15 @@ type SubscriptionPerClusterStatus struct {
 // SubscriptionClusterStatusMap defines per cluster status, key is cluster name
 type SubscriptionClusterStatusMap map[string]*SubscriptionPerClusterStatus
 
+//
+type AnsibleJobsStatus struct {
+	LastPrehookJob     string   `json:"lastprehookjob,omitempty"`
+	PrehookJobsHistory []string `json:"prehookjobshistory,omitempty"`
+
+	LastPosthookJob     string   `json:"lastposthookjob,omitempty"`
+	PosthookJobsHistory []string `json:"posthookjobshistory,omitempty"`
+}
+
 // SubscriptionStatus defines the observed state of Subscription
 // Examples - status of a subscription on hub
 //Status:
@@ -212,13 +223,15 @@ type SubscriptionStatus struct {
 	Reason         string            `json:"reason,omitempty"`
 	LastUpdateTime metav1.Time       `json:"lastUpdateTime,omitempty"`
 
+	// +optional
+	AnsibleJobsStatus AnsibleJobsStatus `json:"ansiblejobs,omitempty"`
 	// For endpoint, it is the status of subscription, key is packagename,
 	// For hub, it aggregates all status, key is cluster name
 	Statuses SubscriptionClusterStatusMap `json:"statuses,omitempty"`
 }
 
 // +genclient
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // Subscription is the Schema for the subscriptions API
 // +k8s:openapi-gen=true
@@ -234,7 +247,7 @@ type Subscription struct {
 	Status SubscriptionStatus `json:"status,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // SubscriptionList contains a list of Subscription
 type SubscriptionList struct {
@@ -255,6 +268,7 @@ type SubscriberItem struct {
 }
 
 // Subscriber efines common interface of different channel types
+// +kubebuilder:object:generate=false
 type Subscriber interface {
 	SubscribeItem(*SubscriberItem) error
 	UnsubscribeItem(types.NamespacedName) error

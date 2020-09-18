@@ -1,0 +1,135 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.0
+  creationTimestamp: null
+  name: ansiblejobs.tower.ansible.com
+spec:
+  group: tower.ansible.com
+  names:
+    kind: AnsibleJob
+    listKind: AnsibleJobList
+    plural: ansiblejobs
+    singular: ansiblejob
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: AnsibleJob is the Schema for the ansiblejobs API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: AnsibleJobSpec defines the desired state of AnsibleJob
+            properties:
+              extra_vars:
+                type: object
+              inventory:
+                type: string
+              job_template_name:
+                type: string
+              tower_auth_secret:
+                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run "make" to regenerate code after modifying this file'
+                type: string
+            type: object
+          status:
+            description: AnsibleJobStatus defines the observed state of AnsibleJob
+            properties:
+              ansibleJobResult:
+                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of cluster Important: Run "make" to regenerate code after modifying this file'
+                properties:
+                  changed:
+                    type: boolean
+                  elapsed:
+                    type: string
+                  failed:
+                    type: boolean
+                  finished:
+                    type: string
+                  started:
+                    type: string
+                  status:
+                    type: string
+                  url:
+                    type: string
+                type: object
+              conditions:
+                items:
+                  description: Condition - the condition for the ansible operator.
+                  properties:
+                    ansibleResult:
+                      description: bridging from https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/controller/status/types.go AnsibleResult - encapsulation of the ansible result.
+                      properties:
+                        changed:
+                          type: integer
+                        completion:
+                          type: object
+                        failures:
+                          type: integer
+                        ok:
+                          type: integer
+                        skipped:
+                          type: integer
+                      required:
+                      - changed
+                      - completion
+                      - failures
+                      - ok
+                      - skipped
+                      type: object
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    reason:
+                      type: string
+                    status:
+                      type: string
+                    type:
+                      description: ConditionType - type of condition
+                      type: string
+                  type: object
+                type: array
+              k8sJob:
+                properties:
+                  created:
+                    type: boolean
+                  env:
+                    properties:
+                      secretNamespacedName:
+                        type: string
+                      templateName:
+                        type: string
+                      verifySSL:
+                        type: boolean
+                    type: object
+                  message:
+                    type: string
+                  namespacedName:
+                    type: string
+                type: object
+              message:
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+

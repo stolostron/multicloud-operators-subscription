@@ -99,6 +99,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		r.deleteSubscriptionDeployables(sub)
 
 		annotations[appv1.AnnotationGitCommit] = commit
+		annotations = appendAnsiblejobToSubsriptionAnnotation(annotations, sub.Status.AnsibleJobsStatus)
+
 		sub.SetAnnotations(annotations)
 
 		baseDir := utils.GetLocalGitFolder(channel, sub)
@@ -336,6 +338,8 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	klog.V(3).Infof("dplStr string: %v\n chartStr %v", tpStr, chartRes)
 
 	subanno[appv1.AnnotationTopo] = tpStr
+
+	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 	sub.SetAnnotations(subanno)
 
 	klog.V(3).Infof("topo string: %v", tpStr)
@@ -398,7 +402,6 @@ func (r *ReconcileSubscription) deleteSubscriptionDeployables(sub *appv1.Subscri
 func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv1.Subscription, rscFiles []string, baseDir string) {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
-		klog.Info("Processing ... " + rscFile)
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
@@ -406,7 +409,14 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 			continue
 		}
 
+		//skip pre/posthook folder
 		dir, _ := filepath.Split(rscFile)
+
+		if strings.HasSuffix(dir, PrehookDirSuffix) || strings.HasSuffix(dir, PosthookDirSuffix) {
+			continue
+		}
+
+		klog.Info("Processing ... " + rscFile)
 
 		resourceDir := strings.Split(dir, baseDir)[1]
 		resourceDir = strings.Trim(resourceDir, "/")

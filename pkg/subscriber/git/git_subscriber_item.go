@@ -554,7 +554,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 	// crdsAndNamespaceFiles contains CustomResourceDefinition and Namespace Kubernetes resources file paths
 	// rbacFiles contains ServiceAccount, ClusterRole and Role Kubernetes resource file paths
 	// otherFiles contains all other Kubernetes resource file paths
-	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(ghsi.repoRoot, resourcePath)
+	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(ghsi.repoRoot, resourcePath, utils.SkipHooksOnManaged)
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
 		return err

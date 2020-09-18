@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 )
 
@@ -50,6 +51,7 @@ func TestMain(m *testing.M) {
 		KubeAPIServerFlags: apiServerFlags,
 	}
 
+	ansiblejob.AddToScheme(scheme.Scheme)
 	apis.AddToScheme(scheme.Scheme)
 
 	var err error

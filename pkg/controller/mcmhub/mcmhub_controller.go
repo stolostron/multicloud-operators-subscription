@@ -16,8 +16,8 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"math/rand"
-	"reflect"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -28,6 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -36,6 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-logr/logr"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -70,6 +72,12 @@ rules:
   verbs:
   - '*'`
 
+const (
+	hubLogger                  = "subscription-hub-reconciler"
+	defaultHookRequeueInterval = time.Second * 15
+	INFOLevel                  = 1
+)
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -81,16 +89,27 @@ func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
+//Option provide easy way to test the reconciler
+type Option func(*ReconcileSubscription)
+
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
+func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
+	logger := klogr.New().WithName(hubLogger)
 
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
 		// used for the helm to run get the resource list
-		cfg:           mgr.GetConfig(),
-		scheme:        mgr.GetScheme(),
-		eventRecorder: erecorder,
+		cfg:                 mgr.GetConfig(),
+		scheme:              mgr.GetScheme(),
+		eventRecorder:       erecorder,
+		logger:              logger,
+		hookRequeueInterval: defaultHookRequeueInterval,
+		hooks:               NewAnsibleHooks(mgr.GetClient(), logger),
+	}
+
+	for _, f := range op {
+		f(rec)
 	}
 
 	return rec
@@ -233,22 +252,14 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 		if sub.Spec.Placement != nil && sub.Spec.Placement.PlacementRef != nil {
 			plRef := sub.Spec.Placement.PlacementRef
 
-			if plRef.Name != "" {
-				plNs := obj.Meta.GetNamespace()
-
-				if plRef.Namespace != "" {
-					plNs = plRef.Namespace
-				}
-
-				objkey := types.NamespacedName{
-					Name:      plRef.Name,
-					Namespace: plNs,
-				}
-
-				requests = append(requests, reconcile.Request{NamespacedName: objkey})
+			if plRef.Name != obj.Meta.GetName() || plRef.Namespace != obj.Meta.GetNamespace() {
+				continue
 			}
-		}
 
+			subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
+
+			requests = append(requests, reconcile.Request{NamespacedName: subKey})
+		}
 	}
 
 	klog.V(1).Info("Out placement mapper with requests:", requests)
@@ -311,9 +322,12 @@ type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client.Client
-	cfg           *rest.Config
-	scheme        *runtime.Scheme
-	eventRecorder *utils.EventRecorder
+	logger              logr.Logger
+	cfg                 *rest.Config
+	scheme              *runtime.Scheme
+	eventRecorder       *utils.EventRecorder
+	hookRequeueInterval time.Duration
+	hooks               HookProcessor
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
@@ -405,23 +419,101 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 	}
 }
 
+func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscription) error {
+	if newSub == nil {
+		return nil
+	}
+
+	subKey := types.NamespacedName{Name: newSub.GetName(), Namespace: newSub.GetNamespace()}
+
+	ins := &appv1.Subscription{}
+	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
+		return err
+	}
+
+	// prehook update
+	if preErr != nil {
+		ins.Status.Phase = appv1.SubscriptionPropagationFailed
+		ins.Status.Reason = preErr.Error()
+		ins.Status.LastUpdateTime = metav1.Now()
+
+		if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
+			return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+		}
+
+		return nil
+	}
+
+	// append the hook status
+	newSub = r.hooks.AppendStatusToSubscription(newSub)
+	ins.Status = *newSub.Status.DeepCopy()
+	newSub.Status.LastUpdateTime = metav1.Now()
+
+	if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
+		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+	}
+
+	return nil
+}
+
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	klog.Info("MCM Hub Reconciling subscription: ", request.NamespacedName)
+func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
+	logger := r.logger.WithName(request.String())
+	logger.V(INFOLevel).Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
+
+	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
+
+	//flag used to determine if we skip the posthook
+	postHookRunable := true
+
+	var preErr error
+
+	instance := &appv1.Subscription{}
+
+	defer func() {
+		if !postHookRunable {
+			//only write the
+			if err := r.updateStatus(preErr, instance); err != nil && result.RequeueAfter == time.Duration(0) {
+				result.RequeueAfter = 1 * time.Second
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+			}
+
+			return
+		}
+
+		//update the propagation
+		if err := r.updateStatus(nil, instance); err != nil {
+			result.RequeueAfter = 1 * time.Second
+			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+
+			return
+		}
+
+		err := r.hooks.ApplyPostHooks(request.NamespacedName)
+		// post hook will in a apply and don't report back manner
+
+		if err != nil {
+			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+
+			result.RequeueAfter = r.hookRequeueInterval
+		}
+	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	instance := &appv1.Subscription{}
 	err = r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			// Object not found, delete existing subscriberitem if any
+			if err := r.hooks.DeregisterSubscription(request.NamespacedName); err != nil {
+				return reconcile.Result{}, err
+			}
 
 			return reconcile.Result{}, nil
 		}
@@ -429,18 +521,52 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		return reconcile.Result{}, err
 	}
 
-	// save original status
-	orgst := instance.Status.DeepCopy()
+	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
+		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+
+		postHookRunable = false
+
+		return reconcile.Result{}, nil
+	}
+
+	//if it's registered
+	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+
+		postHookRunable = false
+
+		return reconcile.Result{}, nil
+	}
+
+	//if it's registered
+	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+	if !b || err != nil {
+		// used for use the status update
+		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
+
+		if err != nil {
+			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+			return reconcile.Result{}, nil
+		}
+
+		result.RequeueAfter = r.hookRequeueInterval
+		postHookRunable = false
+
+		return result, nil
+	}
 
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.Infof("Subscription: %v", request.NamespacedName.String())
+	klog.Infof("Subscription: %v with placemen %#v", request.NamespacedName.String(), pl)
 
+	//status changes below show override the prehook status
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+		oins := instance.DeepCopy()
+		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
 
 		if err != nil {
@@ -451,7 +577,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
 		}
-	} else {
+
+		if utils.IsSubscriptionChanged(oins, instance) {
+			//if use instance directly, the instance will be override by the
+			//update
+			returnErr = r.Client.Update(context.TODO(), instance.DeepCopy())
+
+			return
+		}
+	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
 		if err != nil {
@@ -475,22 +609,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		}
 	}
 
-	result := reconcile.Result{}
-
-	if !reflect.DeepEqual(*orgst, instance.Status) {
-		klog.Info("MCM Hub updating subscriptoin status to ", instance.Status)
-
-		instance.Status.LastUpdateTime = metav1.Now()
-
-		err = r.Status().Update(context.TODO(), instance)
-
-		if err != nil {
-			klog.Error("Failed to update status for mcm hub subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
-
-			result.RequeueAfter = 1 * time.Second
-		}
-	}
-
 	if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		// ask the cluster for the latest version of the instace, since the
 		// doMCMHubReconcile() func might update the instance
@@ -505,7 +623,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			//skip gosec G404 since the random number is only used for requeue
 			//timer
 			// #nosec G404
-			return reconcile.Result{RequeueAfter: time.Second * time.Duration(rand.Intn(10))}, nil
+			if result.RequeueAfter == 0 {
+				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
+			}
 		}
 	}
 

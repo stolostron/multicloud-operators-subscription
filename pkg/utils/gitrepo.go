@@ -55,8 +55,23 @@ type kubeResource struct {
 	Kind       string `yaml:"kind"`
 }
 
+//KKubeResource export the kuKubeResource for other package
+type KubeResource struct {
+	kubeResource
+}
+
 // ParseKubeResoures parses a YAML content and returns kube resources in byte array from the file
 func ParseKubeResoures(file []byte) [][]byte {
+	cond := func(t KubeResource) bool {
+		return t.APIVersion == "" || t.Kind == ""
+	}
+
+	return KubeResourcePaser(file, cond)
+}
+
+type Kube func(KubeResource) bool
+
+func KubeResourcePaser(file []byte, cond Kube) [][]byte {
 	var ret [][]byte
 
 	items := strings.Split(string(file), "---")
@@ -64,7 +79,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 	for _, i := range items {
 		item := []byte(strings.Trim(i, "\t \n"))
 
-		t := kubeResource{}
+		t := KubeResource{}
 		err := yaml.Unmarshal(item, &t)
 
 		if err != nil {
@@ -73,7 +88,7 @@ func ParseKubeResoures(file []byte) [][]byte {
 			continue
 		}
 
-		if t.APIVersion == "" || t.Kind == "" {
+		if cond(t) {
 			// Ignore item that does not have apiVersion or kind.
 			klog.Warning("Not a Kubernetes resource")
 		} else {
@@ -207,9 +222,19 @@ func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
 }
 
+type SkipFunc func(string, string) bool
+
 // SortResources sorts kube resources into different arrays for processing them later.
-func SortResources(repoRoot, resourcePath string) (map[string]string, map[string]string, []string, []string, []string, error) {
+func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string]string, map[string]string, []string, []string, []string, error) {
 	klog.V(4).Info("Git repo subscription directory: ", resourcePath)
+
+	var skip SkipFunc
+
+	if len(skips) == 0 {
+		skip = func(string, string) bool { return false }
+	} else {
+		skip = skips[0]
+	}
 
 	// In the cloned git repo root, find all helm chart directories
 	chartDirs := make(map[string]string)
@@ -241,7 +266,7 @@ func SortResources(repoRoot, resourcePath string) (map[string]string, map[string
 				relativePath = strings.SplitAfter(path, repoRoot+"/")[1]
 			}
 
-			if !kubeIgnore.MatchesPath(relativePath) {
+			if !kubeIgnore.MatchesPath(relativePath) && !skip(resourcePath, path) {
 				if info.IsDir() {
 					klog.V(4).Info("Ignoring subfolders of ", currentChartDir)
 					if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
@@ -342,12 +367,21 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 	return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 }
 
+func SkipHooksOnManaged(resourcePath, curPath string) bool {
+	PREHOOK := "prehook"
+	POSTHOOK := "posthook"
+
+	// of the resource root.
+	pre := fmt.Sprintf("%s/%s", resourcePath, PREHOOK)
+	post := fmt.Sprintf("%s/%s", resourcePath, POSTHOOK)
+
+	return strings.HasPrefix(curPath, pre) || strings.HasPrefix(curPath, post)
+}
+
 // GetKubeIgnore get .kubernetesignore list
 func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
 
-	// Initialize .kubernetesIngore with no content and re-initialize it if the file is found in the root
-	// of the resource root.
 	lines := []string{""}
 	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
 
