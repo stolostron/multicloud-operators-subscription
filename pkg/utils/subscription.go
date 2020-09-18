@@ -27,6 +27,7 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -150,6 +151,23 @@ var ChannelPredicateFunctions = predicate.Funcs{
 		oldChn := e.ObjectOld.(*chnv1.Channel)
 
 		return !reflect.DeepEqual(newChn.Spec, oldChn.Spec)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
+}
+
+// PlacementRulePredicateFunctions filters PlacementRule status decisions update
+var PlacementRulePredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newPlr := e.ObjectNew.(*plrv1.PlacementRule)
+		oldPlr := e.ObjectOld.(*plrv1.PlacementRule)
+
+		return !reflect.DeepEqual(newPlr.Status.Decisions, oldPlr.Status.Decisions)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
 		return true
