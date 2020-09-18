@@ -217,7 +217,9 @@ func TestPrehookHappyPathMain(t *testing.T) {
 
 	// there's an update request triggered, so we might want to wait for a bit
 	time.Sleep(3 * time.Second)
+
 	updateSub := &subv1.Subscription{}
+
 	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
 
 	// when the prehook is not ready
@@ -450,15 +452,21 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 	//reconcile checkout the susbcription status
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(err).Should(gomega.Succeed())
 	//reconcile checkout the susbcription status
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(err).Should(gomega.Succeed())
 	//reconcile checkout the susbcription status
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(err).Should(gomega.Succeed())
 	//reconcile checkout the susbcription status
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(err).Should(gomega.Succeed())
 
 	//reconcile will create the post ansiblejob
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	g.Expect(err).Should(gomega.Succeed())
+
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())

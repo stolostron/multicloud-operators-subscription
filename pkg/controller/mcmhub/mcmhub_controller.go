@@ -267,7 +267,6 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				requests = append(requests, reconcile.Request{NamespacedName: objkey})
 			}
 		}
-
 	}
 
 	klog.V(1).Info("Out placement mapper with requests:", requests)
@@ -427,7 +426,7 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 	}
 }
 
-func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscription) (returnErr error) {
+func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscription) error {
 	if newSub == nil {
 		return nil
 	}
@@ -436,8 +435,7 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 
 	ins := &appv1.Subscription{}
 	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
-		returnErr = err
-		return
+		return err
 	}
 
 	// prehook update
@@ -447,11 +445,10 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 		ins.Status.LastUpdateTime = metav1.Now()
 
 		if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
-			returnErr = fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+			return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
 		}
 
 		return nil
-
 	}
 
 	// append the hook status
@@ -460,10 +457,10 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 	newSub.Status.LastUpdateTime = metav1.Now()
 
 	if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
-		returnErr = fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
 	}
 
-	return returnErr
+	return nil
 }
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
@@ -478,6 +475,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	postHookRunable := true
 
 	var preErr error
+
 	instance := &appv1.Subscription{}
 
 	defer func() {
@@ -495,6 +493,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		if err := r.updateStatus(nil, instance); err != nil {
 			result.RequeueAfter = 1 * time.Second
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+
 			return
 		}
 
@@ -506,8 +505,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 			result.RequeueAfter = r.hookRequeueInterval
 		}
-
-		return
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
@@ -595,7 +592,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 			return
 		}
-
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)

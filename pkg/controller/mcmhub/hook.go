@@ -314,6 +314,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+
 	if err := a.clt.Get(context.TODO(), chnkey, chn); err != nil {
 		return err
 	}
@@ -540,9 +541,9 @@ func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (boo
 	}
 
 	subFailSet := map[subv1.SubscriptionPhase]struct{}{
-		subv1.SubscriptionPropagationFailed: struct{}{},
-		subv1.SubscriptionFailed:            struct{}{},
-		subv1.SubscriptionUnknown:           struct{}{},
+		subv1.SubscriptionPropagationFailed: {},
+		subv1.SubscriptionFailed:            {},
+		subv1.SubscriptionUnknown:           {},
 	}
 	//check up the hub cluster status
 	if _, ok := subFailSet[subIns.Status.Phase]; ok {

@@ -68,11 +68,6 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	// so remove them before comparison to avoid triggering another reconciliation.
 	oldAnnotations := oSub.GetAnnotations()
 	newAnnotations := nSub.GetAnnotations()
-	//
-	//	delete(oldAnnotations, appv1.AnnotationDeployables)
-	//	delete(oldAnnotations, appv1.AnnotationTopo)
-	//	delete(newAnnotations, appv1.AnnotationDeployables)
-	//	delete(newAnnotations, appv1.AnnotationTopo)
 
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
