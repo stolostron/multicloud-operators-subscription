@@ -30,6 +30,7 @@ import (
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -216,7 +217,6 @@ func TestPrehookHappyPathMain(t *testing.T) {
 
 	// there's an update request triggered, so we might want to wait for a bit
 	time.Sleep(3 * time.Second)
-
 	updateSub := &subv1.Subscription{}
 	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
 
@@ -422,30 +422,45 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 			},
 		}
 
-		g.Expect(k8sClt.Create(context.TODO(), hubdpl)).Should(gomega.Succeed())
+		if err := k8sClt.Create(context.TODO(), hubdpl); err != nil {
+			g.Expect(kerr.IsAlreadyExists(err)).Should(gomega.Succeed())
+		}
 
 		hubdpl.Status.Phase = dplv1.DeployablePropagated
 
 		g.Expect(k8sClt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
 	}
 
-	forceUpdateSubDpl()
-
-	//reconcile will create an ansible job for the subscription
+	//reconcile tries to create posthook and failed on the not-ready status
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
 	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
+	//mock the status of managed cluster
+	forceUpdateSubDpl()
+
+	//make sure the prehook is created
 	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
 
-	//reconcile will create an ansible job for the subscription
+	time.Sleep(5 * time.Second)
+	//reconcile update the status of the subscription itself
 	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 	g.Expect(err).Should(gomega.Succeed())
 
+	//reconcile checkout the susbcription status
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	//reconcile checkout the susbcription status
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	//reconcile checkout the susbcription status
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	//reconcile checkout the susbcription status
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+
+	//reconcile will create the post ansiblejob
+	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
-	time.Sleep(10 * time.Second)
 	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
 
 	//test if the ansiblejob have a owner set

@@ -67,11 +67,11 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	// so remove them before comparison to avoid triggering another reconciliation.
 	oldAnnotations := oSub.GetAnnotations()
 	newAnnotations := nSub.GetAnnotations()
-
-	delete(oldAnnotations, appv1.AnnotationDeployables)
-	delete(oldAnnotations, appv1.AnnotationTopo)
-	delete(newAnnotations, appv1.AnnotationDeployables)
-	delete(newAnnotations, appv1.AnnotationTopo)
+	//
+	//	delete(oldAnnotations, appv1.AnnotationDeployables)
+	//	delete(oldAnnotations, appv1.AnnotationTopo)
+	//	delete(newAnnotations, appv1.AnnotationDeployables)
+	//	delete(newAnnotations, appv1.AnnotationTopo)
 
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
@@ -81,7 +81,7 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	// we care spec for sure, we use the generation of 2 object to track the
 	// spec version
 	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
-	if oSub.GetGeneration() != nSub.GetGeneration() {
+	if !reflect.DeepEqual(oSub.Spec, nSub.Spec) {
 		return true
 	}
 

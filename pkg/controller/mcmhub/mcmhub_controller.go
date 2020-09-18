@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"reflect"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -367,6 +366,45 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 	}
 }
 
+func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscription) (returnErr error) {
+	if newSub == nil {
+		return nil
+	}
+
+	subKey := types.NamespacedName{Name: newSub.GetName(), Namespace: newSub.GetNamespace()}
+
+	ins := &appv1.Subscription{}
+	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
+		returnErr = err
+		return
+	}
+
+	// prehook update
+	if preErr != nil {
+		ins.Status.Phase = appv1.SubscriptionPropagationFailed
+		ins.Status.Reason = preErr.Error()
+		ins.Status.LastUpdateTime = metav1.Now()
+
+		if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
+			returnErr = fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+		}
+
+		return nil
+
+	}
+
+	// append the hook status
+	newSub = r.hooks.AppendStatusToSubscription(newSub)
+	ins.Status = *newSub.Status.DeepCopy()
+	newSub.Status.LastUpdateTime = metav1.Now()
+
+	if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
+		returnErr = fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
+	}
+
+	return returnErr
+}
+
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
@@ -379,25 +417,36 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	postHookRunable := true
 
 	var preErr error
+	instance := &appv1.Subscription{}
 
 	defer func() {
 		if !postHookRunable {
 			//only write the
-			returnErr = r.hooks.WriteStatusToSubscription(preErr, request.NamespacedName)
+			if err := r.updateStatus(preErr, instance); err != nil && result.RequeueAfter == time.Duration(0) {
+				result.RequeueAfter = 1 * time.Second
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+			}
+
+			return
+		}
+
+		//update the propagation
+		if err := r.updateStatus(nil, instance); err != nil {
+			result.RequeueAfter = 1 * time.Second
+			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
 			return
 		}
 
 		err := r.hooks.ApplyPostHooks(request.NamespacedName)
 		// post hook will in a apply and don't report back manner
-		returnErr = r.hooks.WriteStatusToSubscription(nil, request.NamespacedName)
 
 		if err != nil {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 
-			//pprof result.RequeueAfter = r.hookRequeueInterval
-
-			return
+			result.RequeueAfter = r.hookRequeueInterval
 		}
+
+		return
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
@@ -405,7 +454,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, err
 	}
 
-	instance := &appv1.Subscription{}
 	err = r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
@@ -430,6 +478,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
+	//if there's registry
 	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
@@ -438,8 +487,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
+	//if there's registry
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
+		// used for use the status update
 		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
 		if err != nil {
@@ -447,24 +498,24 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			return reconcile.Result{}, nil
 		}
 
-		//pprof result.RequeueAfter = r.hookRequeueInterval
+		result.RequeueAfter = r.hookRequeueInterval
 		postHookRunable = false
 
 		return result, nil
 	}
 
-	// save original status
-	orgst := instance.Status.DeepCopy()
-
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.Infof("Subscription: %v", request.NamespacedName.String())
+	klog.Infof("Subscription: %v with placemen %#v", request.NamespacedName.String(), pl)
 
+	//status changes below show override the prehook status
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+		oins := instance.DeepCopy()
+		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
 
 		if err != nil {
@@ -475,7 +526,16 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
 		}
-	} else {
+
+		if utils.IsSubscriptionChanged(oins, instance) {
+			//if use instance directly, the instance will be override by the
+			//update
+			returnErr = r.Client.Update(context.TODO(), instance.DeepCopy())
+
+			return
+		}
+
+	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
 		if err != nil {
@@ -496,20 +556,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 					delete(instance.Status.Statuses, k)
 				}
 			}
-		}
-	}
-
-	if !reflect.DeepEqual(*orgst, instance.Status) {
-		klog.Info("MCM Hub updating subscriptoin status to ", instance.Status)
-
-		instance.Status.LastUpdateTime = metav1.Now()
-
-		err = r.Status().Update(context.TODO(), instance)
-
-		if err != nil {
-			klog.Error("Failed to update status for mcm hub subscription ", request.NamespacedName, " with error: ", err, " retry after 1 seconds")
-
-			result.RequeueAfter = 1 * time.Second
 		}
 	}
 

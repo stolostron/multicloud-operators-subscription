@@ -17,11 +17,11 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -49,8 +49,7 @@ const (
 	DebugLog = 3
 )
 
-//HOHookProcessor tracks the pre and post hook informantion of subscriptions.
-
+//HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
 	RegisterSubscription(types.NamespacedName) error
@@ -66,9 +65,11 @@ type HookProcessor interface {
 	IsPostHooksCompleted(types.NamespacedName) (bool, error)
 	IsSubscriptionCompleted(types.NamespacedName) (bool, error)
 
-	//WriteStatusToSubscription copies all the entry from hook registry to
-	//subscription status
-	WriteStatusToSubscription(error, types.NamespacedName) error
+	//WriteStatusToSubscription gets the status at the entry of the reconcile,
+	//also the procssed subscription(which should carry all the update status on
+	//the given reconciel), then  WriteStatusToSubscription will append the hook
+	//status info and make a update to the cluster
+	AppendStatusToSubscription(*appv1.Subscription) *appv1.Subscription
 }
 
 type Job struct {
@@ -269,46 +270,19 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	}
 }
 
-func (a *AnsibleHooks) WriteStatusToSubscription(preErr error, subKey types.NamespacedName) error {
+func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) *subv1.Subscription {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	hooks := a.registry[subKey]
-	if hooks == nil {
-		a.logger.Error(fmt.Errorf("can't find %v from hook registry", subKey.String()), "ansiblejob status update error")
-		return nil
-	}
-
-	subIns := &subv1.Subscription{}
-	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
-		if kerr.IsNotFound(err) {
-			a.logger.V(DebugLog).Info("subscription is deleted, no need to write status")
-			return nil
-		}
-
-		return err
-	}
-
-	if !subIns.DeletionTimestamp.IsZero() {
-		return nil
-	}
-
 	newSub := subIns.DeepCopy()
-	newSub.Status.LastUpdateTime = metav1.Now()
 
-	if preErr != nil {
-		newSub.Status.Phase = subv1.SubscriptionPropagationFailed
-		newSub.Status.Reason = preErr.Error()
-	} else {
-		newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
-
-		if reflect.DeepEqual(subIns.Status.AnsibleJobsStatus, newSub.Status.AnsibleJobsStatus) {
-			return nil
-		}
+	//return if the sub doesn't have hook
+	if hooks == nil {
+		return subIns
 	}
 
-	if err := a.clt.Status().Update(context.TODO(), newSub); err != nil {
-		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
-	}
+	newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
 
-	return nil
+	return newSub
 }
 
 func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
@@ -338,11 +312,21 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return err
 	}
 
-	if subIns.Spec.HookSecretRef == nil {
-		a.logger.V(DebugLog).Info("subscription doesn't have hook to process")
+	chn := &chnv1.Channel{}
+	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+	if err := a.clt.Get(context.TODO(), chnkey, chn); err != nil {
+		return err
 	}
 
-	//check if the subIns have being changed compare to the hook registry
+	chType := string(chn.Spec.Type)
+
+	//if the given subscription is not pointing to a git channel, then skip
+	if !strings.EqualFold(chType, chnv1.ChannelTypeGit) && !strings.EqualFold(chType, chnv1.ChannelTypeGitHub) {
+		return nil
+	}
+
+	//check if the subIns have being changed compare to the hook registry, if
+	//changed then re-register the subscription
 	if !a.isUpdateSubscription(subIns) {
 		return nil
 	}
@@ -545,7 +529,7 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	return strings.EqualFold(curStatus, JobCompleted)
 }
 
-// IIsSubscriptionCompleted will check:
+// IsSubscriptionCompleted will check:
 // a, if the subscription itself is processed
 // b, for each of the subscription created on managed cluster, it will check if
 // it is 1, propagated and 2, subscribed
@@ -555,8 +539,13 @@ func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (boo
 		return false, err
 	}
 
+	subFailSet := map[subv1.SubscriptionPhase]struct{}{
+		subv1.SubscriptionPropagationFailed: struct{}{},
+		subv1.SubscriptionFailed:            struct{}{},
+		subv1.SubscriptionUnknown:           struct{}{},
+	}
 	//check up the hub cluster status
-	if subIns.Status.Phase != subv1.SubscriptionPropagated {
+	if _, ok := subFailSet[subIns.Status.Phase]; ok {
 		return false, nil
 	}
 

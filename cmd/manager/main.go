@@ -16,8 +16,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"log"
 
 	"github.com/spf13/pflag"
 
@@ -26,9 +24,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"k8s.io/klog"
-
-	"net/http"
-	_ "net/http/pprof"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/cmd/manager/exec"
 )
@@ -44,13 +39,6 @@ func main() {
 	defer klog.Flush()
 
 	pflag.Parse()
-
-	go func() {
-		// Start listening on port 8080
-		if err := http.ListenAndServe(":8990", nil); err != nil {
-			log.Fatal(fmt.Sprintf("Error when starting or running http server: %v", err))
-		}
-	}()
 
 	exec.RunManager(signals.SetupSignalHandler())
 }

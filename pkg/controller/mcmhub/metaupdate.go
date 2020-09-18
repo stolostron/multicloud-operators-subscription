@@ -392,8 +392,8 @@ func ansibleJobsToResourceUnit(jobStr string) string {
 
 		res = append(res, resourceUnit{
 			parentType: deployableParent,
-			name:       n[0],
-			namespace:  n[1],
+			name:       n[1],
+			namespace:  n[0],
 			kind:       AnsibleJobKind,
 			addition:   0,
 		}.String())

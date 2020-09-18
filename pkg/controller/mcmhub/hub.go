@@ -39,6 +39,7 @@ import (
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -81,11 +82,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	klog.Infof("subscription: %v/%v, update Subscription: %v, update Subscription Deployable Annotation: %v",
 		sub.GetNamespace(), sub.GetName(), updateSub, updateSubDplAnno)
-
-	err = r.setNewSubscription(sub, updateSub, updateSubDplAnno)
-	if err != nil {
-		return err
-	}
 
 	dpl, err := r.prepareDeployableForSubscription(sub, nil)
 	if err != nil {
@@ -191,7 +187,7 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 	}
 
 	//compare template difference
-	org := &unstructured.Unstructured{}
+	org := &appv1.Subscription{}
 	err := json.Unmarshal(dpl.Spec.Template.Raw, org)
 
 	if err != nil {
@@ -199,7 +195,7 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 		return false
 	}
 
-	fnd := &unstructured.Unstructured{}
+	fnd := &appv1.Subscription{}
 	err = json.Unmarshal(found.Spec.Template.Raw, fnd)
 
 	if err != nil {
@@ -207,12 +203,50 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 		return false
 	}
 
-	if !reflect.DeepEqual(org, fnd) {
-		klog.V(1).Infof("different template: found:\n %v\n, dpl:\n %v\n", string(found.Spec.Template.Raw), string(dpl.Spec.Template.Raw))
+	fOrg := filterOutTimeRelatedFields(org)
+	fFnd := filterOutTimeRelatedFields(fnd)
+
+	if !reflect.DeepEqual(fOrg, fFnd) {
+		klog.V(5).Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
 		return true
 	}
 
 	return false
+}
+
+func filterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
+	if in == nil {
+		return nil
+	}
+
+	anno := in.GetAnnotations()
+	if len(anno) == 0 {
+		return in
+	}
+
+	//annotation that contains time
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+
+	for _, f := range timeFields {
+		delete(anno, f)
+	}
+
+	in.SetAnnotations(anno)
+
+	//set managedFields time to empty
+	outF := []metav1.ManagedFieldsEntry{}
+
+	for _, e := range in.GetManagedFields() {
+		e.Time = &metav1.Time{}
+		outF = append(outF, e)
+	}
+
+	in.SetManagedFields(outF)
+	// we don't actually care about the status, when create a deployable for
+	// given subscription
+	in.Status = appv1.SubscriptionStatus{}
+
+	return in.DeepCopy()
 }
 
 // if there exists target subscription, update the source subscription based on its target subscription.
@@ -844,7 +878,6 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
 			sub.Namespace, sub.Name, sub.Status, newsubstatus)
 		newsubstatus.DeepCopyInto(&sub.Status)
-		sub.Status.LastUpdateTime = metav1.Now()
 	}
 
 	return nil
