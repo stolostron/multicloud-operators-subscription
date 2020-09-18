@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -234,11 +235,25 @@ func TestPrehookHappyPathMain(t *testing.T) {
 	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	// there's an update request triggered, so we might want to wait for a bit
-	time.Sleep(3 * time.Second)
-	g.Expect(k8sClt.Get(context.TODO(), testPath.subKey, updateSub)).Should(gomega.Succeed())
 
-	g.Expect(updateSub.Status.AnsibleJobsStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
-	g.Expect(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
+	statucCheck := func() error {
+		updateSub := &subv1.Subscription{}
+
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+		if err := k8sClt.Get(context.TODO(), testPath.subKey, updateSub); err != nil {
+			return err
+		}
+
+		if updateSub.Status.AnsibleJobsStatus.LastPrehookJob != testPath.preAnsibleKey.String() ||
+			len(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory) == 0 {
+			return fmt.Errorf("failed to find the prehook %s in status", testPath.preAnsibleKey)
+		}
+
+		return nil
+	}
+
+	g.Eventually(statucCheck, time.Second*30, time.Second*3).Should(gomega.Succeed())
 }
 
 func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
@@ -447,31 +462,19 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
 
 	time.Sleep(5 * time.Second)
-	//reconcile update the status of the subscription itself
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
-
-	//reconcile checkout the susbcription status
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
-	//reconcile checkout the susbcription status
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
-	//reconcile checkout the susbcription status
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
-	//reconcile checkout the susbcription status
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
-
-	//reconcile will create the post ansiblejob
-	r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-	g.Expect(err).Should(gomega.Succeed())
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
+	waitForPostHookCR := func() error {
+		//reconcile update the status of the subscription itself
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+		if err != nil {
+			return err
+		}
 
-	g.Expect(k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)).Should(gomega.Succeed())
+		return k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)
+	}
 
+	g.Eventually(waitForPostHookCR, time.Second*30, time.Second*3).Should(gomega.Succeed())
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
@@ -482,19 +485,34 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	}()
 
 	// there's an update request triggered, so we might want to wait for a bit
-	time.Sleep(3 * time.Second)
 
-	updateSub := &subv1.Subscription{}
+	waitFroPosthookStatus := func() error {
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 
-	g.Expect(k8sClt.Get(context.TODO(), subKey, updateSub)).Should(gomega.Succeed())
+		updateSub := &subv1.Subscription{}
 
-	updateStatus := updateSub.Status.AnsibleJobsStatus
+		if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
+			return err
+		}
 
-	g.Expect(updateStatus.LastPrehookJob).Should(gomega.Equal(testPath.preAnsibleKey.String()))
-	g.Expect(updateStatus.PrehookJobsHistory).Should(gomega.HaveLen(1))
+		updateStatus := updateSub.Status.AnsibleJobsStatus
 
-	g.Expect(updateStatus.LastPosthookJob).Should(gomega.Equal(testPath.postAnsibleKey.String()))
-	g.Expect(updateStatus.PosthookJobsHistory).Should(gomega.HaveLen(1))
+		dErr := fmt.Errorf("failed to get status %s", subKey)
+
+		if updateStatus.LastPrehookJob != testPath.preAnsibleKey.String() ||
+			len(updateStatus.PrehookJobsHistory) == 0 {
+			return dErr
+		}
+
+		if updateStatus.LastPosthookJob != testPath.postAnsibleKey.String() ||
+			len(updateStatus.PosthookJobsHistory) == 0 {
+			return dErr
+		}
+
+		return nil
+	}
+
+	g.Eventually(waitFroPosthookStatus, time.Second*30, time.Second*3).Should(gomega.Succeed())
 }
 
 //Happy path should be, the subscription status is set, then the postHook should

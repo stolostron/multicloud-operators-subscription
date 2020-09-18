@@ -99,6 +99,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		r.deleteSubscriptionDeployables(sub)
 
 		annotations[appv1.AnnotationGitCommit] = commit
+		annotations = appendAnsiblejobToSubsriptionAnnotation(annotations, sub.Status.AnsibleJobsStatus)
+
 		sub.SetAnnotations(annotations)
 
 		baseDir := utils.GetLocalGitFolder(channel, sub)
@@ -302,7 +304,6 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 	}
 
 	subanno[appv1.AnnotationDeployables] = dplstr
-	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 
 	if err := r.updateAnnotationTopo(sub, allDpls); err != nil {
 		klog.Errorf("failed to update topo annotation for git sub %v, err: %v", sub.Name, err)
