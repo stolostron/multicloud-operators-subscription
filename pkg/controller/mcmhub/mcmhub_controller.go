@@ -74,7 +74,7 @@ rules:
 
 const (
 	hubLogger                  = "subscription-hub-reconciler"
-	defaultHookRequeueInterval = time.Second * 45
+	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
 )
 
@@ -252,20 +252,13 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 		if sub.Spec.Placement != nil && sub.Spec.Placement.PlacementRef != nil {
 			plRef := sub.Spec.Placement.PlacementRef
 
-			if plRef.Name != "" {
-				plNs := obj.Meta.GetNamespace()
-
-				if plRef.Namespace != "" {
-					plNs = plRef.Namespace
-				}
-
-				objkey := types.NamespacedName{
-					Name:      plRef.Name,
-					Namespace: plNs,
-				}
-
-				requests = append(requests, reconcile.Request{NamespacedName: objkey})
+			if plRef.Name != obj.Meta.GetName() || plRef.Namespace != obj.Meta.GetNamespace() {
+				continue
 			}
+
+			subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
+
+			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
 	}
 
@@ -536,7 +529,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
-	//if there's registry
+	//if it's registered
 	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
@@ -545,7 +538,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
-	//if there's registry
+	//if it's registered
 	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 	if !b || err != nil {
 		// used for use the status update
