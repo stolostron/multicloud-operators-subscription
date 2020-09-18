@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
+	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 )
 
@@ -53,6 +54,7 @@ func TestMain(m *testing.M) {
 
 	ansiblejob.AddToScheme(scheme.Scheme)
 	apis.AddToScheme(scheme.Scheme)
+	spokeClusterV1.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {

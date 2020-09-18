@@ -16,16 +16,20 @@ package mcmhub
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	placementutils "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/utils"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -137,10 +141,14 @@ func (jIns *JobInstances) outputAppliedJobs() appliedJobs {
 	return res
 }
 
-func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansiblejob.AnsibleJob) {
+func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
-		ins := overrideAnsibleInstance(subIns, job)
+
+		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
+		if err != nil {
+			return err
+		}
 
 		if _, ok := (*jIns)[jobKey]; !ok {
 			(*jIns)[jobKey] = &Job{
@@ -150,6 +158,8 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansibl
 
 		(*jIns)[jobKey].Original = ins
 	}
+
+	return nil
 }
 
 // applyjobs will get the original job and create a instance, the applied
@@ -362,18 +372,18 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		a.registry[subKey].preHooks.registryJobs(subIns, jobs)
+		err := a.registry[subKey].preHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
-		return nil
+		return err
 	}
 
 	if a.registry[subKey].postHooks == nil {
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	a.registry[subKey].postHooks.registryJobs(subIns, jobs)
+	err := a.registry[subKey].postHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
-	return nil
+	return err
 }
 
 func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
@@ -426,7 +436,8 @@ func GetReferenceString(ref *corev1.ObjectReference) string {
 
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
 //secret file of ansibleJob
-func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob) ansiblejob.AnsibleJob {
+func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob,
+	kubeclient client.Client, logger logr.Logger) (ansiblejob.AnsibleJob, error) {
 	job.SetResourceVersion("")
 	// avoid the error:
 	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
@@ -436,13 +447,47 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 		job.Spec.TowerAuthSecretName = GetReferenceString(subIns.Spec.HookSecretRef)
 	}
 
+	if subIns.Spec.Placement != nil &&
+		(subIns.Spec.Placement.Local == nil || !*subIns.Spec.Placement.Local) {
+		clusters, err := getClustersByPlacement(subIns, kubeclient, logger)
+		if err != nil {
+			return job, err
+		}
+
+		if len(clusters) > 0 {
+			var targetClusters []string
+
+			for _, cluster := range clusters {
+				targetClusters = append(targetClusters, cluster.Name)
+			}
+
+			extraVarsMap := make(map[string]interface{})
+
+			if job.Spec.ExtraVars != nil {
+				err := json.Unmarshal(job.Spec.ExtraVars, &extraVarsMap)
+				if err != nil {
+					return job, err
+				}
+			}
+
+			extraVarsMap["target_clusters"] = targetClusters
+
+			extraVars, err := json.Marshal(extraVarsMap)
+			if err != nil {
+				return job, err
+			}
+
+			job.Spec.ExtraVars = extraVars
+		}
+	}
+
 	//make sure all the ansiblejob is deployed at the subscription namespace
 	job.SetNamespace(subIns.GetNamespace())
 
 	//set owerreferce
 	setOwnerReferences(subIns, &job)
 
-	return job
+	return job, nil
 }
 
 func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
@@ -570,4 +615,74 @@ func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (boo
 	}
 
 	return true, nil
+}
+
+// Top priority: placementRef, ignore others
+// Next priority: clusterNames, ignore selector
+// Bottomline: Use label selector
+func getClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
+	var clusters []types.NamespacedName
+
+	var err error
+
+	// Top priority: placementRef, ignore others
+	// Next priority: clusterNames, ignore selector
+	// Bottomline: Use label selector
+	if instance.Spec.Placement.PlacementRef != nil {
+		clusters, err = getClustersFromPlacementRef(instance, kubeclient, logger)
+	} else {
+		clustermap, err := placementutils.PlaceByGenericPlacmentFields(kubeclient, instance.Spec.Placement.GenericPlacementFields, nil, instance)
+		if err != nil {
+			logger.Error(err, " - Failed to get clusters from generic fields with error.")
+			return nil, err
+		}
+		for _, cl := range clustermap {
+			clusters = append(clusters, types.NamespacedName{Name: cl.Name, Namespace: cl.Name})
+		}
+	}
+
+	if err != nil {
+		logger.Error(err, " - Failed in finding cluster namespaces. error.")
+		return nil, err
+	}
+
+	logger.V(10).Info("clusters", clusters)
+
+	return clusters, nil
+}
+
+func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
+	var clusters []types.NamespacedName
+	// only support mcm placementpolicy now
+	pp := &plrv1.PlacementRule{}
+	pref := instance.Spec.Placement.PlacementRef
+
+	if len(pref.Kind) > 0 && pref.Kind != "PlacementRule" || len(pref.APIVersion) > 0 && pref.APIVersion != "apps.open-cluster-management.io/v1" {
+		logger.Info("Unsupported placement reference:", instance.Spec.Placement.PlacementRef)
+
+		return nil, nil
+	}
+
+	logger.V(10).Info("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace())
+
+	// get placementpolicy resource
+	err := kubeclient.Get(context.TODO(), client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name, Namespace: instance.GetNamespace()}, pp)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			logger.Info("Failed to locate placement reference", instance.Spec.Placement.PlacementRef)
+
+			return nil, err
+		}
+
+		return nil, err
+	}
+
+	logger.V(10).Info("Preparing cluster namespaces from ", pp)
+
+	for _, decision := range pp.Status.Decisions {
+		cluster := types.NamespacedName{Name: decision.ClusterName, Namespace: decision.ClusterNamespace}
+		clusters = append(clusters, cluster)
+	}
+
+	return clusters, nil
 }
