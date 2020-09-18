@@ -31,7 +31,6 @@ import (
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	kerr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -396,15 +395,17 @@ func forceUpdateSubDpl(clt client.Client, subIns *subv1.Subscription) error {
 		},
 	}
 
-	if err := clt.Create(context.TODO(), hubdpl); err != nil {
-		if !kerr.IsAlreadyExists(err) {
-			return err
-		}
-	}
+	_ = clt.Create(context.TODO(), hubdpl)
 
-	hubdpl.Status.Phase = dplv1.DeployablePropagated
+	t := &dplv1.Deployable{}
 
-	return clt.Status().Update(context.TODO(), hubdpl)
+	hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
+
+	_ = clt.Get(context.TODO(), hubdplKey, t)
+
+	t.Status.Phase = dplv1.DeployablePropagated
+
+	return clt.Status().Update(context.TODO(), t.DeepCopy())
 }
 
 //Happy path should be, the subscription status is set, then the postHook should
