@@ -130,7 +130,7 @@ func parseAnsibleJobResoures(file []byte) [][]byte {
 		return t.APIVersion == "" || t.Kind == "" || !strings.EqualFold(t.Kind, AnsibleJobKind)
 	}
 
-	return utils.KubeResourcePaser(file, cond)
+	return utils.KubeResourceParser(file, cond)
 }
 
 func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansiblejob.AnsibleJob, error) {

@@ -203,8 +203,8 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 		return false
 	}
 
-	fOrg := filterOutTimeRelatedFields(org)
-	fFnd := filterOutTimeRelatedFields(fnd)
+	fOrg := utils.FilterOutTimeRelatedFields(org)
+	fFnd := utils.FilterOutTimeRelatedFields(fnd)
 
 	if !reflect.DeepEqual(fOrg, fFnd) {
 		klog.V(5).Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
@@ -212,41 +212,6 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 	}
 
 	return false
-}
-
-func filterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
-	if in == nil {
-		return nil
-	}
-
-	anno := in.GetAnnotations()
-	if len(anno) == 0 {
-		return in
-	}
-
-	//annotation that contains time
-	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
-
-	for _, f := range timeFields {
-		delete(anno, f)
-	}
-
-	in.SetAnnotations(anno)
-
-	//set managedFields time to empty
-	outF := []metav1.ManagedFieldsEntry{}
-
-	for _, e := range in.GetManagedFields() {
-		e.Time = &metav1.Time{}
-		outF = append(outF, e)
-	}
-
-	in.SetManagedFields(outF)
-	// we don't actually care about the status, when create a deployable for
-	// given subscription
-	in.Status = appv1.SubscriptionStatus{}
-
-	return in.DeepCopy()
 }
 
 // if there exists target subscription, update the source subscription based on its target subscription.

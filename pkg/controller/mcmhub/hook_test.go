@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -516,6 +517,141 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	}
 
 	g.Eventually(waitFroPosthookStatus, time.Second*30, time.Second*3).Should(gomega.Succeed())
+}
+
+//Happy path should be, the subscription status is set, then the postHook should
+//be deployed
+func TestInstaceGenerateUponChangesOfSubscription(t *testing.T) {
+	tSetup := NewTSetUp(t)
+
+	g := tSetup.g
+	mgr := tSetup.mgr
+	k8sClt := mgr.GetClient()
+
+	defer func() {
+		close(tSetup.stop)
+		tSetup.wg.Wait()
+	}()
+
+	testPath := newHookTest()
+
+	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+
+	ctx := context.TODO()
+	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+	}()
+
+	subIns := testPath.subIns.DeepCopy()
+	postSubName := "test-posthook"
+	subIns.SetName(postSubName)
+
+	// tells the subscription operator to process the hooks
+	subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+
+	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
+	}()
+
+	subKey := testPath.subKey
+	subKey.Name = postSubName
+
+	// mock the subscription deployable status,which is copied over to the
+	// subsritption status
+
+	//reconcile tries to create posthook and failed on the not-ready status
+	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+
+	g.Expect(err).Should(gomega.Succeed())
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+
+	//mock the status of managed cluster
+	g.Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(gomega.Succeed())
+
+	//make sure the prehook is created
+	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
+
+	time.Sleep(5 * time.Second)
+
+	ansibleIns := &ansiblejob.AnsibleJob{}
+	waitForPostHookCR := func() error {
+		//reconcile update the status of the subscription itself
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+		if err != nil {
+			return err
+		}
+
+		return k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)
+	}
+
+	g.Eventually(waitForPostHookCR, time.Second*30, time.Second*3).Should(gomega.Succeed())
+	//test if the ansiblejob have a owner set
+	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
+
+	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(GetReferenceString(&testPath.hookSecretRef)))
+
+	defer func() {
+		g.Expect(k8sClt.Delete(ctx, ansibleIns)).Should(gomega.Succeed())
+	}()
+
+	sAnno := subIns.GetAnnotations()
+
+	sAnno["test"] = "ian"
+	subIns.SetAnnotations(sAnno)
+
+	g.Expect(k8sClt.Update(context.TODO(), subIns.DeepCopy())).Should(gomega.Succeed())
+
+	waitFor2ndGenerateInstance := func() error {
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+		aList := &ansiblejob.AnsibleJobList{}
+
+		if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
+			return err
+		}
+
+		fmt.Printf("izhang -----> list all the ansiblejob %v\n", aList.Items)
+		if len(aList.Items) < 3 {
+			return errors.New("failed to regenerate ansiblejob upon the subscription changes")
+		}
+
+		return nil
+	}
+
+	g.Eventually(waitFor2ndGenerateInstance, time.Second*30, time.Second*3).Should(gomega.Succeed())
+
+	// there's an update request triggered, so we might want to wait for a bit
+
+	//	waitFroPosthookStatus := func() error {
+	//		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+	//
+	//		updateSub := &subv1.Subscription{}
+	//
+	//		if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
+	//			return err
+	//		}
+	//
+	//		updateStatus := updateSub.Status.AnsibleJobsStatus
+	//
+	//		dErr := fmt.Errorf("failed to get status %s", subKey)
+	//
+	//		if updateStatus.LastPrehookJob != testPath.preAnsibleKey.String() ||
+	//			len(updateStatus.PrehookJobsHistory) == 0 {
+	//			return dErr
+	//		}
+	//
+	//		if updateStatus.LastPosthookJob != testPath.postAnsibleKey.String() ||
+	//			len(updateStatus.PosthookJobsHistory) == 0 {
+	//			return dErr
+	//		}
+	//
+	//		return nil
+	//	}
+	//
+	//	g.Eventually(waitFroPosthookStatus, time.Second*30, time.Second*3).Should(gomega.Succeed())
 }
 
 //Happy path should be, the subscription status is set, then the postHook should

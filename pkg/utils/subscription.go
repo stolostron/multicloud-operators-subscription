@@ -54,20 +54,22 @@ const (
 )
 
 func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
+	fOsub := FilterOutTimeRelatedFields(oSub)
+	fNSub := FilterOutTimeRelatedFields(nSub)
 	// need to process delete with finalizers
-	if !reflect.DeepEqual(oSub.GetFinalizers(), nSub.GetFinalizers()) {
+	if !reflect.DeepEqual(fOsub.GetFinalizers(), fNSub.GetFinalizers()) {
 		return true
 	}
 
 	// we care label change, pass it down
-	if !reflect.DeepEqual(oSub.GetLabels(), nSub.GetLabels()) {
+	if !reflect.DeepEqual(fOsub.GetLabels(), fNSub.GetLabels()) {
 		return true
 	}
 
 	// In hub cluster, these annotations get updated by subscription reconcile
 	// so remove them before comparison to avoid triggering another reconciliation.
-	oldAnnotations := oSub.GetAnnotations()
-	newAnnotations := nSub.GetAnnotations()
+	oldAnnotations := fOsub.GetAnnotations()
+	newAnnotations := fNSub.GetAnnotations()
 
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
@@ -77,12 +79,12 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 	// we care spec for sure, we use the generation of 2 object to track the
 	// spec version
 	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
-	if !reflect.DeepEqual(oSub.Spec, nSub.Spec) {
+	if !reflect.DeepEqual(fOsub.Spec, fNSub.Spec) {
 		return true
 	}
 
 	// do we care phase change?
-	if nSub.Status.Phase == "" || nSub.Status.Phase != oSub.Status.Phase {
+	if fNSub.Status.Phase == "" || fNSub.Status.Phase != fOsub.Status.Phase {
 		klog.V(5).Info("We care phase..", nSub.Status.Phase, " vs ", oSub.Status.Phase)
 		return true
 	}
@@ -100,6 +102,36 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 
 		return IsSubscriptionChanged(subOld, subNew)
 	},
+}
+
+func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
+	if in == nil {
+		return nil
+	}
+
+	anno := in.GetAnnotations()
+	if len(anno) == 0 {
+		return in
+	}
+
+	//annotation that contains time
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+
+	for _, f := range timeFields {
+		delete(anno, f)
+	}
+
+	in.SetAnnotations(anno)
+
+	//set managedFields time to empty
+	outF := []metav1.ManagedFieldsEntry{}
+
+	in.SetManagedFields(outF)
+	// we don't actually care about the status, when create a deployable for
+	// given subscription
+	in.Status = appv1.SubscriptionStatus{}
+
+	return in.DeepCopy()
 }
 
 // DeployablePredicateFunctions filters status update

@@ -426,6 +426,7 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 
 	subKey := types.NamespacedName{Name: newSub.GetName(), Namespace: newSub.GetNamespace()}
 
+	fmt.Printf("izhang ----> nil %s\n", subKey)
 	ins := &appv1.Subscription{}
 	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
 		return err
@@ -465,14 +466,14 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
 	//flag used to determine if we skip the posthook
-	postHookRunable := true
+	passedPrehook := true
 
 	var preErr error
 
 	instance := &appv1.Subscription{}
 
 	defer func() {
-		if !postHookRunable {
+		if !passedPrehook {
 			//only write the
 			if err := r.updateStatus(preErr, instance); err != nil && result.RequeueAfter == time.Duration(0) {
 				result.RequeueAfter = 1 * time.Second
@@ -524,7 +525,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 
-		postHookRunable = false
+		passedPrehook = false
 
 		return reconcile.Result{}, nil
 	}
@@ -533,7 +534,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
-		postHookRunable = false
+		passedPrehook = false
 
 		return reconcile.Result{}, nil
 	}
@@ -550,7 +551,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		}
 
 		result.RequeueAfter = r.hookRequeueInterval
-		postHookRunable = false
+		passedPrehook = false
 
 		return result, nil
 	}

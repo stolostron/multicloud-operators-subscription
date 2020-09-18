@@ -66,12 +66,12 @@ func ParseKubeResoures(file []byte) [][]byte {
 		return t.APIVersion == "" || t.Kind == ""
 	}
 
-	return KubeResourcePaser(file, cond)
+	return KubeResourceParser(file, cond)
 }
 
 type Kube func(KubeResource) bool
 
-func KubeResourcePaser(file []byte, cond Kube) [][]byte {
+func KubeResourceParser(file []byte, cond Kube) [][]byte {
 	var ret [][]byte
 
 	items := strings.Split(string(file), "---")
