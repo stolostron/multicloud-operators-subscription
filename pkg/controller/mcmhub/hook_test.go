@@ -362,7 +362,7 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -383,7 +383,7 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	return clt.Status().Update(context.TODO(), newPre)
 }
 
-func forceUpdateSubDpl(g *gomega.GomegaWithT, clt client.Client, subIns *subv1.Subscription) {
+func forceUpdateSubDpl(clt client.Client, subIns *subv1.Subscription) error {
 	hubdpl := &dplv1.Deployable{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      subIns.Name + "-deployable",
@@ -397,12 +397,14 @@ func forceUpdateSubDpl(g *gomega.GomegaWithT, clt client.Client, subIns *subv1.S
 	}
 
 	if err := clt.Create(context.TODO(), hubdpl); err != nil {
-		g.Expect(kerr.IsAlreadyExists(err)).Should(gomega.Succeed())
+		if !kerr.IsAlreadyExists(err) {
+			return err
+		}
 	}
 
 	hubdpl.Status.Phase = dplv1.DeployablePropagated
 
-	g.Expect(clt.Status().Update(context.TODO(), hubdpl)).Should(gomega.Succeed())
+	return clt.Status().Update(context.TODO(), hubdpl)
 }
 
 //Happy path should be, the subscription status is set, then the postHook should
@@ -456,7 +458,7 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
 
 	//mock the status of managed cluster
-	forceUpdateSubDpl(g, k8sClt, subIns)
+	g.Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(gomega.Succeed())
 
 	//make sure the prehook is created
 	g.Expect(forceUpdatePrehook(k8sClt, testPath.preAnsibleKey)).Should(gomega.Succeed())
@@ -565,7 +567,7 @@ func TestPosthookManagedClusterPackageFailedPath(t *testing.T) {
 	// mock the subscription deployable status,which is copied over to the
 	// subsritption status
 
-	forceUpdateSubDpl(g, k8sClt, subIns)
+	g.Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(gomega.Succeed())
 
 	//reconcile should be able to find the subscription and it should able to
 	//pares status.statues
