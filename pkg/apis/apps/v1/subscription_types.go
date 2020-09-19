@@ -85,6 +85,8 @@ const (
 	MergeReconcile = "merge"
 	// ReplaceReconcile replaces fields in resources using kubernetes update
 	ReplaceReconcile = "replace"
+	// SubscriptionNameSuffix is appended to the subscription name when propagated to managed clusters
+	SubscriptionNameSuffix = "-local"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
