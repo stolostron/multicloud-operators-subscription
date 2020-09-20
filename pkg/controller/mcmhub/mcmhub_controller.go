@@ -43,6 +43,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -426,7 +427,6 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 
 	subKey := types.NamespacedName{Name: newSub.GetName(), Namespace: newSub.GetNamespace()}
 
-	fmt.Printf("izhang ----> nil %s\n", subKey)
 	ins := &appv1.Subscription{}
 	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
 		return err
@@ -446,7 +446,6 @@ func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscri
 	}
 
 	// append the hook status
-	newSub = r.hooks.AppendStatusToSubscription(newSub)
 	ins.Status = *newSub.Status.DeepCopy()
 	newSub.Status.LastUpdateTime = metav1.Now()
 
@@ -484,17 +483,24 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		}
 
 		//update the propagation
-		if err := r.updateStatus(nil, instance); err != nil {
+		if err := r.updateStatus(nil, instance); err != nil && result.RequeueAfter == time.Duration(0) {
 			result.RequeueAfter = 1 * time.Second
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
 
 			return
 		}
 
-		err := r.hooks.ApplyPostHooks(request.NamespacedName)
+		//wait till the subscription is propagated
+		f, err := r.IsSubscriptionCompleted(request.NamespacedName)
+		if !f || err != nil {
+			r.logger.Error(fmt.Errorf("failed to apply post hook, subscription isCompleted %v", f), request.NamespacedName.String())
+			result.RequeueAfter = r.hookRequeueInterval
+			return
+		}
+
 		// post hook will in a apply and don't report back manner
 
-		if err != nil {
+		if err := r.hooks.ApplyPostHooks(request.NamespacedName); err != nil {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 
 			result.RequeueAfter = r.hookRequeueInterval
@@ -579,7 +585,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			r.setHubSubscriptionStatus(instance)
 		}
 
-		if utils.IsSubscriptionChanged(oins, instance) {
+		instance = r.hooks.AppendStatusToSubscription(instance)
+
+		if utils.IsWholeSubChanged(oins, instance) {
 			//if use instance directly, the instance will be override by the
 			//update
 			returnErr = r.Client.Update(context.TODO(), instance.DeepCopy())
@@ -651,4 +659,46 @@ func isTopoAnnoExist(sub *appv1.Subscription) bool {
 	}
 
 	return len(v) != 0
+}
+
+// IsSubscriptionCompleted will check:
+// a, if the subscription itself is processed
+// b, for each of the subscription created on managed cluster, it will check if
+// it is 1, propagated and 2, subscribed
+func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {
+	subIns := &subv1.Subscription{}
+	if err := r.Get(context.TODO(), subKey, subIns); err != nil {
+		return false, err
+	}
+
+	subFailSet := map[subv1.SubscriptionPhase]struct{}{
+		subv1.SubscriptionPropagationFailed: {},
+		subv1.SubscriptionFailed:            {},
+		subv1.SubscriptionUnknown:           {},
+	}
+	//check up the hub cluster status
+	if _, ok := subFailSet[subIns.Status.Phase]; ok {
+		return false, nil
+	}
+
+	managedStatus := subIns.Status.Statuses
+	if len(managedStatus) == 0 {
+		return true, nil
+	}
+
+	for cluster, cSt := range managedStatus {
+		if len(cSt.SubscriptionPackageStatus) == 0 {
+			continue
+		}
+
+		for pkg, pSt := range cSt.SubscriptionPackageStatus {
+			if pSt.Phase != subv1.SubscriptionSubscribed {
+				r.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
+					"subscription is not completed")
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
 }

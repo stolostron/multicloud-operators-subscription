@@ -53,43 +53,77 @@ const (
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
-func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
+type CompSub func(*appv1.Subscription, *appv1.Subscription) bool
+
+func IsEqual(o, n *appv1.Subscription, comps ...CompSub) bool {
+	for _, f := range comps {
+		if !f(o, n) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func basicComps(oSub, nSub *appv1.Subscription) bool {
 	// need to process delete with finalizers
 	if !reflect.DeepEqual(oSub.GetFinalizers(), nSub.GetFinalizers()) {
-		return true
+		return false
 	}
 
 	// we care label change, pass it down
 	if !reflect.DeepEqual(oSub.GetLabels(), nSub.GetLabels()) {
-		return true
+		return false
 	}
 
 	// In hub cluster, these annotations get updated by subscription reconcile
 	// so remove them before comparison to avoid triggering another reconciliation.
 	oldAnnotations := oSub.GetAnnotations()
+	//annotation that contains time
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+
+	for _, f := range timeFields {
+		delete(oldAnnotations, f)
+	}
+
 	newAnnotations := nSub.GetAnnotations()
+	for _, f := range timeFields {
+		delete(newAnnotations, f)
+	}
 
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
-		return true
+		return false
 	}
 
 	// we care spec for sure, we use the generation of 2 object to track the
 	// spec version
 	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
 	if !reflect.DeepEqual(oSub.Spec, nSub.Spec) {
-		return true
+		return false
 	}
 
+	return true
+}
+
+func statusReconcileComp(oSub, nSub *appv1.Subscription) bool {
 	// do we care phase change?
 	if nSub.Status.Phase == "" || oSub.Status.Phase != nSub.Status.Phase {
 		klog.V(5).Info("We care phase..", nSub.Status.Phase, " vs ", oSub.Status.Phase)
-		return true
+		return false
 	}
 
-	klog.V(5).Info("Something we don't care changed")
+	return true
+}
 
-	return false
+// don't care about status
+func IsHookSubChanged(oSub, nSub *appv1.Subscription) bool {
+	return IsEqual(oSub, nSub, basicComps)
+}
+
+// care about status
+func IsWholeSubChanged(oSub, nSub *appv1.Subscription) bool {
+	return !IsEqual(oSub, nSub, basicComps, statusReconcileComp)
 }
 
 // SubscriptionPredicateFunctions filters status update
@@ -98,7 +132,7 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 		subOld := e.ObjectOld.(*appv1.Subscription)
 		subNew := e.ObjectNew.(*appv1.Subscription)
 
-		return IsSubscriptionChanged(subOld, subNew)
+		return IsWholeSubChanged(subOld, subNew)
 	},
 }
 
