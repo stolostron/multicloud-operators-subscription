@@ -599,11 +599,14 @@ func TestInstaceGenerateUponChangesOfSubscription(t *testing.T) {
 	}()
 
 	sAnno := subIns.GetAnnotations()
-
 	sAnno["test"] = "ian"
 	subIns.SetAnnotations(sAnno)
 
-	g.Expect(k8sClt.Update(context.TODO(), subIns.DeepCopy())).Should(gomega.Succeed())
+	updateSub := subIns.DeepCopy()
+
+	g.Expect(k8sClt.Get(context.TODO(), subKey, updateSub)).Should(gomega.Succeed())
+
+	g.Expect(k8sClt.Update(context.TODO(), updateSub)).Should(gomega.Succeed())
 
 	waitFor2ndGenerateInstance := func() error {
 		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
