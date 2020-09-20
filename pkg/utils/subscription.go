@@ -53,9 +53,35 @@ const (
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
-func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
-	fOsub := FilterOutTimeRelatedFields(oSub)
-	fNSub := FilterOutTimeRelatedFields(nSub)
+func IsWholeSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
+	if IsSubscriptionBasicChanged(oSub, nSub) {
+		return true
+	}
+
+	// do we care phase change?
+	if nSub.Status.Phase == "" || nSub.Status.Phase != oSub.Status.Phase {
+		klog.V(5).Info("We care phase..", nSub.Status.Phase, " vs ", oSub.Status.Phase)
+		return true
+	}
+
+	klog.V(5).Info("Something we don't care changed")
+
+	return false
+}
+
+// SubscriptionPredicateFunctions filters status update
+var SubscriptionPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		subOld := e.ObjectOld.(*appv1.Subscription)
+		subNew := e.ObjectNew.(*appv1.Subscription)
+
+		return IsWholeSubscriptionChanged(subOld, subNew)
+	},
+}
+
+func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
+	fOsub := FilterOutTimeRelatedFields(o)
+	fNSub := FilterOutTimeRelatedFields(n)
 	// need to process delete with finalizers
 	if !reflect.DeepEqual(fOsub.GetFinalizers(), fNSub.GetFinalizers()) {
 		return true
@@ -83,35 +109,20 @@ func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
 		return true
 	}
 
-	// do we care phase change?
-	if fNSub.Status.Phase == "" || fNSub.Status.Phase != fOsub.Status.Phase {
-		klog.V(5).Info("We care phase..", nSub.Status.Phase, " vs ", oSub.Status.Phase)
-		return true
-	}
-
-	klog.V(5).Info("Something we don't care changed")
-
 	return false
 }
 
-// SubscriptionPredicateFunctions filters status update
-var SubscriptionPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		subOld := e.ObjectOld.(*appv1.Subscription)
-		subNew := e.ObjectNew.(*appv1.Subscription)
-
-		return IsSubscriptionChanged(subOld, subNew)
-	},
-}
-
+// the input object shouldn't be changed at all
 func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	if in == nil {
 		return nil
 	}
 
-	anno := in.GetAnnotations()
+	out := in.DeepCopy()
+
+	anno := out.GetAnnotations()
 	if len(anno) == 0 {
-		return in
+		anno = map[string]string{}
 	}
 
 	//annotation that contains time
@@ -121,17 +132,16 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 		delete(anno, f)
 	}
 
-	in.SetAnnotations(anno)
+	out.SetAnnotations(anno)
 
 	//set managedFields time to empty
 	outF := []metav1.ManagedFieldsEntry{}
 
-	in.SetManagedFields(outF)
+	out.SetManagedFields(outF)
 	// we don't actually care about the status, when create a deployable for
 	// given subscription
-	in.Status = appv1.SubscriptionStatus{}
 
-	return in.DeepCopy()
+	return out
 }
 
 // DeployablePredicateFunctions filters status update

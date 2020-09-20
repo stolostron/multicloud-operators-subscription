@@ -67,7 +67,6 @@ type HookProcessor interface {
 	IsPreHooksCompleted(types.NamespacedName) (bool, error)
 	ApplyPostHooks(types.NamespacedName) error
 	IsPostHooksCompleted(types.NamespacedName) (bool, error)
-	IsSubscriptionCompleted(types.NamespacedName) (bool, error)
 
 	//WriteStatusToSubscription gets the status at the entry of the reconcile,
 	//also the procssed subscription(which should carry all the update status on
@@ -144,7 +143,6 @@ func (jIns *JobInstances) outputAppliedJobs() appliedJobs {
 func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
-
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
 		if err != nil {
 			return err
@@ -162,10 +160,24 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansibl
 	return nil
 }
 
+func isSubscriptionBeDeleted(clt client.Client, subKey types.NamespacedName) bool {
+	subIns := &subv1.Subscription{}
+
+	if err := clt.Get(context.TODO(), subKey, subIns); err != nil {
+		return kerr.IsNotFound(err)
+	}
+
+	return !subIns.GetDeletionTimestamp().IsZero()
+}
+
 // applyjobs will get the original job and create a instance, the applied
 // instance will is put into the job.Instance array upon the success of the
 // creation
 func (jIns *JobInstances) applyJobs(clt client.Client, suffixFunc SuffixFunc, subIns *subv1.Subscription) error {
+	if isSubscriptionBeDeleted(clt, types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}) {
+		return nil
+	}
+
 	for k, j := range *jIns {
 		nx := j.Original.DeepCopy()
 
@@ -361,7 +373,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 type SuffixFunc func(*subv1.Subscription) string
 
 func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%v", subIns.GetGeneration())
+	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), subIns.GetResourceVersion())
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
@@ -372,6 +384,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
+		a.registry[subKey].lastSub = subIns.DeepCopy()
 		err := a.registry[subKey].preHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
 		return err
@@ -381,6 +394,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
+	a.registry[subKey].lastSub = subIns.DeepCopy()
 	err := a.registry[subKey].postHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
 	return err
@@ -520,7 +534,7 @@ func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	record, ok := a.registry[subKey]
 
-	return !ok || utils.IsSubscriptionChanged(record.lastSub, subIns)
+	return !ok || utils.IsSubscriptionBasicChanged(record.lastSub, subIns)
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
@@ -541,12 +555,6 @@ func (a *AnsibleHooks) ApplyPostHooks(subKey types.NamespacedName) error {
 	if !a.isRegistered(subKey) {
 		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not posthook registered for %v", subKey.String()))
 		return nil
-	}
-
-	//wait till the subscription is propagated
-	f, err := a.IsSubscriptionCompleted(subKey)
-	if !f || err != nil {
-		return fmt.Errorf("failed to apply post hook, subscription isCompleted %v", f)
 	}
 
 	hks := a.registry[subKey].postHooks
@@ -573,48 +581,6 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
-}
-
-// IsSubscriptionCompleted will check:
-// a, if the subscription itself is processed
-// b, for each of the subscription created on managed cluster, it will check if
-// it is 1, propagated and 2, subscribed
-func (a *AnsibleHooks) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {
-	subIns := &subv1.Subscription{}
-	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
-		return false, err
-	}
-
-	subFailSet := map[subv1.SubscriptionPhase]struct{}{
-		subv1.SubscriptionPropagationFailed: {},
-		subv1.SubscriptionFailed:            {},
-		subv1.SubscriptionUnknown:           {},
-	}
-	//check up the hub cluster status
-	if _, ok := subFailSet[subIns.Status.Phase]; ok {
-		return false, nil
-	}
-
-	managedStatus := subIns.Status.Statuses
-	if len(managedStatus) == 0 {
-		return true, nil
-	}
-
-	for cluster, cSt := range managedStatus {
-		if len(cSt.SubscriptionPackageStatus) == 0 {
-			continue
-		}
-
-		for pkg, pSt := range cSt.SubscriptionPackageStatus {
-			if pSt.Phase != subv1.SubscriptionSubscribed {
-				a.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
-					"subscription is not completed")
-				return false, nil
-			}
-		}
-	}
-
-	return true, nil
 }
 
 // Top priority: placementRef, ignore others

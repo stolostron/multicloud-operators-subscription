@@ -43,6 +43,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -491,10 +492,14 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			return
 		}
 
-		err := r.hooks.ApplyPostHooks(request.NamespacedName)
-		// post hook will in a apply and don't report back manner
+		//wait till the subscription is propagated
+		f, err := r.IsSubscriptionCompleted(request.NamespacedName)
+		if !f || err != nil {
+			return
+		}
 
-		if err != nil {
+		// post hook will in a apply and don't report back manner
+		if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 
 			result.RequeueAfter = r.hookRequeueInterval
@@ -579,7 +584,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			r.setHubSubscriptionStatus(instance)
 		}
 
-		if utils.IsSubscriptionChanged(oins, instance) {
+		//checking, labels, annotation, certain status fields of subscriptions
+		if utils.IsWholeSubscriptionChanged(oins, instance) {
 			//if use instance directly, the instance will be override by the
 			//update
 			returnErr = r.Client.Update(context.TODO(), instance.DeepCopy())
@@ -651,4 +657,50 @@ func isTopoAnnoExist(sub *appv1.Subscription) bool {
 	}
 
 	return len(v) != 0
+}
+
+// IsSubscriptionCompleted will check:
+// a, if the subscription itself is processed
+// b, for each of the subscription created on managed cluster, it will check if
+// it is 1, propagated and 2, subscribed
+func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {
+	subIns := &subv1.Subscription{}
+	if err := r.Get(context.TODO(), subKey, subIns); err != nil {
+		if k8serrors.IsNotFound(err) {
+			return true, nil
+		}
+
+		return false, err
+	}
+
+	subFailSet := map[subv1.SubscriptionPhase]struct{}{
+		subv1.SubscriptionPropagationFailed: {},
+		subv1.SubscriptionFailed:            {},
+		subv1.SubscriptionUnknown:           {},
+	}
+	//check up the hub cluster status
+	if _, ok := subFailSet[subIns.Status.Phase]; ok {
+		return false, nil
+	}
+
+	managedStatus := subIns.Status.Statuses
+	if len(managedStatus) == 0 {
+		return true, nil
+	}
+
+	for cluster, cSt := range managedStatus {
+		if len(cSt.SubscriptionPackageStatus) == 0 {
+			continue
+		}
+
+		for pkg, pSt := range cSt.SubscriptionPackageStatus {
+			if pSt.Phase != subv1.SubscriptionSubscribed {
+				r.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
+					"subscription is not completed")
+				return false, nil
+			}
+		}
+	}
+
+	return true, nil
 }
