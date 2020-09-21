@@ -596,8 +596,6 @@ func TestPostHookInstaceGenerateUponChangesOfSubscription(t *testing.T) {
 
 	time.Sleep(5 * time.Second)
 
-	pullInterval := time.Second * 3
-
 	testPath.postAnsibleKey.Name = "posthook-only-test"
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
@@ -612,7 +610,8 @@ func TestPostHookInstaceGenerateUponChangesOfSubscription(t *testing.T) {
 		return k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)
 	}
 
-	g.Eventually(waitForPostHookCR, 5*pullInterval, pullInterval).Should(gomega.Succeed())
+	// it seems the travis CI needs more time
+	g.Eventually(waitForPostHookCR, 10*pullInterval, pullInterval).Should(gomega.Succeed())
 	//test if the ansiblejob have a owner set
 	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
 
