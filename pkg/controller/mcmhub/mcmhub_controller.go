@@ -438,7 +438,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	defer func() {
 		// handle the prehook failed status update
-		fmt.Printf("izhang --- A %#v\n", instance.GetName())
 		if !passedPrehook && instance != nil {
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = preErr.Error()
@@ -459,7 +458,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		if utils.IsSubscriptionResourceChanged(oins, instance) { // update the instance with propagation status
 			//if use instance directly, the instance will be override by the
 			//update
-			fmt.Printf("izhang --- BB to be commited \n %v", instance.GetName())
 			if utils.IsSubscriptionBasicChanged(oins, instance) { //if subresource enabled, the update client won't update the status
 				if err := r.Client.Update(context.TODO(), instance.DeepCopy()); err != nil {
 					if result.RequeueAfter == time.Duration(0) {
@@ -467,20 +465,17 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
 					}
 
-					fmt.Println("izhang ---BBBBBBBBBBBBBBBBBBBB BB-no err err:")
 					return
 				}
 			} else {
 				instance.Status.LastUpdateTime = metav1.Now()
 				if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil {
-					fmt.Printf("izhang --- BB-err %#v\n err: %v ", instance.GetName(), err)
 
 					if result.RequeueAfter == time.Duration(0) {
 						result.RequeueAfter = 1 * time.Second
 						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
 					}
 
-					fmt.Println("izhang ---BBBBBBBBBBBBBBBBBBBB BB-no err err:")
 					return
 				}
 
@@ -498,7 +493,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			return
 		}
 
-		fmt.Printf("izhang --- CCC %#v\n", instance.GetName())
 		// nothing added to the incoming subscription, time to figure out the post hook
 		//wait till the subscription is propagated
 		f, err := r.IsSubscriptionCompleted(request.NamespacedName)
@@ -507,13 +501,11 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			return
 		}
 
-		fmt.Printf("izhang --- DDD %#v\n", instance.GetName())
 		// post hook will in a apply and don't report back manner
 		if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 		}
 
-		fmt.Printf("izhang --- EEE %#v\n", instance.GetName())
 		instance.Status.LastUpdateTime = metav1.Now()
 		if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil && result.RequeueAfter == time.Duration(0) {
 			if k8serrors.IsGone(err) {
@@ -523,6 +515,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			result.RequeueAfter = 1 * time.Second
 			logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
 		}
+
 		return
 	}()
 
@@ -558,8 +551,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
-	if false && r.hooks.HasHooks(PreHookType, request.NamespacedName) {
-		fmt.Println("izhang aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+	if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
 		//if it's registered
 		if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 			logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
