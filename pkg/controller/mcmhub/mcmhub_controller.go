@@ -436,88 +436,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	instance := &appv1.Subscription{}
 	oins := &appv1.Subscription{}
 
-	defer func() {
-		// handle the prehook failed status update
-		if !passedPrehook && instance != nil {
-			instance.Status.Phase = appv1.SubscriptionPropagationFailed
-			instance.Status.Reason = preErr.Error()
-			instance.Status.LastUpdateTime = metav1.Now()
-			if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil && result.RequeueAfter == time.Duration(0) {
-				if k8serrors.IsGone(err) {
-					return
-				}
-
-				result.RequeueAfter = 1 * time.Second
-				logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
-			}
-			return
-		}
-
-		instance.Status = r.hooks.AppendStatusToSubscription(instance)
-		//checking, labels, annotation, certain status fields of subscriptions
-		if utils.IsSubscriptionResourceChanged(oins, instance) { // update the instance with propagation status
-			//if use instance directly, the instance will be override by the
-			//update
-			if utils.IsSubscriptionBasicChanged(oins, instance) { //if subresource enabled, the update client won't update the status
-				if err := r.Client.Update(context.TODO(), instance.DeepCopy()); err != nil {
-					if result.RequeueAfter == time.Duration(0) {
-						result.RequeueAfter = 1 * time.Second
-						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
-					}
-
-					return
-				}
-			} else {
-				instance.Status.LastUpdateTime = metav1.Now()
-				if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil {
-
-					if result.RequeueAfter == time.Duration(0) {
-						result.RequeueAfter = 1 * time.Second
-						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
-					}
-
-					return
-				}
-
-			}
-
-			if r.hooks.HasHooks(PostHookType, request.NamespacedName) {
-				result.RequeueAfter = r.hookRequeueInterval
-			}
-
-			return
-		}
-
-		//if not post hook, quit the reconcile
-		if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
-			return
-		}
-
-		// nothing added to the incoming subscription, time to figure out the post hook
-		//wait till the subscription is propagated
-		f, err := r.IsSubscriptionCompleted(request.NamespacedName)
-		if !f || err != nil {
-			result.RequeueAfter = r.hookRequeueInterval
-			return
-		}
-
-		// post hook will in a apply and don't report back manner
-		if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
-			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-		}
-
-		instance.Status.LastUpdateTime = metav1.Now()
-		if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil && result.RequeueAfter == time.Duration(0) {
-			if k8serrors.IsGone(err) {
-				return
-			}
-
-			result.RequeueAfter = 1 * time.Second
-			logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
-		}
-
-		return
-	}()
+	defer r.finalCommit(passedPrehook, preErr, oins, instance, request, &result)
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
@@ -566,6 +485,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		if !b || err != nil {
 			// used for use the status update
 			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
+			_ = preErr
 
 			if err != nil {
 				logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
@@ -611,7 +531,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
 			}
 		}
-
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
@@ -635,6 +554,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			}
 		}
 	}
+
+	_ = oins
 
 	return result, nil
 }
@@ -703,4 +624,106 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	return true, nil
+}
+
+//finalCommit will shortcut the prehook logic if the prehook present
+// if the prohook is completed, then update subscription will be update(1, the
+// main spec, 2, status update)
+// if the prehook, subscription is update then entry the posthook logic
+//
+//the requeue logic is done via set up the RequeueAfter parameter of the
+//reconciel.Result
+func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
+	oIns, nIns *subv1.Subscription,
+	request reconcile.Request, res *reconcile.Result) {
+	// handle the prehook failed status update
+	if !passedPrehook && nIns != nil {
+		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
+		nIns.Status.Reason = preErr.Error()
+		nIns.Status.LastUpdateTime = metav1.Now()
+
+		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+			if k8serrors.IsGone(err) {
+				return
+			}
+
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = 1 * time.Second
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+			}
+		}
+
+		return
+	}
+
+	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
+	//checking, labels, annotation, certain status fields of subscriptions
+	if utils.IsSubscriptionResourceChanged(oIns, nIns) { // update the instance with propagation status
+		//if use instance directly, the instance will be override by the
+		//update
+		if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
+			if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
+				if k8serrors.IsGone(err) {
+					return
+				}
+
+				if res.RequeueAfter == time.Duration(0) {
+					res.RequeueAfter = 1 * time.Second
+					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+				}
+
+				return
+			}
+		} else {
+			nIns.Status.LastUpdateTime = metav1.Now()
+			if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+				if k8serrors.IsGone(err) {
+					return
+				}
+
+				if res.RequeueAfter == time.Duration(0) {
+					res.RequeueAfter = 1 * time.Second
+					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+				}
+
+				return
+			}
+		}
+
+		if r.hooks.HasHooks(PostHookType, request.NamespacedName) {
+			res.RequeueAfter = r.hookRequeueInterval
+		}
+
+		return
+	}
+
+	//if not post hook, quit the reconcile
+	if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
+		return
+	}
+
+	// nothing added to the incoming subscription, time to figure out the post hook
+	//wait till the subscription is propagated
+	f, err := r.IsSubscriptionCompleted(request.NamespacedName)
+	if !f || err != nil {
+		res.RequeueAfter = r.hookRequeueInterval
+		return
+	}
+
+	// post hook will in a apply and don't report back manner
+	if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
+		r.logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
+	}
+
+	nIns.Status.LastUpdateTime = metav1.Now()
+	if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+		if k8serrors.IsGone(err) {
+			return
+		}
+
+		if res.RequeueAfter == time.Duration(0) {
+			res.RequeueAfter = 1 * time.Second
+			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+		}
+	}
 }

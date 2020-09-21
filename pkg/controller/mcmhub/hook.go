@@ -145,6 +145,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansibl
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
+
 		if err != nil {
 			return err
 		}
@@ -552,7 +553,6 @@ func (a *AnsibleHooks) HasHooks(hookType string, subKey types.NamespacedName) bo
 		if hks == nil || len(*hks) == 0 {
 			return false
 		}
-
 	}
 
 	hks := a.registry[subKey].postHooks

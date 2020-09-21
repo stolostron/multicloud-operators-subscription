@@ -48,6 +48,7 @@ linters:
     - godot
     - gofumpt
     - nestif
+    - ineffassign
   fast: false
 
 linters-settings:
