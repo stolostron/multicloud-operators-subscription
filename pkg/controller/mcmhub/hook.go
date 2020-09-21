@@ -358,7 +358,6 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return fmt.Errorf("failed to download from git source, err: %v", err)
 	}
 
-	a.registry[subKey].lastSub = subIns.DeepCopy()
 	//update the base Ansible job and append a generated job to the preHooks
 	return a.addHookToRegisitry(subIns)
 }
@@ -420,10 +419,6 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 		a.logger.Error(fmt.Errorf("posthook"), "failed to find hook:")
 	}
 
-	if len(preJobs) == 0 && len(postJobs) == 0 {
-		return fmt.Errorf("failed to find any hook YAMLs of subscription %v", subIns.GetName())
-	}
-
 	if len(preJobs) != 0 {
 		if err := a.registerHook(subIns, PreHookType, preJobs); err != nil {
 			return err
@@ -434,6 +429,11 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 		if err := a.registerHook(subIns, PostHookType, postJobs); err != nil {
 			return err
 		}
+	}
+
+	if len(preJobs) != 0 || len(postJobs) != 0 {
+		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+		a.registry[subKey].lastSub = subIns.DeepCopy()
 	}
 
 	return nil

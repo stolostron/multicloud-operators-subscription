@@ -40,6 +40,7 @@ import (
 
 const (
 	ansibleGitURL = "https://github.com/ianzhang366/acm-applifecycle-samples"
+	pullInterval  = time.Second * 3
 )
 
 type TSetUp struct {
@@ -362,11 +363,30 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
 
 	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
+	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
 
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
+
+	nSub := &subv1.Subscription{}
+
+	waitForFileNoneFoundInStatus := func() error {
+		r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+
+		g.Expect(k8sClt.Get(ctx, testPath.subKey, nSub)).Should(gomega.Succeed())
+
+		st := nSub.Status
+
+		if st.Phase != subv1.SubscriptionPropagationFailed {
+			return errors.New(fmt.Sprintf("waiting for phase %s, got %s",
+				subv1.SubscriptionPropagationFailed, st.Phase))
+		}
+
+		return nil
+	}
+
+	g.Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).Should(gomega.Succeed())
 }
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {

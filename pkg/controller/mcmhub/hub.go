@@ -76,7 +76,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	if err != nil {
-		klog.Errorf("Failed to update deployable annotation for git: %s", sub.GetName())
 		return err
 	}
 
