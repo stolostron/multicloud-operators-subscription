@@ -519,6 +519,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
+			returnErr = err
 		} else {
 			// Get propagation status from the subscription deployable
 			r.setHubSubscriptionStatus(instance)
@@ -556,8 +557,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			}
 		}
 	}
-
-	_ = oins
 
 	return result, nil
 }
@@ -716,6 +715,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
 		r.logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 	}
+
+	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 
 	nIns.Status.LastUpdateTime = metav1.Now()
 	if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
