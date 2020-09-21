@@ -423,45 +423,29 @@ func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.An
 		return anno
 	}
 
-	dPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, dplFromResourceUnit)
-	dPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, dplFromResourceUnit)
-
 	tPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, topoFromResourceUnit)
 	tPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, topoFromResourceUnit)
 
 	topo := anno[subv1.AnnotationTopo]
-	dpls := anno[subv1.AnnotationDeployables]
 
-	if len(dPreJobs) != 0 {
+	if len(tPreJobs) != 0 {
 		if len(topo) == 0 {
 			topo = tPreJobs
 		} else {
 			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
 		}
-
-		if len(dpls) == 0 {
-			dpls = dPreJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, dPreJobs)
-		}
 	}
 
-	if len(dPostJobs) != 0 {
+	if len(tPostJobs) != 0 {
 		if len(topo) == 0 {
 			topo = tPostJobs
 		} else {
 			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
 		}
 
-		if len(dpls) == 0 {
-			dpls = dPostJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, dPostJobs)
-		}
 	}
 
 	anno[subv1.AnnotationTopo] = topo
-	anno[subv1.AnnotationDeployables] = dpls
 
 	return anno
 }
