@@ -436,7 +436,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	instance := &appv1.Subscription{}
 	oins := &appv1.Subscription{}
 
-	defer r.finalCommit(passedPrehook, preErr, oins, instance, request, &result)
+	defer func() {
+		r.finalCommit(passedPrehook, preErr, oins, instance, request, &result)
+	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
