@@ -101,7 +101,6 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			r.deleteSubscriptionDeployables(sub)
 
 			annotations[appv1.AnnotationGitCommit] = commit
-			annotations = appendAnsiblejobToSubsriptionAnnotation(annotations, sub.Status.AnsibleJobsStatus)
 
 			sub.SetAnnotations(annotations)
 
