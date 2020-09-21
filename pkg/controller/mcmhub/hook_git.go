@@ -130,7 +130,7 @@ func parseAnsibleJobResoures(file []byte) [][]byte {
 		return t.APIVersion == "" || t.Kind == "" || !strings.EqualFold(t.Kind, AnsibleJobKind)
 	}
 
-	return utils.KubeResourcePaser(file, cond)
+	return utils.KubeResourceParser(file, cond)
 }
 
 func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansiblejob.AnsibleJob, error) {
@@ -167,7 +167,12 @@ func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansib
 func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error) {
 	fullPath := fmt.Sprintf("%v/%v", h.localDir, hookPath)
 	if _, err := os.Stat(fullPath); err != nil {
+		if os.IsNotExist(err) {
+			return []ansiblejob.AnsibleJob{}, nil
+		}
+
 		h.logger.Error(err, "fail to access the hook path")
+
 		return []ansiblejob.AnsibleJob{}, err
 	}
 

@@ -342,6 +342,7 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	subanno[appv1.AnnotationTopo] = tpStr
 
 	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
+
 	sub.SetAnnotations(subanno)
 
 	klog.V(3).Infof("topo string: %v", tpStr)
