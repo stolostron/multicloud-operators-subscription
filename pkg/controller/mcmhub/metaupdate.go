@@ -388,10 +388,6 @@ func topoFromResourceUnit(r resourceUnit) string {
 	return r.String()
 }
 
-func dplFromResourceUnit(r resourceUnit) string {
-	return fmt.Sprintf("%s/%s", r.namespace, r.name)
-}
-
 func ansibleJobsToResourceUnit(jobStr string, sFunc stringFuc) string {
 	res := []string{}
 
@@ -443,7 +439,6 @@ func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.An
 		} else {
 			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
 		}
-
 	}
 
 	anno[subv1.AnnotationTopo] = topo
