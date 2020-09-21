@@ -532,7 +532,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				}
 			}
 		}
-
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
