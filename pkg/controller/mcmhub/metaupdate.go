@@ -54,6 +54,7 @@ const (
 	sepRes           = "/"
 	deployableParent = "deployable"
 	helmChartParent  = "helmchart"
+	hookParent       = "hook"
 )
 
 func ObjectString(obj metav1.Object) string {
@@ -401,7 +402,7 @@ func ansibleJobsToResourceUnit(jobStr string, sFunc stringFuc) string {
 		}
 
 		u := resourceUnit{
-			parentType: deployableParent,
+			parentType: hookParent,
 			name:       n[1],
 			namespace:  n[0],
 			kind:       AnsibleJobKind,
