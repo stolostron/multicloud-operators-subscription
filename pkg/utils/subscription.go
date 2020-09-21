@@ -53,7 +53,7 @@ const (
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
-func IsWholeSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
+func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	if IsSubscriptionBasicChanged(oSub, nSub) {
 		return true
 	}
@@ -75,13 +75,14 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 		subOld := e.ObjectOld.(*appv1.Subscription)
 		subNew := e.ObjectNew.(*appv1.Subscription)
 
-		return IsWholeSubscriptionChanged(subOld, subNew)
+		return IsSubscriptionResourceChanged(subOld, subNew)
 	},
 }
 
 func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
 	fOsub := FilterOutTimeRelatedFields(o)
 	fNSub := FilterOutTimeRelatedFields(n)
+
 	// need to process delete with finalizers
 	if !reflect.DeepEqual(fOsub.GetFinalizers(), fNSub.GetFinalizers()) {
 		return true
@@ -152,6 +153,7 @@ var DeployablePredicateFunctions = predicate.Funcs{
 
 		return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
 	},
+
 	CreateFunc: func(e event.CreateEvent) bool {
 		newdpl := e.Object.(*dplv1.Deployable)
 
@@ -789,4 +791,14 @@ func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructure
 	}
 
 	return obj
+}
+
+func IsSubscriptionBeDeleted(clt client.Client, subKey types.NamespacedName) bool {
+	subIns := &appv1.Subscription{}
+
+	if err := clt.Get(context.TODO(), subKey, subIns); err != nil {
+		return kerrors.IsNotFound(err)
+	}
+
+	return !subIns.GetDeletionTimestamp().IsZero()
 }

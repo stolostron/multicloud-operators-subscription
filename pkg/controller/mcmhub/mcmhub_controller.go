@@ -420,44 +420,6 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 	}
 }
 
-func (r *ReconcileSubscription) updateStatus(preErr error, newSub *appv1.Subscription) error {
-	if newSub == nil {
-		return nil
-	}
-
-	subKey := types.NamespacedName{Name: newSub.GetName(), Namespace: newSub.GetNamespace()}
-
-	fmt.Printf("izhang ----> nil %s\n", subKey)
-	ins := &appv1.Subscription{}
-	if err := r.Client.Get(context.TODO(), subKey, ins); err != nil {
-		return err
-	}
-
-	// prehook update
-	if preErr != nil {
-		ins.Status.Phase = appv1.SubscriptionPropagationFailed
-		ins.Status.Reason = preErr.Error()
-		ins.Status.LastUpdateTime = metav1.Now()
-
-		if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
-			return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
-		}
-
-		return nil
-	}
-
-	// append the hook status
-	newSub = r.hooks.AppendStatusToSubscription(newSub)
-	ins.Status = *newSub.Status.DeepCopy()
-	newSub.Status.LastUpdateTime = metav1.Now()
-
-	if err := r.Client.Status().Update(context.TODO(), ins.DeepCopy()); err != nil {
-		return fmt.Errorf("failed to %s update hook status, err: %v", subKey.String(), err)
-	}
-
-	return nil
-}
-
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
@@ -472,38 +434,96 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	var preErr error
 
 	instance := &appv1.Subscription{}
+	oins := &appv1.Subscription{}
 
 	defer func() {
-		if !passedPrehook {
-			//only write the
-			if err := r.updateStatus(preErr, instance); err != nil && result.RequeueAfter == time.Duration(0) {
+		// handle the prehook failed status update
+		fmt.Printf("izhang --- A %#v\n", instance.GetName())
+		if !passedPrehook && instance != nil {
+			instance.Status.Phase = appv1.SubscriptionPropagationFailed
+			instance.Status.Reason = preErr.Error()
+			instance.Status.LastUpdateTime = metav1.Now()
+			if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil && result.RequeueAfter == time.Duration(0) {
+				if k8serrors.IsGone(err) {
+					return
+				}
+
 				result.RequeueAfter = 1 * time.Second
-				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+				logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+			}
+			return
+		}
+
+		instance.Status = r.hooks.AppendStatusToSubscription(instance)
+		//checking, labels, annotation, certain status fields of subscriptions
+		if utils.IsSubscriptionResourceChanged(oins, instance) { // update the instance with propagation status
+			//if use instance directly, the instance will be override by the
+			//update
+			fmt.Printf("izhang --- BB to be commited \n %v", instance.GetName())
+			if utils.IsSubscriptionBasicChanged(oins, instance) { //if subresource enabled, the update client won't update the status
+				if err := r.Client.Update(context.TODO(), instance.DeepCopy()); err != nil {
+					if result.RequeueAfter == time.Duration(0) {
+						result.RequeueAfter = 1 * time.Second
+						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+					}
+
+					fmt.Println("izhang ---BBBBBBBBBBBBBBBBBBBB BB-no err err:")
+					return
+				}
+			} else {
+				instance.Status.LastUpdateTime = metav1.Now()
+				if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil {
+					fmt.Printf("izhang --- BB-err %#v\n err: %v ", instance.GetName(), err)
+
+					if result.RequeueAfter == time.Duration(0) {
+						result.RequeueAfter = 1 * time.Second
+						logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+					}
+
+					fmt.Println("izhang ---BBBBBBBBBBBBBBBBBBBB BB-no err err:")
+					return
+				}
+
+			}
+
+			if r.hooks.HasHooks(PostHookType, request.NamespacedName) {
+				result.RequeueAfter = r.hookRequeueInterval
 			}
 
 			return
 		}
 
-		//update the propagation
-		if err := r.updateStatus(nil, instance); err != nil {
-			result.RequeueAfter = 1 * time.Second
-			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
-
+		//if not post hook, quit the reconcile
+		if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
 			return
 		}
 
+		fmt.Printf("izhang --- CCC %#v\n", instance.GetName())
+		// nothing added to the incoming subscription, time to figure out the post hook
 		//wait till the subscription is propagated
 		f, err := r.IsSubscriptionCompleted(request.NamespacedName)
 		if !f || err != nil {
+			result.RequeueAfter = r.hookRequeueInterval
 			return
 		}
 
+		fmt.Printf("izhang --- DDD %#v\n", instance.GetName())
 		// post hook will in a apply and don't report back manner
 		if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
 			logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
-
-			result.RequeueAfter = r.hookRequeueInterval
 		}
+
+		fmt.Printf("izhang --- EEE %#v\n", instance.GetName())
+		instance.Status.LastUpdateTime = metav1.Now()
+		if err := r.Client.Status().Update(context.TODO(), instance.DeepCopy()); err != nil && result.RequeueAfter == time.Duration(0) {
+			if k8serrors.IsGone(err) {
+				return
+			}
+
+			result.RequeueAfter = 1 * time.Second
+			logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", result.RequeueAfter))
+		}
+		return
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
@@ -527,6 +547,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, err
 	}
 
+	// for later comparison
+	oins = instance.DeepCopy()
+
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 
@@ -535,30 +558,33 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		return reconcile.Result{}, nil
 	}
 
-	//if it's registered
-	if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
-		logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+	if false && r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+		fmt.Println("izhang aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+		//if it's registered
+		if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+			logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
-		passedPrehook = false
+			passedPrehook = false
 
-		return reconcile.Result{}, nil
-	}
-
-	//if it's registered
-	b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
-	if !b || err != nil {
-		// used for use the status update
-		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
-
-		if err != nil {
-			logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
 			return reconcile.Result{}, nil
 		}
 
-		result.RequeueAfter = r.hookRequeueInterval
-		passedPrehook = false
+		//if it's registered
+		b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+		if !b || err != nil {
+			// used for use the status update
+			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
-		return result, nil
+			if err != nil {
+				logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+				return reconcile.Result{}, nil
+			}
+
+			result.RequeueAfter = r.hookRequeueInterval
+			passedPrehook = false
+
+			return result, nil
+		}
 	}
 
 	// process as hub subscription, generate deployable to propagate
@@ -571,7 +597,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
-		oins := instance.DeepCopy()
 		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
 
@@ -584,14 +609,17 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			r.setHubSubscriptionStatus(instance)
 		}
 
-		//checking, labels, annotation, certain status fields of subscriptions
-		if utils.IsWholeSubscriptionChanged(oins, instance) {
-			//if use instance directly, the instance will be override by the
-			//update
-			returnErr = r.Client.Update(context.TODO(), instance.DeepCopy())
-
-			return
+		// for object store, it takes a while for the object to be downloaded,
+		// so we want to requeue to get a valid topo annotation
+		if !isTopoAnnoExist(instance) {
+			//skip gosec G404 since the random number is only used for requeue
+			//timer
+			// #nosec G404
+			if result.RequeueAfter == 0 {
+				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
+			}
 		}
+
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
@@ -612,26 +640,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				if k != localkey {
 					delete(instance.Status.Statuses, k)
 				}
-			}
-		}
-	}
-
-	if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
-		// ask the cluster for the latest version of the instace, since the
-		// doMCMHubReconcile() func might update the instance
-		sub := &appv1.Subscription{}
-		if err := r.Get(context.TODO(), request.NamespacedName, sub); err != nil {
-			return reconcile.Result{}, err
-		}
-
-		// for object store, it takes a while for the object to be downloaded,
-		// so we want to requeue to get a valid topo annotation
-		if !isTopoAnnoExist(sub) {
-			//skip gosec G404 since the random number is only used for requeue
-			//timer
-			// #nosec G404
-			if result.RequeueAfter == 0 {
-				result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
 			}
 		}
 	}

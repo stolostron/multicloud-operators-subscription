@@ -47,8 +47,8 @@ const (
 	Status            = "status"
 	AnsibleJobResult  = "ansiblejobresult"
 	SubLabel          = "ownersub"
-	isPreHook         = "pre"
-	isPostHook        = "post"
+	PreHookType       = "pre"
+	PostHookType      = "post"
 
 	DebugLog = 3
 )
@@ -68,11 +68,12 @@ type HookProcessor interface {
 	ApplyPostHooks(types.NamespacedName) error
 	IsPostHooksCompleted(types.NamespacedName) (bool, error)
 
+	HasHooks(string, types.NamespacedName) bool
 	//WriteStatusToSubscription gets the status at the entry of the reconcile,
 	//also the procssed subscription(which should carry all the update status on
 	//the given reconciel), then  WriteStatusToSubscription will append the hook
 	//status info and make a update to the cluster
-	AppendStatusToSubscription(*appv1.Subscription) *appv1.Subscription
+	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 }
 
 type Job struct {
@@ -160,21 +161,11 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, jobs []ansibl
 	return nil
 }
 
-func isSubscriptionBeDeleted(clt client.Client, subKey types.NamespacedName) bool {
-	subIns := &subv1.Subscription{}
-
-	if err := clt.Get(context.TODO(), subKey, subIns); err != nil {
-		return kerr.IsNotFound(err)
-	}
-
-	return !subIns.GetDeletionTimestamp().IsZero()
-}
-
 // applyjobs will get the original job and create a instance, the applied
 // instance will is put into the job.Instance array upon the success of the
 // creation
 func (jIns *JobInstances) applyJobs(clt client.Client, suffixFunc SuffixFunc, subIns *subv1.Subscription) error {
-	if isSubscriptionBeDeleted(clt, types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}) {
+	if utils.IsSubscriptionBeDeleted(clt, types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}) {
 		return nil
 	}
 
@@ -292,19 +283,19 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	}
 }
 
-func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) *subv1.Subscription {
+func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) subv1.SubscriptionStatus {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	hooks := a.registry[subKey]
-	newSub := subIns.DeepCopy()
+	out := subIns.DeepCopy().Status
 
 	//return if the sub doesn't have hook
 	if hooks == nil {
-		return subIns
+		return out
 	}
 
-	newSub.Status.AnsibleJobsStatus = hooks.ConstructStatus()
+	out.AnsibleJobsStatus = hooks.ConstructStatus()
 
-	return newSub
+	return out
 }
 
 func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
@@ -350,7 +341,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	//check if the subIns have being changed compare to the hook registry, if
 	//changed then re-register the subscription
-	if !a.isUpdateSubscription(subIns) {
+	if !a.isUpdateSubscription(subIns, isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -366,8 +357,13 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return fmt.Errorf("failed to download from git source, err: %v", err)
 	}
 
+	a.registry[subKey].lastSub = subIns.DeepCopy()
 	//update the base Ansible job and append a generated job to the preHooks
 	return a.addHookToRegisitry(subIns)
+}
+
+func isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
+	return o.GetGeneration() != n.GetGeneration()
 }
 
 type SuffixFunc func(*subv1.Subscription) string
@@ -379,12 +375,11 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	if hookFlag == isPreHook {
+	if hookFlag == PreHookType {
 		if a.registry[subKey].preHooks == nil {
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		a.registry[subKey].lastSub = subIns.DeepCopy()
 		err := a.registry[subKey].preHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
 		return err
@@ -394,7 +389,6 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	a.registry[subKey].lastSub = subIns.DeepCopy()
 	err := a.registry[subKey].postHooks.registryJobs(subIns, jobs, a.clt, a.logger)
 
 	return err
@@ -430,13 +424,13 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 	}
 
 	if len(preJobs) != 0 {
-		if err := a.registerHook(subIns, isPreHook, preJobs); err != nil {
+		if err := a.registerHook(subIns, PreHookType, preJobs); err != nil {
 			return err
 		}
 	}
 
 	if len(postJobs) != 0 {
-		if err := a.registerHook(subIns, isPostHook, postJobs); err != nil {
+		if err := a.registerHook(subIns, PostHookType, postJobs); err != nil {
 			return err
 		}
 	}
@@ -514,27 +508,22 @@ func (a *AnsibleHooks) isRegistered(subKey types.NamespacedName) bool {
 }
 
 func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
-	a.logger.WithName(subKey.String()).V(DebugLog).Info("entry ApplyPreHook")
-	defer a.logger.WithName(subKey.String()).V(DebugLog).Info("exit ApplyPreHook")
+	if a.HasHooks(PreHookType, subKey) {
+		hks := a.registry[subKey].preHooks
 
-	if !a.isRegistered(subKey) {
-		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not prehook registered for %v", subKey.String()))
-		return nil
+		return hks.applyJobs(a.clt, a.suffixFunc, a.registry[subKey].lastSub)
 	}
 
-	hks := a.registry[subKey].preHooks
-	if hks == nil || len(*hks) == 0 {
-		return nil
-	}
-
-	return hks.applyJobs(a.clt, a.suffixFunc, a.registry[subKey].lastSub)
+	return nil
 }
 
-func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription) bool {
+type SubCompareFunc func(*subv1.Subscription, *subv1.Subscription) bool
+
+func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription, cFunc SubCompareFunc) bool {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	record, ok := a.registry[subKey]
 
-	return !ok || utils.IsSubscriptionBasicChanged(record.lastSub, subIns)
+	return !ok || cFunc(record.lastSub, subIns)
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
@@ -551,19 +540,37 @@ func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, e
 	return hks.isJobsCompleted(a.clt, a.logger)
 }
 
-func (a *AnsibleHooks) ApplyPostHooks(subKey types.NamespacedName) error {
+func (a *AnsibleHooks) HasHooks(hookType string, subKey types.NamespacedName) bool {
 	if !a.isRegistered(subKey) {
 		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not posthook registered for %v", subKey.String()))
-		return nil
+		return false
+	}
+
+	if hookType == PreHookType {
+		hks := a.registry[subKey].preHooks
+
+		if hks == nil || len(*hks) == 0 {
+			return false
+		}
+
 	}
 
 	hks := a.registry[subKey].postHooks
 
 	if hks == nil || len(*hks) == 0 {
-		return nil
+		return false
 	}
 
-	return hks.applyJobs(a.clt, a.suffixFunc, a.registry[subKey].lastSub)
+	return true
+}
+
+func (a *AnsibleHooks) ApplyPostHooks(subKey types.NamespacedName) error {
+	if a.HasHooks(PostHookType, subKey) {
+		hks := a.registry[subKey].postHooks
+		return hks.applyJobs(a.clt, a.suffixFunc, a.registry[subKey].lastSub)
+	}
+
+	return nil
 }
 
 func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, error) {
