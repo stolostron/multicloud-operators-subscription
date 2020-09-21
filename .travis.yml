@@ -11,7 +11,7 @@ services:
 branches:
   only:
     - master
-    - dev
+    - dev-*
     - ibm-*
     - /^[0-9]+\..*$/
     - /^v[0-9]+\..*$/
@@ -47,7 +47,7 @@ jobs:
   include:
     - stage: lint
       name: "Run code lint"
-      if: type = pull_request
+      if: type = pull_request AND NOT branch =~ /^dev+\..*$/
       script: bash ${TRAVIS_BUILD_DIR}/build/run-code-lint.sh
 
     - stage: build
