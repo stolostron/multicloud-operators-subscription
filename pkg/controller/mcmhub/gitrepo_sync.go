@@ -99,7 +99,6 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		r.deleteSubscriptionDeployables(sub)
 
 		annotations[appv1.AnnotationGitCommit] = commit
-		annotations = appendAnsiblejobToSubsriptionAnnotation(annotations, sub.Status.AnsibleJobsStatus)
 
 		sub.SetAnnotations(annotations)
 
@@ -340,6 +339,7 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	subanno[appv1.AnnotationTopo] = tpStr
 
 	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
+
 	sub.SetAnnotations(subanno)
 
 	klog.V(3).Infof("topo string: %v", tpStr)

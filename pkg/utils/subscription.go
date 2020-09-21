@@ -53,31 +53,8 @@ const (
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
-func IsSubscriptionChanged(oSub, nSub *appv1.Subscription) bool {
-	// need to process delete with finalizers
-	if !reflect.DeepEqual(oSub.GetFinalizers(), nSub.GetFinalizers()) {
-		return true
-	}
-
-	// we care label change, pass it down
-	if !reflect.DeepEqual(oSub.GetLabels(), nSub.GetLabels()) {
-		return true
-	}
-
-	// In hub cluster, these annotations get updated by subscription reconcile
-	// so remove them before comparison to avoid triggering another reconciliation.
-	oldAnnotations := oSub.GetAnnotations()
-	newAnnotations := nSub.GetAnnotations()
-
-	// we care annotation change. pass it down
-	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
-		return true
-	}
-
-	// we care spec for sure, we use the generation of 2 object to track the
-	// spec version
-	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
-	if !reflect.DeepEqual(oSub.Spec, nSub.Spec) {
+func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
+	if IsSubscriptionBasicChanged(oSub, nSub) {
 		return true
 	}
 
@@ -98,8 +75,74 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 		subOld := e.ObjectOld.(*appv1.Subscription)
 		subNew := e.ObjectNew.(*appv1.Subscription)
 
-		return IsSubscriptionChanged(subOld, subNew)
+		return IsSubscriptionResourceChanged(subOld, subNew)
 	},
+}
+
+func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
+	fOsub := FilterOutTimeRelatedFields(o)
+	fNSub := FilterOutTimeRelatedFields(n)
+
+	// need to process delete with finalizers
+	if !reflect.DeepEqual(fOsub.GetFinalizers(), fNSub.GetFinalizers()) {
+		return true
+	}
+
+	// we care label change, pass it down
+	if !reflect.DeepEqual(fOsub.GetLabels(), fNSub.GetLabels()) {
+		return true
+	}
+
+	// In hub cluster, these annotations get updated by subscription reconcile
+	// so remove them before comparison to avoid triggering another reconciliation.
+	oldAnnotations := fOsub.GetAnnotations()
+	newAnnotations := fNSub.GetAnnotations()
+
+	// we care annotation change. pass it down
+	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
+		return true
+	}
+
+	// we care spec for sure, we use the generation of 2 object to track the
+	// spec version
+	//https://kubernetes.io/docs/tasks/extend-kubernetes/custom-resources/custom-resource-definitions/#status-subresource
+	if !reflect.DeepEqual(fOsub.Spec, fNSub.Spec) {
+		return true
+	}
+
+	return false
+}
+
+// the input object shouldn't be changed at all
+func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
+	if in == nil {
+		return nil
+	}
+
+	out := in.DeepCopy()
+
+	anno := out.GetAnnotations()
+	if len(anno) == 0 {
+		anno = map[string]string{}
+	}
+
+	//annotation that contains time
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+
+	for _, f := range timeFields {
+		delete(anno, f)
+	}
+
+	out.SetAnnotations(anno)
+
+	//set managedFields time to empty
+	outF := []metav1.ManagedFieldsEntry{}
+
+	out.SetManagedFields(outF)
+	// we don't actually care about the status, when create a deployable for
+	// given subscription
+
+	return out
 }
 
 // DeployablePredicateFunctions filters status update
@@ -110,6 +153,7 @@ var DeployablePredicateFunctions = predicate.Funcs{
 
 		return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
 	},
+
 	CreateFunc: func(e event.CreateEvent) bool {
 		newdpl := e.Object.(*dplv1.Deployable)
 
@@ -747,4 +791,14 @@ func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructure
 	}
 
 	return obj
+}
+
+func IsSubscriptionBeDeleted(clt client.Client, subKey types.NamespacedName) bool {
+	subIns := &appv1.Subscription{}
+
+	if err := clt.Get(context.TODO(), subKey, subIns); err != nil {
+		return kerrors.IsNotFound(err)
+	}
+
+	return !subIns.GetDeletionTimestamp().IsZero()
 }
