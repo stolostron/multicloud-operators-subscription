@@ -355,7 +355,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 	}
 
 	if err := a.gitClt.DownloadAnsibleHookResource(subIns); err != nil {
-		return fmt.Errorf("failed to download from git source, err: %v", err)
+		a.logger.Error(err, fmt.Sprintf("failed to download from git source, err: %s", subKey))
+		return nil
 	}
 
 	//update the base Ansible job and append a generated job to the preHooks

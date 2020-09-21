@@ -464,6 +464,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// for later comparison
 	oins = instance.DeepCopy()
 
+	// register will skip the failed clone repo
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 
