@@ -613,7 +613,6 @@ func TestPostHookInstaceGenerateUponChangesOfSubscription(t *testing.T) {
 
 	setSufficFunc(rec)
 
-	fmt.Println("izhang ----------------------- 2nd subscription")
 	waitFor2ndGenerateInstance := func() error {
 		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
 		aList := &ansiblejob.AnsibleJobList{}

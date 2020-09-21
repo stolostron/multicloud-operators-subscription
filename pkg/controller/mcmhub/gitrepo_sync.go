@@ -303,7 +303,6 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 	}
 
 	subanno[appv1.AnnotationDeployables] = dplstr
-	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 
 	if err := r.updateAnnotationTopo(sub, allDpls); err != nil {
 		klog.Errorf("failed to update topo annotation for git sub %v, err: %v", sub.Name, err)
@@ -338,6 +337,8 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 	klog.V(3).Infof("dplStr string: %v\n chartStr %v", tpStr, chartRes)
 
 	subanno[appv1.AnnotationTopo] = tpStr
+
+	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 
 	sub.SetAnnotations(subanno)
 
