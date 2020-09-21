@@ -381,7 +381,17 @@ func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.U
 	return out, nil
 }
 
-func ansibleJobsToResourceUnit(jobStr string) string {
+type stringFuc func(resourceUnit) string
+
+func topoFromResourceUnit(r resourceUnit) string {
+	return r.String()
+}
+
+func dplFromResourceUnit(r resourceUnit) string {
+	return fmt.Sprintf("%s/%s", r.namespace, r.name)
+}
+
+func ansibleJobsToResourceUnit(jobStr string, sFunc stringFuc) string {
 	res := []string{}
 
 	for _, job := range strings.Split(jobStr, sep) {
@@ -390,13 +400,15 @@ func ansibleJobsToResourceUnit(jobStr string) string {
 			continue
 		}
 
-		res = append(res, resourceUnit{
+		u := resourceUnit{
 			parentType: deployableParent,
 			name:       n[1],
 			namespace:  n[0],
 			kind:       AnsibleJobKind,
 			addition:   0,
-		}.String())
+		}
+
+		res = append(res, sFunc(u))
 	}
 
 	return strings.Join(res, sep)
@@ -411,37 +423,40 @@ func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.An
 		return anno
 	}
 
-	preJobs := ansibleJobsToResourceUnit(st.LastPrehookJob)
-	postJobs := ansibleJobsToResourceUnit(st.LastPosthookJob)
+	dPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, dplFromResourceUnit)
+	dPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, dplFromResourceUnit)
+
+	tPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, topoFromResourceUnit)
+	tPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, topoFromResourceUnit)
 
 	topo := anno[subv1.AnnotationTopo]
 	dpls := anno[subv1.AnnotationDeployables]
 
-	if len(preJobs) != 0 {
+	if len(dPreJobs) != 0 {
 		if len(topo) == 0 {
-			topo = preJobs
+			topo = tPreJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, preJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
 		}
 
 		if len(dpls) == 0 {
-			dpls = preJobs
+			dpls = dPreJobs
 		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, preJobs)
+			dpls = fmt.Sprintf("%s,%s", dpls, dPreJobs)
 		}
 	}
 
-	if len(postJobs) != 0 {
+	if len(dPostJobs) != 0 {
 		if len(topo) == 0 {
-			topo = postJobs
+			topo = tPostJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, postJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
 		}
 
 		if len(dpls) == 0 {
-			dpls = postJobs
+			dpls = dPostJobs
 		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, postJobs)
+			dpls = fmt.Sprintf("%s,%s", dpls, dPostJobs)
 		}
 	}
 
