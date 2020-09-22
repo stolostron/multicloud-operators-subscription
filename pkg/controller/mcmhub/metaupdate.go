@@ -54,6 +54,7 @@ const (
 	sepRes           = "/"
 	deployableParent = "deployable"
 	helmChartParent  = "helmchart"
+	hookParent       = "hook"
 )
 
 func ObjectString(obj metav1.Object) string {
@@ -381,7 +382,13 @@ func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.U
 	return out, nil
 }
 
-func ansibleJobsToResourceUnit(jobStr string) string {
+type stringFuc func(resourceUnit) string
+
+func topoFromResourceUnit(r resourceUnit) string {
+	return r.String()
+}
+
+func ansibleJobsToResourceUnit(jobStr string, sFunc stringFuc) string {
 	res := []string{}
 
 	for _, job := range strings.Split(jobStr, sep) {
@@ -390,13 +397,15 @@ func ansibleJobsToResourceUnit(jobStr string) string {
 			continue
 		}
 
-		res = append(res, resourceUnit{
-			parentType: deployableParent,
+		u := resourceUnit{
+			parentType: hookParent,
 			name:       n[1],
 			namespace:  n[0],
 			kind:       AnsibleJobKind,
 			addition:   0,
-		}.String())
+		}
+
+		res = append(res, sFunc(u))
 	}
 
 	return strings.Join(res, sep)
@@ -411,42 +420,28 @@ func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.An
 		return anno
 	}
 
-	preJobs := ansibleJobsToResourceUnit(st.LastPrehookJob)
-	postJobs := ansibleJobsToResourceUnit(st.LastPosthookJob)
+	tPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, topoFromResourceUnit)
+	tPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, topoFromResourceUnit)
 
 	topo := anno[subv1.AnnotationTopo]
-	dpls := anno[subv1.AnnotationDeployables]
 
-	if len(preJobs) != 0 {
+	if len(tPreJobs) != 0 {
 		if len(topo) == 0 {
-			topo = preJobs
+			topo = tPreJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, preJobs)
-		}
-
-		if len(dpls) == 0 {
-			dpls = preJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, preJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
 		}
 	}
 
-	if len(postJobs) != 0 {
+	if len(tPostJobs) != 0 {
 		if len(topo) == 0 {
-			topo = postJobs
+			topo = tPostJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, postJobs)
-		}
-
-		if len(dpls) == 0 {
-			dpls = postJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, postJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
 		}
 	}
 
 	anno[subv1.AnnotationTopo] = topo
-	anno[subv1.AnnotationDeployables] = dpls
 
 	return anno
 }
