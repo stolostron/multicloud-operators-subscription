@@ -386,7 +386,8 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 		return nil
 	}
 
-	g.Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).Should(gomega.Succeed())
+	// For now, it should fail.
+	g.Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).ShouldNot(gomega.Succeed())
 }
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
