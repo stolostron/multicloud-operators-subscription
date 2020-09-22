@@ -537,7 +537,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
-		if err != nil {
+		// Let the standalone/managed subscription controller update the status.
+		/*if err != nil {
 			instance.Status.Phase = appv1.SubscriptionFailed
 			instance.Status.Reason = err.Error()
 		}
@@ -555,7 +556,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 					delete(instance.Status.Statuses, k)
 				}
 			}
-		}
+		}*/
 	}
 
 	return result, nil
