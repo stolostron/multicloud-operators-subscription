@@ -467,6 +467,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// register will skip the failed clone repo
 	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+		preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
 		passedPrehook = false
 
@@ -474,6 +475,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	}
 
 	if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 		//if it's registered
 		if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 			logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
@@ -487,7 +489,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 		if !b || err != nil {
 			// used for use the status update
-			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 			_ = preErr
 
 			if err != nil {
@@ -637,6 +638,13 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
+
+	// meaning the subscription is deleted
+	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
+		r.logger.Info("instace is delete, don't run update logic")
+		return
+	}
+
 	// handle the prehook failed status update
 	if !passedPrehook && nIns != nil {
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
@@ -664,10 +672,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		//update
 		if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
 			if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
-				if k8serrors.IsGone(err) {
-					return
-				}
-
 				if res.RequeueAfter == time.Duration(0) {
 					res.RequeueAfter = 1 * time.Second
 					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
@@ -678,10 +682,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		} else {
 			nIns.Status.LastUpdateTime = metav1.Now()
 			if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
-				if k8serrors.IsGone(err) {
-					return
-				}
-
 				if res.RequeueAfter == time.Duration(0) {
 					res.RequeueAfter = 1 * time.Second
 					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
