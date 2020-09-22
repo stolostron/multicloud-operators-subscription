@@ -638,7 +638,6 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
-
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")

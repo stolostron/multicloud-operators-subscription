@@ -21,7 +21,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -322,72 +324,55 @@ func TestPrehookHappyPathNoDuplicateInstanceOnReconciles(t *testing.T) {
 //path or download from git failed
 // upon the fail of the download, the reconcile of subscription will stop and
 // error message should be print in the log or put the error to the status field
-func TestPrehookGitResourceNoneExistPath(t *testing.T) {
-	tSetup := NewTSetUp(t)
+var _ = Describe("Given an invalid git path", func() {
+	var (
+		testPath = newHookTest()
+		ctx      = context.TODO()
+	)
 
-	g := tSetup.g
-	mgr := tSetup.mgr
-	k8sClt := mgr.GetClient()
+	It("should reconcile with propagationFaild status", func() {
+		Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
 
-	defer func() {
-		close(tSetup.stop)
-		tSetup.wg.Wait()
-	}()
+		applyIns := testPath.subIns.DeepCopy()
 
-	testPath := newHookTest()
+		a := testPath.subIns.GetAnnotations()
+		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
+		applyIns.SetAnnotations(a)
 
-	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+		// tells the subscription operator to process the hooks
+		applyIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
-	ctx := context.TODO()
-	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+		Expect(k8sClt.Create(ctx, applyIns)).Should(Succeed())
 
-	defer func() {
-		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
-	}()
+		defer func() {
+			Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(Succeed())
+		}()
 
-	applyIns := testPath.subIns.DeepCopy()
+		ansibleIns := &ansiblejob.AnsibleJob{}
 
-	a := testPath.subIns.GetAnnotations()
-	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
-	applyIns.SetAnnotations(a)
+		Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(Succeed())
 
-	// tells the subscription operator to process the hooks
-	applyIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+		nSub := &subv1.Subscription{}
 
-	g.Expect(k8sClt.Create(ctx, applyIns)).Should(gomega.Succeed())
+		waitForFileNoneFoundInStatus := func() error {
+			if err := k8sClt.Get(ctx, testPath.subKey, nSub); err != nil {
+				return err
+			}
 
-	defer func() {
-		g.Expect(k8sClt.Delete(ctx, testPath.subIns.DeepCopy())).Should(gomega.Succeed())
-	}()
+			st := nSub.Status
 
-	r, err := rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
+			if st.Phase != subv1.SubscriptionPropagationFailed {
+				return errors.New(fmt.Sprintf("waiting for phase %s, got %s",
+					subv1.SubscriptionPropagationFailed, st.Phase))
+			}
 
-	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(time.Duration(0)))
-
-	ansibleIns := &ansiblejob.AnsibleJob{}
-
-	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
-
-	nSub := &subv1.Subscription{}
-
-	waitForFileNoneFoundInStatus := func() error {
-		r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
-
-		g.Expect(k8sClt.Get(ctx, testPath.subKey, nSub)).Should(gomega.Succeed())
-
-		st := nSub.Status
-
-		if st.Phase != subv1.SubscriptionPropagationFailed {
-			return errors.New(fmt.Sprintf("waiting for phase %s, got %s",
-				subv1.SubscriptionPropagationFailed, st.Phase))
+			return nil
 		}
 
-		return nil
-	}
-
-	g.Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).Should(gomega.Succeed())
-}
+		Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).Should(Succeed())
+	})
+})
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	pre := &ansiblejob.AnsibleJob{}
@@ -541,142 +526,131 @@ func TestPosthookHappyPathWithPreHooks(t *testing.T) {
 
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
-func TestPostHookInstaceGenerateUponChangesOfSubscription(t *testing.T) {
-	tSetup := NewTSetUp(t)
+var _ = Describe("upon the change of a subscription 2nd", func() {
+	var (
+		testPath = newHookTest()
+		ctx      = context.TODO()
+	)
 
-	g := tSetup.g
-	mgr := tSetup.mgr
-	k8sClt := mgr.GetClient()
+	It("should create 2nd ansiblejob instance for hook(s)", func() {
+		Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
 
-	defer func() {
-		close(tSetup.stop)
-		tSetup.wg.Wait()
-	}()
+		t := &chnv1.Channel{}
+		k8sClt.Get(ctx,
+			types.NamespacedName{Name: testPath.chnIns.Name, Namespace: testPath.chnIns.Namespace},
+			t)
 
-	testPath := newHookTest()
+		subIns := testPath.subIns.DeepCopy()
+		postSubName := "test-posthook-only"
+		subIns.SetName(postSubName)
+		a := subIns.GetAnnotations()
+		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
 
-	rec := newReconciler(mgr, testPath.hookRequeueInterval, testPath.suffixFunc).(*ReconcileSubscription)
+		subIns.SetAnnotations(a)
+		// tells the subscription operator to process the hooks
+		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
-	ctx := context.TODO()
-	g.Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
+		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
-	defer func() {
-		g.Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(gomega.Succeed())
-	}()
+		defer func() {
+			fmt.Println("entry test defer logic")
+			Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+		}()
 
-	subIns := testPath.subIns.DeepCopy()
-	postSubName := "test-posthook-only"
-	subIns.SetName(postSubName)
-	a := subIns.GetAnnotations()
-	a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		subKey := testPath.subKey
+		subKey.Name = postSubName
 
-	subIns.SetAnnotations(a)
-	// tells the subscription operator to process the hooks
-	subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+		time.Sleep(5 * time.Second)
+		//mock the status of managed cluster
+		Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(Succeed())
 
-	g.Expect(k8sClt.Create(ctx, subIns)).Should(gomega.Succeed())
+		testPath.postAnsibleKey.Name = "posthook-only-test"
 
-	defer func() {
-		g.Expect(k8sClt.Delete(ctx, subIns)).Should(gomega.Succeed())
-	}()
+		ansibleIns := &ansiblejob.AnsibleJob{}
+		waitForPostHookCR := func() error {
+			aList := &ansiblejob.AnsibleJobList{}
 
-	subKey := testPath.subKey
-	subKey.Name = postSubName
-
-	// mock the subscription deployable status,which is copied over to the
-	// subsritption status
-
-	r, err := rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-
-	g.Expect(err).Should(gomega.Succeed())
-	g.Expect(r.RequeueAfter).Should(gomega.Equal(testPath.interval))
-
-	//mock the status of managed cluster
-	g.Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(gomega.Succeed())
-
-	time.Sleep(5 * time.Second)
-
-	testPath.postAnsibleKey.Name = "posthook-only-test"
-
-	ansibleIns := &ansiblejob.AnsibleJob{}
-	waitForPostHookCR := func() error {
-		//reconcile update the status of the subscription itself
-		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-		if err != nil {
-			fmt.Printf("izhang, faield on reconcile for post %v\n", err)
-			return err
-		}
-
-		return k8sClt.Get(ctx, testPath.postAnsibleKey, ansibleIns)
-	}
-
-	// it seems the travis CI needs more time
-	g.Eventually(waitForPostHookCR, 10*pullInterval, pullInterval).Should(gomega.Succeed())
-	//test if the ansiblejob have a owner set
-	g.Expect(ansibleIns.GetOwnerReferences()).ShouldNot(gomega.HaveLen(0))
-
-	g.Expect(ansibleIns.Spec.TowerAuthSecretName).Should(gomega.Equal(GetReferenceString(&testPath.hookSecretRef)))
-
-	subIns.Spec.HookSecretRef.Namespace = "ianzhang"
-
-	updateSub := subIns.DeepCopy()
-
-	time.Sleep(time.Second * 5)
-	g.Expect(k8sClt.Get(context.TODO(), subKey, updateSub)).Should(gomega.Succeed())
-
-	g.Expect(k8sClt.Update(context.TODO(), updateSub)).Should(gomega.Succeed())
-
-	setSufficFunc := func(r *ReconcileSubscription) {
-		r.hooks.SetSuffixFunc(suffixFromUUID)
-	}
-
-	setSufficFunc(rec)
-
-	waitFor2ndGenerateInstance := func() error {
-		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
-		aList := &ansiblejob.AnsibleJobList{}
-
-		if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
-			return err
-		}
-
-		if len(aList.Items) < 2 {
-			for _, i := range aList.Items {
-				fmt.Printf("izhang -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
+			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
+				return err
 			}
 
-			return errors.New("failed to regenerate ansiblejob upon the subscription changes")
+			if len(aList.Items) == 0 {
+				return errors.New("post hook is not created")
+			}
+
+			ansibleIns = aList.Items[0].DeepCopy()
+
+			return nil
 		}
 
-		return nil
-	}
+		// it seems the travis CI needs more time
+		Eventually(waitForPostHookCR, 5*pullInterval, pullInterval).Should(Succeed())
+		//test if the ansiblejob have a owner set
+		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
 
-	g.Eventually(waitFor2ndGenerateInstance, pullInterval*3, pullInterval).Should(gomega.Succeed())
+		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
 
-	// there's an update request triggered, so we might want to wait for a bit
+		time.Sleep(time.Second * 5)
 
-	waitFroPosthookStatus := func() error {
-		r, err = rec.Reconcile(reconcile.Request{NamespacedName: subKey})
+		modifySub := func() error {
+			u := &subv1.Subscription{}
+			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
+				return nil
+			}
 
-		updateSub := &subv1.Subscription{}
-
-		if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
-			return err
+			u.Spec.HookSecretRef.Namespace = "debug"
+			return k8sClt.Update(context.TODO(), u.DeepCopy())
 		}
 
-		updateStatus := updateSub.Status.AnsibleJobsStatus
+		Eventually(modifySub, pullInterval*10, pullInterval).Should(Succeed())
 
-		dErr := fmt.Errorf("failed to get ansiblejob status %s, %#v", subKey, updateStatus)
+		waitFor2ndGenerateInstance := func() error {
+			aList := &ansiblejob.AnsibleJobList{}
 
-		if len(updateStatus.PosthookJobsHistory) < 2 {
-			return dErr
+			t := &subv1.Subscription{}
+			Expect(k8sClt.Get(context.TODO(), subKey, t)).Should(Succeed())
+
+			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
+				return err
+			}
+
+			if len(aList.Items) < 2 {
+				for _, i := range aList.Items {
+					fmt.Printf("debug -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
+				}
+
+				return errors.New("failed to regenerate ansiblejob upon the subscription changes")
+			}
+
+			return nil
 		}
 
-		return nil
-	}
+		Eventually(waitFor2ndGenerateInstance, pullInterval*8, pullInterval).Should(Succeed())
 
-	g.Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(gomega.Succeed())
-}
+		// there's an update request triggered, so we might want to wait for a bit
+
+		waitFroPosthookStatus := func() error {
+			updateSub := &subv1.Subscription{}
+
+			if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
+				return err
+			}
+
+			updateStatus := updateSub.Status.AnsibleJobsStatus
+
+			dErr := fmt.Errorf("failed to get ansiblejob status %s, %#v", subKey, updateStatus)
+
+			if len(updateStatus.PosthookJobsHistory) < 2 {
+				return dErr
+			}
+
+			return nil
+		}
+
+		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
+	})
+})
 
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
