@@ -56,7 +56,7 @@ const (
 //HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(types.NamespacedName) error
+	RegisterSubscription(types.NamespacedName, bool) error
 	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
@@ -181,7 +181,7 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
+func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
 
@@ -209,9 +209,9 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	//check if the subIns have being changed compare to the hook registry, if
-	//changed then re-register the subscription
-	if !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
+	//if not forcing a register and the subIns has not being changed compare to the hook registry
+	//then skip hook processing
+	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -480,6 +480,14 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
+}
+
+func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
+	curStatus := job.Status.AnsibleJobResult.Status
+	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
+
+	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||
+		curStatus == "waiting" || curStatus == "running"
 }
 
 // Top priority: placementRef, ignore others

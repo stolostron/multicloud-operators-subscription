@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -77,6 +78,7 @@ const (
 	hubLogger                  = "subscription-hub-reconciler"
 	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
+	placementRuleFlag          = "--fired-by-placementrule"
 )
 
 /**
@@ -257,7 +259,8 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				continue
 			}
 
-			subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
+			// in Reconcile(), removed the below suffix flag when processing the subscription
+			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag, Namespace: sub.GetNamespace()}
 
 			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
@@ -431,6 +434,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
 
+	//flag used to determine if the reconcile came from a placementrule decision change then force register
+	forceRegister := false
+
+	if strings.HasSuffix(request.Name, placementRuleFlag) {
+		forceRegister = true
+		request.Name = strings.TrimSuffix(request.Name, placementRuleFlag)
+		request.NamespacedName = types.NamespacedName{Name: request.Name, Namespace: request.Namespace}
+	}
+
 	var preErr error
 
 	instance := &appv1.Subscription{}
@@ -465,7 +477,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	oins = instance.DeepCopy()
 
 	// register will skip the failed clone repo
-	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
+	if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 		preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 

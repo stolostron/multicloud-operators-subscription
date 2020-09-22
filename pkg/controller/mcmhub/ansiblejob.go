@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -77,6 +78,45 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
+			if len(jobRecords.Instance) > 0 {
+				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
+
+				// if the last job is running (or already done)
+				// AND the last job's target_clusters is the same as the new job's target_clusters
+				// then skip creating new Ansible Job
+				if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
+					lastJobKey := types.NamespacedName{Name: lastJob.GetName(), Namespace: lastJob.GetNamespace()}
+
+					jobDoneOrRunning, err := isJobDoneOrRunning(kubeclient, lastJobKey, logger)
+					if err != nil {
+						return err
+					}
+
+					if jobDoneOrRunning {
+						jobMap := make(map[string]interface{})
+						lastJobMap := make(map[string]interface{})
+
+						err := json.Unmarshal(nx.Spec.ExtraVars, &jobMap)
+						if err != nil {
+							return err
+						}
+
+						err = json.Unmarshal(lastJob.Spec.ExtraVars, &lastJobMap)
+						if err != nil {
+							return err
+						}
+
+						targetClusters := jobMap["target_clusters"]
+						lastJobTargetClusters := lastJobMap["target_clusters"]
+
+						if targetClusters == lastJobTargetClusters {
+							jobRecords.mux.Unlock()
+							continue
+						}
+					}
+				}
+			}
+
 			jobRecords.InstanceSet[nxKey] = struct{}{}
 			jobRecords.Instance = append(jobRecords.Instance, *nx)
 		}
@@ -151,6 +191,29 @@ func isJobDone(clt client.Client, key types.NamespacedName, logger logr.Logger) 
 		}
 
 		return false, err
+	}
+
+	if isJobRunSuccessful(job, logger) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func isJobDoneOrRunning(clt client.Client, key types.NamespacedName, logger logr.Logger) (bool, error) {
+	job := &ansiblejob.AnsibleJob{}
+
+	if err := clt.Get(context.TODO(), key, job); err != nil {
+		// it might not be created by the k8s side yet
+		if kerr.IsNotFound(err) {
+			return false, nil
+		}
+
+		return false, err
+	}
+
+	if isJobRunning(job, logger) {
+		return true, nil
 	}
 
 	if isJobRunSuccessful(job, logger) {
