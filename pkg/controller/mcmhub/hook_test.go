@@ -368,7 +368,6 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
-
 	/*nSub := &subv1.Subscription{}
 
 	waitForFileNoneFoundInStatus := func() error {
