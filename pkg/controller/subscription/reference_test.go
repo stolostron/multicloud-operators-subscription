@@ -93,7 +93,7 @@ func TestListAndDeployReferredObject(t *testing.T) {
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+			rec := newReconciler(mgr, mgr.GetClient(), nil, true).(*ReconcileSubscription)
 
 			g.Expect(rec.ListAndDeployReferredObject(tC.sub, srtGVK, tC.refSrt)).ShouldNot(gomega.HaveOccurred())
 
@@ -169,7 +169,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	rec := newReconciler(mgr, mgr.GetClient(), nil).(*ReconcileSubscription)
+	rec := newReconciler(mgr, mgr.GetClient(), nil, true).(*ReconcileSubscription)
 
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
