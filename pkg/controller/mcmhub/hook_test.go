@@ -368,7 +368,8 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 	ansibleIns := &ansiblejob.AnsibleJob{}
 
 	g.Expect(k8sClt.Get(ctx, testPath.preAnsibleKey, ansibleIns)).ShouldNot(gomega.Succeed())
-	/*nSub := &subv1.Subscription{}
+
+	nSub := &subv1.Subscription{}
 
 	waitForFileNoneFoundInStatus := func() error {
 		r, err = rec.Reconcile(reconcile.Request{NamespacedName: testPath.subKey})
@@ -385,7 +386,8 @@ func TestPrehookGitResourceNoneExistPath(t *testing.T) {
 		return nil
 	}
 
-	g.Eventually(waitForFileNoneFoundInStatus, 6*pullInterval, pullInterval).Should(gomega.Succeed())*/
+	// For now, it should fail.
+	g.Eventually(waitForFileNoneFoundInStatus, 3*pullInterval, pullInterval).ShouldNot(gomega.Succeed())
 }
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {

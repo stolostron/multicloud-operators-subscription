@@ -505,7 +505,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.Infof("Subscription: %v with placemen %#v", request.NamespacedName.String(), pl)
+	klog.Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
 
 	//status changes below show override the prehook status
 	if pl == nil {
@@ -537,8 +537,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	} else { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
-		// Let the standalone/managed subscription controller update the status.
-		/*if err != nil {
+
+		if err != nil {
 			instance.Status.Phase = appv1.SubscriptionFailed
 			instance.Status.Reason = err.Error()
 		}
@@ -556,7 +556,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 					delete(instance.Status.Statuses, k)
 				}
 			}
-		}*/
+		}
 	}
 
 	return result, nil
