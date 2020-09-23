@@ -100,7 +100,11 @@ func ReconcilerSpy(inner reconcile.Reconciler) (reconcile.Reconciler, chan Recon
 	return fn, requests
 }
 
-func spyReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1alpha1.Subscriber, clk clock, standalone bool) reconcile.Reconciler {
+func spyReconciler(mgr manager.Manager,
+	hubclient client.Client,
+	subscribers map[string]appv1alpha1.Subscriber,
+	clk clock,
+	standalone bool) reconcile.Reconciler {
 	rec := &ReconcileSubscription{
 		Client:      mgr.GetClient(),
 		scheme:      mgr.GetScheme(),
