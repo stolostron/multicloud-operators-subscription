@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,7 +82,6 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
-		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 
 		return true
@@ -382,48 +382,17 @@ func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.U
 	return out, nil
 }
 
-type stringFuc func(resourceUnit) string
-
-func topoFromResourceUnit(r resourceUnit) string {
-	return r.String()
-}
-
-func ansibleJobsToResourceUnit(jobStr string, sFunc stringFuc) string {
-	res := []string{}
-
-	for _, job := range strings.Split(jobStr, sep) {
-		n := strings.Split(job, "/")
-		if len(n) < 2 {
-			continue
-		}
-
-		u := resourceUnit{
-			parentType: hookParent,
-			name:       n[1],
-			namespace:  n[0],
-			kind:       AnsibleJobKind,
-			addition:   0,
-		}
-
-		res = append(res, sFunc(u))
-	}
-
-	return strings.Join(res, sep)
-}
-
-func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.AnsibleJobsStatus) map[string]string {
+func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, subKey types.NamespacedName) map[string]string {
 	if len(anno) == 0 {
 		anno = map[string]string{}
 	}
 
-	if st.LastPrehookJob == "" && st.LastPosthookJob == "" {
-		return anno
-	}
-
-	tPreJobs := ansibleJobsToResourceUnit(st.LastPrehookJob, topoFromResourceUnit)
-	tPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, topoFromResourceUnit)
+	applied := r.hooks.GetLastAppliedInstance(subKey)
 
 	topo := anno[subv1.AnnotationTopo]
+
+	tPreJobs := applied.pre
+	tPostJobs := applied.post
 
 	if len(tPreJobs) != 0 {
 		if len(topo) == 0 {
