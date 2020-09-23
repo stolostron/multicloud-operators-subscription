@@ -197,7 +197,6 @@ func UpdateHostDeployableStatus(clt client.Client, sKey types.NamespacedName, tP
 	}
 
 	t.Status.Phase = tPhase
-	fmt.Printf("izhang -----> update host dpl \n%#v\n", t)
 
 	return clt.Status().Update(context.TODO(), t.DeepCopy())
 }
@@ -224,7 +223,6 @@ func ManagedClusterUpdateHubStatus(clt client.Client, subKey types.NamespacedNam
 		},
 	}
 
-	fmt.Printf("izhang -----> update managed status \n%#v\n", a)
 	return clt.Status().Update(ctx, a)
 }
 
