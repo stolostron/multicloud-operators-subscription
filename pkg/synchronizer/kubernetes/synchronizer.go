@@ -267,7 +267,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	newobj := tplunit.Unstructured.DeepCopy()
 	newobj.SetResourceVersion(obj.GetResourceVersion())
 
-	if overwrite {
+	// If subscription-admin chooses merge option, remove the typical annotations we add. This will avoid the resources being
+	// deleted when the subscription is removed.
+	// If subscription-admin chooses replace option, keep the typical annotations we add. Subscription takes over the resources.
+	// When the subscription is removed, the resources will be removed too.
+	if overwrite && merge {
 		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
 		newobj = utils.RemoveSubOwnerRef(newobj)
