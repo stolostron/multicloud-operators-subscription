@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	plv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -315,7 +316,7 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 					},
 				},
 				result: reconcile.Result{
-					RequeueAfter: 0,
+					RequeueAfter: 5*time.Hour + 1*time.Minute,
 				},
 			},
 			expectedSubMsg: subscriptionActive,
@@ -347,7 +348,7 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 					},
 				},
 				result: reconcile.Result{
-					RequeueAfter: 0,
+					RequeueAfter: 1*time.Hour + 1*time.Minute,
 				},
 			},
 			expectedSubMsg: subscriptionBlock,
@@ -356,10 +357,17 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := spyReconciler(mgr, mgr.GetClient(), nil, (&testClock{tt.curTime}).now)
+			// Run the reconciler in standalone mode
+			rec := spyReconciler(mgr, mgr.GetClient(), nil, (&testClock{tt.curTime}).now, true)
 			recFn, reconciliation := ReconcilerSpy(rec)
 
 			g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+			// Set the subscription placement to be local so that it is reconciled.
+			pl := &plv1.Placement{}
+			l := true
+			pl.Local = &l
+			tt.given.Spec.Placement = pl
 			g.Expect(c.Create(context.TODO(), tt.given)).NotTo(gomega.HaveOccurred())
 
 			g.Eventually(reconciliation, timeout).Should(gomega.Receive(gomega.Equal(tt.expectedReconcileResult)))
