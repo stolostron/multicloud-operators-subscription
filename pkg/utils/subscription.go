@@ -145,6 +145,18 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	return out
 }
 
+func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
+	if reflect.DeepEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
+		return true
+	}
+
+	if old.Phase != nnew.Phase {
+		return true
+	}
+
+	return false
+}
+
 // DeployablePredicateFunctions filters status update
 var DeployablePredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {

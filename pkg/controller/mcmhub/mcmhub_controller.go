@@ -430,7 +430,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
-
 	var preErr error
 
 	instance := &appv1.Subscription{}
@@ -607,9 +606,15 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 		return false, nil
 	}
 
+	//local mode
+	if subIns.Spec.Placement.Local != nil && *(subIns.Spec.Placement.Local) == true {
+		return true, nil
+	}
+
+	// need to wait for managed cluster reporting back
 	managedStatus := subIns.Status.Statuses
 	if len(managedStatus) == 0 {
-		return true, nil
+		return false, nil
 	}
 
 	for cluster, cSt := range managedStatus {
@@ -666,36 +671,26 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
-	//checking, labels, annotation, certain status fields of subscriptions
-	if utils.IsSubscriptionResourceChanged(oIns, nIns) { // update the instance with propagation status
-		//if use instance directly, the instance will be override by the
-		//update
-		if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
-			if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
-				if res.RequeueAfter == time.Duration(0) {
-					res.RequeueAfter = 1 * time.Second
-					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
-				}
-
-				return
+	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
+		if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = 1 * time.Second
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 			}
-		} else {
-			nIns.Status.LastUpdateTime = metav1.Now()
-			if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
-				if res.RequeueAfter == time.Duration(0) {
-					res.RequeueAfter = 1 * time.Second
-					r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
-				}
 
-				return
+			return
+		}
+	}
+
+	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
+		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = 1 * time.Second
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 			}
-		}
 
-		if r.hooks.HasHooks(PostHookType, request.NamespacedName) {
-			res.RequeueAfter = r.hookRequeueInterval
+			return
 		}
-
-		return
 	}
 
 	//if not post hook, quit the reconcile
@@ -717,8 +712,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
-
 	nIns.Status.LastUpdateTime = metav1.Now()
+
 	if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
 		if k8serrors.IsGone(err) {
 			return

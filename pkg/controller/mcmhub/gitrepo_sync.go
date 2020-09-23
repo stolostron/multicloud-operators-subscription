@@ -341,7 +341,8 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 
 	subanno[appv1.AnnotationTopo] = tpStr
 
-	subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
+	k := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
+	subanno = r.appendAnsiblejobToSubsriptionAnnotation(subanno, k)
 
 	sub.SetAnnotations(subanno)
 

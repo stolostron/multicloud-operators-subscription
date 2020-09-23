@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -81,7 +82,6 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
-		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 
 		return true
@@ -424,6 +424,50 @@ func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.An
 	tPostJobs := ansibleJobsToResourceUnit(st.LastPosthookJob, topoFromResourceUnit)
 
 	topo := anno[subv1.AnnotationTopo]
+
+	if len(tPreJobs) != 0 {
+		if len(topo) == 0 {
+			topo = tPreJobs
+		} else {
+			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
+		}
+	}
+
+	if len(tPostJobs) != 0 {
+		if len(topo) == 0 {
+			topo = tPostJobs
+		} else {
+			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
+		}
+	}
+
+	anno[subv1.AnnotationTopo] = topo
+
+	return anno
+}
+
+func formatAnsibleFromTopo(j []string) string {
+	out := []string{}
+
+	for _, i := range j {
+		r := fmt.Sprintf("%v/%v/%v/%v/%v", hookParent, "", AnsibleJobKind, i, 0)
+		out = append(out, r)
+	}
+
+	return strings.Join(out, sep)
+}
+
+func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, subKey types.NamespacedName) map[string]string {
+	if len(anno) == 0 {
+		anno = map[string]string{}
+	}
+
+	applied := r.hooks.GetLastAppliedInstance(subKey)
+
+	topo := anno[subv1.AnnotationTopo]
+
+	tPreJobs := formatAnsibleFromTopo(applied.pre)
+	tPostJobs := formatAnsibleFromTopo(applied.post)
 
 	if len(tPreJobs) != 0 {
 		if len(topo) == 0 {

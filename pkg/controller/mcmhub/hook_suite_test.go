@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -25,15 +26,21 @@ import (
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
-const StartTimeout = 30 // seconds
+const (
+	StartTimeout        = 30 // seconds
+	hookRequeueInterval = time.Second * 1
+)
+
 var k8sManager mgr.Manager
 var k8sClt client.Client
+var setRequeueInterval = func(r *ReconcileSubscription) {
+	r.hookRequeueInterval = hookRequeueInterval
+}
 
 func TestHookReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -81,20 +88,6 @@ var _ = BeforeSuite(func(done Done) {
 
 	err = spokeClusterV1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
-
-	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
-	Expect(err).ToNot(HaveOccurred())
-
-	// adding the reconcile to manager
-	Expect(Add(k8sManager)).Should(Succeed())
-
-	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
-	}()
-
-	k8sClt = k8sManager.GetClient()
-	Expect(k8sClt).ToNot(BeNil())
 
 	close(done)
 }, StartTimeout)
