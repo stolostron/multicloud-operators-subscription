@@ -154,19 +154,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	return err
 }
 
-// update subscription  rolling update target subscription changes or subscription deployable list changes
-func (r *ReconcileSubscription) setNewSubscription(sub *appv1alpha1.Subscription, updateSub, updateSubDplAnno bool) error {
-	if updateSub || updateSubDplAnno {
-		err := r.Update(context.TODO(), sub)
-		if err != nil {
-			klog.Infof("Updating Subscription failed. subscription: %#v, error: %#v", sub, err)
-			return err
-		}
-	}
-
-	return nil
-}
-
 //checkSubDeployables check differences between existing subscription dpl (found) and new subscription dpl (dpl)
 // This is caused by end-user updates on the orignal subscription.
 func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {

@@ -97,7 +97,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		// Compare the commit to the Git repo and update deployables only if the commit has changed
 		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) {
-			// Delete the existing deployables and recreate them
+			// Delete the existing deployables that meets the subscription
+			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
 
 			annotations[appv1.AnnotationGitCommit] = commit
@@ -389,6 +390,7 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 func (r *ReconcileSubscription) deleteSubscriptionDeployables(sub *appv1.Subscription) {
 	klog.Info("Deleting sbscription deploaybles")
 
+	//get deployables that meet the subscription selector
 	subDeployables := r.getSubscriptionDeployables(sub)
 
 	// delete subscription deployables if exists.

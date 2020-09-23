@@ -150,42 +150,6 @@ status:
                     type: ReleaseFailed`
 )
 
-func TestSetNewSubscription(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	rec := newReconciler(mgr).(*ReconcileSubscription)
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	githubsub.UID = "dummyid"
-
-	annotations := make(map[string]string)
-	annotations[appv1.AnnotationGitPath] = "test/github"
-	githubsub.SetAnnotations(annotations)
-
-	err = rec.setNewSubscription(githubsub, true, false)
-	g.Expect(err).To(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), githubsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = rec.setNewSubscription(githubsub, true, false)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Delete(context.TODO(), githubsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-}
-
 func TestPrepareDeployableForSubscription(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
