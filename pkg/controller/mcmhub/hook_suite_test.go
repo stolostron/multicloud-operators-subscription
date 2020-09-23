@@ -23,6 +23,7 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -89,6 +90,17 @@ var _ = BeforeSuite(func(done Done) {
 	err = spokeClusterV1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	k8sManager, err := mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	Expect(err).ToNot(HaveOccurred())
+
+	// adding the reconcile to manager
+	Expect(add(k8sManager, newReconciler(k8sManager, setRequeueInterval))).Should(Succeed())
+	go func() {
+		Expect(k8sManager.Start(ctrl.SetupSignalHandler())).ToNot(HaveOccurred())
+	}()
+
+	k8sClt = k8sManager.GetClient()
+	Expect(k8sClt).ToNot(BeNil())
 	close(done)
 }, StartTimeout)
 
