@@ -260,7 +260,7 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 			}
 
 			// in Reconcile(), removed the below suffix flag when processing the subscription
-			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag, Namespace: sub.GetNamespace()}
+			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.Meta.GetResourceVersion(), Namespace: sub.GetNamespace()}
 
 			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
@@ -436,9 +436,12 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	//flag used to determine if the reconcile came from a placementrule decision change then force register
 	forceRegister := false
+	placementRuleRv := ""
 
-	if strings.HasSuffix(request.Name, placementRuleFlag) {
+	if strings.Contains(request.Name, placementRuleFlag) {
 		forceRegister = true
+		placementRuleRv = after(request.Name, placementRuleFlag)
+		request.Name = strings.TrimSuffix(request.Name, placementRuleRv)
 		request.Name = strings.TrimSuffix(request.Name, placementRuleFlag)
 		request.NamespacedName = types.NamespacedName{Name: request.Name, Namespace: request.Namespace}
 	}
@@ -477,7 +480,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	oins = instance.DeepCopy()
 
 	// register will skip the failed clone repo
-	if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister); err != nil {
+	if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 		preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
@@ -737,4 +740,17 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 		}
 	}
+}
+
+func after(value string, a string) string {
+	// Get substring after a string.
+	pos := strings.LastIndex(value, a)
+	if pos == -1 {
+		return ""
+	}
+	adjustedPos := pos + len(a)
+	if adjustedPos >= len(value) {
+		return ""
+	}
+	return value[adjustedPos:]
 }

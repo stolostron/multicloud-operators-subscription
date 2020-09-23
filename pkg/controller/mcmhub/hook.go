@@ -56,7 +56,7 @@ const (
 //HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(types.NamespacedName, bool) error
+	RegisterSubscription(types.NamespacedName, bool, string) error
 	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
@@ -181,7 +181,7 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool) error {
+func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
 
@@ -229,7 +229,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 	}
 
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addHookToRegisitry(subIns)
+	return a.addHookToRegisitry(subIns, forceRegister, placementRuleRv)
 }
 
 func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
@@ -244,7 +244,8 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
+func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
+	jobs []ansiblejob.AnsibleJob, forceRegister bool, placementRuleRv string) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if hookFlag == PreHookType {
@@ -252,7 +253,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger)
+		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv)
 
 		return err
 	}
@@ -261,12 +262,12 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger)
+	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv)
 
 	return err
 }
 
-func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
@@ -297,13 +298,13 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 	}
 
 	if len(preJobs) != 0 {
-		if err := a.registerHook(subIns, PreHookType, preJobs); err != nil {
+		if err := a.registerHook(subIns, PreHookType, preJobs, forceRegister, placementRuleRv); err != nil {
 			return err
 		}
 	}
 
 	if len(postJobs) != 0 {
-		if err := a.registerHook(subIns, PostHookType, postJobs); err != nil {
+		if err := a.registerHook(subIns, PostHookType, postJobs, forceRegister, placementRuleRv); err != nil {
 			return err
 		}
 	}

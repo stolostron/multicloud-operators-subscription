@@ -49,7 +49,8 @@ type appliedJobs struct {
 }
 
 func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc,
-	jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger) error {
+	jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger,
+	forceRegister bool, placementRuleRv string) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
@@ -71,6 +72,11 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 
 		nx := ins.DeepCopy()
 		suffix := suffixFunc(subIns)
+
+		if forceRegister {
+			suffix = suffix + placementRuleRv
+		}
+
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
 
 		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
