@@ -17,11 +17,9 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -35,20 +33,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
 	ansibleGitURL = "https://github.com/ianzhang366/acm-applifecycle-samples"
 	pullInterval  = time.Second * 3
 )
-
-type TSetUp struct {
-	g    *gomega.GomegaWithT
-	mgr  manager.Manager
-	stop chan struct{}
-	wg   *sync.WaitGroup
-}
 
 //Prehook should:
 // 1. download from git, if the subscription asks for the prehook
@@ -72,7 +62,6 @@ type hookTest struct {
 }
 
 func newHookTest() *hookTest {
-
 	setSufficFunc := func(r *ReconcileSubscription) {
 		sf := func(s *subv1.Subscription) string {
 			return ""
@@ -226,7 +215,7 @@ func forceUpdateSubDpl(clt client.Client, subIns *subv1.Subscription) error {
 	return clt.Status().Update(context.TODO(), t.DeepCopy())
 }
 
-var _ = Describe("given a subscription pointing to a git path,where pre hand post hook folder present", func() {
+var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()
@@ -372,39 +361,102 @@ var _ = Describe("given a subscription pointing to a git path,where pre hand pos
 
 //Happy path should be, the subscription status is set, then the postHook should
 //be deployed
-var _ = Describe("post hook test", func() {
+var _ = Describe("given a subscription pointing to a git path,where post hook folder present", func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()
 	)
 
-	PIt("supon the change of a subscription 2nd, it should create 2nd ansiblejob instance for hook(s)", func() {
+	PIt("upon the change of a subscription, it should create 2nd ansiblejob instance for hook(s)", func() {
 		subIns := testPath.subIns.DeepCopy()
-		Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
+		chnIns := testPath.chnIns.DeepCopy()
+
+		chnIns.SetNamespace(fmt.Sprintf("%s-post-1", chnIns.GetNamespace()))
+		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
+		subIns.Spec.Channel = chnKey.String()
 
 		subIns.SetNamespace(fmt.Sprintf("%s-post-1", subIns.GetNamespace()))
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
+		a := subIns.GetAnnotations()
+		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		subIns.SetAnnotations(a)
+
+		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+
 		// tells the subscription operator to process the hooks
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
-			Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
-
-			time.Sleep(5 * time.Second)
 		}()
 
-		time.Sleep(5 * time.Second)
-		//mock the status of managed cluster
-		Expect(forceUpdateSubDpl(k8sClt, subIns)).Should(Succeed())
+		// mock the subscription deployable status to propagation,which is copied over to the
+		// subsritption status
+		mockManagedClusterUpdate := func() error {
+			a := &subv1.Subscription{}
+
+			if err := k8sClt.Get(ctx, subKey, a); err != nil {
+				return err
+			}
+
+			statusTS := metav1.Now()
+			a.Status.LastUpdateTime = statusTS
+			a.Status.Phase = subv1.SubscriptionPropagated
+			a.Status.Statuses = subv1.SubscriptionClusterStatusMap{
+				"spoke": &subv1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
+						"pkg1": {
+							Phase:          subv1.SubscriptionSubscribed,
+							LastUpdateTime: statusTS,
+						},
+					},
+				},
+			}
+
+			return k8sClt.Status().Update(ctx, a)
+		}
+
+		Eventually(mockManagedClusterUpdate, pullInterval*5, pullInterval).Should(Succeed())
+
+		forceUpdateSubDplToProp := func() error {
+			hubdpl := &dplv1.Deployable{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subIns.Name + "-deployable",
+					Namespace: subIns.Namespace,
+				},
+				Spec: dplv1.DeployableSpec{
+					Template: &runtime.RawExtension{
+						Object: &corev1.ConfigMap{},
+					},
+				},
+			}
+
+			t := &dplv1.Deployable{}
+
+			hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
+
+			if err := k8sClt.Get(context.TODO(), hubdplKey, t); err != nil {
+				return nil
+			}
+
+			t.Status.Phase = dplv1.DeployablePropagated
+
+			return k8sClt.Status().Update(context.TODO(), t.DeepCopy())
+		}
+
+		// mock the subscription deployable status to propagation,which is copied over to the
+		// subsritption status
+		Eventually(forceUpdateSubDplToProp, pullInterval*5, pullInterval).Should(Succeed())
 
 		ansibleIns := &ansiblejob.AnsibleJob{}
 		waitForPostHookCR := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
 
-			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
+			if err := k8sClt.List(ctx, aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
 			}
 
@@ -418,13 +470,11 @@ var _ = Describe("post hook test", func() {
 		}
 
 		// it seems the travis CI needs more time
-		Eventually(waitForPostHookCR, 5*pullInterval, pullInterval).Should(Succeed())
+		Eventually(waitForPostHookCR, 8*pullInterval, pullInterval).Should(Succeed())
+
 		//test if the ansiblejob have a owner set
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
-
 		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
-
-		time.Sleep(time.Second * 5)
 
 		modifySub := func() error {
 			u := &subv1.Subscription{}
@@ -441,8 +491,13 @@ var _ = Describe("post hook test", func() {
 		waitFor2ndGenerateInstance := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
 
-			t := &subv1.Subscription{}
-			Expect(k8sClt.Get(context.TODO(), subKey, t)).Should(Succeed())
+			u := &subv1.Subscription{}
+			if err := k8sClt.Get(ctx, subKey, u); err == nil {
+				fmt.Println("after modified sub izhang --------------> ")
+				fmt.Printf("current subscription is \n%#v\n", u)
+				fmt.Printf("current subscription hookref is \n%#v\n", u.Spec.HookSecretRef)
+				fmt.Println("izhang --------------> ")
+			}
 
 			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
@@ -484,9 +539,112 @@ var _ = Describe("post hook test", func() {
 		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
 	})
 
+	It("if package status of managed cluster is not updated, should not create posthook", func() {
+		subIns := testPath.subIns.DeepCopy()
+		chnIns := testPath.chnIns.DeepCopy()
+
+		chnIns.SetNamespace(fmt.Sprintf("%s-post-3", chnIns.GetNamespace()))
+		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
+		subIns.Spec.Channel = chnKey.String()
+
+		subIns.SetNamespace(fmt.Sprintf("%s-post-3", subIns.GetNamespace()))
+		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
+		a := subIns.GetAnnotations()
+		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		subIns.SetAnnotations(a)
+
+		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+
+		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
+
+		defer func() {
+			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+		}()
+
+		forceUpdateSubDplToProp := func() error {
+			hubdpl := &dplv1.Deployable{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      subIns.Name + "-deployable",
+					Namespace: subIns.Namespace,
+				},
+				Spec: dplv1.DeployableSpec{
+					Template: &runtime.RawExtension{
+						Object: &corev1.ConfigMap{},
+					},
+				},
+			}
+
+			t := &dplv1.Deployable{}
+
+			hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
+
+			if err := k8sClt.Get(context.TODO(), hubdplKey, t); err != nil {
+				return nil
+			}
+
+			t.Status.Phase = dplv1.DeployablePropagated
+
+			return k8sClt.Status().Update(context.TODO(), t.DeepCopy())
+		}
+
+		// mock the subscription deployable status to propagation,which is copied over to the
+		// subsritption status
+		Eventually(forceUpdateSubDplToProp, pullInterval*5, pullInterval).Should(Succeed())
+
+		mockManagedClusterUpdate := func() error {
+			a := &subv1.Subscription{}
+
+			if err := k8sClt.Get(ctx, subKey, a); err != nil {
+				return err
+			}
+
+			statusTS := metav1.Now()
+			a.Status.LastUpdateTime = statusTS
+			a.Status.Statuses = subv1.SubscriptionClusterStatusMap{
+				"spoke": &subv1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
+						"pkg1": {
+							Phase:          subv1.SubscriptionFailed,
+							LastUpdateTime: statusTS,
+						},
+					},
+				},
+			}
+
+			return k8sClt.Status().Update(ctx, a)
+		}
+
+		Eventually(mockManagedClusterUpdate, pullInterval*5, pullInterval).Should(Succeed())
+
+		// failed to due the managed cluster isn't reporting back
+		waitForAnsibleJobs := func() error {
+			aList := &ansiblejob.AnsibleJobList{}
+			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subIns.GetNamespace()}); err != nil {
+				return err
+			}
+
+			if len(aList.Items) > 0 {
+				return errors.New("ansiblejob is not coming up")
+			}
+
+			return nil
+		}
+
+		Consistently(waitForAnsibleJobs, pullInterval*5, pullInterval).Should(Succeed())
+	})
+})
+
+var _ = Describe("given a subscription pointing to a git path,where both pre and post hook folder present", func() {
+	var (
+		testPath = newHookTest()
+		ctx      = context.TODO()
+	)
+
 	PIt("should create 2 ansiblejob instance and they should be written into the subscription status", func() {
 		subIns := testPath.subIns.DeepCopy()
-		subIns.SetNamespace(fmt.Sprintf("%s-t2", subIns.GetNamespace()))
+		subIns.SetNamespace(fmt.Sprintf("%s-pre-post-1", subIns.GetNamespace()))
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 		// tells the subscription operator to process the hooks
@@ -580,88 +738,5 @@ var _ = Describe("post hook test", func() {
 		}
 
 		Eventually(waitFroPosthookStatus, 3*pullInterval, pullInterval).Should(Succeed())
-	})
-
-	FIt("if package status of managed cluster is not updated, should not create posthook", func() {
-		subIns := testPath.subIns.DeepCopy()
-		chnIns := testPath.chnIns.DeepCopy()
-
-		chnIns.SetNamespace(fmt.Sprintf("%s-post-3", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
-
-		a := subIns.GetAnnotations()
-		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
-		subIns.SetAnnotations(a)
-
-		subIns.SetNamespace(fmt.Sprintf("%s-post-3", subIns.GetNamespace()))
-
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
-
-		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
-
-		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
-			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
-		}()
-
-		statusTS := metav1.Now()
-		subIns.Status.LastUpdateTime = statusTS
-		subIns.Status.Statuses = subv1.SubscriptionClusterStatusMap{
-			"spoke": &subv1.SubscriptionPerClusterStatus{
-				SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
-					"pkg1": {
-						Phase:          subv1.SubscriptionFailed,
-						LastUpdateTime: statusTS,
-					},
-				},
-			},
-		}
-
-		forceUpdateSubDplToProp := func() error {
-			hubdpl := &dplv1.Deployable{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      subIns.Name + "-deployable",
-					Namespace: subIns.Namespace,
-				},
-				Spec: dplv1.DeployableSpec{
-					Template: &runtime.RawExtension{
-						Object: &corev1.ConfigMap{},
-					},
-				},
-			}
-
-			t := &dplv1.Deployable{}
-
-			hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
-
-			if err := k8sClt.Get(context.TODO(), hubdplKey, t); err != nil {
-				return nil
-			}
-
-			t.Status.Phase = dplv1.DeployablePropagated
-
-			return k8sClt.Status().Update(context.TODO(), t.DeepCopy())
-		}
-
-		// mock the subscription deployable status to propagation,which is copied over to the
-		// subsritption status
-		Eventually(forceUpdateSubDplToProp, pullInterval*5, pullInterval).Should(Succeed())
-
-		// failed to due the managed cluster isn't reporting back
-		waitForAnsibleJobs := func() error {
-			aList := &ansiblejob.AnsibleJobList{}
-			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subIns.GetNamespace()}); err != nil {
-				return err
-			}
-
-			if len(aList.Items) > 0 {
-				return errors.New("ansiblejob is not coming up")
-			}
-
-			return nil
-		}
-
-		Consistently(waitForAnsibleJobs, pullInterval*5, pullInterval).Should(Succeed())
 	})
 })

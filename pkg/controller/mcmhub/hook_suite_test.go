@@ -90,7 +90,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = spokeClusterV1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	k8sManager, err := mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
 	// adding the reconcile to manager

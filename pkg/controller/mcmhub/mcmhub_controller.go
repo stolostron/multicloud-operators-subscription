@@ -430,6 +430,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
+
 	var preErr error
 
 	instance := &appv1.Subscription{}
@@ -607,7 +608,7 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	//local mode
-	if subIns.Spec.Placement.Local != nil && *(subIns.Spec.Placement.Local) == true {
+	if subIns.Spec.Placement.Local != nil && *(subIns.Spec.Placement.Local) {
 		return true, nil
 	}
 

@@ -78,177 +78,6 @@ type HookProcessor interface {
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
 }
 
-type Job struct {
-	Original ansiblejob.AnsibleJob
-	Instance []ansiblejob.AnsibleJob
-	// track the create instance
-	InstanceSet map[types.NamespacedName]struct{}
-}
-
-// JobInstances can be applied and can be quired to see if the most applied
-// instance is succeeded or not
-type JobInstances map[types.NamespacedName]*Job
-
-type appliedJobs struct {
-	lastApplied     string
-	lastAppliedJobs []string
-}
-
-func getJobsString(jobs []ansiblejob.AnsibleJob) []string {
-	if len(jobs) == 0 {
-		return []string{}
-	}
-
-	formString := func(j ansiblejob.AnsibleJob) string {
-		ns := j.GetNamespace()
-		if len(ns) == 0 {
-			ns = "default"
-		}
-
-		return fmt.Sprintf("%s/%s", ns, j.GetName())
-	}
-
-	res := []string{}
-
-	for _, j := range jobs {
-		res = append(res, formString(j))
-	}
-
-	return res
-}
-
-//merge multiple hook string
-func (jIns *JobInstances) outputAppliedJobs() appliedJobs {
-	res := appliedJobs{}
-
-	lastApplied := []string{}
-	lastAppliedJobs := []string{}
-
-	for _, job := range *jIns {
-		if len(job.Instance) == 0 {
-			continue
-		}
-
-		applied := getJobsString(job.Instance)
-
-		n := len(applied)
-		lastApplied = append(lastApplied, applied[n-1])
-		lastAppliedJobs = append(lastAppliedJobs, applied...)
-	}
-
-	sep := ","
-	res.lastApplied = strings.Join(lastApplied, sep)
-	res.lastAppliedJobs = lastAppliedJobs
-
-	return res
-}
-
-func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc,
-	jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger) error {
-	for _, job := range jobs {
-		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
-		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
-
-		if err != nil {
-			return err
-		}
-
-		if _, ok := (*jIns)[jobKey]; !ok {
-			(*jIns)[jobKey] = &Job{
-				InstanceSet: make(map[types.NamespacedName]struct{}),
-			}
-		}
-
-		(*jIns)[jobKey].Original = ins
-
-		nx := ins.DeepCopy()
-		suffix := suffixFunc(subIns)
-		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
-
-		(*jIns)[jobKey].Instance = append((*jIns)[jobKey].Instance, *nx)
-	}
-
-	return nil
-}
-
-// applyjobs will get the original job and create a instance, the applied
-// instance will is put into the job.Instance array upon the success of the
-// creation
-func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscription, logger logr.Logger) error {
-	if utils.IsSubscriptionBeDeleted(clt, types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}) {
-		return nil
-	}
-
-	for k, j := range *jIns {
-		if len(j.Instance) == 0 {
-			continue
-		}
-
-		n := len(j.Instance)
-
-		nx := j.Instance[n-1]
-		//add the created job to the ansiblejob Set
-		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
-
-		logger.V(DebugLog).Info(fmt.Sprintf("applied ansiblejob %s", nxKey))
-
-		if _, ok := j.InstanceSet[nxKey]; ok {
-			continue
-		}
-
-		j.InstanceSet[nxKey] = struct{}{}
-		if err := clt.Create(context.TODO(), &nx); err != nil {
-			if !kerr.IsAlreadyExists(err) {
-				return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
-			}
-		}
-
-	}
-
-	return nil
-}
-
-// check the last instance of the ansiblejobs to see if it's applied and
-// completed or not
-func (jIns *JobInstances) isJobsCompleted(clt client.Client, logger logr.Logger) (bool, error) {
-	for k, job := range *jIns {
-		logger.V(DebugLog).Info(fmt.Sprintf("checking if%v job for completed or not", k.String()))
-
-		n := len(job.Instance)
-		if n == 0 {
-			return true, nil
-		}
-
-		j := job.Instance[n-1]
-		jKey := types.NamespacedName{Name: j.GetName(), Namespace: j.GetNamespace()}
-
-		if ok, err := isJobDone(clt, jKey, logger); err != nil || !ok {
-			return ok, err
-		}
-	}
-
-	return true, nil
-}
-
-func isJobDone(clt client.Client, key types.NamespacedName, logger logr.Logger) (bool, error) {
-	job := &ansiblejob.AnsibleJob{}
-
-	if err := clt.Get(context.TODO(), key, job); err != nil {
-		// it might not be created by the k8s side yet
-		if kerr.IsNotFound(err) {
-			return false, nil
-		}
-
-		return false, err
-	}
-
-	if isJobRunSuccessful(job, logger) {
-		return true, nil
-	}
-
-	return false, nil
-}
-
 type Hooks struct {
 	//store all the applied prehook instance
 	preHooks  *JobInstances
@@ -262,13 +91,13 @@ func (h *Hooks) ConstructStatus() subv1.AnsibleJobsStatus {
 	st := subv1.AnsibleJobsStatus{}
 
 	if h.preHooks != nil {
-		jobRecords := h.preHooks.outputAppliedJobs()
+		jobRecords := h.preHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPrehookJob = jobRecords.lastApplied
 		st.PrehookJobsHistory = jobRecords.lastAppliedJobs
 	}
 
 	if h.postHooks != nil {
-		jobRecords := h.postHooks.outputAppliedJobs()
+		jobRecords := h.postHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPosthookJob = jobRecords.lastApplied
 		st.PosthookJobsHistory = jobRecords.lastAppliedJobs
 	}
@@ -305,33 +134,22 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 }
 
 type AppliedInstance struct {
-	pre  []string
-	post []string
+	pre  string
+	post string
 }
 
 func (a *AnsibleHooks) GetLastAppliedInstance(subKey types.NamespacedName) AppliedInstance {
-	records, ok := a.registry[subKey]
+	hooks, ok := a.registry[subKey]
 	if !ok {
 		return AppliedInstance{}
 	}
 
-	gLast := func(hks *JobInstances) []string {
-		o := []string{}
-		for _, ins := range *(hks) {
-			applied := ins.Instance
-			n := len(applied)
-			if n != 0 {
-				k := types.NamespacedName{Name: applied[n-1].GetName(), Namespace: applied[n-1].GetNamespace()}
-				o = append(o, k.String())
-			}
-		}
-
-		return o
-	}
+	preJobRecords := hooks.preHooks.outputAppliedJobs(formatAnsibleFromTopo)
+	postJobRecords := hooks.postHooks.outputAppliedJobs(formatAnsibleFromTopo)
 
 	return AppliedInstance{
-		pre:  gLast(records.preHooks),
-		post: gLast(records.postHooks),
+		pre:  preJobRecords.lastApplied,
+		post: postJobRecords.lastApplied,
 	}
 }
 
@@ -393,7 +211,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	//check if the subIns have being changed compare to the hook registry, if
 	//changed then re-register the subscription
-	if !a.isUpdateSubscription(subIns, isSubscriptionSpecChange) {
+	if !a.isSubscriptionUpdate(subIns, isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -415,6 +233,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 }
 
 func isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
+	fmt.Println(o.GetGeneration(), n.GetGeneration())
 	return o.GetGeneration() != n.GetGeneration()
 }
 
@@ -471,6 +290,11 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 		a.logger.Error(fmt.Errorf("posthook"), "failed to find hook:")
 	}
 
+	if len(preJobs) != 0 || len(postJobs) != 0 {
+		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+		a.registry[subKey].lastSub = subIns.DeepCopy()
+	}
+
 	if len(preJobs) != 0 {
 		if err := a.registerHook(subIns, PreHookType, preJobs); err != nil {
 			return err
@@ -481,11 +305,6 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 		if err := a.registerHook(subIns, PostHookType, postJobs); err != nil {
 			return err
 		}
-	}
-
-	if len(preJobs) != 0 || len(postJobs) != 0 {
-		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-		a.registry[subKey].lastSub = subIns.DeepCopy()
 	}
 
 	return nil
@@ -586,13 +405,17 @@ func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
 	return nil
 }
 
-type SubCompareFunc func(*subv1.Subscription, *subv1.Subscription) bool
+type EqualSub func(*subv1.Subscription, *subv1.Subscription) bool
 
-func (a *AnsibleHooks) isUpdateSubscription(subIns *subv1.Subscription, cFunc SubCompareFunc) bool {
+func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqual EqualSub) bool {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	record, ok := a.registry[subKey]
 
-	return !ok || cFunc(record.lastSub, subIns)
+	if !ok {
+		return true
+	}
+
+	return isNotEqual(record.lastSub, subIns)
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
