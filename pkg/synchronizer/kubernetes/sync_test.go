@@ -784,11 +784,10 @@ var _ = Describe("test resource overwrite", func() {
 		// age field should be deleted because the reconcile option was replace
 		Expect(cm.Data["age"]).Should(Equal(""))
 
-		// The hosting annotations should not be added when existing resource, that is not owned by the subscription,
-		// gets overwritten
+		// If reconcile option is replace, the hosting annotations should added to existing resource, that is not owned by the subscription.
 		cmAnnotations = cm.GetAnnotations()
-		Expect(cmAnnotations["apps.open-cluster-management.io/hosting-deployable"]).To(Equal(""))
-		Expect(cmAnnotations["apps.open-cluster-management.io/hosting-subscription"]).To(Equal(""))
+		Expect(cmAnnotations["apps.open-cluster-management.io/hosting-deployable"]).To(Equal(configMapSharedkey.Namespace + "/" + configMapSharedkey.Name))
+		Expect(cmAnnotations["apps.open-cluster-management.io/hosting-subscription"]).To(Equal(configMapSharedkey.Namespace + "/" + configMapSharedkey.Name))
 	})
 
 	It("resource owned by others can be merged by subscription", func() {
@@ -865,7 +864,7 @@ var _ = Describe("test resource overwrite", func() {
 		// age field should be kept because the reconcile option was merge
 		Expect(cm.Data["age"]).Should(Equal("19"))
 
-		// The hosting annotations should not be added when existing resource, that is not owned by the subscription,
+		// With merge option, the hosting annotations should not be added when existing resource, that is not owned by the subscription,
 		// gets overwritten
 		cmAnnotations = cm.GetAnnotations()
 		Expect(cmAnnotations["apps.open-cluster-management.io/hosting-deployable"]).To(Equal(""))
