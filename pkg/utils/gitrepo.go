@@ -130,7 +130,7 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 		}
 	}
 
-	klog.Info("Cloning ", repoURL, " into ", destDir)
+	klog.V(2).Info("Cloning ", repoURL, " into ", destDir)
 	r, err := git.PlainClone(destDir, false, options)
 
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -54,6 +55,7 @@ const (
 	sepRes           = "/"
 	deployableParent = "deployable"
 	helmChartParent  = "helmchart"
+	hookParent       = "hook"
 )
 
 func ObjectString(obj metav1.Object) string {
@@ -80,7 +82,6 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
-		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 
 		return true
@@ -381,72 +382,35 @@ func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.U
 	return out, nil
 }
 
-func ansibleJobsToResourceUnit(jobStr string) string {
-	res := []string{}
-
-	for _, job := range strings.Split(jobStr, sep) {
-		n := strings.Split(job, "/")
-		if len(n) < 2 {
-			continue
-		}
-
-		res = append(res, resourceUnit{
-			parentType: deployableParent,
-			name:       n[1],
-			namespace:  n[0],
-			kind:       AnsibleJobKind,
-			addition:   0,
-		}.String())
-	}
-
-	return strings.Join(res, sep)
-}
-
-func appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, st subv1.AnsibleJobsStatus) map[string]string {
+func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, subKey types.NamespacedName) map[string]string {
 	if len(anno) == 0 {
 		anno = map[string]string{}
 	}
 
-	if st.LastPrehookJob == "" && st.LastPosthookJob == "" {
-		return anno
-	}
-
-	preJobs := ansibleJobsToResourceUnit(st.LastPrehookJob)
-	postJobs := ansibleJobsToResourceUnit(st.LastPosthookJob)
+	applied := r.hooks.GetLastAppliedInstance(subKey)
 
 	topo := anno[subv1.AnnotationTopo]
-	dpls := anno[subv1.AnnotationDeployables]
 
-	if len(preJobs) != 0 {
+	tPreJobs := applied.pre
+	tPostJobs := applied.post
+
+	if len(tPreJobs) != 0 {
 		if len(topo) == 0 {
-			topo = preJobs
+			topo = tPreJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, preJobs)
-		}
-
-		if len(dpls) == 0 {
-			dpls = preJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, preJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
 		}
 	}
 
-	if len(postJobs) != 0 {
+	if len(tPostJobs) != 0 {
 		if len(topo) == 0 {
-			topo = postJobs
+			topo = tPostJobs
 		} else {
-			topo = fmt.Sprintf("%s,%s", topo, postJobs)
-		}
-
-		if len(dpls) == 0 {
-			dpls = postJobs
-		} else {
-			dpls = fmt.Sprintf("%s,%s", dpls, postJobs)
+			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
 		}
 	}
 
 	anno[subv1.AnnotationTopo] = topo
-	anno[subv1.AnnotationDeployables] = dpls
 
 	return anno
 }

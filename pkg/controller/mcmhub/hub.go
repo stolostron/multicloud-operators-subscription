@@ -549,7 +549,6 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 
 		subanno[appv1alpha1.AnnotationDeployables] = dplstr
 
-		subanno = appendAnsiblejobToSubsriptionAnnotation(subanno, sub.Status.AnsibleJobsStatus)
 		sub.SetAnnotations(subanno)
 	}
 
@@ -628,11 +627,11 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subepanno := r.updateSubAnnotations(sub)
 
 	if rootSub == nil {
-		subep.Name = sub.GetName()
-		subepanno[dplv1alpha1.AnnotationSubscription] = subep.Namespace + "/" + subep.Name
+		subep.Name = sub.GetName() + appv1alpha1.SubscriptionNameSuffix
+		subepanno[dplv1alpha1.AnnotationSubscription] = subep.Namespace + "/" + sub.GetName()
 	} else {
-		subep.Name = rootSub.GetName()
-		subepanno[dplv1alpha1.AnnotationSubscription] = rootSub.Namespace + "/" + rootSub.Name
+		subep.Name = rootSub.GetName() + appv1alpha1.SubscriptionNameSuffix
+		subepanno[dplv1alpha1.AnnotationSubscription] = rootSub.Namespace + "/" + rootSub.GetName()
 	}
 	// set channel generation as annotation
 	if subep.Spec.Channel != "" {

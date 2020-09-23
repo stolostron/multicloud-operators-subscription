@@ -15,10 +15,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,12 +90,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	// handle helmrelease crd
-	utils.DeleteHelmReleaseCRD(runtimeClient, crdx)
+	// If this CRD exists, it is the ACM hub cluster.
+	_, err = crdx.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "multiclusterhubs.operator.open-cluster-management.io", v1.GetOptions{})
+
+	if err != nil && kerrors.IsNotFound(err) {
+		klog.Info("This is not ACM hub cluster. Deleting helmrelease and deployable CRDs.")
+
+		// handle helmrelease crd
+		utils.DeleteHelmReleaseCRD(runtimeClient, crdx)
+
+		// handle deployable crd
+		utils.DeleteDeployableCRD(runtimeClient, crdx)
+	} else {
+		klog.Info("This is ACM hub cluster. Skip deleting helmrelease and deployable CRDs.")
+	}
 
 	// handle subscription crd
 	utils.DeleteSubscriptionCRD(runtimeClient, crdx)
-
-	// handle deployable crd
-	utils.DeleteDeployableCRD(runtimeClient, crdx)
 }

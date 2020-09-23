@@ -145,6 +145,18 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	return out
 }
 
+func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
+	if reflect.DeepEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
+		return true
+	}
+
+	if old.Phase != nnew.Phase {
+		return true
+	}
+
+	return false
+}
+
 // DeployablePredicateFunctions filters status update
 var DeployablePredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
@@ -733,21 +745,42 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 		os.Exit(0)
 	} else {
 		for _, sub := range sublist.Items {
-			klog.V(1).Infof("Found %s", sub.SelfLink)
-			// remove all finalizers
-			sub = *sub.DeepCopy()
-			sub.SetFinalizers([]string{})
-			err = runtimeClient.Update(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
-			if err != nil {
-				klog.Warning(err)
+			annotations := sub.GetAnnotations()
+			if !strings.EqualFold(annotations[appv1.AnnotationHosting], "") {
+				klog.Infof("Found %s", sub.SelfLink)
+				// remove all finalizers
+				sub = *sub.DeepCopy()
+				sub.SetFinalizers([]string{})
+				err = runtimeClient.Update(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
+				if err != nil {
+					klog.Warning(err)
+				}
 			}
 		}
-		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "subscriptions.apps.open-cluster-management.io", v1.DeleteOptions{})
-		if err != nil {
-			klog.Infof("Deleting subscription CRD failed. err: %s", err.Error())
+
+		_, err := crdx.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "multiclusterhubs.operator.open-cluster-management.io", v1.GetOptions{})
+
+		if err != nil && kerrors.IsNotFound(err) {
+			klog.Info("This is not ACM hub cluster. Deleting subscription CRD.")
+			// now get rid of the crd.
+			err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "subscriptions.apps.open-cluster-management.io", v1.DeleteOptions{})
+			if err != nil {
+				klog.Infof("Deleting subscription CRD failed. err: %s", err.Error())
+			} else {
+				klog.Info("subscription CRD removed")
+			}
 		} else {
-			klog.Info("subscription CRD removed")
+			klog.Info("This is ACM hub cluster. Deleting propagated subscriptions only. Not deleting subscription CRD.")
+			for _, sub := range sublist.Items {
+				annotations := sub.GetAnnotations()
+				if !strings.EqualFold(annotations[appv1.AnnotationHosting], "") {
+					klog.Infof("Deleting %s", sub.SelfLink)
+					err = runtimeClient.Delete(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
+					if err != nil {
+						klog.Warning(err)
+					}
+				}
+			}
 		}
 	}
 }
