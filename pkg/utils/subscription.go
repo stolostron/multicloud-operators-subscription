@@ -446,6 +446,7 @@ func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname s
 // - nil:  success
 // - others: failed, with error message in reason
 func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}, deletePkg bool) error {
+	fmt.Println("izhang is this called from managed --------------------")
 	klog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
 
 	if tplunit == nil {

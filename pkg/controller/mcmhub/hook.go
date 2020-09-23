@@ -211,7 +211,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 
 	//check if the subIns have being changed compare to the hook registry, if
 	//changed then re-register the subscription
-	if !a.isSubscriptionUpdate(subIns, isSubscriptionSpecChange) {
+	if !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -232,8 +232,9 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 	return a.addHookToRegisitry(subIns)
 }
 
-func isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
-	fmt.Println(o.GetGeneration(), n.GetGeneration())
+func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
+	a.logger.Info(fmt.Sprintf("isSubscriptionUpdate old: %d, new: %d", o.GetGeneration(), n.GetGeneration()))
+
 	return o.GetGeneration() != n.GetGeneration()
 }
 
