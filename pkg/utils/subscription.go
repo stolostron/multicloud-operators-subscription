@@ -146,7 +146,7 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 }
 
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
-	if reflect.DeepEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
+	if !reflect.DeepEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
 
