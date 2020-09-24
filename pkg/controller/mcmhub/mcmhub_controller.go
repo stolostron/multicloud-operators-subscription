@@ -550,7 +550,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				}
 			}
 		}
-	} else { //local: true
+	} else { //local: true and handle change true to false
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
 
@@ -710,6 +710,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
+		nIns.Status.LastUpdateTime = metav1.Now()
+
 		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = 1 * time.Second

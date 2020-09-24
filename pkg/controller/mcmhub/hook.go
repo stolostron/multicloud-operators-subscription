@@ -31,11 +31,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 const (
@@ -380,18 +382,15 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 	//make sure all the ansiblejob is deployed at the subscription namespace
 	job.SetNamespace(subIns.GetNamespace())
 
-	//set owerreferce
-	setOwnerReferences(subIns, &job)
-
 	job = addingHostingSubscriptionAnno(job,
 		types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}, hookType)
 
-	return job, nil
-}
+	//set owerreferce
+	if err := ctrlutil.SetOwnerReference(subIns.DeepCopy(), &job, scheme.Scheme); err != nil {
+		return job, err
+	}
 
-func setOwnerReferences(owner *subv1.Subscription, obj metav1.Object) {
-	obj.SetOwnerReferences([]metav1.OwnerReference{
-		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
+	return job, nil
 }
 
 func (a *AnsibleHooks) isRegistered(subKey types.NamespacedName) bool {
