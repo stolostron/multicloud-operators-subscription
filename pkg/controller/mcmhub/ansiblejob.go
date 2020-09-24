@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -50,10 +51,10 @@ type appliedJobs struct {
 
 func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc,
 	jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger,
-	forceRegister bool, placementRuleRv string) error {
+	forceRegister bool, placementRuleRv string, hookType string) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
-		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger)
+		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
 
 		if err != nil {
 			return err
@@ -74,7 +75,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 		suffix := suffixFunc(subIns)
 
 		if forceRegister {
-			suffix = suffix + placementRuleRv
+			suffix += placementRuleRv
 		}
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
@@ -91,12 +92,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 				// AND the last job's target_clusters is the same as the new job's target_clusters
 				// then skip creating new Ansible Job
 				if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
-					lastJobKey := types.NamespacedName{Name: lastJob.GetName(), Namespace: lastJob.GetNamespace()}
-
-					jobDoneOrRunning, err := isJobDoneOrRunning(kubeclient, lastJobKey, logger)
-					if err != nil {
-						return err
-					}
+					jobDoneOrRunning := isJobDoneOrRunning(lastJob, logger)
 
 					if jobDoneOrRunning {
 						jobMap := make(map[string]interface{})
@@ -115,11 +111,18 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 						targetClusters := jobMap["target_clusters"]
 						lastJobTargetClusters := lastJobMap["target_clusters"]
 
-						if targetClusters == lastJobTargetClusters {
+						if reflect.DeepEqual(targetClusters, lastJobTargetClusters) {
+							logger.Info("Both last and new ansible job target cluster list are equal")
 							jobRecords.mux.Unlock()
+
 							continue
 						}
 					}
+				} else if nx.Spec.ExtraVars == nil && lastJob.Spec.ExtraVars == nil {
+					logger.Info("Both last and new ansible job spec extraVars are empty")
+					jobRecords.mux.Unlock()
+
+					continue
 				}
 			}
 
@@ -150,14 +153,22 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 		n := len(j.Instance)
 
 		nx := j.Instance[n-1]
-		//add the created job to the ansiblejob Set
-		if err := clt.Create(context.TODO(), &nx); err != nil {
-			if !kerr.IsAlreadyExists(err) {
-				return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+		//add the created job to the ansiblejob Set if not exist
+
+		job := &ansiblejob.AnsibleJob{}
+		jKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
+
+		if err := clt.Get(context.TODO(), jKey, job); err != nil {
+			if kerr.IsNotFound(err) {
+				if err := clt.Create(context.TODO(), &nx); err != nil {
+					if !kerr.IsAlreadyExists(err) {
+						return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+					}
+				}
+
+				logger.Info(fmt.Sprintf("applied ansiblejob %s/%s", nx.GetNamespace(), nx.GetName()))
 			}
 		}
-
-		logger.Info(fmt.Sprintf("applied ansiblejob %s/%s", nx.GetNamespace(), nx.GetName()))
 
 		j.mux.Unlock()
 	}
@@ -206,27 +217,25 @@ func isJobDone(clt client.Client, key types.NamespacedName, logger logr.Logger) 
 	return false, nil
 }
 
-func isJobDoneOrRunning(clt client.Client, key types.NamespacedName, logger logr.Logger) (bool, error) {
-	job := &ansiblejob.AnsibleJob{}
+// Check if last job is running or already done
+// The last job could have not been created in k8s. e.g. posthook job will be created only after prehook jobs
+// and main subscription are done. But the posthook jobs have been created in memory ansible job list.
+func isJobDoneOrRunning(lastJob ansiblejob.AnsibleJob, logger logr.Logger) bool {
+	job := &lastJob
 
-	if err := clt.Get(context.TODO(), key, job); err != nil {
-		// it might not be created by the k8s side yet
-		if kerr.IsNotFound(err) {
-			return false, nil
-		}
-
-		return false, err
+	if job == nil {
+		return false
 	}
 
 	if isJobRunning(job, logger) {
-		return true, nil
+		return true
 	}
 
 	if isJobRunSuccessful(job, logger) {
-		return true, nil
+		return true
 	}
 
-	return false, nil
+	return false
 }
 
 type FormatFunc func(ansiblejob.AnsibleJob) string

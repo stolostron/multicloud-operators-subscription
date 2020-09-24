@@ -628,9 +628,12 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	// need to wait for managed cluster reporting back
+	// fix: When placmentrule doesn't have target cluster decision list, managed clusters status is empty.
+	// In this case, main subscription does nothing, It should be regarded as complete sub,
+	// so that posthook will be able to execute
 	managedStatus := subIns.Status.Statuses
 	if len(managedStatus) == 0 {
-		return false, nil
+		return true, nil
 	}
 
 	for cluster, cSt := range managedStatus {
@@ -660,6 +663,7 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
+	r.logger.Info("Enter finalCommit...")
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
@@ -682,6 +686,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 			}
 		}
+
+		r.logger.Info("prehook failed, requeue the reconcile requst.")
 
 		return
 	}
@@ -711,6 +717,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 	//if not post hook, quit the reconcile
 	if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
+		r.logger.Info("no post hooks, exit the reconcile.")
 		return
 	}
 
@@ -748,9 +755,12 @@ func after(value string, a string) string {
 	if pos == -1 {
 		return ""
 	}
+
 	adjustedPos := pos + len(a)
+
 	if adjustedPos >= len(value) {
 		return ""
 	}
+
 	return value[adjustedPos:]
 }

@@ -253,7 +253,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv)
+		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -262,7 +262,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv)
+	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }
@@ -316,13 +316,14 @@ func GetReferenceString(ref *corev1.ObjectReference) string {
 	return ref.Name
 }
 
-func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.NamespacedName) ansiblejob.AnsibleJob {
+func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.NamespacedName, hookType string) ansiblejob.AnsibleJob {
 	a := job.GetAnnotations()
 	if len(a) == 0 {
 		a = map[string]string{}
 	}
 
 	a[subv1.AnnotationHosting] = subKey.String()
+	a[subv1.AnnotationHookType] = hookType
 
 	job.SetAnnotations(a)
 
@@ -332,7 +333,7 @@ func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.Names
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
 //secret file of ansibleJob
 func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob,
-	kubeclient client.Client, logger logr.Logger) (ansiblejob.AnsibleJob, error) {
+	kubeclient client.Client, logger logr.Logger, hookType string) (ansiblejob.AnsibleJob, error) {
 	job.SetResourceVersion("")
 	// avoid the error:
 	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
@@ -383,7 +384,7 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 	setOwnerReferences(subIns, &job)
 
 	job = addingHostingSubscriptionAnno(job,
-		types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()})
+		types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}, hookType)
 
 	return job, nil
 }
@@ -436,7 +437,7 @@ func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, e
 
 func (a *AnsibleHooks) HasHooks(hookType string, subKey types.NamespacedName) bool {
 	if !a.isRegistered(subKey) {
-		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not posthook registered for %v", subKey.String()))
+		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not %v-hook registered for %v", hookType, subKey.String()))
 		return false
 	}
 
@@ -478,7 +479,7 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
+	logger.V(1).Info(fmt.Sprintf("job: %#v, job status: %v", job, curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
 }
