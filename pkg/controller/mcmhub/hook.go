@@ -56,7 +56,7 @@ const (
 //HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(types.NamespacedName) error
+	RegisterSubscription(types.NamespacedName, bool, string) error
 	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
@@ -181,7 +181,7 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
+func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
 
@@ -209,9 +209,9 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 		return nil
 	}
 
-	//check if the subIns have being changed compare to the hook registry, if
-	//changed then re-register the subscription
-	if !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
+	//if not forcing a register and the subIns has not being changed compare to the hook registry
+	//then skip hook processing
+	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -229,7 +229,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName) error {
 	}
 
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addHookToRegisitry(subIns)
+	return a.addHookToRegisitry(subIns, forceRegister, placementRuleRv)
 }
 
 func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
@@ -244,7 +244,8 @@ func suffixFromUUID(subIns *subv1.Subscription) string {
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), subIns.GetResourceVersion())
 }
 
-func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string, jobs []ansiblejob.AnsibleJob) error {
+func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
+	jobs []ansiblejob.AnsibleJob, forceRegister bool, placementRuleRv string) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if hookFlag == PreHookType {
@@ -252,7 +253,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger)
+		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -261,12 +262,12 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger)
+	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }
 
-func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
@@ -297,13 +298,13 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription) error {
 	}
 
 	if len(preJobs) != 0 {
-		if err := a.registerHook(subIns, PreHookType, preJobs); err != nil {
+		if err := a.registerHook(subIns, PreHookType, preJobs, forceRegister, placementRuleRv); err != nil {
 			return err
 		}
 	}
 
 	if len(postJobs) != 0 {
-		if err := a.registerHook(subIns, PostHookType, postJobs); err != nil {
+		if err := a.registerHook(subIns, PostHookType, postJobs, forceRegister, placementRuleRv); err != nil {
 			return err
 		}
 	}
@@ -315,13 +316,14 @@ func GetReferenceString(ref *corev1.ObjectReference) string {
 	return ref.Name
 }
 
-func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.NamespacedName) ansiblejob.AnsibleJob {
+func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.NamespacedName, hookType string) ansiblejob.AnsibleJob {
 	a := job.GetAnnotations()
 	if len(a) == 0 {
 		a = map[string]string{}
 	}
 
 	a[subv1.AnnotationHosting] = subKey.String()
+	a[subv1.AnnotationHookType] = hookType
 
 	job.SetAnnotations(a)
 
@@ -331,7 +333,7 @@ func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.Names
 //overrideAnsibleInstance adds the owner reference to job, and also reset the
 //secret file of ansibleJob
 func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob,
-	kubeclient client.Client, logger logr.Logger) (ansiblejob.AnsibleJob, error) {
+	kubeclient client.Client, logger logr.Logger, hookType string) (ansiblejob.AnsibleJob, error) {
 	job.SetResourceVersion("")
 	// avoid the error:
 	// status.conditions.lastTransitionTime in body must be of type string: \"null\""
@@ -343,7 +345,7 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 
 	if subIns.Spec.Placement != nil &&
 		(subIns.Spec.Placement.Local == nil || !*subIns.Spec.Placement.Local) {
-		clusters, err := getClustersByPlacement(subIns, kubeclient, logger)
+		clusters, err := GetClustersByPlacement(subIns, kubeclient, logger)
 		if err != nil {
 			return job, err
 		}
@@ -382,7 +384,7 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 	setOwnerReferences(subIns, &job)
 
 	job = addingHostingSubscriptionAnno(job,
-		types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()})
+		types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}, hookType)
 
 	return job, nil
 }
@@ -435,7 +437,7 @@ func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, e
 
 func (a *AnsibleHooks) HasHooks(hookType string, subKey types.NamespacedName) bool {
 	if !a.isRegistered(subKey) {
-		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not posthook registered for %v", subKey.String()))
+		a.logger.V(DebugLog).Info(fmt.Sprintf("there's not %v-hook registered for %v", hookType, subKey.String()))
 		return false
 	}
 
@@ -477,15 +479,23 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
+	logger.V(1).Info(fmt.Sprintf("job: %#v, job status: %v", job, curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
+}
+
+func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
+	curStatus := job.Status.AnsibleJobResult.Status
+	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
+
+	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||
+		curStatus == "waiting" || curStatus == "running"
 }
 
 // Top priority: placementRef, ignore others
 // Next priority: clusterNames, ignore selector
 // Bottomline: Use label selector
-func getClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
+func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
 	var clusters []types.NamespacedName
 
 	var err error

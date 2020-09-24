@@ -72,6 +72,8 @@ var (
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
 	LabelSubscriptionName = SchemeGroupVersion.Group + "/subscription"
+	// AnnotationHookType defines ansible hook job type - prehook/posthook
+	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
 )
 
 const (

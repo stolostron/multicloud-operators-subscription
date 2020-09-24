@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -77,6 +78,7 @@ const (
 	hubLogger                  = "subscription-hub-reconciler"
 	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
+	placementRuleFlag          = "--fired-by-placementrule"
 )
 
 /**
@@ -257,7 +259,8 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				continue
 			}
 
-			subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
+			// in Reconcile(), removed the below suffix flag when processing the subscription
+			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.Meta.GetResourceVersion(), Namespace: sub.GetNamespace()}
 
 			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
@@ -431,6 +434,18 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
 
+	//flag used to determine if the reconcile came from a placementrule decision change then force register
+	forceRegister := false
+	placementRuleRv := ""
+
+	if strings.Contains(request.Name, placementRuleFlag) {
+		forceRegister = true
+		placementRuleRv = after(request.Name, placementRuleFlag)
+		request.Name = strings.TrimSuffix(request.Name, placementRuleRv)
+		request.Name = strings.TrimSuffix(request.Name, placementRuleFlag)
+		request.NamespacedName = types.NamespacedName{Name: request.Name, Namespace: request.Namespace}
+	}
+
 	var preErr error
 
 	instance := &appv1.Subscription{}
@@ -465,7 +480,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	oins = instance.DeepCopy()
 
 	// register will skip the failed clone repo
-	if err := r.hooks.RegisterSubscription(request.NamespacedName); err != nil {
+	if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
 		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 		preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
@@ -613,9 +628,17 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	// need to wait for managed cluster reporting back
+	// When placmentrule doesn't have target cluster decision list, managed clusters status is empty.
+	// In this case, check the clusters list by checking the placementrule
+	// If it's indeed empty cluster list then treat the subscription as completed.
 	managedStatus := subIns.Status.Statuses
 	if len(managedStatus) == 0 {
-		return false, nil
+		clusters, err := GetClustersByPlacement(subIns, r.Client, r.logger)
+		if err != nil {
+			return false, err
+		}
+
+		return len(clusters) == 0, nil
 	}
 
 	for cluster, cSt := range managedStatus {
@@ -645,6 +668,7 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
+	r.logger.Info("Enter finalCommit...")
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
@@ -667,6 +691,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 			}
 		}
+
+		r.logger.Info("prehook failed, requeue the reconcile requst.")
 
 		return
 	}
@@ -696,6 +722,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 	//if not post hook, quit the reconcile
 	if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
+		r.logger.Info("no post hooks, exit the reconcile.")
 		return
 	}
 
@@ -725,4 +752,20 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 		}
 	}
+}
+
+func after(value string, a string) string {
+	// Get substring after a string.
+	pos := strings.LastIndex(value, a)
+	if pos == -1 {
+		return ""
+	}
+
+	adjustedPos := pos + len(a)
+
+	if adjustedPos >= len(value) {
+		return ""
+	}
+
+	return value[adjustedPos:]
 }
