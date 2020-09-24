@@ -550,7 +550,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				}
 			}
 		}
-	} else if *(pl).Local { //local: true
+	} else if pl.Local != nil && *(pl).Local { //local: true
 		// no longer hub subscription
 		err = r.clearSubscriptionDpls(instance)
 
