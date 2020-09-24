@@ -628,12 +628,17 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	// need to wait for managed cluster reporting back
-	// fix: When placmentrule doesn't have target cluster decision list, managed clusters status is empty.
-	// In this case, main subscription does nothing, It should be regarded as complete sub,
-	// so that posthook will be able to execute
+	// When placmentrule doesn't have target cluster decision list, managed clusters status is empty.
+	// In this case, check the clusters list by checking the placementrule
+	// If it's indeed empty cluster list then treat the subscription as completed.
 	managedStatus := subIns.Status.Statuses
 	if len(managedStatus) == 0 {
-		return true, nil
+		clusters, err := GetClustersByPlacement(subIns, r.Client, r.logger)
+		if err != nil {
+			return false, err
+		}
+
+		return len(clusters) == 0, nil
 	}
 
 	for cluster, cSt := range managedStatus {

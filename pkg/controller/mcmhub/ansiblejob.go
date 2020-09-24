@@ -75,7 +75,13 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 		suffix := suffixFunc(subIns)
 
 		if forceRegister {
-			suffix += placementRuleRv
+			plrSuffixFunc := func() string {
+				return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), placementRuleRv)
+			}
+
+			suffix = plrSuffixFunc()
+
+			logger.Info("forceRegister suffix is: " + suffix)
 		}
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
@@ -85,7 +91,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
-			if len(jobRecords.Instance) > 0 {
+			if forceRegister && len(jobRecords.Instance) > 0 {
 				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
 
 				// if the last job is running (or already done)
@@ -100,11 +106,15 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 
 						err := json.Unmarshal(nx.Spec.ExtraVars, &jobMap)
 						if err != nil {
+							jobRecords.mux.Unlock()
+
 							return err
 						}
 
 						err = json.Unmarshal(lastJob.Spec.ExtraVars, &lastJobMap)
 						if err != nil {
+							jobRecords.mux.Unlock()
+
 							return err
 						}
 
@@ -145,14 +155,18 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 	}
 
 	for k, j := range *jIns {
-		j.mux.Lock()
 		if len(j.Instance) == 0 {
 			continue
 		}
 
+		j.mux.Lock()
+
 		n := len(j.Instance)
 
 		nx := j.Instance[n-1]
+
+		j.mux.Unlock()
+
 		//add the created job to the ansiblejob Set if not exist
 
 		job := &ansiblejob.AnsibleJob{}
@@ -168,9 +182,9 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 
 				logger.Info(fmt.Sprintf("applied ansiblejob %s/%s", nx.GetNamespace(), nx.GetName()))
 			}
-		}
 
-		j.mux.Unlock()
+			return fmt.Errorf("failed to get job %v, err: %v", jKey, err)
+		}
 	}
 
 	return nil

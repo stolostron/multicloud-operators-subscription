@@ -345,7 +345,7 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 
 	if subIns.Spec.Placement != nil &&
 		(subIns.Spec.Placement.Local == nil || !*subIns.Spec.Placement.Local) {
-		clusters, err := getClustersByPlacement(subIns, kubeclient, logger)
+		clusters, err := GetClustersByPlacement(subIns, kubeclient, logger)
 		if err != nil {
 			return job, err
 		}
@@ -495,7 +495,7 @@ func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 // Top priority: placementRef, ignore others
 // Next priority: clusterNames, ignore selector
 // Bottomline: Use label selector
-func getClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
+func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
 	var clusters []types.NamespacedName
 
 	var err error
