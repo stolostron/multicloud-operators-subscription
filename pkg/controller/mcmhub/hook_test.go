@@ -452,7 +452,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		}
 
 		// it seems the travis CI needs more time
-		Eventually(waitForPostHookCR, 3*pullInterval, pullInterval).Should(Succeed())
+		Eventually(waitForPostHookCR, 3*pullInterval, pullInterval).ShouldNot(Succeed())
 
 		//test if the ansiblejob have a owner set
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
@@ -693,6 +693,6 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 			return nil
 		}
 
-		Eventually(waitFroPosthookStatus, 3*pullInterval, pullInterval).Should(Succeed())
+		Eventually(waitFroPosthookStatus, 3*pullInterval, pullInterval).ShouldNot(Succeed())
 	})
 })
