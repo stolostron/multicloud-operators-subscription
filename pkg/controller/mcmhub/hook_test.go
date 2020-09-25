@@ -293,7 +293,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
 
 		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
-		Expect(ansibleIns.Spec.JobTemplateName).Should(Equal("Demo Job Template"))
+		Expect(ansibleIns.Spec.JobTemplateName).Should(Equal("Demo Pre Job"))
 
 		an := ansibleIns.GetAnnotations()
 		Expect(an).ShouldNot(HaveLen(0))
