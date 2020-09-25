@@ -749,6 +749,13 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
+		//mostly the conflict is coming from the managed cluster update the hub
+		//status
+		if k8serrors.IsConflict(err) {
+			r.logger.Info("it seems someone update the status already")
+			return
+		}
+
 		if res.RequeueAfter == time.Duration(0) {
 			res.RequeueAfter = 1 * time.Second
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
@@ -770,4 +777,8 @@ func after(value string, a string) string {
 	}
 
 	return value[adjustedPos:]
+}
+
+func PrintHelper(o metav1.Object) types.NamespacedName {
+	return types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()}
 }
