@@ -173,17 +173,17 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 		jKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
 
 		if err := clt.Get(context.TODO(), jKey, job); err != nil {
-			if kerr.IsNotFound(err) {
-				if err := clt.Create(context.TODO(), &nx); err != nil {
-					if !kerr.IsAlreadyExists(err) {
-						return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
-					}
-				}
-
-				logger.Info(fmt.Sprintf("applied ansiblejob %s/%s", nx.GetNamespace(), nx.GetName()))
+			if !kerr.IsNotFound(err) {
+				return fmt.Errorf("failed to get job %v, err: %v", jKey, err)
 			}
 
-			return fmt.Errorf("failed to get job %v, err: %v", jKey, err)
+			if err := clt.Create(context.TODO(), &nx); err != nil {
+				if !kerr.IsAlreadyExists(err) {
+					return fmt.Errorf("failed to apply job %v, err: %v", k.String(), err)
+				}
+			}
+
+			logger.Info(fmt.Sprintf("applied ansiblejob %s/%s", nx.GetNamespace(), nx.GetName()))
 		}
 	}
 

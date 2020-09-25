@@ -293,7 +293,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
 
 		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
-		Expect(ansibleIns.Spec.JobTemplateName).Should(Equal("Demo Job Template"))
+		Expect(ansibleIns.Spec.JobTemplateName).ShouldNot(HaveLen(0))
 
 		an := ansibleIns.GetAnnotations()
 		Expect(an).ShouldNot(HaveLen(0))
@@ -666,7 +666,7 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 			return nil
 		}
 
-		Eventually(waitForPostAnsibleJobs, pullInterval*5, pullInterval).Should(Succeed())
+		Eventually(waitForPostAnsibleJobs, pullInterval*10, pullInterval).Should(Succeed())
 		// there's an update request triggered, so we might want to wait for a bit
 
 		waitFroPosthookStatus := func() error {

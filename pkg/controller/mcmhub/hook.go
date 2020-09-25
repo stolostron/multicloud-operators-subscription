@@ -446,6 +446,8 @@ func (a *AnsibleHooks) HasHooks(hookType string, subKey types.NamespacedName) bo
 		if hks == nil || len(*hks) == 0 {
 			return false
 		}
+
+		return true
 	}
 
 	hks := a.registry[subKey].postHooks
@@ -478,7 +480,7 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.V(1).Info(fmt.Sprintf("job: %#v, job status: %v", job, curStatus))
+	logger.V(1).Info(fmt.Sprintf("job %s status: %v", PrintHelper(job), curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
 }
