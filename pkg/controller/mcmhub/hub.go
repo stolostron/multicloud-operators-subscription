@@ -104,7 +104,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	err = r.Get(context.TODO(), dplkey, found)
 
 	if err != nil && errors.IsNotFound(err) {
-		klog.V(1).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
+		klog.Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
 		err = r.Create(context.TODO(), dpl)
 
 		//record events
