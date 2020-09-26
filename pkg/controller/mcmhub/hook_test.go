@@ -438,6 +438,14 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		waitForPostHookCR := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
 
+			if err := mockHostDpl(); err != nil {
+				return err
+			}
+
+			if err := mockManagedCluster(); err != nil {
+				return err
+			}
+
 			if err := k8sClt.List(ctx, aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
 			}
@@ -452,7 +460,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		}
 
 		// it seems the travis CI needs more time
-		Eventually(waitForPostHookCR, 3*pullInterval, pullInterval).Should(Succeed())
+		Eventually(waitForPostHookCR, 10*pullInterval, pullInterval).Should(Succeed())
 
 		//test if the ansiblejob have a owner set
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
