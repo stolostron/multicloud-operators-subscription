@@ -54,9 +54,11 @@ func TestMain(m *testing.M) {
 		if skipCRDupdate {
 			return nil
 		}
+
 		storepath := "../../../hack/test"
 
 		tests := []string{"deployable", "channel", "ansiblejob", "managedcluster", "helmrelease", "placementrule"}
+
 		return utils.UpdateCRDs(storepath, tests, tlog.NullLogger{})
 	}
 
@@ -94,6 +96,7 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
 		result, err := inner.Reconcile(req)
 		requests <- req
+
 		return result, err
 	})
 

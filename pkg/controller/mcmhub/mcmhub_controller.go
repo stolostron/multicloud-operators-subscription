@@ -725,8 +725,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
-		fmt.Printf("status update old \n%#v\n new \n%#v\n", oIns.Status, nIns.Status)
-
 		if res.RequeueAfter == time.Duration(0) {
 			res.RequeueAfter = 1 * time.Second
 			r.logger.Info(fmt.Sprintf("only update status, will retry %s for possible posthook", res.RequeueAfter))
@@ -735,14 +733,12 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		return
 	}
 
-	fmt.Printf("izhang bbbbbbbb %#v\n", nIns)
 	//if not post hook, quit the reconcile
 	if !r.hooks.HasHooks(PostHookType, request.NamespacedName) {
 		r.logger.Info("no post hooks, exit the reconcile.")
 		return
 	}
 
-	fmt.Printf("izhang ccccc %#v\n", nIns)
 	// nothing added to the incoming subscription, time to figure out the post hook
 	//wait till the subscription is propagated
 	f, err := r.IsSubscriptionCompleted(request.NamespacedName)
@@ -751,7 +747,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		return
 	}
 
-	fmt.Println("izhang eeee")
 	// post hook will in a apply and don't report back manner
 	if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
 		r.logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
