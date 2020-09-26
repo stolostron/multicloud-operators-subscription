@@ -707,8 +707,12 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 			return
 		}
+
+		return
 	}
 
+	//update status early to make sure the status is ready for post hook to
+	//consume
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
 		nIns.Status.LastUpdateTime = metav1.Now()
 
@@ -720,6 +724,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 			return
 		}
+
+		return
 	}
 
 	//if not post hook, quit the reconcile
