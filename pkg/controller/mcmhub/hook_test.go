@@ -656,6 +656,14 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 				return err
 			}
 
+			if err := ManagedClusterUpdateHubStatus(k8sClt, subKey, subv1.SubscriptionSubscribed); err != nil {
+				return err
+			}
+
+			if err := UpdateHostDeployableStatus(k8sClt, subKey, dplv1.DeployablePropagated); err != nil {
+				return err
+			}
+
 			for _, l := range aList.Items {
 				fmt.Printf("got ansiblejob %v/%v\n", l.GetNamespace(), l.GetName())
 			}
@@ -674,7 +682,7 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 			return nil
 		}
 
-		Eventually(waitForPostAnsibleJobs, pullInterval*10, pullInterval).Should(Succeed())
+		Eventually(waitForPostAnsibleJobs, pullInterval*3, pullInterval).Should(Succeed())
 		// there's an update request triggered, so we might want to wait for a bit
 
 		waitFroPosthookStatus := func() error {
