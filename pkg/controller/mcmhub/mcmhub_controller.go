@@ -255,6 +255,11 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 		if sub.Spec.Placement != nil && sub.Spec.Placement.PlacementRef != nil {
 			plRef := sub.Spec.Placement.PlacementRef
 
+			// appsub PlacementRef namespace could be empty, apply appsub namespace as the PlacementRef namespace
+			if plRef.Namespace == "" {
+				plRef.Namespace = sub.Namespace
+			}
+
 			if plRef.Name != obj.Meta.GetName() || plRef.Namespace != obj.Meta.GetNamespace() {
 				continue
 			}
@@ -479,45 +484,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// for later comparison
 	oins = instance.DeepCopy()
 
-	// register will skip the failed clone repo
-	if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
-		logger.Error(err, "failed to register hooks, skip the subscription reconcile")
-		preErr = fmt.Errorf("failed to register hooks, err: %v", err)
-
-		passedPrehook = false
-
-		return reconcile.Result{}, nil
-	}
-
-	if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
-		preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
-		//if it's registered
-		if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
-			logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
-
-			passedPrehook = false
-
-			return reconcile.Result{}, nil
-		}
-
-		//if it's registered
-		b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
-		if !b || err != nil {
-			// used for use the status update
-			_ = preErr
-
-			if err != nil {
-				logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
-				return reconcile.Result{}, nil
-			}
-
-			result.RequeueAfter = r.hookRequeueInterval
-			passedPrehook = false
-
-			return result, nil
-		}
-	}
-
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
@@ -528,6 +494,45 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+		// register will skip the failed clone repo
+		if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
+			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
+
+			passedPrehook = false
+
+			return reconcile.Result{}, nil
+		}
+
+		if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
+			//if it's registered
+			if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+				logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+
+				passedPrehook = false
+
+				return reconcile.Result{}, nil
+			}
+
+			//if it's registered
+			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+			if !b || err != nil {
+				// used for use the status update
+				_ = preErr
+
+				if err != nil {
+					logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+					return reconcile.Result{}, nil
+				}
+
+				result.RequeueAfter = r.hookRequeueInterval
+				passedPrehook = false
+
+				return result, nil
+			}
+		}
+
 		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
 
