@@ -19,6 +19,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 )
@@ -74,7 +75,7 @@ func UpdateCRDs(p string, tRepo []string, logger logr.Logger) error {
 }
 
 func createOrCleanUpDir(p string) error {
-	os.RemoveAll(p)
+	_ = os.RemoveAll(p)
 
 	_, err := os.Stat(p)
 
@@ -103,7 +104,7 @@ func download(repos []string, out string, logger logr.Logger) error {
 		fp := fmt.Sprintf("%s/%s", out, u["crdName"])
 		fmt.Println(fp)
 
-		fh, err := os.OpenFile(fp, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
+		fh, err := os.OpenFile(filepath.Clean(fp), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
