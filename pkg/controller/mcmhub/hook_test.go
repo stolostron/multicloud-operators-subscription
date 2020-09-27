@@ -226,6 +226,14 @@ func ManagedClusterUpdateHubStatus(clt client.Client, subKey types.NamespacedNam
 	return clt.Status().Update(ctx, a)
 }
 
+func waitForHostDeployable(clt client.Client, subKey types.NamespacedName) error {
+	t := &dplv1.Deployable{}
+	hostDplKey := types.NamespacedName{Name: fmt.Sprintf("%s-deployable", subKey.Name),
+		Namespace: subKey.Namespace}
+
+	return clt.Get(context.TODO(), hostDplKey, t)
+}
+
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) error {
 	pre := &ansiblejob.AnsibleJob{}
 
@@ -425,6 +433,10 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 			return ManagedClusterUpdateHubStatus(k8sClt, subKey, subv1.SubscriptionSubscribed)
 		}
 
+		Eventually(func() error {
+			return waitForHostDeployable(k8sClt, subKey)
+		}, pullInterval*5, pullInterval).Should(Succeed())
+
 		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
 
 		mockHostDpl := func() error {
@@ -437,14 +449,6 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		ansibleIns := &ansiblejob.AnsibleJob{}
 		waitForPostHookCR := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
-
-			if err := mockHostDpl(); err != nil {
-				return err
-			}
-
-			if err := mockManagedCluster(); err != nil {
-				return err
-			}
 
 			if err := k8sClt.List(ctx, aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
@@ -485,14 +489,6 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		waitFor2ndGenerateInstance := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
-
-			u := &subv1.Subscription{}
-			if err := k8sClt.Get(ctx, subKey, u); err == nil {
-				fmt.Println("after modified sub izhang --------------> ")
-				fmt.Printf("current subscription is \n%#v\n", u)
-				fmt.Printf("current subscription hookref is \n%#v\n", u.Spec.HookSecretRef)
-				fmt.Println("izhang --------------> ")
-			}
 
 			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
@@ -642,25 +638,23 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 			return forceUpdatePrehook(k8sClt, preHookKey)
 		}, pullInterval*3, pullInterval).Should(Succeed())
 
+		Eventually(func() error {
+			return waitForHostDeployable(k8sClt, subKey)
+		}, pullInterval*5, pullInterval).Should(Succeed())
 		// mock the subscription deployable status,which is copied over to the
 		// subsritption status
 		//mock the status of managed cluster
-		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
+		_ = mockManagedCluster
 		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
+
+		u := &subv1.Subscription{}
+		_ = k8sClt.Get(ctx, subKey, u)
 
 		postHookKey := types.NamespacedName{}
 
 		waitForPostAnsibleJobs := func() error {
 			aList := &ansiblejob.AnsibleJobList{}
 			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subIns.GetNamespace()}); err != nil {
-				return err
-			}
-
-			if err := ManagedClusterUpdateHubStatus(k8sClt, subKey, subv1.SubscriptionSubscribed); err != nil {
-				return err
-			}
-
-			if err := UpdateHostDeployableStatus(k8sClt, subKey, dplv1.DeployablePropagated); err != nil {
 				return err
 			}
 

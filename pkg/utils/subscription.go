@@ -363,6 +363,10 @@ func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
 	return true
 }
 
+func IsEqualSubScriptionStatus(o, n *appv1.SubscriptionStatus) bool {
+	return isEqualSubscriptionStatus(o, n)
+}
+
 func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
 	if a == nil && b == nil {
 		return true

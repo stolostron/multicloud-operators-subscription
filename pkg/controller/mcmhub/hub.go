@@ -773,6 +773,8 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 }
 
 func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
+	r.logger.Info("entry doMCMHubReconcile:updateSubscriptionStatus")
+	defer r.logger.Info("exit doMCMHubReconcile:updateSubscriptionStatus")
 	newsubstatus := appv1alpha1.SubscriptionStatus{}
 
 	newsubstatus.Phase = appv1alpha1.SubscriptionPropagated
@@ -824,7 +826,7 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
 	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
 
-	if !reflect.DeepEqual(newsubstatus, sub.Status) {
+	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
 		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
 			sub.Namespace, sub.Name, sub.Status, newsubstatus)
 		newsubstatus.DeepCopyInto(&sub.Status)
