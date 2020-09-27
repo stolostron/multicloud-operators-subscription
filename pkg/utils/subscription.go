@@ -146,7 +146,7 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 }
 
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
-	if !reflect.DeepEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
+	if !isAnsibleStatusEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
 
@@ -155,6 +155,18 @@ func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 	}
 
 	return false
+}
+
+func isAnsibleStatusEqual(a, b appv1.AnsibleJobsStatus) bool {
+	if a.LastPosthookJob != b.LastPosthookJob {
+		return false
+	}
+
+	if a.LastPrehookJob != b.LastPrehookJob {
+		return false
+	}
+
+	return true
 }
 
 // DeployablePredicateFunctions filters status update
@@ -349,6 +361,10 @@ func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
 	}
 
 	return true
+}
+
+func IsEqualSubScriptionStatus(o, n *appv1.SubscriptionStatus) bool {
+	return isEqualSubscriptionStatus(o, n)
 }
 
 func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
