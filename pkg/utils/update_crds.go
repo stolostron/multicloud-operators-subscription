@@ -79,7 +79,7 @@ func createOrCleanUpDir(p string) error {
 	_, err := os.Stat(p)
 
 	if os.IsNotExist(err) {
-		return os.Mkdir(p, 0755)
+		return os.Mkdir(p, 0700)
 	}
 
 	return nil
@@ -103,7 +103,7 @@ func download(repos []string, out string, logger logr.Logger) error {
 		fp := fmt.Sprintf("%s/%s", out, u["crdName"])
 		fmt.Println(fp)
 
-		fh, err := os.OpenFile(fp, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
+		fh, err := os.OpenFile(fp, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
