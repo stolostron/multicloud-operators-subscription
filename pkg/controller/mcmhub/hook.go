@@ -499,27 +499,29 @@ func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
 	var clusters []types.NamespacedName
 
-	var err error
+	if instance.Spec.Placement != nil {
+		var err error
 
-	// Top priority: placementRef, ignore others
-	// Next priority: clusterNames, ignore selector
-	// Bottomline: Use label selector
-	if instance.Spec.Placement.PlacementRef != nil {
-		clusters, err = getClustersFromPlacementRef(instance, kubeclient, logger)
-	} else {
-		clustermap, err := placementutils.PlaceByGenericPlacmentFields(kubeclient, instance.Spec.Placement.GenericPlacementFields, nil, instance)
+		// Top priority: placementRef, ignore others
+		// Next priority: clusterNames, ignore selector
+		// Bottomline: Use label selector
+		if instance.Spec.Placement.PlacementRef != nil {
+			clusters, err = getClustersFromPlacementRef(instance, kubeclient, logger)
+		} else {
+			clustermap, err := placementutils.PlaceByGenericPlacmentFields(kubeclient, instance.Spec.Placement.GenericPlacementFields, nil, instance)
+			if err != nil {
+				logger.Error(err, " - Failed to get clusters from generic fields with error.")
+				return nil, err
+			}
+			for _, cl := range clustermap {
+				clusters = append(clusters, types.NamespacedName{Name: cl.Name, Namespace: cl.Name})
+			}
+		}
+
 		if err != nil {
-			logger.Error(err, " - Failed to get clusters from generic fields with error.")
+			logger.Error(err, " - Failed in finding cluster namespaces. error.")
 			return nil, err
 		}
-		for _, cl := range clustermap {
-			clusters = append(clusters, types.NamespacedName{Name: cl.Name, Namespace: cl.Name})
-		}
-	}
-
-	if err != nil {
-		logger.Error(err, " - Failed in finding cluster namespaces. error.")
-		return nil, err
 	}
 
 	logger.V(10).Info("clusters", clusters)
