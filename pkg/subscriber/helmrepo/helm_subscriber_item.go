@@ -80,7 +80,7 @@ func (hrsi *SubscriberItem) Start() {
 		if tw != nil {
 			nextRun := utils.NextStartPoint(tw, time.Now())
 			if nextRun > time.Duration(0) {
-				klog.V(1).Infof("Subcription %v/%v will de deploy after %v",
+				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
 					hrsi.SubscriberItem.Subscription.GetNamespace(),
 					hrsi.SubscriberItem.Subscription.GetName(), nextRun)
 				return

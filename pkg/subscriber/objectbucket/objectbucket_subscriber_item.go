@@ -72,7 +72,7 @@ func (obsi *SubscriberItem) Start() {
 		if tw != nil {
 			nextRun := utils.NextStartPoint(tw, time.Now())
 			if nextRun > time.Duration(0) {
-				klog.V(1).Infof("Subcription %v/%v will de deploy after %v",
+				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
 					obsi.SubscriberItem.Subscription.GetNamespace(),
 					obsi.SubscriberItem.Subscription.GetName(), nextRun)
 				return
