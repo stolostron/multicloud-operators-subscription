@@ -57,10 +57,16 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 
 	if IsInWindow(tw, uniCurTime) {
 		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
-		vdays, _ := validateDaysofweekSlice(tw.Daysofweek)
+		vdays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 
-		return generateNextPoint(rvevHr, vdays, uniCurTime) + 1*time.Minute
+		// If currently not blocked but the time window type is `blocked`, we need to get the next time
+		// it should be blocked.
+		if tw.WindowType != "" && (strings.EqualFold(tw.WindowType, "block") || strings.EqualFold(tw.WindowType, "blocked")) {
+			return generateNextPoint(vHr, vdays, uniCurTime, false) + 1*time.Minute
+		}
+
+		return generateNextPoint(rvevHr, rveDays, uniCurTime, false) + 1*time.Minute
 	}
 
 	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
@@ -75,6 +81,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 	if tw == nil {
 		return time.Duration(0)
 	}
+
 	// convert current time to the location time defined within the timewindow
 	uniCurTime := UnifyTimeZone(tw, t)
 
@@ -86,14 +93,15 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 
 	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
-	if tw.WindowType != "" && !strings.EqualFold(tw.WindowType, "active") {
-		// reverse slots
+	if tw.WindowType != "" && (strings.EqualFold(tw.WindowType, "block") || strings.EqualFold(tw.WindowType, "blocked")) {
+		// reverse slots, the time slots are applicable only for blocked days of the week.
+		// If today is not one of the days specified, just return 0
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
-		return generateNextPoint(rvevHr, rveDays, uniCurTime)
+		return generateNextPoint(rvevHr, rveDays, uniCurTime, true)
 	}
 
 	// generate the duration for t
-	return generateNextPoint(vHr, rDays, uniCurTime)
+	return generateNextPoint(vHr, rDays, uniCurTime, false)
 }
 
 // UnifyTimeZone convert a given time to the timewindow time zone, if the time window doesn't sepcifiy a
@@ -196,9 +204,19 @@ func parseTimeWithKitchenFormat(tstr string, loc *time.Location) time.Time {
 // if current time is bigger than the last time point of the window, nextTime will be daysofweek offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
 //slot start point or a 0(if current time is within a time window)
-func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.Time) time.Duration {
+func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.Time, blocked bool) time.Duration {
 	if len(slots) == 0 && len(rdays) == 0 {
 		return time.Duration(0)
+	}
+
+	if blocked {
+		// rdays is the list of week days that are not blocked. If today is one of these days, just return 0
+		// to indicate that it is in active window.
+		for _, runDay := range rdays {
+			if runDay == uniCurTime.Weekday() {
+				return time.Duration(0)
+			}
+		}
 	}
 
 	if len(slots) == 0 && len(rdays) != 0 {
@@ -242,6 +260,7 @@ func tillNextSlot(slots []hourRangesInTime, cur time.Time) time.Duration {
 
 	for _, slot := range slots {
 		st, ed := slot.start, slot.end
+
 		if gt.Sub(st) <= 0 {
 			return st.Sub(gt)
 		} else if gt.Sub(st) > 0 && gt.Sub(ed) <= 0 {
