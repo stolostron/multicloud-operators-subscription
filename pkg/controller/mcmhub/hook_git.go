@@ -118,6 +118,7 @@ func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger log
 		_, kustomizeDirs, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
 		if len(kustomizeDirs) != 0 {
 			out := [][]byte{}
+
 			for _, dir := range kustomizeDirs {
 				//this will return an []byte
 				r, err := utils.RunKustomizeBuild(dir)
@@ -125,7 +126,7 @@ func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger log
 					return gitSortResult{}, err
 				}
 
-				out = append(out, r[:])
+				out = append(out, r)
 			}
 
 			return gitSortResult{kustomized: out}, nil
@@ -221,7 +222,6 @@ func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansib
 	}
 
 	sortedRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, h.logger)
-	fmt.Printf("izhang ---> kubeRes %#v\n err: %v\n", sortedRes, err)
 	if err != nil {
 		return []ansiblejob.AnsibleJob{}, err
 	}
