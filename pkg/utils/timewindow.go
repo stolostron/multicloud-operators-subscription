@@ -57,15 +57,16 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 
 	if IsInWindow(tw, uniCurTime) {
 		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
-		vdays, _ := validateDaysofweekSlice(tw.Daysofweek)
+		vdays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 
-		blocked := false
+		// If currently not blocked but the time window type is `blocked`, we need to get the next time
+		// it should be blocked.
 		if tw.WindowType != "" && (strings.EqualFold(tw.WindowType, "block") || strings.EqualFold(tw.WindowType, "blocked")) {
-			blocked = true
+			return generateNextPoint(vHr, vdays, uniCurTime, false) + 1*time.Minute
 		}
 
-		return generateNextPoint(rvevHr, vdays, uniCurTime, blocked) + 1*time.Minute
+		return generateNextPoint(rvevHr, rveDays, uniCurTime, false) + 1*time.Minute
 	}
 
 	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
@@ -259,6 +260,7 @@ func tillNextSlot(slots []hourRangesInTime, cur time.Time) time.Duration {
 
 	for _, slot := range slots {
 		st, ed := slot.start, slot.end
+
 		if gt.Sub(st) <= 0 {
 			return st.Sub(gt)
 		} else if gt.Sub(st) > 0 && gt.Sub(ed) <= 0 {

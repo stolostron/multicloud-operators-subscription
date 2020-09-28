@@ -464,8 +464,9 @@ func TestNextStatusReconcile(t *testing.T) {
 			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
 		},
 		{
-			name:     "block time window with hour range and daysofweek-happy path outside timewindow",
-			expected: time.Hour*48 + time.Minute*1,
+			name: "block time window with hour range and daysofweek-happy path outside timewindow",
+			// Currently not blocked. Should be blocked in 2 days and 11 hours = 59 hours
+			expected: time.Hour*59 + time.Minute*1,
 			giventw: &appv1alpha1.TimeWindow{
 				WindowType: "block",
 				Location:   "UTC",
@@ -501,6 +502,34 @@ func TestNextStatusReconcile(t *testing.T) {
 				},
 			},
 			giventm: getTime("Sat Jan  1 11:30:00 UTC 0000"),
+		},
+		{
+			name:    "currently blocked and return next active time",
+			giventm: getTime("Mon Sep  28 15:06:00 UTC 2020"), // 11:06AM Toronto time
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "08:18AM", End: "09:09PM"},
+				},
+				Location:   "America/Toronto",
+				Daysofweek: []string{"Sunday", "Monday"},
+			},
+			// Currently at 11:06AM blocked. Should become active at 09:09PM, so next status reconcile in 10h4m0s
+			expected: time.Hour*10 + time.Minute*4,
+		},
+		{
+			name:    "currently not blocked and return next blocked time",
+			giventm: getTime("Mon Sep  28 11:06:00 UTC 2020"),
+			giventw: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "11:09AM", End: "09:09PM"},
+				},
+				Location:   "UTC",
+				Daysofweek: []string{"Sunday", "Monday"},
+			},
+			// Currently at 11:06AM, not blocked. Should be blocked in 3 minutes so next status reconcile should be 3 + 1 minutes.
+			expected: time.Minute * 4,
 		},
 	}
 
