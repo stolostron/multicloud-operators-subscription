@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -517,10 +518,16 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 			updateStatus := updateSub.Status.AnsibleJobsStatus
 
+			an := updateSub.GetAnnotations()[subv1.AnnotationTopo]
+
 			dErr := fmt.Errorf("failed to get ansiblejob status %s, %#v", subKey, updateStatus)
 
 			if len(updateStatus.PosthookJobsHistory) < 2 {
 				return dErr
+			}
+
+			if !strings.Contains(an, updateStatus.LastPosthookJob) {
+				return fmt.Errorf("the last applied hook is not in topo annotation")
 			}
 
 			return nil
