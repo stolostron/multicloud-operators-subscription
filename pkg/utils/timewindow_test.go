@@ -114,19 +114,34 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			},
 			want: time.Hour * 15,
 		},
-		//		{
-		//			desc:    "reversion order of incoming hours",
-		//			curTime: "Thu Nov  7 14:00:00 EST 2019",
-		//			windows: &appv1alpha1.TimeWindow{
-		//				WindowType: "active",
-		//				Hours: []appv1alpha1.HourRange{
-		//					{Start: "1:30PM", End: "10:30AM"},
-		//				},
-		//				Daysofweek: []string{"friday"},
-		//				Location:   "America/Toronto",
-		//			},
-		//			want: time.Hour*20 + time.Minute*30,
-		//		},
+		{
+			desc:    "currently blocked and return next active time",
+			curTime: "Mon Sep  28 15:06:00 UTC 2020", // 11:06AM Toronto time
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "08:18AM", End: "09:09PM"},
+				},
+				Location:   "America/Toronto",
+				Daysofweek: []string{"Sunday", "Monday"},
+			},
+			// Currently at 11:06AM blocked. Should become active at 09:09PM, 10h3m0s
+			want: time.Hour*10 + time.Minute*3,
+		},
+		{
+			desc:    "currently not blocked",
+			curTime: "Mon Sep  28 15:06:00 UTC 2020", // 11:06AM Toronto time
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "11:07AM", End: "09:09PM"},
+				},
+				Location:   "America/Toronto",
+				Daysofweek: []string{"Sunday", "Monday"},
+			},
+			// Currently at 11:06AM, not blocked.
+			want: 0,
+		},
 	}
 
 	for _, tC := range testCases {
