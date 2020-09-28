@@ -104,22 +104,41 @@ func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *s
 	return utils.CloneGitRepo(chn.Spec.Pathname, utils.GetSubscriptionBranch(sub), user, pwd, repoRoot)
 }
 
+type gitSortResult struct {
+	kustomized [][]byte
+	kubRes     []string
+}
+
 //repoRoot is the local path of the git
 // destPath will specify a sub-directory for finding all the relative resource
-func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger logr.Logger) ([]string, error) {
+func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger logr.Logger) (gitSortResult, error) {
 	resourcePath := filepath.Join(repoRoot, destPath)
 
-	sortWrapper := func() ([]string, error) {
-		_, _, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
+	sortWrapper := func() (gitSortResult, error) {
+		_, kustomizeDirs, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
+		if len(kustomizeDirs) != 0 {
+			out := [][]byte{}
+			for _, dir := range kustomizeDirs {
+				//this will return an []byte
+				r, err := utils.RunKustomizeBuild(dir)
+				if err != nil {
+					return gitSortResult{}, err
+				}
 
-		return kubeRes, err
+				out = append(out, r[:])
+			}
+
+			return gitSortResult{kustomized: out}, nil
+		}
+
+		return gitSortResult{kubRes: kubeRes}, err
 	}
 
 	kubeRes, err := sortWrapper()
 
 	if err != nil {
 		logger.Error(err, "failed to sort kubernetes resources.")
-		return []string{}, err
+		return gitSortResult{}, err
 	}
 
 	return kubeRes, nil
@@ -133,7 +152,31 @@ func parseAnsibleJobResoures(file []byte) [][]byte {
 	return utils.KubeResourceParser(file, cond)
 }
 
-func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansiblejob.AnsibleJob, error) {
+func parseFromKutomizedAsAnsibleJobs(kustomizes [][]byte, parser func([]byte) [][]byte, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
+	jobs := []ansiblejob.AnsibleJob{}
+	// sync kube resource deployables
+	for _, kus := range kustomizes {
+		resources := parser(kus)
+
+		if len(resources) > 0 {
+			for _, resource := range resources {
+				job := &ansiblejob.AnsibleJob{}
+				err := yaml.Unmarshal(resource, job)
+
+				if err != nil {
+					logger.Error(err, "failed to parse a resource")
+					continue
+				}
+
+				jobs = append(jobs, *job)
+			}
+		}
+	}
+
+	return jobs, nil
+}
+
+func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
 	jobs := []ansiblejob.AnsibleJob{}
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
@@ -143,7 +186,7 @@ func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansib
 			return []ansiblejob.AnsibleJob{}, err
 		}
 
-		resources := paser(file)
+		resources := parser(file)
 
 		if len(resources) > 0 {
 			for _, resource := range resources {
@@ -151,6 +194,7 @@ func parseAsAnsibleJobs(rscFiles []string, paser func([]byte) [][]byte) ([]ansib
 				err := yaml.Unmarshal(resource, job)
 
 				if err != nil {
+					logger.Error(err, "failed to parse a resource")
 					continue
 				}
 
@@ -176,10 +220,15 @@ func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansib
 		return []ansiblejob.AnsibleJob{}, err
 	}
 
-	kubeRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, h.logger)
+	sortedRes, err := sortClonedGitRepoGievnDestPath(h.localDir, hookPath, h.logger)
+	fmt.Printf("izhang ---> kubeRes %#v\n err: %v\n", sortedRes, err)
 	if err != nil {
 		return []ansiblejob.AnsibleJob{}, err
 	}
 
-	return parseAsAnsibleJobs(kubeRes, parseAnsibleJobResoures)
+	if len(sortedRes.kustomized) != 0 {
+		return parseFromKutomizedAsAnsibleJobs(sortedRes.kustomized, parseAnsibleJobResoures, h.logger)
+	}
+
+	return parseAsAnsibleJobs(sortedRes.kubRes, parseAnsibleJobResoures, h.logger)
 }
