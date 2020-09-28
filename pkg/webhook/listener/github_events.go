@@ -22,7 +22,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/go-github/v28/github"
+	"github.com/google/go-github/v32/github"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"

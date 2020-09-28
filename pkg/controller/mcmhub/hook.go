@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
@@ -78,6 +80,7 @@ type HookProcessor interface {
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
+	StartGitWatch(time.Duration, <-chan struct{})
 }
 
 type Hooks struct {
@@ -111,6 +114,7 @@ type AnsibleHooks struct {
 	gitClt GitOps
 	clt    client.Client
 	// subscription namespacedName will points to hooks
+	mtx        sync.Mutex
 	registry   map[types.NamespacedName]*Hooks
 	suffixFunc SuffixFunc
 	//logger
@@ -129,6 +133,7 @@ func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
 	return &AnsibleHooks{
 		clt:        clt,
 		gitClt:     NewHookGit(clt, logger),
+		mtx:        sync.Mutex{},
 		registry:   map[types.NamespacedName]*Hooks{},
 		logger:     logger,
 		suffixFunc: suffixFromUUID,
@@ -179,7 +184,11 @@ func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
 }
 
 func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+
 	delete(a.registry, subKey)
+
 	return nil
 }
 

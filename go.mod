@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.5
 	github.com/google/go-cmp v0.5.1
-	github.com/google/go-github/v28 v28.1.1
+	github.com/google/go-github/v32 v32.1.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1

@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"os/signal"
 	"strings"
 	"time"
 
@@ -34,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -86,6 +89,29 @@ const (
 * business logic.  Delete these comments after modifying this file.*
  */
 
+var onlyOneGitWatcherSignalHandler = make(chan struct{})
+var gitShutdownSignals = []os.Signal{os.Interrupt}
+
+// SetupSignalHandler registers for SIGTERM and SIGINT. A stop channel is returned
+// which is closed on one of these signals. If a second signal is caught, the program
+// is terminated with exit code 1.
+func SetupGitWatcherSignalHandler() (stopCh <-chan struct{}) {
+	close(onlyOneGitWatcherSignalHandler) // panics when called twice
+
+	stop := make(chan struct{})
+	c := make(chan os.Signal, 2)
+	signal.Notify(c, gitShutdownSignals...)
+
+	go func() {
+		<-c
+		close(stop)
+		<-c
+		os.Exit(1) // second signal. Exit directly.
+	}()
+
+	return stop
+}
+
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -114,6 +140,8 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	for _, f := range op {
 		f(rec)
 	}
+
+	rec.hooks.StartGitWatch(rec.hookRequeueInterval, SetupGitWatcherSignalHandler())
 
 	return rec
 }
