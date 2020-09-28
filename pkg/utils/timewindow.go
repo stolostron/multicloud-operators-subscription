@@ -61,7 +61,7 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 
 		blocked := false
-		if tw.WindowType != "" && !strings.EqualFold(tw.WindowType, "active") {
+		if tw.WindowType != "" && (strings.EqualFold(tw.WindowType, "block") || strings.EqualFold(tw.WindowType, "blocked")) {
 			blocked = true
 		}
 
@@ -92,7 +92,7 @@ func NextStartPoint(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration {
 
 	rDays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
 
-	if tw.WindowType != "" && !strings.EqualFold(tw.WindowType, "active") {
+	if tw.WindowType != "" && (strings.EqualFold(tw.WindowType, "block") || strings.EqualFold(tw.WindowType, "blocked")) {
 		// reverse slots, the time slots are applicable only for blocked days of the week.
 		// If today is not one of the days specified, just return 0
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
