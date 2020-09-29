@@ -112,7 +112,7 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	}
 
 	//this is used to start up the git watcher
-	//mgr.Add(rec.hooks)
+	mgr.Add(rec.hooks)
 
 	return rec
 }
