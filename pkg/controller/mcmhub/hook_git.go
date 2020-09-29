@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -66,11 +65,13 @@ func NewHookGit(clt client.Client, logger logr.Logger) *HookGit {
 // the git watch will go to each subscription download the repo and compare the
 // commit id, it's the commit id is different, then update the commit id to
 // subscription
-func (a *AnsibleHooks) StartGitWatch(interval time.Duration, stop <-chan struct{}) {
+func (a *AnsibleHooks) Start(stop <-chan struct{}) error {
 	a.logger.Info("entry StartGitWatch")
 	defer a.logger.Info("exit StartGitWatch")
 
-	go wait.Until(a.GitWatch, interval, stop)
+	go wait.Until(a.GitWatch, a.hookInterval, stop)
+
+	return nil
 }
 
 func (a *AnsibleHooks) GitWatch() {

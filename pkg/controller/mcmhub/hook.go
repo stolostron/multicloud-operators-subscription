@@ -80,7 +80,7 @@ type HookProcessor interface {
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
-	StartGitWatch(time.Duration, <-chan struct{})
+	Start(<-chan struct{}) error
 }
 
 type Hooks struct {
@@ -118,25 +118,27 @@ type AnsibleHooks struct {
 	registry   map[types.NamespacedName]*Hooks
 	suffixFunc SuffixFunc
 	//logger
-	logger logr.Logger
+	logger       logr.Logger
+	hookInterval time.Duration
 }
 
 // make sure the AnsibleHooks implementate the HookProcessor
 var _ HookProcessor = &AnsibleHooks{}
 
-func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
+func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, logger logr.Logger) *AnsibleHooks {
 	if logger == nil {
 		logger = klogr.New()
 		logger.WithName("ansiblehook")
 	}
 
 	return &AnsibleHooks{
-		clt:        clt,
-		gitClt:     NewHookGit(clt, logger),
-		mtx:        sync.Mutex{},
-		registry:   map[types.NamespacedName]*Hooks{},
-		logger:     logger,
-		suffixFunc: suffixFromUUID,
+		clt:          clt,
+		gitClt:       NewHookGit(clt, logger),
+		mtx:          sync.Mutex{},
+		hookInterval: hookInterval,
+		registry:     map[types.NamespacedName]*Hooks{},
+		logger:       logger,
+		suffixFunc:   suffixFromUUID,
 	}
 }
 
@@ -222,7 +224,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
+	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
 		return nil
 	}
 
@@ -427,7 +429,7 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	}
 
 	for _, eFn := range isNotEqual {
-		if eFn(record.lastSub, subIns) {
+		if !eFn(record.lastSub, subIns) {
 			return true
 		}
 	}
@@ -436,9 +438,6 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 }
 
 func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
-	aAno := a.GetAnnotations()
-	bAno := b.GetAnnotations()
-
 	aCommit := getCommitID(a)
 	bCommit := getCommitID(b)
 

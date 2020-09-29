@@ -18,8 +18,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"os"
-	"os/signal"
 	"strings"
 	"time"
 
@@ -84,34 +82,6 @@ const (
 	placementRuleFlag          = "--fired-by-placementrule"
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
-var onlyOneGitWatcherSignalHandler = make(chan struct{})
-var gitShutdownSignals = []os.Signal{os.Interrupt}
-
-// SetupSignalHandler registers for SIGTERM and SIGINT. A stop channel is returned
-// which is closed on one of these signals. If a second signal is caught, the program
-// is terminated with exit code 1.
-func SetupGitWatcherSignalHandler() (stopCh <-chan struct{}) {
-	close(onlyOneGitWatcherSignalHandler) // panics when called twice
-
-	stop := make(chan struct{})
-	c := make(chan os.Signal, 2)
-	signal.Notify(c, gitShutdownSignals...)
-
-	go func() {
-		<-c
-		close(stop)
-		<-c
-		os.Exit(1) // second signal. Exit directly.
-	}()
-
-	return stop
-}
-
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -134,15 +104,16 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		eventRecorder:       erecorder,
 		logger:              logger,
 		hookRequeueInterval: defaultHookRequeueInterval,
-		hooks:               NewAnsibleHooks(mgr.GetClient(), logger),
+		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, logger),
 	}
 
 	for _, f := range op {
 		f(rec)
 	}
 
-	rec.hooks.StartGitWatch(rec.hookRequeueInterval, SetupGitWatcherSignalHandler())
+	mgr.Add(rec.hooks)
 
+	fmt.Println("izhang newReconciler")
 	return rec
 }
 
