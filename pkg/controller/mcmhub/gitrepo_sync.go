@@ -95,8 +95,9 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			sub.SetAnnotations(annotations)
 		}
 
+		subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
 		// Compare the commit to the Git repo and update deployables only if the commit has changed
-		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) {
+		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) || r.isHookUpdate(annotations, subKey) {
 			// Delete the existing deployables that meets the subscription
 			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
@@ -132,6 +133,20 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 	}
 
 	return updated, nil
+}
+
+func (r *ReconcileSubscription) isHookUpdate(a map[string]string, subKey types.NamespacedName) bool {
+	applied := r.hooks.GetLastAppliedInstance(subKey)
+
+	if len(applied.pre) != 0 && !strings.Contains(a[subv1.AnnotationTopo], applied.pre) {
+		return true
+	}
+
+	if len(applied.post) != 0 && !strings.Contains(a[subv1.AnnotationTopo], applied.post) {
+		return true
+	}
+
+	return false
 }
 
 // ifUpdateGitSubscriptionAnnotation compare given annoations between the two subscriptions. return true if no the same
