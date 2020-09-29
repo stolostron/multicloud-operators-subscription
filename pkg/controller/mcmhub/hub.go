@@ -431,7 +431,7 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	return chNameSpace, chName, chType
 }
 
-func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, error) {
+func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1.Channel, error) {
 	chNameSpace := ""
 	chName := ""
 
@@ -445,7 +445,7 @@ func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1a
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
 	chobj := &chnv1.Channel{}
-	err := r.Get(context.TODO(), chkey, chobj)
+	err := clt.Get(context.TODO(), chkey, chobj)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -455,6 +455,10 @@ func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1a
 	}
 
 	return chobj, err
+}
+
+func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, error) {
+	return GetSubscriptionRefChannel(r.Client, s)
 }
 
 // GetChannelGeneration get the channel generation

@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -81,11 +82,6 @@ const (
 	placementRuleFlag          = "--fired-by-placementrule"
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
-
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -108,11 +104,16 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		eventRecorder:       erecorder,
 		logger:              logger,
 		hookRequeueInterval: defaultHookRequeueInterval,
-		hooks:               NewAnsibleHooks(mgr.GetClient(), logger),
+		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, logger),
 	}
 
 	for _, f := range op {
 		f(rec)
+	}
+
+	//this is used to start up the git watcher
+	if err := mgr.Add(rec.hooks); err != nil {
+		logger.Error(err, "failed to start git watcher")
 	}
 
 	return rec

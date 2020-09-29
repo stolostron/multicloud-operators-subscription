@@ -19,6 +19,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/go-logr/logr"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
@@ -78,6 +80,7 @@ type HookProcessor interface {
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
+	Start(<-chan struct{}) error
 }
 
 type Hooks struct {
@@ -111,27 +114,31 @@ type AnsibleHooks struct {
 	gitClt GitOps
 	clt    client.Client
 	// subscription namespacedName will points to hooks
+	mtx        sync.Mutex
 	registry   map[types.NamespacedName]*Hooks
 	suffixFunc SuffixFunc
 	//logger
-	logger logr.Logger
+	logger       logr.Logger
+	hookInterval time.Duration
 }
 
 // make sure the AnsibleHooks implementate the HookProcessor
 var _ HookProcessor = &AnsibleHooks{}
 
-func NewAnsibleHooks(clt client.Client, logger logr.Logger) *AnsibleHooks {
+func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, logger logr.Logger) *AnsibleHooks {
 	if logger == nil {
 		logger = klogr.New()
 		logger.WithName("ansiblehook")
 	}
 
 	return &AnsibleHooks{
-		clt:        clt,
-		gitClt:     NewHookGit(clt, logger),
-		registry:   map[types.NamespacedName]*Hooks{},
-		logger:     logger,
-		suffixFunc: suffixFromUUID,
+		clt:          clt,
+		gitClt:       NewHookGit(clt, logger),
+		mtx:          sync.Mutex{},
+		hookInterval: hookInterval,
+		registry:     map[types.NamespacedName]*Hooks{},
+		logger:       logger,
+		suffixFunc:   suffixFromUUID,
 	}
 }
 
@@ -179,7 +186,11 @@ func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
 }
 
 func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error {
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+
 	delete(a.registry, subKey)
+
 	return nil
 }
 
@@ -213,7 +224,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
+	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
 
@@ -409,7 +420,7 @@ func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
 
 type EqualSub func(*subv1.Subscription, *subv1.Subscription) bool
 
-func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqual EqualSub) bool {
+func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqual ...EqualSub) bool {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	record, ok := a.registry[subKey]
 
@@ -417,7 +428,43 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 		return true
 	}
 
-	return isNotEqual(record.lastSub, subIns)
+	for _, eFn := range isNotEqual {
+		if eFn(record.lastSub, subIns) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
+	aCommit := getCommitID(a)
+	if aCommit == "" {
+		return false
+	}
+
+	bCommit := getCommitID(b)
+
+	return aCommit != bCommit
+}
+
+func getCommitID(a *subv1.Subscription) string {
+	aAno := a.GetAnnotations()
+	if len(aAno) == 0 {
+		return ""
+	}
+
+	c := ""
+
+	if aAno[subv1.AnnotationGithubCommit] != "" {
+		c = aAno[subv1.AnnotationGithubCommit]
+	}
+
+	if aAno[subv1.AnnotationGitCommit] != "" {
+		c = aAno[subv1.AnnotationGitCommit]
+	}
+
+	return c
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {

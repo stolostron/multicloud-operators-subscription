@@ -21,15 +21,23 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
+	"github.com/google/go-github/v32/github"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	hookInterval = time.Minute * 1
 )
 
 type GitOps interface {
@@ -57,6 +65,104 @@ func NewHookGit(clt client.Client, logger logr.Logger) *HookGit {
 		logger:       logger,
 		lastCommitID: make(map[types.NamespacedName]string),
 	}
+}
+
+// the git watch will go to each subscription download the repo and compare the
+// commit id, it's the commit id is different, then update the commit id to
+// subscription
+func (a *AnsibleHooks) Start(stop <-chan struct{}) error {
+	a.logger.Info("entry StartGitWatch")
+	defer a.logger.Info("exit StartGitWatch")
+
+	go wait.Until(a.GitWatch, hookInterval, stop)
+
+	return nil
+}
+
+func (a *AnsibleHooks) GitWatch() {
+	a.logger.V(DebugLog).Info("entry GitWatch")
+	defer a.logger.V(DebugLog).Info("exit GitWatch")
+
+	ctx := context.TODO()
+
+	a.mtx.Lock()
+	defer a.mtx.Unlock()
+
+	for subKey := range a.registry {
+		subIns := &subv1.Subscription{}
+		if err := a.clt.Get(ctx, subKey, subIns); err != nil {
+			if !k8serrors.IsNotFound(err) {
+				a.logger.Error(err, "failed to get ")
+			}
+
+			continue
+		}
+
+		if newCommit, ok := a.IsGitUpdate(subIns); ok {
+			anno := subIns.GetAnnotations()
+			anno[subv1.AnnotationGitCommit] = newCommit
+			subIns.SetAnnotations(anno)
+
+			if err := a.clt.Update(ctx, subIns); err != nil {
+				a.logger.Error(err, "failed to update subscription from GitWatch")
+			}
+
+			a.logger.Info(fmt.Sprintf("updated the commit annotation of subscrption %s", subKey))
+		}
+	}
+}
+
+func (a *AnsibleHooks) IsGitUpdate(nSubIns *subv1.Subscription) (string, bool) {
+	subKey := types.NamespacedName{Name: nSubIns.GetName(), Namespace: nSubIns.GetNamespace()}
+	oldCommit := nSubIns.GetAnnotations()[subv1.AnnotationGitCommit]
+	newCommit, err := GetLatestRemoteGitCommitID(a.clt, nSubIns)
+
+	if err != nil {
+		a.logger.Error(err, fmt.Sprintf("failed to get the new commit id for subscription %s", subKey))
+		return "", false
+	}
+
+	if !strings.EqualFold(oldCommit, newCommit) {
+		return newCommit, true
+	}
+
+	return "", false
+}
+
+func GetLatestRemoteGitCommitID(clt client.Client, subIns *subv1.Subscription) (string, error) {
+	channel, err := GetSubscriptionRefChannel(clt, subIns)
+
+	if err != nil {
+		return "", err
+	}
+
+	user, pwd, err := utils.GetChannelSecret(clt, channel)
+
+	if err != nil {
+		return "", err
+	}
+
+	an := subIns.GetAnnotations()
+
+	branch := ""
+	if an[subv1.AnnotationGithubBranch] != "" {
+		branch = an[subv1.AnnotationGithubBranch]
+	}
+
+	if an[subv1.AnnotationGitBranch] != "" {
+		branch = an[subv1.AnnotationGitBranch]
+	}
+
+	if branch == "" {
+		branch = "master"
+	}
+
+	tp := github.BasicAuthTransport{
+		Username: strings.TrimSpace(user),
+		Password: strings.TrimSpace(pwd),
+	}
+
+	return utils.GetLatestCommitID(channel.Spec.Pathname, branch, github.NewClient(tp.Client()))
 }
 
 func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {

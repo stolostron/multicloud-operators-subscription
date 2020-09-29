@@ -33,6 +33,7 @@ import (
 
 	"strings"
 
+	"github.com/google/go-github/v32/github"
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
@@ -504,4 +505,63 @@ func base64StringDecode(encodedStr string) string {
 	}
 
 	return string(decodedBytes)
+}
+
+func GetLatestCommitID(url, branch string, clt ...*github.Client) (string, error) {
+	gitClt := github.NewClient(nil)
+	if len(clt) != 0 {
+		gitClt = clt[0]
+	}
+
+	u, err := getOwnerAndRepo(url)
+	if err != nil {
+		return "", err
+	}
+
+	owner, repo := u[0], u[1]
+	ctx := context.TODO()
+
+	b, _, err := gitClt.Repositories.GetBranch(ctx, owner, repo, branch)
+	if err != nil {
+		return "", err
+	}
+
+	return *b.Commit.SHA, nil
+}
+
+/*
+Valid URL format
+	url := "https://github.com/rokej/rokejtest.git"
+	url := "https://github.com/rokej/rokejtest"
+	url := "github.com/rokej/rokejtest.git"
+	url := "github.com/rokej/rokejtest"
+*/
+func getOwnerAndRepo(url string) ([]string, error) {
+	if len(url) == 0 {
+		return []string{}, nil
+	}
+
+	gitSuffix := ".git"
+
+	l1 := strings.Split(url, "//")
+	if len(l1) < 1 {
+		return []string{}, fmt.Errorf("invalid git url l1")
+	}
+
+	var l2 string
+
+	if len(l1) == 1 {
+		l2 = strings.TrimSuffix(l1[0], gitSuffix)
+	} else {
+		l2 = strings.TrimSuffix(l1[1], gitSuffix)
+	}
+
+	l3 := strings.Split(l2, "/")
+
+	n := len(l3)
+	if n < 2 {
+		return []string{}, fmt.Errorf("invalid git url l2")
+	}
+
+	return []string{l3[n-2], l3[n-1]}, nil
 }
