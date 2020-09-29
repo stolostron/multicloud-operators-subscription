@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
@@ -33,6 +34,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	hookInterval = time.Minute * 1
 )
 
 type GitOps interface {
@@ -69,7 +74,7 @@ func (a *AnsibleHooks) Start(stop <-chan struct{}) error {
 	a.logger.Info("entry StartGitWatch")
 	defer a.logger.Info("exit StartGitWatch")
 
-	go wait.Until(a.GitWatch, a.hookInterval, stop)
+	go wait.Until(a.GitWatch, hookInterval, stop)
 
 	return nil
 }
