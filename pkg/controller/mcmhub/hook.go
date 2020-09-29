@@ -429,7 +429,7 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	}
 
 	for _, eFn := range isNotEqual {
-		if !eFn(record.lastSub, subIns) {
+		if eFn(record.lastSub, subIns) {
 			return true
 		}
 	}
@@ -439,6 +439,10 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 
 func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
 	aCommit := getCommitID(a)
+	if aCommit == "" {
+		return false
+	}
+
 	bCommit := getCommitID(b)
 
 	return aCommit != bCommit

@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	. "github.com/onsi/ginkgo"
@@ -470,7 +471,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
 		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
 
-		modifySub := func() error {
+		modifySubSpec := func() error {
 			u := &subv1.Subscription{}
 			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
 				return nil
@@ -480,21 +481,21 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 			return k8sClt.Update(context.TODO(), u.DeepCopy())
 		}
 
-		Eventually(modifySub, pullInterval*5, pullInterval).Should(Succeed())
+		Eventually(modifySubSpec, pullInterval*5, pullInterval).Should(Succeed())
 
 		// since the modifySub will regenerate the deployable and managed
 		// cluster status, we meed to mock the process again
 		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
 		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
 
-		waitFor2ndGenerateInstance := func() error {
+		waitForNthGenerateInstance := func(n int) error {
 			aList := &ansiblejob.AnsibleJobList{}
 
 			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
 				return err
 			}
 
-			if len(aList.Items) < 2 {
+			if len(aList.Items) < n {
 				for _, i := range aList.Items {
 					fmt.Printf("debug -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
 				}
@@ -504,8 +505,9 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 			return nil
 		}
-
-		Eventually(waitFor2ndGenerateInstance, pullInterval*3, pullInterval).Should(Succeed())
+		Eventually(func() error {
+			return waitForNthGenerateInstance(2)
+		}, pullInterval*3, pullInterval).Should(Succeed())
 
 		// there's an update request triggered, so we might want to wait for a bit
 		waitFroPosthookStatus := func() error {
@@ -527,6 +529,54 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		}
 
 		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
+
+		updateSub := &subv1.Subscription{}
+
+		_ = k8sClt.Get(context.TODO(), subKey, updateSub)
+		fmt.Printf("izhang --> updated sub: \n%#v\n", updateSub)
+
+		modifySubCommit := func() error {
+			u := &subv1.Subscription{}
+			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
+				return nil
+			}
+
+			a := u.GetAnnotations()
+			a[subv1.AnnotationGitCommit] = "test"
+			u.SetAnnotations(a)
+
+			return k8sClt.Update(context.TODO(), u.DeepCopy())
+		}
+
+		Eventually(modifySubCommit, pullInterval*5, pullInterval).Should(Succeed())
+
+		// since the modifySub will regenerate the deployable and managed
+		// cluster status, we meed to mock the process again
+		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
+		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
+
+		Eventually(func() error { return waitForNthGenerateInstance(3) },
+			pullInterval*3, pullInterval).Should(Succeed())
+
+		checkTopo := func() error {
+			u := &subv1.Subscription{}
+			err := k8sClt.Get(context.TODO(), subKey, updateSub)
+			if err != nil {
+				return err
+			}
+
+			tStr := u.GetAnnotations()[subv1.AnnotationTopo]
+
+			aSt := u.Status.AnsibleJobsStatus.LastPosthookJob
+
+			if !strings.Contains(tStr, aSt) {
+				return fmt.Errorf("topo annotation is not updated")
+			}
+
+			return nil
+		}
+
+		Eventually(checkTopo, 3*pullInterval, pullInterval).Should(Succeed())
 	})
 
 	It("if package status of managed cluster is not updated, should not create posthook", func() {
@@ -647,9 +697,6 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 		_ = mockManagedCluster
 		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
 
-		u := &subv1.Subscription{}
-		_ = k8sClt.Get(ctx, subKey, u)
-
 		postHookKey := types.NamespacedName{}
 
 		waitForPostAnsibleJobs := func() error {
@@ -678,10 +725,9 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 
 		Eventually(waitForPostAnsibleJobs, pullInterval*3, pullInterval).Should(Succeed())
 		// there's an update request triggered, so we might want to wait for a bit
+		updateSub := &subv1.Subscription{}
 
 		waitFroPosthookStatus := func() error {
-			updateSub := &subv1.Subscription{}
-
 			if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
 				return err
 			}
@@ -703,6 +749,6 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 			return nil
 		}
 
-		Eventually(waitFroPosthookStatus, 3*pullInterval, pullInterval).Should(Succeed())
+		Eventually(waitFroPosthookStatus, 1*pullInterval, pullInterval).Should(Succeed())
 	})
 })
