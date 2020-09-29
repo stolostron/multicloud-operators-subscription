@@ -400,7 +400,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		ctx      = context.TODO()
 	)
 
-	It("upon the change of a subscription, it should create 2nd ansiblejob instance for hook(s)", func() {
+	FIt("upon the change of a subscription, it should create 2nd ansiblejob instance for hook(s)", func() {
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
 

@@ -111,9 +111,9 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		f(rec)
 	}
 
-	mgr.Add(rec.hooks)
+	//this is used to start up the git watcher
+	//mgr.Add(rec.hooks)
 
-	fmt.Println("izhang newReconciler")
 	return rec
 }
 
