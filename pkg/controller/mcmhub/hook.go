@@ -222,7 +222,7 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange) {
+	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
 
@@ -418,7 +418,7 @@ func (a *AnsibleHooks) ApplyPreHooks(subKey types.NamespacedName) error {
 
 type EqualSub func(*subv1.Subscription, *subv1.Subscription) bool
 
-func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqual EqualSub) bool {
+func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqual ...EqualSub) bool {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	record, ok := a.registry[subKey]
 
@@ -426,7 +426,42 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 		return true
 	}
 
-	return isNotEqual(record.lastSub, subIns)
+	for _, eFn := range isNotEqual {
+		if eFn(record.lastSub, subIns) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
+	aAno := a.GetAnnotations()
+	bAno := b.GetAnnotations()
+
+	aCommit := getCommitID(a)
+	bCommit := getCommitID(b)
+
+	return aCommit != bCommit
+}
+
+func getCommitID(a *subv1.Subscription) string {
+	aAno := a.GetAnnotations()
+	if len(aAno) == 0 {
+		return ""
+	}
+
+	c := ""
+
+	if aAno[subv1.AnnotationGithubCommit] != "" {
+		c = aAno[subv1.AnnotationGithubCommit]
+	}
+
+	if aAno[subv1.AnnotationGitCommit] != "" {
+		c = aAno[subv1.AnnotationGitCommit]
+	}
+
+	return c
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
