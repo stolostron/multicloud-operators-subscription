@@ -289,7 +289,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 			}
 
 			for _, h := range aList.Items {
-				fmt.Printf("izhang hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
+				fmt.Printf("hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
 			}
 
 			ansibleIns = aList.Items[0].DeepCopy()
@@ -318,7 +318,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 				return err
 			}
 
-			fmt.Printf("izhang ----> updateSub \n%#v\n", updateSub)
+			fmt.Printf("checkPrehookAnnotationAndStatus ----> updateSub \n%#v\n", updateSub)
 
 			// when the prehook is not ready
 			if updateSub.Status.Phase != subv1.SubscriptionPropagationFailed {
@@ -371,7 +371,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 			}
 
 			for _, h := range aList.Items {
-				fmt.Printf("izhang hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
+				fmt.Printf("hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
 			}
 
 			ansibleIns = aList.Items[0].DeepCopy()
@@ -618,11 +618,6 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
 
-		updateSub := &subv1.Subscription{}
-
-		_ = k8sClt.Get(context.TODO(), subKey, updateSub)
-		fmt.Printf("izhang --> updated sub: \n%#v\n", updateSub)
-
 		modifySubCommit := func() error {
 			u := &subv1.Subscription{}
 			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
@@ -648,7 +643,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		checkTopo := func() error {
 			u := &subv1.Subscription{}
-			err := k8sClt.Get(context.TODO(), subKey, updateSub)
+			err := k8sClt.Get(context.TODO(), subKey, u)
 			if err != nil {
 				return err
 			}
