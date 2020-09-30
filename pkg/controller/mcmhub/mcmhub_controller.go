@@ -507,6 +507,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 		if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
 			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
+
 			//if it's registered
 			if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
 				logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
@@ -515,6 +516,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 				return reconcile.Result{}, nil
 			}
+
+			r.overridePrehookTopoAnnotation(instance)
 
 			//if it's registered
 			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
@@ -682,29 +685,30 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	// handle the prehook failed status update
-	if !passedPrehook && nIns != nil {
-		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
-		nIns.Status.Reason = preErr.Error()
-		nIns.Status.LastUpdateTime = metav1.Now()
+	//	if !passedPrehook && nIns != nil {
+	//		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
+	//		nIns.Status.Reason = preErr.Error()
+	//		nIns.Status.LastUpdateTime = metav1.Now()
+	//
+	//		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+	//			if k8serrors.IsGone(err) {
+	//				return
+	//			}
+	//
+	//			if res.RequeueAfter == time.Duration(0) {
+	//				res.RequeueAfter = 1 * time.Second
+	//				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+	//			}
+	//		}
+	//
+	//		r.logger.Info("prehook failed, requeue the reconcile requst.")
+	//
+	//		return
+	//	}
 
-		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
-			if k8serrors.IsGone(err) {
-				return
-			}
-
-			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = 1 * time.Second
-				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
-			}
-		}
-
-		r.logger.Info("prehook failed, requeue the reconcile requst.")
-
-		return
-	}
-
-	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
+		fmt.Printf("izhang --> aaa %s\n", PrintHelper(nIns))
+		fmt.Printf("izhang --> bbb \n%#v\n", nIns)
 		if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = 1 * time.Second
@@ -714,11 +718,26 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
+		if !passedPrehook {
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = 5 * time.Second
+				r.logger.Info(fmt.Sprintf("on prehook topo annotation flow, will retry after %s", res.RequeueAfter))
+			}
+		}
+
 		return
 	}
 
 	//update status early to make sure the status is ready for post hook to
 	//consume
+
+	if !passedPrehook {
+		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
+		nIns.Status.Reason = preErr.Error()
+	} else {
+		nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
+	}
+
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
 		nIns.Status.LastUpdateTime = metav1.Now()
 

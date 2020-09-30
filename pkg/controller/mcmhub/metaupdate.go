@@ -382,6 +382,17 @@ func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.U
 	return out, nil
 }
 
+func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	applied := r.hooks.GetLastAppliedInstance(subKey)
+
+	anno := subIns.GetAnnotations()
+
+	anno[subv1.AnnotationTopo] = applied.pre
+
+	subIns.SetAnnotations(anno)
+}
+
 func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, subKey types.NamespacedName) map[string]string {
 	if len(anno) == 0 {
 		anno = map[string]string{}
