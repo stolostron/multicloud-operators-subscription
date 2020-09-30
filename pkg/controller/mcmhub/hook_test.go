@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	ansibleGitURL = "https://github.com/ianzhang366/acm-applifecycle-samples"
+	ansibleGitURL = "https://github.com/open-cluster-management/multicloud-operators-subscription"
 	pullInterval  = time.Second * 3
 )
 
@@ -96,7 +96,7 @@ func newHookTest() *hookTest {
 			Namespace: dSubKey.Namespace,
 			Annotations: map[string]string{
 				subv1.AnnotationGitBranch: "master",
-				subv1.AnnotationGitPath:   "git-ops/ansible/resources",
+				subv1.AnnotationGitPath:   "test/hooks/ansible/pre-and-post",
 			},
 		},
 		Spec: subv1.SubscriptionSpec{
@@ -495,7 +495,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 		a := subIns.GetAnnotations()
-		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		a[subv1.AnnotationGitPath] = "test/hooks/ansible/post-only"
 		subIns.SetAnnotations(a)
 
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
@@ -679,7 +679,8 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 		a := subIns.GetAnnotations()
-		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		//post only path
+		a[subv1.AnnotationGitPath] = "test/hooks/ansible/post-only"
 		subIns.SetAnnotations(a)
 
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
