@@ -1,0 +1,11 @@
+---
+apiVersion: tower.ansible.com/v1alpha1
+kind: AnsibleJob
+metadata:
+  labels:
+    tower_job_id: "173"
+  name: posthook-test
+  namespace: ansible
+spec:
+  job_template_name: Demo Job Template
+  tower_auth_secret: toweraccess

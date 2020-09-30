@@ -337,7 +337,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) {
 		annotations := instance.GetAnnotations()
 
-		if utils.IsClusterAdmin(r.Client, instance, r.eventRecorder) {
+		if utils.IsClusterAdmin(r.hubclient, instance, r.eventRecorder) {
 			klog.Info("ADDING apps.open-cluster-management.io/cluster-admin: true")
 
 			annotations[appv1.AnnotationClusterAdmin] = "true"
