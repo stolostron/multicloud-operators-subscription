@@ -588,10 +588,12 @@ func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client
 		return nil, nil
 	}
 
-	logger.V(10).Info(fmt.Sprintf("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace()))
+	logger.V(10).Info(fmt.Sprintln("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace()))
 
 	// get placementpolicy resource
-	if err := kubeclient.Get(context.TODO(), client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name, Namespace: instance.GetNamespace()}, pp); err != nil {
+	if err := kubeclient.Get(context.TODO(),
+		client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name,
+			Namespace: instance.GetNamespace()}, pp); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info(fmt.Sprintln("Failed to locate placement reference", instance.Spec.Placement.PlacementRef))
 
