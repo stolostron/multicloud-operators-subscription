@@ -1,0 +1,11 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  annotations:
+    github-path: "2000"
+  name: guestbook-cfgmap
+  labels:
+    app: guestbook
+data: 
+  database: mongodb
