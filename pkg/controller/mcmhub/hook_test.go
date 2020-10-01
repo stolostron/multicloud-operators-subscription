@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	ansibleGitURL = "https://github.com/ianzhang366/acm-applifecycle-samples"
+	ansibleGitURL = "https://github.com/open-cluster-management/multicloud-operators-subscription"
 	pullInterval  = time.Second * 3
 )
 
@@ -96,7 +96,7 @@ func newHookTest() *hookTest {
 			Namespace: dSubKey.Namespace,
 			Annotations: map[string]string{
 				subv1.AnnotationGitBranch: "master",
-				subv1.AnnotationGitPath:   "git-ops/ansible/resources",
+				subv1.AnnotationGitPath:   "test/hooks/ansible/pre-and-post",
 			},
 		},
 		Spec: subv1.SubscriptionSpec{
@@ -255,6 +255,88 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		ctx      = context.TODO()
 	)
 
+	It("should create a prehook ansiblejob instance and wait till the prehook is subscription", func() {
+		subIns := testPath.subIns.DeepCopy()
+		chnIns := testPath.chnIns.DeepCopy()
+
+		chnIns.SetNamespace(fmt.Sprintf("%s-pre-0", chnIns.GetNamespace()))
+		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
+		subIns.Spec.Channel = chnKey.String()
+
+		subIns.SetNamespace(fmt.Sprintf("%s-pre-0", subIns.GetNamespace()))
+		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
+		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
+
+		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
+
+		defer func() {
+			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+		}()
+		ansibleIns := &ansiblejob.AnsibleJob{}
+
+		waitForPreHookCR := func() error {
+			aList := &ansiblejob.AnsibleJobList{}
+
+			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subIns.GetNamespace()}); err != nil {
+				return err
+			}
+
+			if len(aList.Items) == 0 {
+				return errors.New("post hook is not created")
+			}
+
+			for _, h := range aList.Items {
+				fmt.Printf("hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
+			}
+
+			ansibleIns = aList.Items[0].DeepCopy()
+
+			return nil
+		}
+
+		Eventually(waitForPreHookCR, 6*pullInterval, pullInterval).Should(Succeed())
+		//test if the ansiblejob have a owner set
+		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
+
+		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
+		Expect(ansibleIns.Spec.JobTemplateName).ShouldNot(HaveLen(0))
+
+		an := ansibleIns.GetAnnotations()
+		Expect(an).ShouldNot(HaveLen(0))
+		Expect(an[subv1.AnnotationHosting]).Should(Equal(subKey.String()))
+
+		foundKey := types.NamespacedName{Name: ansibleIns.GetName(), Namespace: ansibleIns.GetNamespace()}
+
+		//after prehook is ready
+		checkPrehookAnnotationAndStatus := func() error {
+			updateSub := &subv1.Subscription{}
+
+			if err := k8sClt.Get(context.TODO(), subKey, updateSub); err != nil {
+				return err
+			}
+
+			fmt.Printf("checkPrehookAnnotationAndStatus ----> updateSub \n%#v\n", updateSub)
+
+			// when the prehook is not ready
+			if updateSub.Status.Phase != subv1.SubscriptionPropagationFailed {
+				return fmt.Errorf("subscription status is incorrect while waiting for prehook")
+			}
+
+			a := updateSub.GetAnnotations()[subv1.AnnotationTopo]
+
+			if !strings.Contains(a, foundKey.String()) {
+				return fmt.Errorf("topo annotation is not update while waiting for prehook")
+			}
+
+			return nil
+		}
+
+		Eventually(checkPrehookAnnotationAndStatus, 3*pullInterval, pullInterval).Should(Succeed())
+	})
+
 	It("should create a prehook ansiblejob instance", func() {
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
@@ -289,7 +371,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 			}
 
 			for _, h := range aList.Items {
-				fmt.Printf("izhang hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
+				fmt.Printf("hoook ->>>>>>> %v/%v\n", h.GetNamespace(), h.GetName())
 			}
 
 			ansibleIns = aList.Items[0].DeepCopy()
@@ -413,7 +495,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 		a := subIns.GetAnnotations()
-		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		a[subv1.AnnotationGitPath] = "test/hooks/ansible/post-only"
 		subIns.SetAnnotations(a)
 
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
@@ -536,11 +618,6 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
 
-		updateSub := &subv1.Subscription{}
-
-		_ = k8sClt.Get(context.TODO(), subKey, updateSub)
-		fmt.Printf("izhang --> updated sub: \n%#v\n", updateSub)
-
 		modifySubCommit := func() error {
 			u := &subv1.Subscription{}
 			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
@@ -566,7 +643,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		checkTopo := func() error {
 			u := &subv1.Subscription{}
-			err := k8sClt.Get(context.TODO(), subKey, updateSub)
+			err := k8sClt.Get(context.TODO(), subKey, u)
 			if err != nil {
 				return err
 			}
@@ -597,7 +674,8 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 		a := subIns.GetAnnotations()
-		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-post-only"
+		//post only path
+		a[subv1.AnnotationGitPath] = "test/hooks/ansible/post-only"
 		subIns.SetAnnotations(a)
 
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())

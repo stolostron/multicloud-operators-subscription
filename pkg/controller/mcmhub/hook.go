@@ -571,7 +571,7 @@ func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Clie
 		}
 	}
 
-	logger.V(10).Info("clusters", clusters)
+	logger.V(10).Info(fmt.Sprintln("clusters", clusters))
 
 	return clusters, nil
 }
@@ -583,18 +583,19 @@ func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client
 	pref := instance.Spec.Placement.PlacementRef
 
 	if len(pref.Kind) > 0 && pref.Kind != "PlacementRule" || len(pref.APIVersion) > 0 && pref.APIVersion != "apps.open-cluster-management.io/v1" {
-		logger.Info("Unsupported placement reference:", instance.Spec.Placement.PlacementRef)
+		logger.Info(fmt.Sprintln("Unsupported placement reference:", instance.Spec.Placement.PlacementRef))
 
 		return nil, nil
 	}
 
-	logger.V(10).Info("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace())
+	logger.V(10).Info(fmt.Sprintln("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace()))
 
 	// get placementpolicy resource
-	err := kubeclient.Get(context.TODO(), client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name, Namespace: instance.GetNamespace()}, pp)
-	if err != nil {
+	if err := kubeclient.Get(context.TODO(),
+		client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name,
+			Namespace: instance.GetNamespace()}, pp); err != nil {
 		if errors.IsNotFound(err) {
-			logger.Info("Failed to locate placement reference", instance.Spec.Placement.PlacementRef)
+			logger.Info(fmt.Sprintln("Failed to locate placement reference", instance.Spec.Placement.PlacementRef))
 
 			return nil, err
 		}
@@ -602,7 +603,7 @@ func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client
 		return nil, err
 	}
 
-	logger.V(10).Info("Preparing cluster namespaces from ", pp)
+	logger.V(10).Info(fmt.Sprintln("Preparing cluster namespaces from ", pp))
 
 	for _, decision := range pp.Status.Decisions {
 		cluster := types.NamespacedName{Name: decision.ClusterName, Namespace: decision.ClusterNamespace}
