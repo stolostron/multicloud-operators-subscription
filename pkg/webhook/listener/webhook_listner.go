@@ -123,7 +123,11 @@ func (listener *WebhookListener) Start(l <-chan struct{}) error {
 }
 
 // CreateWebhookListener creates a WebHook listener instance
-func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string, createService bool) (*WebhookListener, error) {
+func CreateWebhookListener(config,
+	remoteConfig *rest.Config,
+	scheme *runtime.Scheme,
+	tlsKeyFile, tlsCrtFile string,
+	createService bool) (*WebhookListener, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
