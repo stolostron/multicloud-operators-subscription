@@ -16,13 +16,21 @@ package listener
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -30,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -40,6 +49,7 @@ const (
 	GithubEventHeader    = "X-Github-Event"
 	BitbucketEventHeader = "X-Event-Key"
 	GitlabEventHeader    = "X-Gitlab-Event"
+	serviceName          = "multicluster-operators-subscription"
 )
 
 // WebhookListener is a generic webhook event listener
@@ -55,7 +65,7 @@ type WebhookListener struct {
 var webhookListener *WebhookListener
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
-func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool, createService bool) error {
 	klog.V(2).Info("Setting up webhook listener ...")
 
 	if !disableTLS {
@@ -76,7 +86,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile str
 
 	var err error
 
-	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile)
+	webhookListener, err = CreateWebhookListener(mgr.GetConfig(), hubconfig, mgr.GetScheme(), tlsKeyFile, tlsCrtFile, createService)
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer. error: ", err)
@@ -113,7 +123,7 @@ func (listener *WebhookListener) Start(l <-chan struct{}) error {
 }
 
 // CreateWebhookListener creates a WebHook listener instance
-func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string) (*WebhookListener, error) {
+func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Scheme, tlsKeyFile, tlsCrtFile string, createService bool) (*WebhookListener, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -164,7 +174,110 @@ func CreateWebhookListener(config, remoteConfig *rest.Config, scheme *runtime.Sc
 		}
 	}
 
+	if createService {
+		namespace, err := k8sutil.GetOperatorNamespace()
+
+		if err != nil {
+			return nil, err
+		}
+
+		// Create the webhook listener service only when the subscription controller runs in hub mode.
+		err = createWebhookListnerService(l.LocalClient, namespace)
+
+		if err != nil {
+			klog.Error("Failed to create a service for Git webhook listener. error: ", err)
+			return nil, err
+		}
+	}
+
 	return l, err
+}
+
+func createWebhookListnerService(client client.Client, namespace string) error {
+	var theServiceKey = types.NamespacedName{
+		Name:      serviceName,
+		Namespace: namespace,
+	}
+
+	service := &corev1.Service{}
+
+	if err := client.Get(context.TODO(), theServiceKey, service); err != nil {
+		if errors.IsNotFound(err) {
+			service, err := webhookListnerService(client, namespace)
+
+			if err != nil {
+				return err
+			}
+
+			if err := client.Create(context.TODO(), service); err != nil {
+				return err
+			}
+
+			klog.Info("Git webhook listner service created.")
+		} else {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func webhookListnerService(client client.Client, namespace string) (*corev1.Service, error) {
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+			Labels: map[string]string{
+				"app": serviceName,
+			},
+			Annotations: map[string]string{
+				"service.alpha.openshift.io/serving-cert-secret-name": serviceName,
+			},
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Port:       8443,
+					TargetPort: intstr.FromInt(8443),
+					Protocol:   "TCP",
+				},
+			},
+			Selector: map[string]string{
+				"app": serviceName,
+			},
+			Type:            "ClusterIP",
+			SessionAffinity: "None",
+		},
+	}
+
+	deployLabelEnvVar := "DEPLOYMENT_LABEL"
+	deploymentLabel, err := findEnvVariable(deployLabelEnvVar)
+
+	if err != nil {
+		return nil, err
+	}
+
+	key := types.NamespacedName{Name: deploymentLabel, Namespace: namespace}
+	owner := &appsv1.Deployment{}
+
+	if err := client.Get(context.TODO(), key, owner); err != nil {
+		klog.Error(err, fmt.Sprintf("Failed to set owner references for %s", service.GetName()))
+		return nil, err
+	}
+
+	service.SetOwnerReferences([]metav1.OwnerReference{
+		*metav1.NewControllerRef(owner, schema.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"})})
+
+	return service, nil
+}
+
+func findEnvVariable(envName string) (string, error) {
+	val, found := os.LookupEnv(envName)
+	if !found {
+		return "", fmt.Errorf("%s env var is not set", envName)
+	}
+
+	return val, nil
 }
 
 // HandleWebhook handles incoming webhook events

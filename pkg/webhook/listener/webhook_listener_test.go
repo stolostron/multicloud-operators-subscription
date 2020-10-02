@@ -19,7 +19,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+	"time"
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
@@ -67,7 +69,7 @@ func TestWebhookHandler(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test that non-github event is not handled.
@@ -127,7 +129,7 @@ func TestWebhookHandler2(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subscription := &appv1alpha1.Subscription{}
@@ -185,7 +187,7 @@ func TestWebhookHandler3(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	channel := &chnv1alpha1.Channel{}
@@ -269,7 +271,7 @@ func TestUpdateSubscription(t *testing.T) {
 	subAnnotations := subscription.GetAnnotations()
 	g.Expect(subAnnotations[appv1alpha1.AnnotationWebhookEventCount]).To(gomega.BeEmpty())
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test that webhook-event=0 annotation gets added when there is no annotation.
@@ -305,7 +307,7 @@ func TestUpdateSubscription(t *testing.T) {
 func TestParseRequest(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	reqBody, err := json.Marshal(map[string]string{
@@ -355,7 +357,7 @@ func TestValidateSecret(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	annotations := make(map[string]string)
@@ -383,7 +385,7 @@ func TestValidateChannel(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	channel := &chnv1alpha1.Channel{}
@@ -408,4 +410,29 @@ func TestValidateChannel(t *testing.T) {
 	channel.SetAnnotations(newAnnotations)
 	ret = listener.validateChannel(channel, "", "", []byte(""))
 	g.Expect(ret).To(gomega.BeTrue())
+}
+
+func TestServiceCreation(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	// Sleep for the manager cache to start
+	time.Sleep(3 * time.Second)
+
+	os.Setenv("DEPLOYMENT_LABEL", "test-deployment")
+	err = createWebhookListnerService(c, "default")
+	// It will fail because the deployment resource for the owner reference is not found in the cluster.
+	g.Expect(err).To(gomega.HaveOccurred())
+
 }

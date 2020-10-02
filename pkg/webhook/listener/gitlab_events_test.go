@@ -76,7 +76,7 @@ func TestGitlabWebhookHandler(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Test that non-github event is not handled.
@@ -119,7 +119,7 @@ func TestGitlabWebhookHandler2(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	subscription := &appv1alpha1.Subscription{}
@@ -176,7 +176,7 @@ func TestGitlabWebhookHandler3(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	channel := &chnv1alpha1.Channel{}
@@ -273,7 +273,7 @@ func TestWithWebhookSecret(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "")
+	listener, err := CreateWebhookListener(cfg, cfg, scheme.Scheme, "", "", false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	channel := &chnv1alpha1.Channel{}
