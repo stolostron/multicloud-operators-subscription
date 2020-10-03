@@ -161,7 +161,7 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 		}
 
 		if annotations[appv1.AnnotationRollingUpdateTarget] != obj.Meta.GetName() {
-			// rolling to annother one, skipping
+			// rolling to another one, skipping
 			continue
 		}
 
@@ -694,8 +694,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
-		// due to the predict func, it's nesseccery to requeue, since the status
-		// change isn't commited yet
+		// due to the predict func, it's necessary to re-queue, since the status
+		// change isn't committed yet
 		if res.RequeueAfter == time.Duration(0) {
 			res.RequeueAfter = 5 * time.Second
 			r.logger.Info(fmt.Sprintf("%s on prehook topo annotation flow, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
@@ -706,7 +706,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 	//update status early to make sure the status is ready for post hook to
 	//consume
-
 	if !passedPrehook {
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
 		nIns.Status.Reason = preErr.Error()

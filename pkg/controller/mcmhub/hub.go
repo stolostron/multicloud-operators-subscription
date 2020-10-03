@@ -786,12 +786,20 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	newsubstatus.Message = ""
 	newsubstatus.Reason = ""
 
+	msg := ""
+
 	if found.Status.Phase == dplv1alpha1.DeployableFailed {
 		newsubstatus.Statuses = nil
 	} else {
 		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
 
 		for cluster, cstatus := range found.Status.PropagatedStatus {
+			if msg == "" {
+				msg = fmt.Sprintf("%s:%s", cluster, cstatus.Message)
+			} else {
+				msg += fmt.Sprintf(",%s:%s", cluster, cstatus.Message)
+			}
+
 			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
 			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
 
@@ -830,6 +838,7 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 
 	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
 	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
+	newsubstatus.Message = msg
 
 	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
 		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
