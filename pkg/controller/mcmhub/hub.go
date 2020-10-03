@@ -777,8 +777,8 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 }
 
 func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
-	r.logger.Info("entry doMCMHubReconcile:updateSubscriptionStatus")
-	defer r.logger.Info("exit doMCMHubReconcile:updateSubscriptionStatus")
+	r.logger.Info(fmt.Sprintf("entry doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
+	defer r.logger.Info(fmt.Sprintf("exit doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
 
 	newsubstatus := appv1alpha1.SubscriptionStatus{}
 

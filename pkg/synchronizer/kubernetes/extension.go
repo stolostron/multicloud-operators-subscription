@@ -58,10 +58,12 @@ var (
 // UpdateHostSubscriptionStatus defines update host status function for deployable
 func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unstructured.Unstructured, status interface{}, deletePkg bool) error {
 	host := se.GetHostFromObject(tplunit)
+	// the tplunit is the root subscription on managed cluster
 	if host == nil || host.String() == "/" {
 		return utils.UpdateDeployableStatus(se.remoteClient, actionerr, tplunit, status)
 	}
 
+	//update managed cluster subscription status
 	return utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status, deletePkg)
 }
 

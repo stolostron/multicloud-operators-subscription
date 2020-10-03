@@ -694,11 +694,11 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
-		if !passedPrehook { //prehook prior to apply successed
-			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = 5 * time.Second
-				r.logger.Info(fmt.Sprintf("on prehook topo annotation flow, will retry after %s", res.RequeueAfter))
-			}
+		// due to the predict func, it's nesseccery to requeue, since the status
+		// change isn't commited yet
+		if res.RequeueAfter == time.Duration(0) {
+			res.RequeueAfter = 5 * time.Second
+			r.logger.Info(fmt.Sprintf("%s on prehook topo annotation flow, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
 		}
 
 		return

@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -200,8 +201,8 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 func prettyStatus(a dplv1.DeployableStatus) string {
 	if a.ResourceStatus != nil {
-		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v\n",
-			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v content %v\n",
+			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw), string(a.ResourceStatus.Raw))
 	}
 
 	return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
@@ -212,6 +213,7 @@ func prettyStatus(a dplv1.DeployableStatus) string {
 // propagateStatus
 func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+
 	return !isEqualResourceUnitStatus(oldResSt, inResSt)
 }
 
@@ -256,10 +258,13 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return false
 	}
 
-	aUnitStatus := &dplv1.ResourceUnitStatus{}
+	// given the UpdateDeployableStatus is called when update the host deployabe
+	// from managed cluster to host, so the DeployableStatus.ResourceStatus is
+	// fair to say SubscriptionStatus
+	aUnitStatus := &subv1.SubscriptionStatus{}
 	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
 
-	bUnitStatus := &dplv1.ResourceUnitStatus{}
+	bUnitStatus := &subv1.SubscriptionStatus{}
 	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
 
 	if aerr != nil || berr != nil {
@@ -269,8 +274,9 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 
 	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
 
-	aUnitStatus.LastUpdateTime = nil
-	bUnitStatus.LastUpdateTime = nil
+	now := metav1.Now()
+	aUnitStatus.LastUpdateTime = now
+	bUnitStatus.LastUpdateTime = now
 
 	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
