@@ -20,12 +20,12 @@ import (
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, *rest.Config, string, string, bool) error
+var AddToManagerFuncs []func(manager.Manager, *rest.Config, string, string, bool, bool) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool) error {
+func AddToManager(m manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool, createService bool) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m, hubconfig, tlsKeyFile, tlsCrtFile, disableTLS); err != nil {
+		if err := f(m, hubconfig, tlsKeyFile, tlsCrtFile, disableTLS, createService); err != nil {
 			return err
 		}
 	}
