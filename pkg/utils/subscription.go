@@ -146,7 +146,6 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 }
 
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
-	// care about certain ansiblejob field
 	if !isAnsibleStatusEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
@@ -156,7 +155,7 @@ func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 	}
 
 	//care about the managed subscription status
-	if !reflect.DeepEqual(old.Statuses, nnew.Statuses) {
+	if !isEqualSubscriptionStatus(old, nnew) {
 		return true
 	}
 
@@ -370,6 +369,7 @@ func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
 }
 
 func IsEqualSubScriptionStatus(o, n *appv1.SubscriptionStatus) bool {
+	fmt.Printf("izhang ----hub aaa  o = %+v\n n = %#v\n", o, n)
 	return isEqualSubscriptionStatus(o, n)
 }
 
