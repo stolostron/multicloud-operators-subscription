@@ -146,11 +146,17 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 }
 
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
+	// care about certain ansiblejob field
 	if !isAnsibleStatusEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
 
 	if old.Phase != nnew.Phase {
+		return true
+	}
+
+	//care about the managed subscription status
+	if !reflect.DeepEqual(old.Statuses, nnew.Statuses) {
 		return true
 	}
 
