@@ -794,7 +794,6 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
 
 		for cluster, cstatus := range found.Status.PropagatedStatus {
-
 			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
 			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
 

@@ -179,7 +179,7 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
 
-	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isStatusUpdated(*oldStatus, newStatus) {
+	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isManagedStatusUpdated(*oldStatus, newStatus) {
 		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
 		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
@@ -215,6 +215,82 @@ func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
 
 	return !isEqualResourceUnitStatus(oldResSt, inResSt)
+}
+
+func isManagedStatusUpdated(old, in dplv1.DeployableStatus) bool {
+	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+
+	return !isSubscriptionResourceStatusUpdated(oldResSt, inResSt)
+}
+func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
+	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
+		return false
+	}
+
+	//status from cluster
+	aRes := a.ResourceStatus
+	bRes := b.ResourceStatus
+
+	if aRes == nil && bRes == nil {
+		return true
+	}
+
+	if aRes == nil && bRes != nil {
+		return false
+	}
+
+	if aRes != nil && bRes == nil {
+		return false
+	}
+
+	// given the UpdateDeployableStatus is called when update the host deployabe
+	// from managed cluster to host, so the DeployableStatus.ResourceStatus is
+	// fair to say SubscriptionStatus
+	aUnitStatus := &subv1.SubscriptionStatus{}
+	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
+
+	bUnitStatus := &subv1.SubscriptionStatus{}
+	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
+
+	filterOutNoiseyField(aUnitStatus)
+	filterOutNoiseyField(bUnitStatus)
+
+	if aerr != nil || berr != nil {
+		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
+		return true
+	}
+
+	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
+
+	now := metav1.Now()
+	aUnitStatus.LastUpdateTime = now
+	bUnitStatus.LastUpdateTime = now
+
+	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
+}
+
+func filterOutNoiseyField(a *subv1.SubscriptionStatus) {
+	fmt.Printf("izhan ======= \n")
+
+	for c, clusterStatus := range a.Statuses {
+		fmt.Printf("c, p = %s\n", c)
+
+		for _, p := range clusterStatus.SubscriptionPackageStatus {
+			fmt.Printf("p = %+v\n", p)
+		}
+	}
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
@@ -261,10 +337,10 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	// given the UpdateDeployableStatus is called when update the host deployabe
 	// from managed cluster to host, so the DeployableStatus.ResourceStatus is
 	// fair to say SubscriptionStatus
-	aUnitStatus := &subv1.SubscriptionStatus{}
+	aUnitStatus := &dplv1.ResourceUnitStatus{}
 	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
 
-	bUnitStatus := &subv1.SubscriptionStatus{}
+	bUnitStatus := &dplv1.ResourceUnitStatus{}
 	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
 
 	if aerr != nil || berr != nil {
@@ -275,8 +351,8 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
 
 	now := metav1.Now()
-	aUnitStatus.LastUpdateTime = now
-	bUnitStatus.LastUpdateTime = now
+	aUnitStatus.LastUpdateTime = &now
+	bUnitStatus.LastUpdateTime = &now
 
 	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
