@@ -15,7 +15,9 @@
 package kubernetes
 
 import (
+	"context"
 	"errors"
+	"fmt"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -24,8 +26,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -64,7 +66,40 @@ func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unst
 	}
 
 	//update managed cluster subscription status
-	return utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status, deletePkg)
+	if err := utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status, deletePkg); err != nil {
+		return fmt.Errorf("failed to update managed cluster status, err: %v", err)
+	}
+
+	if err := se.updateHostDeployable(se.localClient, se.remoteClient, actionerr, tplunit); err != nil {
+		return fmt.Errorf("failed to update the host deployable status, err %v", err)
+	}
+
+	return nil
+}
+
+// make sure the delay status update of the managed cluster status is put
+// back to host deployable
+func (se *SubscriptionExtension) updateHostDeployable(local, remote client.Client, actionerr error, tplunit metav1.Object) error {
+	subIns := &appv1.Subscription{}
+	subkey := utils.GetHostSubscriptionFromObject(tplunit)
+
+	if subkey == nil {
+		klog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
+		return nil
+	}
+
+	if err := local.Get(context.TODO(), *subkey, subIns); err != nil {
+		return err
+	}
+
+	host := utils.GetHostDeployableFromObject(subIns)
+
+	if host == nil {
+		klog.Info("Failed to find hosting deployable for ", subIns)
+		return nil
+	}
+
+	return utils.UpdateDeployableStatus(remote, actionerr, subIns, subIns.Status)
 }
 
 // GetHostFromObject defines update host status function for deployable
@@ -80,7 +115,7 @@ func (se *SubscriptionExtension) SetSynchronizerToObject(obj metav1.Object, sync
 
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
-		delete(objanno, dplv1alpha1.AnnotationManagedCluster)
+		delete(objanno, dplv1.AnnotationManagedCluster)
 		obj.SetAnnotations(objanno)
 	}
 
@@ -98,8 +133,8 @@ func (se *SubscriptionExtension) SetHostToObject(obj metav1.Object, host types.N
 		objanno = make(map[string]string)
 	}
 
-	if objanno[appv1alpha1.AnnotationHosting] == "" {
-		objanno[appv1alpha1.AnnotationHosting] = host.String()
+	if objanno[appv1.AnnotationHosting] == "" {
+		objanno[appv1.AnnotationHosting] = host.String()
 		obj.SetAnnotations(objanno)
 	}
 
@@ -115,7 +150,7 @@ func (se *SubscriptionExtension) IsObjectOwnedBySynchronizer(obj metav1.Object, 
 
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
-		_, ok := objanno[dplv1alpha1.AnnotationManagedCluster]
+		_, ok := objanno[dplv1.AnnotationManagedCluster]
 		return !ok
 	}
 
