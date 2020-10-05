@@ -415,7 +415,11 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 
 	if err == nil {
 		sub.Status.Reason = hubdpl.Status.Reason
-		sub.Status.Message = hubdpl.Status.Message
+
+		// the sub.Status.Message is aggregated over the doMCMHubReconcile
+		if sub.Status.Message == "" {
+			sub.Status.Message = hubdpl.Status.Message
+		}
 
 		if hubdpl.Status.Phase == dplv1.DeployableFailed {
 			sub.Status.Phase = appv1.SubscriptionPropagationFailed

@@ -794,11 +794,6 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
 
 		for cluster, cstatus := range found.Status.PropagatedStatus {
-			if msg == "" {
-				msg = fmt.Sprintf("%s:%s", cluster, cstatus.Message)
-			} else {
-				msg += fmt.Sprintf(",%s:%s", cluster, cstatus.Message)
-			}
 
 			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
 			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
@@ -809,6 +804,12 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 				if err != nil {
 					klog.Infof("Failed to unmashall ResourceStatus from target cluster: %v, in deployable: %v/%v", cluster, found.GetNamespace(), found.GetName())
 					return err
+				}
+
+				if msg == "" {
+					msg = fmt.Sprintf("%s:%s", cluster, mcsubstatus.Message)
+				} else {
+					msg += fmt.Sprintf(",%s:%s", cluster, mcsubstatus.Message)
 				}
 
 				//get status per package if exist, for namespace/objectStore/helmRepo channel subscription status

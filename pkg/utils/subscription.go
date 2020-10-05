@@ -150,12 +150,12 @@ func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 		return true
 	}
 
-	if old.Phase != nnew.Phase {
+	if old.Phase != nnew.Phase || old.Message != nnew.Message {
 		return true
 	}
 
 	//care about the managed subscription status
-	if !isEqualSubscriptionStatus(old, nnew) {
+	if !isEqualSubClusterStatus(old.Statuses, nnew.Statuses) {
 		return true
 	}
 
@@ -369,7 +369,6 @@ func isEmptySubscriptionStatus(a *appv1.SubscriptionStatus) bool {
 }
 
 func IsEqualSubScriptionStatus(o, n *appv1.SubscriptionStatus) bool {
-	fmt.Printf("izhang ----hub aaa  o = %+v\n n = %#v\n", o, n)
 	return isEqualSubscriptionStatus(o, n)
 }
 
