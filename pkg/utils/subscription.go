@@ -407,7 +407,8 @@ func isEqualSubClusterStatus(a, b map[string]*appv1.SubscriptionPerClusterStatus
 	}
 
 	for k, v := range a {
-		if w, ok := b[k]; ok {
+		w, ok := b[k]
+		if ok {
 			if v == nil && w == nil {
 				continue
 			}
@@ -417,9 +418,9 @@ func isEqualSubClusterStatus(a, b map[string]*appv1.SubscriptionPerClusterStatus
 			}
 
 			return false
-		} else { //key not in the b.Statuses
-			return false
 		}
+
+		return false
 	}
 
 	return true

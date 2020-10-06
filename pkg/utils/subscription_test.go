@@ -151,7 +151,7 @@ var _ = Describe("subscription(s)", func() {
 			// extra package info
 			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{},
+					"cfg": {},
 				},
 			}
 
@@ -159,14 +159,14 @@ var _ = Describe("subscription(s)", func() {
 
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{},
+					"cfg": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
 
 			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 					},
@@ -177,7 +177,7 @@ var _ = Describe("subscription(s)", func() {
 
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 					},
@@ -188,11 +188,11 @@ var _ = Describe("subscription(s)", func() {
 			// having extra package
 			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
@@ -200,12 +200,12 @@ var _ = Describe("subscription(s)", func() {
 			//should ignore the package level LastUpdateTime
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:          "a",
 						Reason:         "ab",
 						LastUpdateTime: metav1.Now(),
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
@@ -213,52 +213,52 @@ var _ = Describe("subscription(s)", func() {
 			// having extra package raw data
 			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:          "a",
 						Reason:         "ab",
 						ResourceStatus: &runtime.RawExtension{},
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
 
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:          "a",
 						Reason:         "ab",
 						ResourceStatus: &runtime.RawExtension{},
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
 
 			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 						ResourceStatus: &runtime.RawExtension{
 							Raw: []byte("ad,12"),
 						},
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
 
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 						ResourceStatus: &runtime.RawExtension{
 							Raw: []byte("ad,12"),
 						},
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
@@ -266,14 +266,14 @@ var _ = Describe("subscription(s)", func() {
 			//check the reflect.DeepEqual logic on the ResourceStatus
 			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
 				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
-					"cfg": &appv1.SubscriptionUnitStatus{
+					"cfg": {
 						Phase:  "a",
 						Reason: "ab",
 						ResourceStatus: &runtime.RawExtension{
 							Raw: []byte("ad,123"),
 						},
 					},
-					"srt": &appv1.SubscriptionUnitStatus{},
+					"srt": {},
 				},
 			}
 			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
