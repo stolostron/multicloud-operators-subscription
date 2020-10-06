@@ -179,7 +179,11 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
 
+
+	fmt.Println(isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus), isManagedStatusUpdated(*oldStatus, newStatus))
+
 	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isManagedStatusUpdated(*oldStatus, newStatus) {
+
 		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
 		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
@@ -220,23 +224,23 @@ func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 func isManagedStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
 
-	return !isSubscriptionResourceStatusUpdated(oldResSt, inResSt)
+	return isSubscriptionResourceStatusUpdated(oldResSt, inResSt)
 }
 func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
 	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
-		return true
+		return false
 	}
 
 	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
-		return false
+		return true
 	}
 
 	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
-		return false
+		return true
 	}
 
 	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
-		return false
+		return true
 	}
 
 	//status from cluster
@@ -244,15 +248,15 @@ func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
 	bRes := b.ResourceStatus
 
 	if aRes == nil && bRes == nil {
-		return true
+		return false
 	}
 
 	if aRes == nil && bRes != nil {
-		return false
+		return true
 	}
 
 	if aRes != nil && bRes == nil {
-		return false
+		return true
 	}
 
 	// given the UpdateDeployableStatus is called when update the host deployabe
@@ -264,33 +268,88 @@ func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
 	bUnitStatus := &subv1.SubscriptionStatus{}
 	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
 
-	filterOutNoiseyField(aUnitStatus)
-	filterOutNoiseyField(bUnitStatus)
-
 	if aerr != nil || berr != nil {
 		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
 		return true
 	}
+
 
 	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
 
 	now := metav1.Now()
 	aUnitStatus.LastUpdateTime = now
 	bUnitStatus.LastUpdateTime = now
+	faUnit := filterOutNoiseyFieldFromPkgStatus(aUnitStatus)
+	fbUnit := filterOutNoiseyFieldFromPkgStatus(bUnitStatus)
 
-	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
+	return !isEqualSubscriptionStatus(faUnit, fbUnit)
 }
 
-func filterOutNoiseyField(a *subv1.SubscriptionStatus) {
-	fmt.Printf("izhan ======= \n")
+func PrintSubscriptionStatus(a *subv1.SubscriptionStatus) {
+	if a == nil {
+		return
+	}
+
+	fmt.Printf("a.Phase = %+v\n", a.Phase)
+	fmt.Printf("a.Message = %+v\n", a.Message)
+	fmt.Printf("a.Reason = %+v\n", a.Reason)
 
 	for c, clusterStatus := range a.Statuses {
-		fmt.Printf("c, p = %s\n", c)
+		fmt.Printf("cluster name = %+v\n", c)
+		for n, p := range clusterStatus.SubscriptionPackageStatus {
+			fmt.Println()
+			if p == nil {
+				continue
+			}
+			fmt.Printf("\tpkg name %s\n", n)
+			fmt.Printf("\tpkg package phase %s\n", p.Phase)
+			fmt.Printf("\tpkg package message %s\n", p.Message)
+			fmt.Printf("\tpkg package reason %s\n", p.Reason)
+			if p.ResourceStatus == nil {
+				continue
+			}
 
-		for _, p := range clusterStatus.SubscriptionPackageStatus {
-			fmt.Printf("p = %+v\n", p)
+			fmt.Printf("\tpkg package content %s\n", string(p.ResourceStatus.Raw))
+
+		}
+
+		fmt.Println()
+	}
+}
+
+func filterOutNoiseyFieldFromPkgStatus(a *subv1.SubscriptionStatus) *subv1.SubscriptionStatus {
+	out := a.DeepCopy()
+
+	dfields := func(d *map[string]interface{}, key string) {
+		_, ok := (*d)[key]
+		if ok {
+			delete(*d, key)
 		}
 	}
+
+	for _, clusterStatus := range out.Statuses {
+		for _, p := range clusterStatus.SubscriptionPackageStatus {
+			if p != nil && p.ResourceStatus != nil {
+				data := new(map[string]interface{})
+				if err := json.Unmarshal(p.ResourceStatus.Raw, data); err != nil {
+					continue
+				}
+
+				dfields(data, "observedGeneration")
+				dfields(data, "lastTransitionTime")
+				dfields(data, "conditions")
+
+				raw, err := json.Marshal(data)
+				if err != nil {
+					continue
+				}
+
+				p.ResourceStatus.Raw = raw
+			}
+		}
+	}
+
+	return out
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
