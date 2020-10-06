@@ -20,6 +20,9 @@ import (
 	"testing"
 	"time"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -27,10 +30,256 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
+
+func TestSubscriptionStatusLogic(t *testing.T) {
+	RegisterFailHandler(Fail)
+
+	RunSpecsWithDefaultAndCustomReporters(t,
+		"SubscriptionStatus check",
+		[]Reporter{printer.NewlineReporter{}})
+}
+
+var _ = Describe("subscription(s)", func() {
+	Context("having 1 subscription", func() {
+		It("should only detect certain empty fields", func() {
+			a := &appv1.SubscriptionStatus{}
+
+			Expect(isEmptySubscriptionStatus(a)).Should(BeTrue())
+
+			a.LastUpdateTime = metav1.Now()
+			Expect(isEmptySubscriptionStatus(a)).Should(BeTrue())
+
+			a.Message = "test"
+			Expect(isEmptySubscriptionStatus(a)).ShouldNot(BeTrue())
+
+			a = &appv1.SubscriptionStatus{}
+			a.Statuses = appv1.SubscriptionClusterStatusMap{}
+			Expect(isEmptySubscriptionStatus(a)).Should(BeTrue())
+		})
+	})
+
+	Context("having 2 subscriptions", func() {
+		var (
+			a = &appv1.SubscriptionStatus{
+				Phase:             "a",
+				Reason:            "",
+				LastUpdateTime:    metav1.Now(),
+				AnsibleJobsStatus: appv1.AnsibleJobsStatus{},
+				Statuses:          appv1.SubscriptionClusterStatusMap{},
+			}
+
+			b = &appv1.SubscriptionStatus{}
+		)
+
+		It("should detect the difference on the top level while ignore time fields and ansiblejob", func() {
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b = &appv1.SubscriptionStatus{
+				Phase:             "a",
+				Reason:            "",
+				LastUpdateTime:    metav1.Now(),
+				AnsibleJobsStatus: appv1.AnsibleJobsStatus{},
+				Statuses:          appv1.SubscriptionClusterStatusMap{},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			a.AnsibleJobsStatus = appv1.AnsibleJobsStatus{
+				LastPosthookJob: "aa",
+			}
+
+			b.AnsibleJobsStatus = appv1.AnsibleJobsStatus{
+				LastPosthookJob: "b",
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+		})
+
+		It("should detect the difference on the top level while ignore time fields", func() {
+			b = &appv1.SubscriptionStatus{
+				Phase:             "a",
+				Reason:            "",
+				LastUpdateTime:    metav1.Now(),
+				AnsibleJobsStatus: appv1.AnsibleJobsStatus{},
+				Statuses:          appv1.SubscriptionClusterStatusMap{},
+			}
+
+			a = b.DeepCopy()
+
+			a.Statuses = appv1.SubscriptionClusterStatusMap{
+				"/": &appv1.SubscriptionPerClusterStatus{},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses = appv1.SubscriptionClusterStatusMap{
+				"/": &appv1.SubscriptionPerClusterStatus{},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			// the managed cluster level have a none nil and nil
+			a.Statuses["/"] = nil
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses["/"] = nil
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: nil,
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: nil,
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			//package level a nil against empty map
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			// extra package info
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+					},
+				},
+			}
+
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+					},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			// having extra package
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			//should ignore the package level LastUpdateTime
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:          "a",
+						Reason:         "ab",
+						LastUpdateTime: metav1.Now(),
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			// having extra package raw data
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:          "a",
+						Reason:         "ab",
+						ResourceStatus: &runtime.RawExtension{},
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:          "a",
+						Reason:         "ab",
+						ResourceStatus: &runtime.RawExtension{},
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			a.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+						ResourceStatus: &runtime.RawExtension{
+							Raw: []byte("ad,12"),
+						},
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+						ResourceStatus: &runtime.RawExtension{
+							Raw: []byte("ad,12"),
+						},
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).Should(BeTrue())
+
+			//check the reflect.DeepEqual logic on the ResourceStatus
+			b.Statuses["/"] = &appv1.SubscriptionPerClusterStatus{
+				SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+					"cfg": &appv1.SubscriptionUnitStatus{
+						Phase:  "a",
+						Reason: "ab",
+						ResourceStatus: &runtime.RawExtension{
+							Raw: []byte("ad,123"),
+						},
+					},
+					"srt": &appv1.SubscriptionUnitStatus{},
+				},
+			}
+			Expect(isEqualSubscriptionStatus(a, b)).ShouldNot(BeTrue())
+		})
+	})
+})
 
 func TestDeleteSubscriptionCRD(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
