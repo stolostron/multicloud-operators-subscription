@@ -99,6 +99,11 @@ func (se *SubscriptionExtension) updateHostDeployable(local, remote client.Clien
 		return nil
 	}
 
+	if host.String() == "/" {
+		klog.Info("host is not hub deployable, skip this deployable override")
+		return nil
+	}
+
 	return utils.UpdateDeployableStatus(remote, actionerr, subIns, subIns.Status)
 }
 
