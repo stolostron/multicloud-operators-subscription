@@ -95,12 +95,12 @@ func (se *SubscriptionExtension) updateHostDeployable(local, remote client.Clien
 	host := utils.GetHostDeployableFromObject(subIns)
 
 	if host == nil {
-		klog.Info("Failed to find hosting deployable for ", subIns)
+		klog.V(2).Info("Failed to find hosting deployable for ", subIns)
 		return nil
 	}
 
 	if host.String() == "/" {
-		klog.Info("host is not hub deployable, skip this deployable override")
+		klog.V(2).Info("host is not hub deployable, skip this deployable override")
 		return nil
 	}
 
