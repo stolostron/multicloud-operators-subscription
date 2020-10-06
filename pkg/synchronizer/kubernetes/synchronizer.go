@@ -299,10 +299,12 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		klog.Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
+		klog.Info("Patch object. obj: " + obj.GroupVersionKind().String())
+		klog.V(5).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		klog.Infof("Update non-service object. newobj: %#v", newobj)
+		klog.Info("Update non-service object. newobj: " + newobj.GroupVersionKind().String())
+		klog.V(5).Infof("Update non-service object. newobj: %#v", newobj)
 		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 	}
 
