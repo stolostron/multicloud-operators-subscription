@@ -179,11 +179,9 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
 
-
 	fmt.Println(isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus), isManagedStatusUpdated(*oldStatus, newStatus))
 
 	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isManagedStatusUpdated(*oldStatus, newStatus) {
-
 		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
 		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
@@ -273,7 +271,6 @@ func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
 		return true
 	}
 
-
 	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
 
 	now := metav1.Now()
@@ -296,21 +293,24 @@ func PrintSubscriptionStatus(a *subv1.SubscriptionStatus) {
 
 	for c, clusterStatus := range a.Statuses {
 		fmt.Printf("cluster name = %+v\n", c)
+
 		for n, p := range clusterStatus.SubscriptionPackageStatus {
 			fmt.Println()
+
 			if p == nil {
 				continue
 			}
+
 			fmt.Printf("\tpkg name %s\n", n)
 			fmt.Printf("\tpkg package phase %s\n", p.Phase)
 			fmt.Printf("\tpkg package message %s\n", p.Message)
 			fmt.Printf("\tpkg package reason %s\n", p.Reason)
+
 			if p.ResourceStatus == nil {
 				continue
 			}
 
 			fmt.Printf("\tpkg package content %s\n", string(p.ResourceStatus.Raw))
-
 		}
 
 		fmt.Println()
