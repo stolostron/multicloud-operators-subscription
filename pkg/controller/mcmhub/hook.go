@@ -36,7 +36,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -80,7 +79,6 @@ type HookProcessor interface {
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
-	Start(<-chan struct{}) error
 }
 
 type Hooks struct {
@@ -125,21 +123,34 @@ type AnsibleHooks struct {
 // make sure the AnsibleHooks implementate the HookProcessor
 var _ HookProcessor = &AnsibleHooks{}
 
-func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, logger logr.Logger) *AnsibleHooks {
-	if logger == nil {
-		logger = klogr.New()
-		logger.WithName("ansiblehook")
-	}
+type HookOps func(*AnsibleHooks)
 
-	return &AnsibleHooks{
+func setLogger(logger logr.Logger) HookOps {
+	return func(a *AnsibleHooks) {
+		a.logger = logger
+	}
+}
+
+func setGitOps(g GitOps) HookOps {
+	return func(a *AnsibleHooks) {
+		a.gitClt = g
+	}
+}
+
+func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookOps) *AnsibleHooks {
+	a := &AnsibleHooks{
 		clt:          clt,
-		gitClt:       NewHookGit(clt, logger),
 		mtx:          sync.Mutex{},
 		hookInterval: hookInterval,
 		registry:     map[types.NamespacedName]*Hooks{},
-		logger:       logger,
 		suffixFunc:   suffixFromUUID,
 	}
+
+	for _, op := range ops {
+		op(a)
+	}
+
+	return a
 }
 
 type AppliedInstance struct {

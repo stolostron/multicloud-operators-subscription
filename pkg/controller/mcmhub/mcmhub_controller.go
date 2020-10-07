@@ -96,6 +96,10 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 	logger := klogr.New().WithName(hubLogger)
 
+	gitWatcher := NewHookGit(mgr.GetClient(), logger)
+
+	hk := NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, setLogger(logger), setGitOps(gitWatcher))
+
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
 		// used for the helm to run get the resource list
@@ -104,7 +108,7 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		eventRecorder:       erecorder,
 		logger:              logger,
 		hookRequeueInterval: defaultHookRequeueInterval,
-		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, logger),
+		hooks:               hk,
 	}
 
 	for _, f := range op {
@@ -112,7 +116,7 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	}
 
 	//this is used to start up the git watcher
-	if err := mgr.Add(rec.hooks); err != nil {
+	if err := mgr.Add(gitWatcher); err != nil {
 		logger.Error(err, "failed to start git watcher")
 	}
 

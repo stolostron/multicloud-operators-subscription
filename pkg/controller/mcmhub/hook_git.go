@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -37,7 +38,7 @@ import (
 )
 
 const (
-	hookInterval = time.Minute * 1
+	hookInterval = time.Minute * 3
 )
 
 type GitOps interface {
@@ -48,103 +49,127 @@ type GitOps interface {
 	// GetHooks returns the ansiblejob from a given folder, if the folder is
 	// inaccessible, then os.Error is returned
 	GetHooks(*subv1.Subscription, string) ([]ansiblejob.AnsibleJob, error)
+
+	// RegisterBranch
+	RegisterBranch(*subv1.Subscription)
+
+	// DeregisterBranch
+	DeregisterBranch(*subv1.Subscription)
+
+	//Runnable
+	Start(<-chan struct{}) error
 }
 
-type HookGit struct {
-	clt          client.Client
-	logger       logr.Logger
-	lastCommitID map[types.NamespacedName]string
-	localDir     string
+type branchInfo struct {
+	lastCommitID  string
+	username      string
+	secret        string
+	registeredSub map[types.NamespacedName]struct{}
 }
 
-var _ GitOps = (*HookGit)(nil)
+type repoRegistery struct {
+	url     string
+	branchs map[string]branchInfo
+}
 
-func NewHookGit(clt client.Client, logger logr.Logger) *HookGit {
-	return &HookGit{
-		clt:          clt,
-		logger:       logger,
-		lastCommitID: make(map[types.NamespacedName]string),
+type HubGitOps struct {
+	clt         client.Client
+	logger      logr.Logger
+	localDir    string
+	mtx         sync.Mutex
+	subRecords  map[types.NamespacedName]string
+	repoRecords map[string]repoRegistery
+}
+
+var _ GitOps = (*HubGitOps)(nil)
+
+func NewHookGit(clt client.Client, logger logr.Logger) *HubGitOps {
+	return &HubGitOps{
+		clt:         clt,
+		logger:      logger,
+		mtx:         sync.Mutex{},
+		subRecords:  map[types.NamespacedName]string{},
+		repoRecords: map[string]repoRegistery{},
 	}
 }
 
 // the git watch will go to each subscription download the repo and compare the
 // commit id, it's the commit id is different, then update the commit id to
 // subscription
-func (a *AnsibleHooks) Start(stop <-chan struct{}) error {
-	a.logger.Info("entry StartGitWatch")
-	defer a.logger.Info("exit StartGitWatch")
+func (h *HubGitOps) Start(stop <-chan struct{}) error {
+	h.logger.Info("entry StartGitWatch")
+	defer h.logger.Info("exit StartGitWatch")
 
-	go wait.Until(a.GitWatch, hookInterval, stop)
+	go wait.Until(h.GitWatch, hookInterval, stop)
 
 	return nil
 }
 
-func (a *AnsibleHooks) GitWatch() {
-	a.logger.V(DebugLog).Info("entry GitWatch")
-	defer a.logger.V(DebugLog).Info("exit GitWatch")
+func (h *HubGitOps) GitWatch() {
+	h.logger.V(DebugLog).Info("entry GitWatch")
+	defer h.logger.V(DebugLog).Info("exit GitWatch")
 
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+
+	for _, repoRegistery := range h.repoRecords {
+		url := repoRegistery.url
+		// need to figure out a way to separate the private repo
+		for bName, branchInfo := range repoRegistery.branchs {
+			nCommit, err := GetLatestRemoteGitCommitID(url, bName, branchInfo.username, branchInfo.secret)
+			if err != nil {
+				h.logger.Error(err, "failed to get the latest commit id")
+			}
+
+			if nCommit == branchInfo.lastCommitID {
+				continue
+			}
+
+			for subKey := range branchInfo.registeredSub {
+				if err := updateCommitAnnotation(h.clt, subKey, nCommit); err != nil {
+					h.logger.Error(err, fmt.Sprintf("failed to update newcommit %s to subscrption %s", nCommit, subKey.String()))
+					continue
+				}
+
+				h.logger.Info(fmt.Sprintf("updated the commit annotation of subscrption %s", subKey))
+			}
+		}
+	}
+}
+
+func updateCommitAnnotation(clt client.Client, subKey types.NamespacedName, newCommit string) error {
+	subIns := &subv1.Subscription{}
 	ctx := context.TODO()
 
-	a.mtx.Lock()
-	defer a.mtx.Unlock()
-
-	for subKey := range a.registry {
-		subIns := &subv1.Subscription{}
-		if err := a.clt.Get(ctx, subKey, subIns); err != nil {
-			if !k8serrors.IsNotFound(err) {
-				a.logger.Error(err, "failed to get ")
-			}
-
-			continue
+	if err := clt.Get(ctx, subKey, subIns); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return nil
 		}
 
-		if newCommit, ok := a.IsGitUpdate(subIns); ok {
-			anno := subIns.GetAnnotations()
-			anno[subv1.AnnotationGitCommit] = newCommit
-			subIns.SetAnnotations(anno)
-
-			if err := a.clt.Update(ctx, subIns); err != nil {
-				a.logger.Error(err, "failed to update subscription from GitWatch")
-			}
-
-			a.logger.Info(fmt.Sprintf("updated the commit annotation of subscrption %s", subKey))
-		}
+		return err
 	}
+
+	anno := subIns.GetAnnotations()
+	anno[subv1.AnnotationGitCommit] = newCommit
+	subIns.SetAnnotations(anno)
+
+	return clt.Update(ctx, subIns)
 }
 
-func (a *AnsibleHooks) IsGitUpdate(nSubIns *subv1.Subscription) (string, bool) {
-	subKey := types.NamespacedName{Name: nSubIns.GetName(), Namespace: nSubIns.GetNamespace()}
-	oldCommit := nSubIns.GetAnnotations()[subv1.AnnotationGitCommit]
-	newCommit, err := GetLatestRemoteGitCommitID(a.clt, nSubIns)
+func isGitChannel(ch *chnv1.Channel) bool {
+	cType := string(ch.Spec.Type)
 
-	if err != nil {
-		a.logger.Error(err, fmt.Sprintf("failed to get the new commit id for subscription %s", subKey))
-		return "", false
+	if strings.EqualFold(cType, chnv1.ChannelTypeGit) || strings.EqualFold(cType, chnv1.ChannelTypeGitHub) {
+		return true
 	}
 
-	if !strings.EqualFold(oldCommit, newCommit) {
-		return newCommit, true
-	}
-
-	return "", false
+	return false
 }
 
-func GetLatestRemoteGitCommitID(clt client.Client, subIns *subv1.Subscription) (string, error) {
-	channel, err := GetSubscriptionRefChannel(clt, subIns)
-
-	if err != nil {
-		return "", err
-	}
-
-	user, pwd, err := utils.GetChannelSecret(clt, channel)
-
-	if err != nil {
-		return "", err
-	}
-
+func genBranchString(subIns *subv1.Subscription) string {
+	branch := ""
 	an := subIns.GetAnnotations()
 
-	branch := ""
 	if an[subv1.AnnotationGithubBranch] != "" {
 		branch = an[subv1.AnnotationGithubBranch]
 	}
@@ -157,15 +182,116 @@ func GetLatestRemoteGitCommitID(clt client.Client, subIns *subv1.Subscription) (
 		branch = "master"
 	}
 
+	return branch
+}
+
+func genRepoName(repoURL, user, pwd string) string {
+	repoName := repoURL
+	if pwd != "" {
+		repoName += user
+	}
+
+	return repoName
+}
+
+func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	if _, ok := h.subRecords[subKey]; ok {
+		return
+	}
+
+	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to GitOps")
+		return
+	}
+
+	if !isGitChannel(channel) {
+		return
+	}
+
+	user, pwd, err := utils.GetChannelSecret(h.clt, channel)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to git watcher register")
+		return
+	}
+
+	repoURL := channel.Spec.Pathname
+	repoName := genRepoName(repoURL, user, pwd)
+	branch := genBranchString(subIns)
+
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+
+	h.subRecords[subKey] = repoName
+	bInfo, ok := h.repoRecords[repoName]
+
+	if !ok {
+		h.repoRecords[repoName] = repoRegistery{
+			url: repoURL,
+			branchs: map[string]branchInfo{
+				branch: {
+					username: user,
+					secret:   pwd,
+					registeredSub: map[types.NamespacedName]struct{}{
+						subKey: {},
+					},
+				},
+			},
+		}
+
+		return
+	}
+
+	bInfo.branchs[repoName].registeredSub[subKey] = struct{}{}
+}
+
+func (h *HubGitOps) DeregisterBranch(subIns *subv1.Subscription) {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	_, ok := h.subRecords[subKey]
+
+	if !ok {
+		return
+	}
+
+	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to GitOps")
+		return
+	}
+
+	if !isGitChannel(channel) {
+		return
+	}
+
+	user, pwd, err := utils.GetChannelSecret(h.clt, channel)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to GitOps")
+		return
+	}
+
+	repoName := genRepoName(channel.Spec.Pathname, user, pwd)
+
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+
+	delete(h.repoRecords[repoName].branchs[repoName].registeredSub, subKey)
+}
+
+func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error) {
 	tp := github.BasicAuthTransport{
-		Username: strings.TrimSpace(user),
+		Username: strings.TrimSpace(secret),
 		Password: strings.TrimSpace(pwd),
 	}
 
-	return utils.GetLatestCommitID(channel.Spec.Pathname, branch, github.NewClient(tp.Client()))
+	return utils.GetLatestCommitID(repo, branch, github.NewClient(tp.Client()))
 }
 
-func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
+func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
 
@@ -176,26 +302,18 @@ func (h *HookGit) DownloadAnsibleHookResource(subIns *subv1.Subscription) error 
 	return h.donwloadAnsibleJobFromGit(h.clt, chn, subIns, h.logger)
 }
 
-func (h *HookGit) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) error {
+func (h *HubGitOps) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Channel, sub *subv1.Subscription, logger logr.Logger) error {
 	logger.V(DebugLog).Info("entry donwloadAnsibleJobFromGit")
 	defer logger.V(DebugLog).Info("exit donwloadAnsibleJobFromGit")
 
-	subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	h.localDir = repoRoot
 
-	if _, ok := h.lastCommitID[subKey]; ok {
-		logger.Info("repo already exist")
-		return nil
-	}
-
-	commitID, err := cloneGitRepo(clt, repoRoot, chn, sub)
+	_, err := cloneGitRepo(clt, repoRoot, chn, sub)
 
 	if err != nil {
 		return err
 	}
-
-	h.lastCommitID[subKey] = commitID
 
 	return nil
 }
@@ -315,7 +433,7 @@ func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger 
 
 //GetHooks will provided the ansibleJobs at the given hookPath(if given a
 //posthook path, then posthook ansiblejob is returned)
-func (h *HookGit) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error) {
+func (h *HubGitOps) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error) {
 	fullPath := fmt.Sprintf("%v/%v", h.localDir, hookPath)
 	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
