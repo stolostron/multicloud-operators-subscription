@@ -150,7 +150,12 @@ func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 		return true
 	}
 
-	if old.Phase != nnew.Phase {
+	if old.Phase != nnew.Phase || old.Message != nnew.Message {
+		return true
+	}
+
+	//care about the managed subscription status
+	if !isEqualSubClusterStatus(old.Statuses, nnew.Statuses) {
 		return true
 	}
 
@@ -402,9 +407,20 @@ func isEqualSubClusterStatus(a, b map[string]*appv1.SubscriptionPerClusterStatus
 	}
 
 	for k, v := range a {
-		if w, ok := b[k]; !ok || !isEqualSubPerClusterStatus(v.SubscriptionPackageStatus, w.SubscriptionPackageStatus) {
+		w, ok := b[k]
+		if ok {
+			if v == nil && w == nil {
+				continue
+			}
+
+			if v != nil && w != nil && isEqualSubPerClusterStatus(v.SubscriptionPackageStatus, w.SubscriptionPackageStatus) {
+				continue
+			}
+
 			return false
 		}
+
+		return false
 	}
 
 	return true

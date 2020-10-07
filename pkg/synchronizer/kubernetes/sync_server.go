@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -243,18 +244,22 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	//adding update,new resource to cache and create them at cluster
 	for _, dplUn := range order.dpls {
 		err = sync.RegisterTemplate(order.hostSub, dplUn.Dpl, order.subType)
-		if err == nil {
-			dplKey := types.NamespacedName{Name: dplUn.Dpl.GetName(), Namespace: dplUn.Dpl.GetNamespace()}
-			rKey := sync.generateResourceMapKey(order.hostSub, dplKey)
-			keySet[rKey] = true
+		if err != nil {
+			klog.Error(fmt.Sprintf("failed to register template of %v/%v, error: %v",
+				dplUn.Dpl.GetNamespace(), dplUn.Dpl.GetName(), err))
+			continue
+		}
 
-			if _, ok := resSet[rKey][dplUn.Gvk]; !ok {
-				resSet[rKey] = map[schema.GroupVersionKind]bool{dplUn.Gvk: true}
-			}
+		dplKey := types.NamespacedName{Name: dplUn.Dpl.GetName(), Namespace: dplUn.Dpl.GetNamespace()}
+		rKey := sync.generateResourceMapKey(order.hostSub, dplKey)
+		keySet[rKey] = true
 
-			if dplUn.Gvk.Kind == crdKind {
-				crdFlag = true
-			}
+		if _, ok := resSet[rKey][dplUn.Gvk]; !ok {
+			resSet[rKey] = map[schema.GroupVersionKind]bool{dplUn.Gvk: true}
+		}
+
+		if dplUn.Gvk.Kind == crdKind {
+			crdFlag = true
 		}
 	}
 

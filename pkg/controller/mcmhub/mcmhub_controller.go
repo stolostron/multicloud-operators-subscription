@@ -161,7 +161,7 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 		}
 
 		if annotations[appv1.AnnotationRollingUpdateTarget] != obj.Meta.GetName() {
-			// rolling to annother one, skipping
+			// rolling to another one, skipping
 			continue
 		}
 
@@ -415,7 +415,11 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 
 	if err == nil {
 		sub.Status.Reason = hubdpl.Status.Reason
-		sub.Status.Message = hubdpl.Status.Message
+
+		// the sub.Status.Message is aggregated over the doMCMHubReconcile
+		if sub.Status.Message == "" {
+			sub.Status.Message = hubdpl.Status.Message
+		}
 
 		if hubdpl.Status.Phase == dplv1.DeployableFailed {
 			sub.Status.Phase = appv1.SubscriptionPropagationFailed
@@ -694,11 +698,11 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
-		if !passedPrehook { //prehook prior to apply successed
-			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = 5 * time.Second
-				r.logger.Info(fmt.Sprintf("on prehook topo annotation flow, will retry after %s", res.RequeueAfter))
-			}
+		// due to the predict func, it's necessary to re-queue, since the status
+		// change isn't committed yet
+		if res.RequeueAfter == time.Duration(0) {
+			res.RequeueAfter = 5 * time.Second
+			r.logger.Info(fmt.Sprintf("%s on prehook topo annotation flow, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
 		}
 
 		return
@@ -706,7 +710,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 	//update status early to make sure the status is ready for post hook to
 	//consume
-
 	if !passedPrehook {
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
 		nIns.Status.Reason = preErr.Error()
