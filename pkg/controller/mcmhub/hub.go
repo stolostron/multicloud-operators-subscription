@@ -777,14 +777,16 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 }
 
 func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
-	r.logger.Info("entry doMCMHubReconcile:updateSubscriptionStatus")
-	defer r.logger.Info("exit doMCMHubReconcile:updateSubscriptionStatus")
+	r.logger.Info(fmt.Sprintf("entry doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
+	defer r.logger.Info(fmt.Sprintf("exit doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
 
 	newsubstatus := appv1alpha1.SubscriptionStatus{}
 
 	newsubstatus.Phase = appv1alpha1.SubscriptionPropagated
 	newsubstatus.Message = ""
 	newsubstatus.Reason = ""
+
+	msg := ""
 
 	if found.Status.Phase == dplv1alpha1.DeployableFailed {
 		newsubstatus.Statuses = nil
@@ -801,6 +803,12 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 				if err != nil {
 					klog.Infof("Failed to unmashall ResourceStatus from target cluster: %v, in deployable: %v/%v", cluster, found.GetNamespace(), found.GetName())
 					return err
+				}
+
+				if msg == "" {
+					msg = fmt.Sprintf("%s:%s", cluster, mcsubstatus.Message)
+				} else {
+					msg += fmt.Sprintf(",%s:%s", cluster, mcsubstatus.Message)
 				}
 
 				//get status per package if exist, for namespace/objectStore/helmRepo channel subscription status
@@ -830,6 +838,7 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 
 	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
 	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
+	newsubstatus.Message = msg
 
 	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
 		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",

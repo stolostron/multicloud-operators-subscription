@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
@@ -178,7 +179,9 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 	klog.V(1).Infof("old old: %#v, in in:%#v", *oldStatus, newStatus)
 
-	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isStatusUpdated(*oldStatus, newStatus) {
+	fmt.Println(isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus), isManagedStatusUpdated(*oldStatus, newStatus))
+
+	if isEmptyResourceUnitStatus(newStatus.ResourceUnitStatus) || isManagedStatusUpdated(*oldStatus, newStatus) {
 		statuStr := fmt.Sprintf("updating old %s, new %s", prettyStatus(dpl.Status), prettyStatus(newStatus))
 		klog.Info(fmt.Sprintf("host %s cmp status %s ", host.String(), statuStr))
 
@@ -200,8 +203,8 @@ func UpdateDeployableStatus(statusClient client.Client, templateerr error, tplun
 
 func prettyStatus(a dplv1.DeployableStatus) string {
 	if a.ResourceStatus != nil {
-		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v\n",
-			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw))
+		return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v content %v\n",
+			a.LastUpdateTime, a.Phase, a.Reason, a.Message, len(a.ResourceStatus.Raw), string(a.ResourceStatus.Raw))
 	}
 
 	return fmt.Sprintf("time: %v, phase %v, reason %v, msg %v, resource %v",
@@ -212,7 +215,141 @@ func prettyStatus(a dplv1.DeployableStatus) string {
 // propagateStatus
 func isStatusUpdated(old, in dplv1.DeployableStatus) bool {
 	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+
 	return !isEqualResourceUnitStatus(oldResSt, inResSt)
+}
+
+func isManagedStatusUpdated(old, in dplv1.DeployableStatus) bool {
+	oldResSt, inResSt := old.ResourceUnitStatus, in.ResourceUnitStatus
+
+	return isSubscriptionResourceStatusUpdated(oldResSt, inResSt)
+}
+func isSubscriptionResourceStatusUpdated(a, b dplv1.ResourceUnitStatus) bool {
+	if isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return false
+	}
+
+	if !isEmptyResourceUnitStatus(a) && isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if isEmptyResourceUnitStatus(a) && !isEmptyResourceUnitStatus(b) {
+		return true
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason || a.Message != b.Message {
+		return true
+	}
+
+	//status from cluster
+	aRes := a.ResourceStatus
+	bRes := b.ResourceStatus
+
+	if aRes == nil && bRes == nil {
+		return false
+	}
+
+	if aRes == nil && bRes != nil {
+		return true
+	}
+
+	if aRes != nil && bRes == nil {
+		return true
+	}
+
+	// given the UpdateDeployableStatus is called when update the host deployabe
+	// from managed cluster to host, so the DeployableStatus.ResourceStatus is
+	// fair to say SubscriptionStatus
+	aUnitStatus := &subv1.SubscriptionStatus{}
+	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
+
+	bUnitStatus := &subv1.SubscriptionStatus{}
+	berr := json.Unmarshal(bRes.Raw, bUnitStatus)
+
+	if aerr != nil || berr != nil {
+		klog.Infof("unmarshall resource status failed. aerr: %v, berr: %v", aerr, berr)
+		return true
+	}
+
+	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
+
+	now := metav1.Now()
+	aUnitStatus.LastUpdateTime = now
+	bUnitStatus.LastUpdateTime = now
+	faUnit := filterOutNoiseyFieldFromPkgStatus(aUnitStatus)
+	fbUnit := filterOutNoiseyFieldFromPkgStatus(bUnitStatus)
+
+	return !isEqualSubscriptionStatus(faUnit, fbUnit)
+}
+
+func PrintSubscriptionStatus(a *subv1.SubscriptionStatus) {
+	if a == nil {
+		return
+	}
+
+	fmt.Printf("a.Phase = %+v\n", a.Phase)
+	fmt.Printf("a.Message = %+v\n", a.Message)
+	fmt.Printf("a.Reason = %+v\n", a.Reason)
+
+	for c, clusterStatus := range a.Statuses {
+		fmt.Printf("cluster name = %+v\n", c)
+
+		for n, p := range clusterStatus.SubscriptionPackageStatus {
+			fmt.Println()
+
+			if p == nil {
+				continue
+			}
+
+			fmt.Printf("\tpkg name %s\n", n)
+			fmt.Printf("\tpkg package phase %s\n", p.Phase)
+			fmt.Printf("\tpkg package message %s\n", p.Message)
+			fmt.Printf("\tpkg package reason %s\n", p.Reason)
+
+			if p.ResourceStatus == nil {
+				continue
+			}
+
+			fmt.Printf("\tpkg package content %s\n", string(p.ResourceStatus.Raw))
+		}
+
+		fmt.Println()
+	}
+}
+
+func filterOutNoiseyFieldFromPkgStatus(a *subv1.SubscriptionStatus) *subv1.SubscriptionStatus {
+	out := a.DeepCopy()
+
+	dfields := func(d *map[string]interface{}, key string) {
+		_, ok := (*d)[key]
+		if ok {
+			delete(*d, key)
+		}
+	}
+
+	for _, clusterStatus := range out.Statuses {
+		for _, p := range clusterStatus.SubscriptionPackageStatus {
+			if p != nil && p.ResourceStatus != nil {
+				data := new(map[string]interface{})
+				if err := json.Unmarshal(p.ResourceStatus.Raw, data); err != nil {
+					continue
+				}
+
+				dfields(data, "observedGeneration")
+				dfields(data, "lastTransitionTime")
+				dfields(data, "conditions")
+
+				raw, err := json.Marshal(data)
+				if err != nil {
+					continue
+				}
+
+				p.ResourceStatus.Raw = raw
+			}
+		}
+	}
+
+	return out
 }
 
 func isEmptyResourceUnitStatus(a dplv1.ResourceUnitStatus) bool {
@@ -256,6 +393,9 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 		return false
 	}
 
+	// given the UpdateDeployableStatus is called when update the host deployabe
+	// from managed cluster to host, so the DeployableStatus.ResourceStatus is
+	// fair to say SubscriptionStatus
 	aUnitStatus := &dplv1.ResourceUnitStatus{}
 	aerr := json.Unmarshal(aRes.Raw, aUnitStatus)
 
@@ -269,8 +409,9 @@ func isEqualResourceUnitStatus(a, b dplv1.ResourceUnitStatus) bool {
 
 	klog.V(1).Infof("aUnitStatus: %#v, bUnitStatus: %#v", aUnitStatus, bUnitStatus)
 
-	aUnitStatus.LastUpdateTime = nil
-	bUnitStatus.LastUpdateTime = nil
+	now := metav1.Now()
+	aUnitStatus.LastUpdateTime = &now
+	bUnitStatus.LastUpdateTime = &now
 
 	return reflect.DeepEqual(aUnitStatus, bUnitStatus)
 }
