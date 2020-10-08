@@ -79,7 +79,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		}
 
 		//making sure the commit id is coming from the same source
-		getCommitFunc := r.hubGitOps.GetCommitFunc()
+		getCommitFunc := r.hubGitOps.GetCommitFunc(sub)
 		commit, err := getCommitFunc(channel.Spec.Pathname,
 			genBranchString(sub),
 			user,

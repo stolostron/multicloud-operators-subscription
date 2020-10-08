@@ -61,7 +61,7 @@ type GitOps interface {
 	//helper for test
 	GetRepoRecords() map[string]*RepoRegistery
 
-	GetCommitFunc() GetCommitFunc
+	GetCommitFunc(*subv1.Subscription) GetCommitFunc
 	//Runnable
 	Start(<-chan struct{}) error
 }
@@ -128,10 +128,6 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	}
 
 	return hGit
-}
-
-func (h *HubGitOps) GetCommitFunc() GetCommitFunc {
-	return h.getCommitFunc
 }
 
 // the git watch will go to each subscription download the repo and compare the
@@ -337,6 +333,39 @@ func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error
 	return utils.GetLatestCommitID(repo, branch, github.NewClient(tp.Client()))
 }
 
+func (h *HubGitOps) GetCommitFunc(subIns *subv1.Subscription) GetCommitFunc {
+	if err := h.initialDownload(subIns); err != nil {
+		h.logger.Error(err, "failed to download the target repo for the first time")
+	}
+
+	return h.getCommitFunc
+}
+
+func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) error {
+	// the repo is downloaded already
+	if h.localDir != "" {
+		return nil
+	}
+
+	chn := &chnv1.Channel{}
+	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
+
+	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
+		return err
+	}
+
+	repoRoot := utils.GetLocalGitFolder(chn, subIns)
+	h.localDir = repoRoot
+
+	_, err := cloneGitRepo(h.clt, repoRoot, chn, subIns)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
@@ -355,11 +384,13 @@ func (h *HubGitOps) donwloadAnsibleJobFromGit(clt client.Client, chn *chnv1.Chan
 	repoRoot := utils.GetLocalGitFolder(chn, sub)
 	h.localDir = repoRoot
 
-	_, err := cloneGitRepo(clt, repoRoot, chn, sub)
+	c, err := cloneGitRepo(clt, repoRoot, chn, sub)
 
 	if err != nil {
 		return err
 	}
+
+	logger.V(DebugLog).Info(fmt.Sprintf("%v SHA is downloaded", c))
 
 	return nil
 }
