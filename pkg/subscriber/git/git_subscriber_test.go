@@ -90,6 +90,16 @@ data:
   user: YWRtaW4=
   password: MWYyZDFlMmU2N2Rm`
 
+const incorrectSecret2 = `apiVersion: v1
+kind: Secret
+metadata:
+  name: incorrect-secret
+  namespace: default
+type: Opaque
+data:
+  id: YWRtaW4=
+  accessToken: MWYyZDFlMmU2N2Rm`
+
 var (
 	sharedkey = types.NamespacedName{
 		Name:      "githubtest",
@@ -288,35 +298,24 @@ var _ = Describe("test subscribe invalid resource", func() {
 		secretRef := &corev1.ObjectReference{}
 		secretRef.Name = "correct-secret"
 
-		githubchn.Spec.SecretRef = secretRef
-		_, err = subitem.cloneGitRepo()
-		Expect(err.Error()).To(Equal("authentication required"))
-
-		noUserKey := make(map[string][]byte)
-		chnSecret.Data = noUserKey
-		err = k8sClient.Update(context.TODO(), chnSecret)
+		chnIncorrectSecret := &corev1.Secret{}
+		err = yaml.Unmarshal([]byte(incorrectSecret), &chnIncorrectSecret)
 		Expect(err).NotTo(HaveOccurred())
+
+		subitem.SubscriberItem.ChannelSecret = chnIncorrectSecret
+		_, err = subitem.cloneGitRepo()
+		Expect(err.Error()).To(Equal("failed to get accressToken from the secret"))
+
+		chnIncorrectSecret2 := &corev1.Secret{}
+		err = yaml.Unmarshal([]byte(incorrectSecret2), &chnIncorrectSecret2)
+		Expect(err).NotTo(HaveOccurred())
+		subitem.SubscriberItem.ChannelSecret = chnIncorrectSecret2
 
 		_, err = subitem.cloneGitRepo()
 		Expect(err.Error()).To(Equal("failed to get user from the secret"))
 
 		err = k8sClient.Delete(context.TODO(), chnSecret)
 		Expect(err).NotTo(HaveOccurred())
-
-		// Test with a fake authentication secret but correct data keys in the secret
-		chnSecret = &corev1.Secret{}
-		err = yaml.Unmarshal([]byte(incorrectSecret), &chnSecret)
-		Expect(err).NotTo(HaveOccurred())
-
-		err = k8sClient.Create(context.TODO(), chnSecret)
-		Expect(err).NotTo(HaveOccurred())
-
-		secretRef.Name = "incorrect-secret"
-		_, err = subitem.cloneGitRepo()
-		Expect(err.Error()).To(Equal("failed to get accressToken from the secret"))
-
-		githubchn.Spec.SecretRef = nil
-
 	})
 
 	It("should success on subscription with repo path", func() {

@@ -515,13 +515,18 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
-	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.GetLocalClient(), ghsi.Channel)
+	user := ""
+	token := ""
 
-	if err != nil {
-		return "", err
+	if ghsi.SubscriberItem.ChannelSecret != nil {
+		user, token, err = utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
+
+		if err != nil {
+			return "", err
+		}
 	}
 
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, ghsi.repoRoot)
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, token, ghsi.repoRoot)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
