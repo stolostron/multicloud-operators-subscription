@@ -516,17 +516,17 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
 	user := ""
-	pwd := ""
+	token := ""
 
 	if ghsi.SubscriberItem.ChannelSecret != nil {
-		user, pwd, err = utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
+		user, token, err = utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
 
 		if err != nil {
 			return "", err
 		}
 	}
 
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, pwd, ghsi.repoRoot)
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, token, ghsi.repoRoot)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
