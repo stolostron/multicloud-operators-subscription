@@ -62,6 +62,9 @@ type GitOps interface {
 	GetRepoRecords() map[string]*RepoRegistery
 
 	GetCommitFunc(*subv1.Subscription) GetCommitFunc
+
+	//GetLatestCommitID will output the latest commit id from local git record
+	GetLatestCommitID(*subv1.Subscription) (string, error)
 	//Runnable
 	Start(<-chan struct{}) error
 }
@@ -333,37 +336,58 @@ func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error
 	return utils.GetLatestCommitID(repo, branch, github.NewClient(tp.Client()))
 }
 
+func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error) {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
+	repoName, ok := h.subRecords[subKey]
+	if !ok {
+		return h.initialDownload(subIns)
+	}
+
+	return h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID, nil
+}
+
 func (h *HubGitOps) GetCommitFunc(subIns *subv1.Subscription) GetCommitFunc {
-	if err := h.initialDownload(subIns); err != nil {
+	if _, err := h.initialDownload(subIns); err != nil {
 		h.logger.Error(err, "failed to download the target repo for the first time")
 	}
 
 	return h.getCommitFunc
 }
 
-func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) error {
+func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) (string, error) {
 	// the repo is downloaded already
 	if h.localDir != "" {
-		return nil
+		return "", nil
 	}
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
 
 	if err := h.clt.Get(context.TODO(), chnkey, chn); err != nil {
-		return err
+		return "", err
 	}
 
 	repoRoot := utils.GetLocalGitFolder(chn, subIns)
 	h.localDir = repoRoot
 
-	_, err := cloneGitRepo(h.clt, repoRoot, chn, subIns)
+	commitID, err := cloneGitRepo(h.clt, repoRoot, chn, subIns)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	return nil
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
+	h.RegisterBranch(subIns)
+
+	repoName := h.subRecords[subKey]
+
+	h.mtx.Lock()
+	defer h.mtx.Unlock()
+	h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID = commitID
+
+	return commitID, nil
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
