@@ -201,7 +201,6 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 		if err != nil {
 			return "", "", err
 		}
-
 	}
 
 	return username, accessToken, nil
@@ -211,6 +210,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, error) {
 	username := ""
 	accessToken := ""
 	err := yaml.Unmarshal(secret.Data[UserID], &username)
+
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal username from the secret.")
 		return "", "", err
@@ -220,6 +220,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, error) {
 	}
 
 	err = yaml.Unmarshal(secret.Data[AccessToken], &accessToken)
+
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal accessToken from the secret.")
 		return "", "", err
