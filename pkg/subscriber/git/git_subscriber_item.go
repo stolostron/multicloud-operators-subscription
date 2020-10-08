@@ -515,7 +515,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
-	user, pwd, err := utils.GetChannelSecret(ghsi.synchronizer.GetLocalClient(), ghsi.Channel)
+	user, pwd, err := utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
 
 	if err != nil {
 		return "", err
