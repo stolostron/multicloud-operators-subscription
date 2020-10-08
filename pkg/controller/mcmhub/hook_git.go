@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	hookInterval = time.Minute * 3
+	hookInterval = time.Second * 90
 )
 
 type GitOps interface {
@@ -54,8 +54,14 @@ type GitOps interface {
 	RegisterBranch(*subv1.Subscription)
 
 	// DeregisterBranch
-	DeregisterBranch(*subv1.Subscription)
+	DeregisterBranch(types.NamespacedName)
 
+	GetSubRecords() map[types.NamespacedName]string
+
+	//helper for test
+	GetRepoRecords() map[string]*RepoRegistery
+
+	GetCommitFunc() GetCommitFunc
 	//Runnable
 	Start(<-chan struct{}) error
 }
@@ -67,30 +73,65 @@ type branchInfo struct {
 	registeredSub map[types.NamespacedName]struct{}
 }
 
-type repoRegistery struct {
+type RepoRegistery struct {
 	url     string
-	branchs map[string]branchInfo
+	branchs map[string]*branchInfo
 }
 
+type GetCommitFunc func(string, string, string, string) (string, error)
+
 type HubGitOps struct {
-	clt         client.Client
-	logger      logr.Logger
-	localDir    string
-	mtx         sync.Mutex
-	subRecords  map[types.NamespacedName]string
-	repoRecords map[string]repoRegistery
+	clt             client.Client
+	logger          logr.Logger
+	localDir        string
+	mtx             sync.Mutex
+	watcherInterval time.Duration
+	subRecords      map[types.NamespacedName]string
+	repoRecords     map[string]*RepoRegistery
+	getCommitFunc   GetCommitFunc
 }
 
 var _ GitOps = (*HubGitOps)(nil)
 
-func NewHookGit(clt client.Client, logger logr.Logger) *HubGitOps {
-	return &HubGitOps{
-		clt:         clt,
-		logger:      logger,
-		mtx:         sync.Mutex{},
-		subRecords:  map[types.NamespacedName]string{},
-		repoRecords: map[string]repoRegistery{},
+type HubGitOption func(*HubGitOps)
+
+func setHubGitOpsInterval(interval time.Duration) HubGitOption {
+	return func(a *HubGitOps) {
+		a.watcherInterval = interval
 	}
+}
+
+func setHubGitOpsLogger(logger logr.Logger) HubGitOption {
+	return func(a *HubGitOps) {
+		a.logger = logger
+	}
+}
+
+func setGetCommitFunc(gFunc GetCommitFunc) HubGitOption {
+	return func(a *HubGitOps) {
+		a.getCommitFunc = gFunc
+	}
+}
+
+func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
+	hGit := &HubGitOps{
+		clt:             clt,
+		mtx:             sync.Mutex{},
+		watcherInterval: hookInterval,
+		subRecords:      map[types.NamespacedName]string{},
+		repoRecords:     map[string]*RepoRegistery{},
+		getCommitFunc:   GetLatestRemoteGitCommitID,
+	}
+
+	for _, op := range ops {
+		op(hGit)
+	}
+
+	return hGit
+}
+
+func (h *HubGitOps) GetCommitFunc() GetCommitFunc {
+	return h.getCommitFunc
 }
 
 // the git watch will go to each subscription download the repo and compare the
@@ -100,7 +141,7 @@ func (h *HubGitOps) Start(stop <-chan struct{}) error {
 	h.logger.Info("entry StartGitWatch")
 	defer h.logger.Info("exit StartGitWatch")
 
-	go wait.Until(h.GitWatch, hookInterval, stop)
+	go wait.Until(h.GitWatch, h.watcherInterval, stop)
 
 	return nil
 }
@@ -112,11 +153,11 @@ func (h *HubGitOps) GitWatch() {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
-	for _, repoRegistery := range h.repoRecords {
+	for repoName, repoRegistery := range h.repoRecords {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
 		for bName, branchInfo := range repoRegistery.branchs {
-			nCommit, err := GetLatestRemoteGitCommitID(url, bName, branchInfo.username, branchInfo.secret)
+			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
@@ -124,6 +165,8 @@ func (h *HubGitOps) GitWatch() {
 			if nCommit == branchInfo.lastCommitID {
 				continue
 			}
+
+			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
 
 			for subKey := range branchInfo.registeredSub {
 				if err := updateCommitAnnotation(h.clt, subKey, nCommit); err != nil {
@@ -135,6 +178,16 @@ func (h *HubGitOps) GitWatch() {
 			}
 		}
 	}
+}
+
+//helper for test
+func (h *HubGitOps) GetSubRecords() map[types.NamespacedName]string {
+	return h.subRecords
+}
+
+//helper for test
+func (h *HubGitOps) GetRepoRecords() map[string]*RepoRegistery {
+	return h.repoRecords
 }
 
 func updateCommitAnnotation(clt client.Client, subKey types.NamespacedName, newCommit string) error {
@@ -196,6 +249,7 @@ func genRepoName(repoURL, user, pwd string) string {
 
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+
 	if _, ok := h.subRecords[subKey]; ok {
 		return
 	}
@@ -220,7 +274,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 
 	repoURL := channel.Spec.Pathname
 	repoName := genRepoName(repoURL, user, pwd)
-	branch := genBranchString(subIns)
+	branchName := genBranchString(subIns)
 
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
@@ -229,10 +283,10 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	bInfo, ok := h.repoRecords[repoName]
 
 	if !ok {
-		h.repoRecords[repoName] = repoRegistery{
+		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
-			branchs: map[string]branchInfo{
-				branch: {
+			branchs: map[string]*branchInfo{
+				branchName: {
 					username: user,
 					secret:   pwd,
 					registeredSub: map[types.NamespacedName]struct{}{
@@ -245,41 +299,33 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		return
 	}
 
-	bInfo.branchs[repoName].registeredSub[subKey] = struct{}{}
+	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
 }
 
-func (h *HubGitOps) DeregisterBranch(subIns *subv1.Subscription) {
-	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+func (h *HubGitOps) DeregisterBranch(subKey types.NamespacedName) {
 	_, ok := h.subRecords[subKey]
 
 	if !ok {
 		return
 	}
 
-	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
-
-	if err != nil {
-		h.logger.Error(err, "failed to register subscription to GitOps")
-		return
-	}
-
-	if !isGitChannel(channel) {
-		return
-	}
-
-	user, pwd, err := utils.GetChannelSecret(h.clt, channel)
-
-	if err != nil {
-		h.logger.Error(err, "failed to register subscription to GitOps")
-		return
-	}
-
-	repoName := genRepoName(channel.Spec.Pathname, user, pwd)
-
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
-	delete(h.repoRecords[repoName].branchs[repoName].registeredSub, subKey)
+	repoName := h.subRecords[subKey]
+	delete(h.subRecords, subKey)
+
+	for bName := range h.repoRecords[repoName].branchs {
+		delete(h.repoRecords[repoName].branchs[bName].registeredSub, subKey)
+
+		if len(h.repoRecords[repoName].branchs[bName].registeredSub) == 0 {
+			delete(h.repoRecords[repoName].branchs, bName)
+		}
+
+		if len(h.repoRecords[repoName].branchs) == 0 {
+			delete(h.repoRecords, repoName)
+		}
+	}
 }
 
 func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error) {

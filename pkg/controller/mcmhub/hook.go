@@ -65,6 +65,7 @@ type HookProcessor interface {
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
 	//of hook instance name
 	SetSuffixFunc(SuffixFunc)
+	ResetGitOps(GitOps)
 	//ApplyPreHook returns a type.NamespacedName of the preHook
 	ApplyPreHooks(types.NamespacedName) error
 	IsPreHooksCompleted(types.NamespacedName) (bool, error)
@@ -143,7 +144,7 @@ func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookO
 		mtx:          sync.Mutex{},
 		hookInterval: hookInterval,
 		registry:     map[types.NamespacedName]*Hooks{},
-		suffixFunc:   suffixFromUUID,
+		suffixFunc:   suffixBasedOnSpecAndCommitID,
 	}
 
 	for _, op := range ops {
@@ -171,6 +172,10 @@ func (a *AnsibleHooks) GetLastAppliedInstance(subKey types.NamespacedName) Appli
 		pre:  preJobRecords.lastApplied,
 		post: postJobRecords.lastApplied,
 	}
+}
+
+func (a *AnsibleHooks) ResetGitOps(g GitOps) {
+	a.gitClt = g
 }
 
 func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) subv1.SubscriptionStatus {
@@ -264,8 +269,18 @@ func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
 
 type SuffixFunc func(*subv1.Subscription) string
 
-func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), subIns.GetResourceVersion())
+func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
+	commitID := getCommitID(subIns)
+	n := len(commitID)
+
+	prefixLen := 6
+	if n >= prefixLen {
+		commitID = commitID[:prefixLen]
+	} else {
+		commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
+	}
+
+	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
@@ -277,7 +292,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
+		err := a.registry[subKey].preHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -286,7 +301,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
+	err := a.registry[subKey].postHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }

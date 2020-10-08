@@ -78,11 +78,13 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			return false, err
 		}
 
-		commit, err := utils.CloneGitRepo(channel.Spec.Pathname,
-			utils.GetSubscriptionBranch(sub),
+		//making sure the commit id is coming from the same source
+		getCommitFunc := r.hubGitOps.GetCommitFunc()
+		commit, err := getCommitFunc(channel.Spec.Pathname,
+			genBranchString(sub),
 			user,
 			pwd,
-			utils.GetLocalGitFolder(channel, sub))
+		)
 
 		if err != nil {
 			klog.Error(err.Error())

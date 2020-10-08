@@ -549,6 +549,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		// it seems the travis CI needs more time
 		Eventually(waitForPostHookCR, 10*pullInterval, pullInterval).Should(Succeed())
 
+		fmt.Println("\nfirst posthook applied when the managed cluster status updated")
 		//test if the ansiblejob have a owner set
 		Expect(ansibleIns.GetOwnerReferences()).ShouldNot(HaveLen(0))
 		Expect(ansibleIns.Spec.TowerAuthSecretName).Should(Equal(GetReferenceString(&testPath.hookSecretRef)))
@@ -570,26 +571,37 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
 		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
 
-		waitForNthGenerateInstance := func(n int) error {
-			aList := &ansiblejob.AnsibleJobList{}
-
-			if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
-				return err
-			}
-
-			if len(aList.Items) < n {
-				for _, i := range aList.Items {
-					fmt.Printf("debug -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
+		waitForNthGenerateInstance := func(n int) func() error {
+			fmt.Printf("enter ----> waitForNthGenerateInstance\n")
+			defer fmt.Printf("exit <---- waitForNthGenerateInstance\n")
+			return func() error {
+				u := &subv1.Subscription{}
+				if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
+					return err
 				}
 
-				return errors.New("failed to regenerate ansiblejob upon the subscription changes")
-			}
+				fmt.Printf("izhang get sub %+v\n", u)
 
-			return nil
+				aList := &ansiblejob.AnsibleJobList{}
+
+				if err := k8sClt.List(context.TODO(), aList, &client.ListOptions{Namespace: subKey.Namespace}); err != nil {
+					return err
+				}
+
+				if len(aList.Items) < n {
+					for _, i := range aList.Items {
+						fmt.Printf("debug -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
+					}
+
+					return errors.New("failed to regenerate ansiblejob upon the subscription changes")
+				}
+
+				return nil
+			}
 		}
-		Eventually(func() error {
-			return waitForNthGenerateInstance(2)
-		}, pullInterval*3, pullInterval).Should(Succeed())
+
+		Eventually(waitForNthGenerateInstance(2), pullInterval*3, pullInterval).Should(Succeed())
+		fmt.Println("\n2nd posthook applied when the spec of the subscription updated")
 
 		// there's an update request triggered, so we might want to wait for a bit
 		waitFroPosthookStatus := func() error {
@@ -619,27 +631,31 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		Eventually(waitFroPosthookStatus, pullInterval*5, pullInterval).Should(Succeed())
 
 		modifySubCommit := func() error {
+			fmt.Printf("testttttttttttttt enter ----> modifySubCommit\n")
+			defer fmt.Printf("testttttttttttttt exit <---- modifySubCommit\n")
+
 			u := &subv1.Subscription{}
 			if err := k8sClt.Get(context.TODO(), subKey, u); err != nil {
 				return nil
 			}
 
 			a := u.GetAnnotations()
-			a[subv1.AnnotationGitCommit] = "test"
+			a[subv1.AnnotationGitCommit] = "update-from-test"
 			u.SetAnnotations(a)
 
 			return k8sClt.Update(context.TODO(), u.DeepCopy())
 		}
 
-		Eventually(modifySubCommit, pullInterval*5, pullInterval).Should(Succeed())
-
 		// since the modifySub will regenerate the deployable and managed
 		// cluster status, we meed to mock the process again
+
+		Eventually(modifySubCommit, pullInterval*5, pullInterval).Should(Succeed())
+
 		Eventually(mockManagedCluster, pullInterval*5, pullInterval).Should(Succeed())
 		Eventually(mockHostDpl, pullInterval*5, pullInterval).Should(Succeed())
 
-		Eventually(func() error { return waitForNthGenerateInstance(3) },
-			pullInterval*3, pullInterval).Should(Succeed())
+		fmt.Println("\n3nd posthook should apply when the commit id of the subscription updated")
+		Eventually(waitForNthGenerateInstance(3), pullInterval*3, pullInterval).Should(Succeed())
 
 		checkTopo := func() error {
 			u := &subv1.Subscription{}
