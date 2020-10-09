@@ -263,6 +263,7 @@ type SuffixFunc func(*subv1.Subscription) string
 func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
 	commitID := getCommitID(subIns)
 	n := len(commitID)
+
 	if n == 0 { // meaning the commitID is not synced with github
 		return ""
 	}

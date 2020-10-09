@@ -424,7 +424,6 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 
 func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
 	// Get propagation status from the subscription deployable
-
 	hubdpl := &dplv1.Deployable{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
 
@@ -711,7 +710,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = defaulRequeueInterval
 				r.logger.Error(err, fmt.Sprintf("%s failed to update spec or metadata, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
-
 			}
 
 			return

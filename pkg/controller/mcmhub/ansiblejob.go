@@ -69,6 +69,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 
 		nx := ins.DeepCopy()
 		suffix := suffixFunc(subIns)
+
 		if suffix == "" {
 			continue
 		}
