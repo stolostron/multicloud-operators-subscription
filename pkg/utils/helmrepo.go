@@ -64,13 +64,16 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 	indexFile := repo.NewIndexFile()
 
 	for chartDir := range chartDirs {
+		chartDir = strings.TrimSuffix(chartDir, "/")
+		// chartFolderName is chart folder name
 		chartFolderName := filepath.Base(chartDir)
-		chartParentDir := strings.Split(chartDir, chartFolderName)[0]
+		// chartParentDir is the chart folder's parent folder.
+		chartParentDir := filepath.Dir(chartDir) + "/"
 
 		// Get the relative parent directory from the git repo root
-		chartBaseDir := strings.SplitAfter(chartParentDir, repoRoot+"/")[1]
+		chartBaseDir := strings.TrimPrefix(chartParentDir, repoRoot+"/")
 
-		chartMetadata, err := chartutil.LoadChartfile(chartDir + "Chart.yaml")
+		chartMetadata, err := chartutil.LoadChartfile(filepath.Join(chartDir, "Chart.yaml"))
 
 		if err != nil {
 			klog.Error("There was a problem in generating helm charts index file: ", err.Error())
