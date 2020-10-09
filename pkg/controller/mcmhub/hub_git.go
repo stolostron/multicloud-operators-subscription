@@ -324,6 +324,24 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		return
 	}
 
+	if bInfo.branchs[branchName] == nil {
+		commitID, err := h.initialDownload(subIns)
+		if err != nil {
+			h.logger.Error(err, "failed to get commitID from initialDownload")
+		}
+
+		bInfo.branchs[branchName] = &branchInfo{
+			username:     user,
+			secret:       pwd,
+			lastCommitID: commitID,
+			registeredSub: map[types.NamespacedName]struct{}{
+				subKey: {},
+			},
+		}
+
+		return
+	}
+
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
 }
 
