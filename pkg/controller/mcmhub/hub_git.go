@@ -174,7 +174,7 @@ func (h *HubGitOps) GitWatch() {
 
 			h.logger.V(InfoLog).Info("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, bName)
 
-			if branchInfo.lastCommitID != "" && nCommit == branchInfo.lastCommitID {
+			if nCommit == branchInfo.lastCommitID {
 				h.logger.Info("The repo commit hasn't changed.")
 				continue
 			}
@@ -237,22 +237,31 @@ func isGitChannel(ch *chnv1.Channel) bool {
 }
 
 func genBranchString(subIns *subv1.Subscription) string {
-	branch := ""
 	an := subIns.GetAnnotations()
-
-	if an[subv1.AnnotationGithubBranch] != "" {
-		branch = an[subv1.AnnotationGithubBranch]
+	if len(an) == 0 {
+		return ""
 	}
 
 	if an[subv1.AnnotationGitBranch] != "" {
-		branch = an[subv1.AnnotationGitBranch]
+		return an[subv1.AnnotationGitBranch]
 	}
 
-	if branch == "" {
-		branch = "master"
+	if an[subv1.AnnotationGithubBranch] != "" {
+		return an[subv1.AnnotationGithubBranch]
 	}
 
-	return branch
+	return "master"
+}
+
+func setBranch(subIns *subv1.Subscription, bName string) {
+	an := subIns.GetAnnotations()
+	if len(an) == 0 {
+		an = map[string]string{}
+	}
+
+	an[subv1.AnnotationGitBranch] = bName
+
+	subIns.SetAnnotations(an)
 }
 
 func genRepoName(repoURL, user, pwd string) string {
@@ -304,8 +313,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		if err != nil {
 			h.logger.Error(err, "failed to get commitID from initialDownload")
 		}
-
-		setCommitID(subIns, fakeCommitID(commitID))
 
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,

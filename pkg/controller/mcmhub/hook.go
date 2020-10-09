@@ -472,17 +472,15 @@ func getCommitID(a *subv1.Subscription) string {
 		return ""
 	}
 
-	c := ""
+	if aAno[subv1.AnnotationGitCommit] != "" {
+		return aAno[subv1.AnnotationGitCommit]
+	}
 
 	if aAno[subv1.AnnotationGithubCommit] != "" {
-		c = aAno[subv1.AnnotationGithubCommit]
+		return aAno[subv1.AnnotationGithubCommit]
 	}
 
-	if aAno[subv1.AnnotationGitCommit] != "" {
-		c = aAno[subv1.AnnotationGitCommit]
-	}
-
-	return c
+	return ""
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
