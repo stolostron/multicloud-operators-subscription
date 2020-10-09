@@ -133,7 +133,7 @@ func newHookTest() *hookTest {
 //subscription, with prehook, after reconcile, should be able to
 //detect the ansibleJob instance from cluster and the subscription status
 //shouldn't be propagated
-var _ = Describe("multiple reconcile single of the same subscription instance spec", func() {
+var _ = Describe("multiple reconcile signal of the same subscription instance spec", func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()
@@ -166,6 +166,17 @@ var _ = Describe("multiple reconcile single of the same subscription instance sp
 			}
 
 			if len(aList.Items) > 1 {
+				for _, i := range aList.Items {
+					fmt.Printf("ansiblejob =  %s/%s\n", i.GetNamespace(), i.GetName())
+				}
+
+				u := &subv1.Subscription{}
+
+				k := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+				_ = k8sClt.Get(ctx, k, u)
+
+				fmt.Printf("sub %s = u %+v\n", k, u)
+
 				return errors.New("ansiblejob is not coming up")
 			}
 

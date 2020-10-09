@@ -82,6 +82,7 @@ type RepoRegistery struct {
 }
 
 type GetCommitFunc func(string, string, string, string) (string, error)
+type cloneFunc func(client.Client, string, *chnv1.Channel, *subv1.Subscription) (string, error)
 
 type HubGitOps struct {
 	clt             client.Client
@@ -92,6 +93,7 @@ type HubGitOps struct {
 	subRecords      map[types.NamespacedName]string
 	repoRecords     map[string]*RepoRegistery
 	getCommitFunc   GetCommitFunc
+	cloneFunc       cloneFunc
 }
 
 var _ GitOps = (*HubGitOps)(nil)
@@ -116,6 +118,12 @@ func setGetCommitFunc(gFunc GetCommitFunc) HubGitOption {
 	}
 }
 
+func setGetCloneFunc(cFunc cloneFunc) HubGitOption {
+	return func(a *HubGitOps) {
+		a.cloneFunc = cFunc
+	}
+}
+
 func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	hGit := &HubGitOps{
 		clt:             clt,
@@ -124,6 +132,7 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 		subRecords:      map[types.NamespacedName]string{},
 		repoRecords:     map[string]*RepoRegistery{},
 		getCommitFunc:   GetLatestRemoteGitCommitID,
+		cloneFunc:       cloneGitRepo,
 	}
 
 	for _, op := range ops {
@@ -392,7 +401,7 @@ func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) (string, error) 
 	repoRoot := utils.GetLocalGitFolder(chn, subIns)
 	h.localDir = repoRoot
 
-	return cloneGitRepo(h.clt, repoRoot, chn, subIns)
+	return h.cloneFunc(h.clt, repoRoot, chn, subIns)
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {

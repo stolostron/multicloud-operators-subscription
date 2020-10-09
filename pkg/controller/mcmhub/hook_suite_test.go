@@ -24,7 +24,9 @@ import (
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -75,9 +77,16 @@ var _ = BeforeSuite(func(done Done) {
 		return defaultCommit, nil
 	}
 
+	cloneFunc := func(client.Client, string, *chnv1.Channel, *subv1.Subscription) (string, error) {
+		return defaultCommit, nil
+	}
+
 	defaulRequeueInterval = time.Second * 1
 
-	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(tlog.NullLogger{}), setHubGitOpsInterval(hookRequeueInterval*1), setGetCommitFunc(cFunc))
+	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(tlog.NullLogger{}),
+		setHubGitOpsInterval(hookRequeueInterval*1),
+		setGetCommitFunc(cFunc),
+		setGetCloneFunc(cloneFunc))
 
 	rec := newReconciler(k8sManager, setRequeueInterval, resetHubGitOps(gitOps))
 	// adding the reconcile to manager
