@@ -167,6 +167,7 @@ func (h *HubGitOps) GitWatch() {
 		for bName, branchInfo := range repoRegistery.branchs {
 			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s ", url, bName))
 			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
+
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
@@ -185,7 +186,7 @@ func (h *HubGitOps) GitWatch() {
 				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
 				// The hub subscription reconcile will compare this to the commit ID in the map h.repoRecords[repoName].branchs[bName].lastCommitID
 				// to determine it needs to regenerate deployables.
-				if err := updateCommitAnnotation(h.clt, subKey, nCommit+"NEW"); err != nil {
+				if err := updateCommitAnnotation(h.clt, subKey, fakeCommitID(nCommit)); err != nil {
 					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", nCommit, subKey.String()))
 					continue
 				}
@@ -304,8 +305,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			h.logger.Error(err, "failed to get commitID from initialDownload")
 		}
 
-		// Do not set the commit ID annotation in subscription during registration.
-		// Let hub reconcile set it.
+		setCommitID(subIns, fakeCommitID(commitID))
 
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
@@ -325,6 +325,10 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	}
 
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+}
+
+func fakeCommitID(c string) string {
+	return fmt.Sprintf("%s-new", c)
 }
 
 func setCommitID(subIns *subv1.Subscription, commitID string) {

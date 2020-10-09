@@ -972,6 +972,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 
 	// Sleep so that all deployables are fully created
 	time.Sleep(3 * time.Second)
+
 	err := r.Client.List(context.TODO(), dplList, dplListOptions)
 
 	if err != nil {
