@@ -161,6 +161,8 @@ func (h *HubGitOps) GitWatch() {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
 
+			h.logger.V(InfoLog).Info("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, bName)
+
 			if branchInfo.lastCommitID != "" && nCommit == branchInfo.lastCommitID {
 				continue
 			}

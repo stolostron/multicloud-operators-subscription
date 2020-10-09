@@ -52,7 +52,8 @@ const (
 	PreHookType       = "pre"
 	PostHookType      = "post"
 
-	DebugLog = 3
+	DebugLog = 1
+	InfoLog  = 0
 )
 
 //HookProcessor tracks the pre and post hook information of subscriptions.
