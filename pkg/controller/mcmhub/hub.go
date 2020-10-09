@@ -21,6 +21,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -969,6 +970,8 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		dplListOptions.LabelSelector = chSelector
 	}
 
+	// Sleep so that all deployables are fully created
+	time.Sleep(3 * time.Second)
 	err := r.Client.List(context.TODO(), dplList, dplListOptions)
 
 	if err != nil {

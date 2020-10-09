@@ -86,7 +86,11 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
 		// Compare the commit to the Git repo and update deployables only if the commit has changed
-		if !strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) || r.isHookUpdate(annotations, subKey) {
+		// If subscription does not have commit annotation, it needs to be generated in this block.
+		if annotations[appv1.AnnotationGitCommit] == "" ||
+			!strings.EqualFold(annotations[appv1.AnnotationGitCommit], commit) ||
+			r.isHookUpdate(annotations, subKey) {
+			klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", annotations[appv1.AnnotationGitCommit], commit)
 			// Delete the existing deployables that meets the subscription
 			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
@@ -118,6 +122,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			if ifUpdateGitSubscriptionAnnotation(origsub, sub) {
 				updated = true
 			}
+		} else {
+			klog.Infof("The Git commit has not changed since the last reconcile. last: %s, new: %s", annotations[appv1.AnnotationGitCommit], commit)
 		}
 	}
 

@@ -165,6 +165,7 @@ func (h *HubGitOps) GitWatch() {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
 		for bName, branchInfo := range repoRegistery.branchs {
+			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s ", url, bName))
 			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id")
@@ -173,13 +174,18 @@ func (h *HubGitOps) GitWatch() {
 			h.logger.V(InfoLog).Info("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, bName)
 
 			if branchInfo.lastCommitID != "" && nCommit == branchInfo.lastCommitID {
+				h.logger.Info("The repo commit hasn't changed.")
 				continue
 			}
 
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
+			h.logger.Info("The repo has new commit: " + nCommit)
 
 			for subKey := range branchInfo.registeredSub {
-				if err := updateCommitAnnotation(h.clt, subKey, nCommit); err != nil {
+				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
+				// The hub subscription reconcile will compare this to the commit ID in the map h.repoRecords[repoName].branchs[bName].lastCommitID
+				// to determine it needs to regenerate deployables.
+				if err := updateCommitAnnotation(h.clt, subKey, nCommit+"NEW"); err != nil {
 					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", nCommit, subKey.String()))
 					continue
 				}
@@ -298,7 +304,8 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			h.logger.Error(err, "failed to get commitID from initialDownload")
 		}
 
-		setCommitID(subIns, commitID)
+		// Do not set the commit ID annotation in subscription during registration.
+		// Let hub reconcile set it.
 
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
