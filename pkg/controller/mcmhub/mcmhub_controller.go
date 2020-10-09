@@ -424,6 +424,7 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 
 func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
 	// Get propagation status from the subscription deployable
+
 	hubdpl := &dplv1.Deployable{}
 	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
 
@@ -508,7 +509,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
+	klog.V(2).Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
 
 	//status changes below show override the prehook status
 	if pl == nil {
@@ -517,7 +518,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		r.hubGitOps.RegisterBranch(instance)
 		// register will skip the failed clone repo
-		if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
+		if err := r.hooks.RegisterSubscription(instance, forceRegister, placementRuleRv); err != nil {
 			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
@@ -709,7 +710,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = defaulRequeueInterval
-				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+				r.logger.Error(err, fmt.Sprintf("%s failed to update spec or metadata, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
+
 			}
 
 			return
@@ -778,13 +780,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 	if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
 		if k8serrors.IsGone(err) {
-			return
-		}
-
-		//mostly the conflict is coming from the managed cluster update the hub
-		//status
-		if k8serrors.IsConflict(err) {
-			r.logger.Info("it seems someone update the status already")
 			return
 		}
 

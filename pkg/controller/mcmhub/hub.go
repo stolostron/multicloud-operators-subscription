@@ -843,6 +843,9 @@ func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscr
 	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
 		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
 			sub.Namespace, sub.Name, sub.Status, newsubstatus)
+
+		//perserve the Ansiblejob status
+		newsubstatus.AnsibleJobsStatus = *sub.Status.AnsibleJobsStatus.DeepCopy()
 		newsubstatus.DeepCopyInto(&sub.Status)
 	}
 

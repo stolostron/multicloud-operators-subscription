@@ -32,7 +32,6 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	kerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -59,7 +58,7 @@ const (
 //HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(types.NamespacedName, bool, string) error
+	RegisterSubscription(*subv1.Subscription, bool, string) error
 	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
@@ -210,19 +209,9 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool, placementRuleRv string) error {
+func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
-
-	subIns := &subv1.Subscription{}
-	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
-		// subscription is deleted
-		if kerr.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
@@ -243,6 +232,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
+
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if _, ok := a.registry[subKey]; !ok {
 		a.registry[subKey] = &Hooks{
@@ -272,6 +263,9 @@ type SuffixFunc func(*subv1.Subscription) string
 func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
 	commitID := getCommitID(subIns)
 	n := len(commitID)
+	if n == 0 { // meaning the commitID is not synced with github
+		return ""
+	}
 
 	prefixLen := 6
 	if n >= prefixLen {
@@ -463,13 +457,9 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	return false
 }
 
-func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
-	aCommit := getCommitID(a)
-	if aCommit == "" {
-		return false
-	}
-
-	bCommit := getCommitID(b)
+func isCommitIDNotEqual(old, nnew *subv1.Subscription) bool {
+	aCommit := getCommitID(old)
+	bCommit := getCommitID(nnew)
 
 	return aCommit != bCommit
 }

@@ -161,7 +161,7 @@ func (h *HubGitOps) GitWatch() {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
 
-			if nCommit == branchInfo.lastCommitID {
+			if branchInfo.lastCommitID != "" && nCommit == branchInfo.lastCommitID {
 				continue
 			}
 
@@ -169,11 +169,11 @@ func (h *HubGitOps) GitWatch() {
 
 			for subKey := range branchInfo.registeredSub {
 				if err := updateCommitAnnotation(h.clt, subKey, nCommit); err != nil {
-					h.logger.Error(err, fmt.Sprintf("failed to update newcommit %s to subscrption %s", nCommit, subKey.String()))
+					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", nCommit, subKey.String()))
 					continue
 				}
 
-				h.logger.Info(fmt.Sprintf("updated the commit annotation of subscrption %s", subKey))
+				h.logger.Info(fmt.Sprintf("updated the commit annotation of subscription %s", subKey))
 			}
 		}
 	}
@@ -282,12 +282,20 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	bInfo, ok := h.repoRecords[repoName]
 
 	if !ok {
+		commitID, err := h.initialDownload(subIns)
+		if err != nil {
+			h.logger.Error(err, "failed to get commitID from initialDownload")
+		}
+
+		setCommitID(subIns, commitID)
+
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
 			branchs: map[string]*branchInfo{
 				branchName: {
-					username: user,
-					secret:   pwd,
+					username:     user,
+					secret:       pwd,
+					lastCommitID: commitID,
 					registeredSub: map[types.NamespacedName]struct{}{
 						subKey: {},
 					},
@@ -299,6 +307,17 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	}
 
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+}
+
+func setCommitID(subIns *subv1.Subscription, commitID string) {
+	aAno := subIns.GetAnnotations()
+	if len(aAno) == 0 {
+		aAno = map[string]string{}
+	}
+
+	aAno[subv1.AnnotationGitCommit] = commitID
+
+	subIns.SetAnnotations(aAno)
 }
 
 func (h *HubGitOps) DeregisterBranch(subKey types.NamespacedName) {
@@ -340,7 +359,7 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	repoName, ok := h.subRecords[subKey]
-	if !ok {
+	if !ok { // when git watcher doesn't have the record, go ahead clone the repo and return the commitID
 		return h.initialDownload(subIns)
 	}
 
@@ -371,23 +390,7 @@ func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) (string, error) 
 	repoRoot := utils.GetLocalGitFolder(chn, subIns)
 	h.localDir = repoRoot
 
-	commitID, err := cloneGitRepo(h.clt, repoRoot, chn, subIns)
-
-	if err != nil {
-		return "", err
-	}
-
-	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-
-	h.RegisterBranch(subIns)
-
-	repoName := h.subRecords[subKey]
-
-	h.mtx.Lock()
-	defer h.mtx.Unlock()
-	h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID = commitID
-
-	return commitID, nil
+	return cloneGitRepo(h.clt, repoRoot, chn, subIns)
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {

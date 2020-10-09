@@ -67,12 +67,15 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 			}
 		}
 
+		nx := ins.DeepCopy()
+		suffix := suffixFunc(subIns)
+		if suffix == "" {
+			continue
+		}
+
 		jobRecords := (*jIns)[jobKey]
 		jobRecords.mux.Lock()
 		jobRecords.Original = ins
-
-		nx := ins.DeepCopy()
-		suffix := suffixFunc(subIns)
 
 		if forceRegister {
 			plrSuffixFunc := func() string {
