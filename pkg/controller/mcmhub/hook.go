@@ -32,11 +32,9 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	kerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 
 	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/klog/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	ctrlutil "sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -60,12 +58,13 @@ const (
 //HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(types.NamespacedName, bool, string) error
+	RegisterSubscription(*subv1.Subscription, bool, string) error
 	DeregisterSubscription(types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
 	//of hook instance name
 	SetSuffixFunc(SuffixFunc)
+	ResetGitOps(GitOps)
 	//ApplyPreHook returns a type.NamespacedName of the preHook
 	ApplyPreHooks(types.NamespacedName) error
 	IsPreHooksCompleted(types.NamespacedName) (bool, error)
@@ -80,7 +79,6 @@ type HookProcessor interface {
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
-	Start(<-chan struct{}) error
 }
 
 type Hooks struct {
@@ -125,21 +123,34 @@ type AnsibleHooks struct {
 // make sure the AnsibleHooks implementate the HookProcessor
 var _ HookProcessor = &AnsibleHooks{}
 
-func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, logger logr.Logger) *AnsibleHooks {
-	if logger == nil {
-		logger = klogr.New()
-		logger.WithName("ansiblehook")
-	}
+type HookOps func(*AnsibleHooks)
 
-	return &AnsibleHooks{
+func setLogger(logger logr.Logger) HookOps {
+	return func(a *AnsibleHooks) {
+		a.logger = logger
+	}
+}
+
+func setGitOps(g GitOps) HookOps {
+	return func(a *AnsibleHooks) {
+		a.gitClt = g
+	}
+}
+
+func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookOps) *AnsibleHooks {
+	a := &AnsibleHooks{
 		clt:          clt,
-		gitClt:       NewHookGit(clt, logger),
 		mtx:          sync.Mutex{},
 		hookInterval: hookInterval,
 		registry:     map[types.NamespacedName]*Hooks{},
-		logger:       logger,
-		suffixFunc:   suffixFromUUID,
+		suffixFunc:   suffixBasedOnSpecAndCommitID,
 	}
+
+	for _, op := range ops {
+		op(a)
+	}
+
+	return a
 }
 
 type AppliedInstance struct {
@@ -160,6 +171,10 @@ func (a *AnsibleHooks) GetLastAppliedInstance(subKey types.NamespacedName) Appli
 		pre:  preJobRecords.lastApplied,
 		post: postJobRecords.lastApplied,
 	}
+}
+
+func (a *AnsibleHooks) ResetGitOps(g GitOps) {
+	a.gitClt = g
 }
 
 func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) subv1.SubscriptionStatus {
@@ -194,19 +209,9 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRegister bool, placementRuleRv string) error {
+func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
-
-	subIns := &subv1.Subscription{}
-	if err := a.clt.Get(context.TODO(), subKey, subIns); err != nil {
-		// subscription is deleted
-		if kerr.IsNotFound(err) {
-			return nil
-		}
-
-		return err
-	}
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
@@ -227,6 +232,8 @@ func (a *AnsibleHooks) RegisterSubscription(subKey types.NamespacedName, forceRe
 	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
+
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if _, ok := a.registry[subKey]; !ok {
 		a.registry[subKey] = &Hooks{
@@ -253,8 +260,22 @@ func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
 
 type SuffixFunc func(*subv1.Subscription) string
 
-func suffixFromUUID(subIns *subv1.Subscription) string {
-	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), subIns.GetResourceVersion())
+func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
+	commitID := getCommitID(subIns)
+	n := len(commitID)
+
+	if n == 0 { // meaning the commitID is not synced with github
+		return ""
+	}
+
+	prefixLen := 6
+	if n >= prefixLen {
+		commitID = commitID[:prefixLen]
+	} else {
+		commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
+	}
+
+	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
@@ -266,7 +287,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
+		err := a.registry[subKey].preHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -275,7 +296,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, suffixFromUUID, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
+	err := a.registry[subKey].postHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }
@@ -437,13 +458,9 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	return false
 }
 
-func isCommitIDNotEqual(a, b *subv1.Subscription) bool {
-	aCommit := getCommitID(a)
-	if aCommit == "" {
-		return false
-	}
-
-	bCommit := getCommitID(b)
+func isCommitIDNotEqual(old, nnew *subv1.Subscription) bool {
+	aCommit := getCommitID(old)
+	bCommit := getCommitID(nnew)
 
 	return aCommit != bCommit
 }

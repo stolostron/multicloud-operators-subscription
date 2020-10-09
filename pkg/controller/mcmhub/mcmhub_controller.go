@@ -82,6 +82,8 @@ const (
 	placementRuleFlag          = "--fired-by-placementrule"
 )
 
+var defaulRequeueInterval = time.Second * 3
+
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
@@ -91,10 +93,18 @@ func Add(mgr manager.Manager) error {
 //Option provide easy way to test the reconciler
 type Option func(*ReconcileSubscription)
 
+func resetHubGitOps(g GitOps) Option {
+	return func(r *ReconcileSubscription) {
+		r.hubGitOps = g
+	}
+}
+
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 	logger := klogr.New().WithName(hubLogger)
+
+	gitOps := NewHookGit(mgr.GetClient(), setHubGitOpsLogger(logger))
 
 	rec := &ReconcileSubscription{
 		Client: mgr.GetClient(),
@@ -104,15 +114,18 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		eventRecorder:       erecorder,
 		logger:              logger,
 		hookRequeueInterval: defaultHookRequeueInterval,
-		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, logger),
+		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, setLogger(logger), setGitOps(gitOps)),
+		hubGitOps:           gitOps,
 	}
 
 	for _, f := range op {
 		f(rec)
 	}
 
+	rec.hooks.ResetGitOps(rec.hubGitOps)
+
 	//this is used to start up the git watcher
-	if err := mgr.Add(rec.hooks); err != nil {
+	if err := mgr.Add(rec.hubGitOps); err != nil {
 		logger.Error(err, "failed to start git watcher")
 	}
 
@@ -338,6 +351,7 @@ type ReconcileSubscription struct {
 	eventRecorder       *utils.EventRecorder
 	hookRequeueInterval time.Duration
 	hooks               HookProcessor
+	hubGitOps           GitOps
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
@@ -480,6 +494,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				return reconcile.Result{}, err
 			}
 
+			r.hubGitOps.DeregisterBranch(request.NamespacedName)
+
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
@@ -492,15 +508,16 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
+	klog.V(2).Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
 
 	//status changes below show override the prehook status
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
+		r.hubGitOps.RegisterBranch(instance)
 		// register will skip the failed clone repo
-		if err := r.hooks.RegisterSubscription(request.NamespacedName, forceRegister, placementRuleRv); err != nil {
+		if err := r.hooks.RegisterSubscription(instance, forceRegister, placementRuleRv); err != nil {
 			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
@@ -691,8 +708,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
 		if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = 1 * time.Second
-				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+				res.RequeueAfter = defaulRequeueInterval
+				r.logger.Error(err, fmt.Sprintf("%s failed to update spec or metadata, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
 			}
 
 			return
@@ -701,8 +718,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		// due to the predict func, it's necessary to re-queue, since the status
 		// change isn't committed yet
 		if res.RequeueAfter == time.Duration(0) {
-			res.RequeueAfter = 5 * time.Second
-			r.logger.Info(fmt.Sprintf("%s on prehook topo annotation flow, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
+			res.RequeueAfter = defaulRequeueInterval
+			r.logger.Info(fmt.Sprintf("%s on spec or annotation update success flow, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
 		}
 
 		return
@@ -722,7 +739,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = 1 * time.Second
+				res.RequeueAfter = defaulRequeueInterval
 				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 			}
 
@@ -730,7 +747,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 		}
 
 		if res.RequeueAfter == time.Duration(0) {
-			res.RequeueAfter = 1 * time.Second
+			res.RequeueAfter = defaulRequeueInterval
 			r.logger.Info(fmt.Sprintf("only update status, will retry %s for possible posthook", res.RequeueAfter))
 		}
 
@@ -764,15 +781,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 			return
 		}
 
-		//mostly the conflict is coming from the managed cluster update the hub
-		//status
-		if k8serrors.IsConflict(err) {
-			r.logger.Info("it seems someone update the status already")
-			return
-		}
-
 		if res.RequeueAfter == time.Duration(0) {
-			res.RequeueAfter = 1 * time.Second
+			res.RequeueAfter = defaulRequeueInterval
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 		}
 	}

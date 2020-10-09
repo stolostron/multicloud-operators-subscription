@@ -18,8 +18,10 @@ import (
 	"testing"
 	"time"
 
+	tlog "github.com/go-logr/logr/testing"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
@@ -43,6 +45,9 @@ var setRequeueInterval = func(r *ReconcileSubscription) {
 	r.hookRequeueInterval = hookRequeueInterval
 }
 
+var gitOps GitOps
+var defaultCommit = "test-0001"
+
 func TestHookReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
 
@@ -53,33 +58,6 @@ func TestHookReconcile(t *testing.T) {
 
 var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping test environment")
-
-	//	t := true
-	//	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
-	//		testEnv = &envtest.Environment{
-	//			UseExistingCluster: &t,
-	//		}
-	//	} else {
-	//		customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
-	//			"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
-	//			"PersistentVolumeClaimResize,ResourceQuota",
-	//		}
-	//
-	//		apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
-	//		apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-	//
-	//		testEnv = &envtest.Environment{
-	//			CRDDirectoryPaths: []string{
-	//				filepath.Join("..", "..", "..", "deploy", "crds"),
-	//				filepath.Join("..", "..", "..", "hack", "test"),
-	//			},
-	//			KubeAPIServerFlags: apiServerFlags,
-	//		}
-	//	}
-
-	//	cfg, err := testEnv.Start()
-	//	Expect(err).ToNot(HaveOccurred())
-	//	Expect(cfg).ToNot(BeNil())
 
 	err := apis.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
@@ -93,14 +71,24 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
+	cFunc := func(repo, branch, user, pwd string) (string, error) {
+		return defaultCommit, nil
+	}
+
+	defaulRequeueInterval = time.Second * 1
+
+	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(tlog.NullLogger{}), setHubGitOpsInterval(hookRequeueInterval*1), setGetCommitFunc(cFunc))
+
+	rec := newReconciler(k8sManager, setRequeueInterval, resetHubGitOps(gitOps))
 	// adding the reconcile to manager
-	Expect(add(k8sManager, newReconciler(k8sManager, setRequeueInterval))).Should(Succeed())
+	Expect(add(k8sManager, rec)).Should(Succeed())
 	go func() {
 		Expect(k8sManager.Start(ctrl.SetupSignalHandler())).ToNot(HaveOccurred())
 	}()
 
 	k8sClt = k8sManager.GetClient()
 	Expect(k8sClt).ToNot(BeNil())
+
 	close(done)
 }, StartTimeout)
 

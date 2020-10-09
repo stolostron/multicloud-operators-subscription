@@ -71,19 +71,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 	if utils.IsGitChannel(string(channel.Spec.Type)) {
 		klog.Infof("Subscription %s has Git type channel.", sub.GetName())
 
-		user, pwd, err := utils.GetChannelSecret(r.Client, channel)
-
-		if err != nil {
-			klog.Errorf("Failed to get secret for channel: %s", channel.GetName())
-			return false, err
-		}
-
-		commit, err := utils.CloneGitRepo(channel.Spec.Pathname,
-			utils.GetSubscriptionBranch(sub),
-			user,
-			pwd,
-			utils.GetLocalGitFolder(channel, sub))
-
+		//making sure the commit id is coming from the same source
+		commit, err := r.hubGitOps.GetLatestCommitID(sub)
 		if err != nil {
 			klog.Error(err.Error())
 			return false, err
