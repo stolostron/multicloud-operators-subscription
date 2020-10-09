@@ -220,7 +220,14 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 	}
 
 	if len(slots) == 0 && len(rdays) != 0 {
-		return timeLeftTillNextMidNight(uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+		nextWeekDay := rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+
+		if nextWeekDay == 0 && len(rdays) > 0 {
+			klog.Infof("Today is in valid Daysofweek time window. Today: %v, valid Daysofweek: %v\n", uniCurTime.Weekday(), rdays)
+			return time.Duration(0)
+		}
+
+		return timeLeftTillNextMidNight(uniCurTime) + nextWeekDay
 	}
 
 	if len(slots) != 0 && len(rdays) == 0 {
