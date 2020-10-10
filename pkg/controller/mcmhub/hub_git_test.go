@@ -200,7 +200,7 @@ var _ = Describe("git ops", func() {
 			Expect(k8sClt.Delete(ctx, subIns.DeepCopy())).Should(Succeed())
 		}()
 
-		Eventually(registerSub(dSubKey), pullInterval*3, pullInterval).Should(Succeed())
+		Eventually(registerSub(dSubKey), specTimeOut, pullInterval).Should(Succeed())
 
 		sr := gitOps.GetSubRecords()
 
@@ -240,7 +240,7 @@ var _ = Describe("git ops", func() {
 			}
 		}
 
-		Eventually(detectTargetCommit(dSubKey), pullInterval*5, pullInterval).Should(Succeed())
+		Eventually(detectTargetCommit(dSubKey), specTimeOut, pullInterval).Should(Succeed())
 	})
 
 	It("register the 2nd branch subscription", func() {
@@ -295,6 +295,6 @@ var _ = Describe("git ops", func() {
 		branchInfo2 = rr[ansibleGitURL].branchs[testBranch2]
 		Expect(branchInfo2.registeredSub).Should(HaveKey(sub2Key))
 
-		Eventually(checkGitRegCommit(testBranch2), pullInterval*3, pullInterval).Should(Succeed())
+		Eventually(checkGitRegCommit(testBranch2), specTimeOut, pullInterval).Should(Succeed())
 	})
 })
