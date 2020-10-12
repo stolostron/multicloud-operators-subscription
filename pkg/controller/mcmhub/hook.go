@@ -230,7 +230,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
+	if getCommitID(subIns) != "" && !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
 

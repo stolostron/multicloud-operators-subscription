@@ -172,7 +172,7 @@ func (h *HubGitOps) GitWatch() {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
 
-			h.logger.V(InfoLog).Info("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, bName)
+			h.logger.V(InfoLog).Info(fmt.Sprintf("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, nCommit))
 
 			if nCommit == branchInfo.lastCommitID {
 				h.logger.Info("The repo commit hasn't changed.")
@@ -308,12 +308,17 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	h.subRecords[subKey] = repoName
 	bInfo, ok := h.repoRecords[repoName]
 
-	if !ok {
-		commitID, err := h.initialDownload(subIns)
-		if err != nil {
-			h.logger.Error(err, "failed to get commitID from initialDownload")
-		}
+	commitID, err := h.initialDownload(subIns)
+	if err != nil {
+		h.logger.Error(err, "failed to get commitID from initialDownload")
+	}
 
+	//make sure the initial prehook is passed
+	if getCommitID(subIns) == "" {
+		setCommitID(subIns, commitID)
+	}
+
+	if !ok {
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
 			branchs: map[string]*branchInfo{
@@ -332,11 +337,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	}
 
 	if bInfo.branchs[branchName] == nil {
-		commitID, err := h.initialDownload(subIns)
-		if err != nil {
-			h.logger.Error(err, "failed to get commitID from initialDownload")
-		}
-
 		bInfo.branchs[branchName] = &branchInfo{
 			username:     user,
 			secret:       pwd,
