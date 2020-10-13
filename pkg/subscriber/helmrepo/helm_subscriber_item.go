@@ -132,44 +132,41 @@ func (hrsi *SubscriberItem) doSubscription() {
 		existsHelmRelease := false
 		populatedHelmReleaseStatus := false
 
-		if isHashDiff || isUnsuccessful {
+		existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
+		if err != nil {
+			klog.Error("Failed to determine if HelmRelease exists: ", err)
 
-			existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
+			hrsi.success = false
+
+			return
+		}
+
+		if existsHelmRelease {
+			populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
+				types.NamespacedName{Name: hrsi.Subscription.Name,
+					Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
 			if err != nil {
-				klog.Error("Failed to determine if HelmRelease exists: ", err)
+				klog.Error("Failed to determine if HelmRelease status is populated: ", err)
+
+				hrsi.success = false
+
+				return
+			}
+		}
+
+		if isHashDiff || isUnsuccessful || !existsHelmRelease || !populatedHelmReleaseStatus {
+			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
+				isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
+
+			if err := hrsi.processSubscription(indexFile, hash); err != nil {
+				klog.Error("Failed to process helm repo subscription with error:", err)
 
 				hrsi.success = false
 
 				return
 			}
 
-			if existsHelmRelease {
-				populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
-					types.NamespacedName{Name: hrsi.Subscription.Name,
-						Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
-				if err != nil {
-					klog.Error("Failed to determine if HelmRelease status is populated: ", err)
-
-					hrsi.success = false
-
-					return
-				}
-			}
-
-			if !existsHelmRelease || !populatedHelmReleaseStatus {
-				klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
-					isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
-
-				if err := hrsi.processSubscription(indexFile, hash); err != nil {
-					klog.Error("Failed to process helm repo subscription with error:", err)
-
-					hrsi.success = false
-
-					return
-				}
-
-				hrsi.success = true
-			}
+			hrsi.success = true
 		}
 	}
 }
