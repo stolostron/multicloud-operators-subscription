@@ -130,7 +130,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 		isHashDiff := hash != hrsi.hash
 		isUnsuccessful := !hrsi.success
 		existsHelmRelease := false
-		emptyHelmReleaseStatus := false
+		populatedHelmReleaseStatus := false
 
 		if isHashDiff || isUnsuccessful {
 
@@ -144,11 +144,11 @@ func (hrsi *SubscriberItem) doSubscription() {
 			}
 
 			if existsHelmRelease {
-				emptyHelmReleaseStatus, err = isHelmReleaseStatusEmpty(hrsi.synchronizer.GetLocalClient(),
+				populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
 					types.NamespacedName{Name: hrsi.Subscription.Name,
 						Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
 				if err != nil {
-					klog.Error("Failed to determine if HelmRelease status is empty: ", err)
+					klog.Error("Failed to determine if HelmRelease status is populated: ", err)
 
 					hrsi.success = false
 
@@ -156,9 +156,9 @@ func (hrsi *SubscriberItem) doSubscription() {
 				}
 			}
 
-			if !existsHelmRelease || emptyHelmReleaseStatus {
-				klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v emptyHelmReleaseStatus=%v",
-					isHashDiff, isUnsuccessful, existsHelmRelease, emptyHelmReleaseStatus)
+			if !existsHelmRelease || !populatedHelmReleaseStatus {
+				klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
+					isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
 
 				if err := hrsi.processSubscription(indexFile, hash); err != nil {
 					klog.Error("Failed to process helm repo subscription with error:", err)
@@ -211,8 +211,8 @@ func isHelmReleaseExists(client client.Client, namespace string, releaseCRName s
 	return true, nil
 }
 
-func isHelmReleaseStatusEmpty(client client.Client, hostSub types.NamespacedName, namespace string, releaseCRName string) (bool, error) {
-	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s status is empty", namespace, releaseCRName)
+func isHelmReleaseStatusPopulated(client client.Client, hostSub types.NamespacedName, namespace string, releaseCRName string) (bool, error) {
+	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s status is populated", namespace, releaseCRName)
 
 	helmRelease := &releasev1.HelmRelease{}
 
