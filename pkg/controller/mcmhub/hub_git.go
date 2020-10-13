@@ -82,6 +82,7 @@ type RepoRegistery struct {
 }
 
 type GetCommitFunc func(string, string, string, string) (string, error)
+type cloneFunc func(client.Client, string, *chnv1.Channel, *subv1.Subscription) (string, error)
 
 type HubGitOps struct {
 	clt             client.Client
@@ -92,6 +93,7 @@ type HubGitOps struct {
 	subRecords      map[types.NamespacedName]string
 	repoRecords     map[string]*RepoRegistery
 	getCommitFunc   GetCommitFunc
+	cloneFunc       cloneFunc
 }
 
 var _ GitOps = (*HubGitOps)(nil)
@@ -116,6 +118,12 @@ func setGetCommitFunc(gFunc GetCommitFunc) HubGitOption {
 	}
 }
 
+func setGetCloneFunc(cFunc cloneFunc) HubGitOption {
+	return func(a *HubGitOps) {
+		a.cloneFunc = cFunc
+	}
+}
+
 func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	hGit := &HubGitOps{
 		clt:             clt,
@@ -124,6 +132,7 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 		subRecords:      map[types.NamespacedName]string{},
 		repoRecords:     map[string]*RepoRegistery{},
 		getCommitFunc:   GetLatestRemoteGitCommitID,
+		cloneFunc:       cloneGitRepo,
 	}
 
 	for _, op := range ops {
@@ -156,19 +165,28 @@ func (h *HubGitOps) GitWatch() {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
 		for bName, branchInfo := range repoRegistery.branchs {
+			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s ", url, bName))
 			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
+
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id")
 			}
 
-			if branchInfo.lastCommitID != "" && nCommit == branchInfo.lastCommitID {
+			h.logger.V(InfoLog).Info(fmt.Sprintf("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, nCommit))
+
+			if nCommit == branchInfo.lastCommitID {
+				h.logger.Info("The repo commit hasn't changed.")
 				continue
 			}
 
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
+			h.logger.Info("The repo has new commit: " + nCommit)
 
 			for subKey := range branchInfo.registeredSub {
-				if err := updateCommitAnnotation(h.clt, subKey, nCommit); err != nil {
+				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
+				// The hub subscription reconcile will compare this to the commit ID in the map h.repoRecords[repoName].branchs[bName].lastCommitID
+				// to determine it needs to regenerate deployables.
+				if err := updateCommitAnnotation(h.clt, subKey, fakeCommitID(nCommit)); err != nil {
 					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", nCommit, subKey.String()))
 					continue
 				}
@@ -219,22 +237,31 @@ func isGitChannel(ch *chnv1.Channel) bool {
 }
 
 func genBranchString(subIns *subv1.Subscription) string {
-	branch := ""
 	an := subIns.GetAnnotations()
-
-	if an[subv1.AnnotationGithubBranch] != "" {
-		branch = an[subv1.AnnotationGithubBranch]
+	if len(an) == 0 {
+		return ""
 	}
 
 	if an[subv1.AnnotationGitBranch] != "" {
-		branch = an[subv1.AnnotationGitBranch]
+		return an[subv1.AnnotationGitBranch]
 	}
 
-	if branch == "" {
-		branch = "master"
+	if an[subv1.AnnotationGithubBranch] != "" {
+		return an[subv1.AnnotationGithubBranch]
 	}
 
-	return branch
+	return "master"
+}
+
+func setBranch(subIns *subv1.Subscription, bName string) {
+	an := subIns.GetAnnotations()
+	if len(an) == 0 {
+		an = map[string]string{}
+	}
+
+	an[subv1.AnnotationGitBranch] = bName
+
+	subIns.SetAnnotations(an)
 }
 
 func genRepoName(repoURL, user, pwd string) string {
@@ -281,14 +308,17 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	h.subRecords[subKey] = repoName
 	bInfo, ok := h.repoRecords[repoName]
 
-	if !ok {
-		commitID, err := h.initialDownload(subIns)
-		if err != nil {
-			h.logger.Error(err, "failed to get commitID from initialDownload")
-		}
+	commitID, err := h.initialDownload(subIns)
+	if err != nil {
+		h.logger.Error(err, "failed to get commitID from initialDownload")
+	}
 
+	//make sure the initial prehook is passed
+	if getCommitID(subIns) == "" {
 		setCommitID(subIns, commitID)
+	}
 
+	if !ok {
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
 			branchs: map[string]*branchInfo{
@@ -306,7 +336,24 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		return
 	}
 
+	if bInfo.branchs[branchName] == nil {
+		bInfo.branchs[branchName] = &branchInfo{
+			username:     user,
+			secret:       pwd,
+			lastCommitID: commitID,
+			registeredSub: map[types.NamespacedName]struct{}{
+				subKey: {},
+			},
+		}
+
+		return
+	}
+
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+}
+
+func fakeCommitID(c string) string {
+	return fmt.Sprintf("%s-new", c)
 }
 
 func setCommitID(subIns *subv1.Subscription, commitID string) {
@@ -390,7 +437,7 @@ func (h *HubGitOps) initialDownload(subIns *subv1.Subscription) (string, error) 
 	repoRoot := utils.GetLocalGitFolder(chn, subIns)
 	h.localDir = repoRoot
 
-	return cloneGitRepo(h.clt, repoRoot, chn, subIns)
+	return h.cloneFunc(h.clt, repoRoot, chn, subIns)
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {

@@ -481,6 +481,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 	err := r.CreateSubscriptionAdminRBAC()
 	if err != nil {
+		logger.Error(err, "failed create subscriberitem admin RBAC")
 		return reconcile.Result{}, err
 	}
 
@@ -562,6 +563,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		err = r.doMCMHubReconcile(instance)
 
 		if err != nil {
+			r.logger.Error(err, "failed to process on doMCMHubReconcile")
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
@@ -699,6 +701,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
 	r.logger.Info("Enter finalCommit...")
+	defer r.logger.Info("Eixt finalCommit...")
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
@@ -730,6 +733,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	if !passedPrehook {
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
 		nIns.Status.Reason = preErr.Error()
+		nIns.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
 	} else {
 		nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 	}

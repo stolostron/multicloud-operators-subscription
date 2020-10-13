@@ -52,7 +52,8 @@ const (
 	PreHookType       = "pre"
 	PostHookType      = "post"
 
-	DebugLog = 3
+	DebugLog = 1
+	InfoLog  = 0
 )
 
 //HookProcessor tracks the pre and post hook information of subscriptions.
@@ -229,7 +230,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
+	if getCommitID(subIns) != "" && !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
 		return nil
 	}
 
@@ -471,17 +472,15 @@ func getCommitID(a *subv1.Subscription) string {
 		return ""
 	}
 
-	c := ""
+	if aAno[subv1.AnnotationGitCommit] != "" {
+		return aAno[subv1.AnnotationGitCommit]
+	}
 
 	if aAno[subv1.AnnotationGithubCommit] != "" {
-		c = aAno[subv1.AnnotationGithubCommit]
+		return aAno[subv1.AnnotationGithubCommit]
 	}
 
-	if aAno[subv1.AnnotationGitCommit] != "" {
-		c = aAno[subv1.AnnotationGitCommit]
-	}
-
-	return c
+	return ""
 }
 
 func (a *AnsibleHooks) IsPreHooksCompleted(subKey types.NamespacedName) (bool, error) {
