@@ -166,13 +166,13 @@ func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookO
 		mtx:          sync.Mutex{},
 		hookInterval: hookInterval,
 		registry:     map[types.NamespacedName]*Hooks{},
-		suffixFunc:   suffixBasedOnSpecAndCommitID,
 	}
 
 	for _, op := range ops {
 		op(a)
 	}
 
+	a.suffixFunc = a.suffixBasedOnSpecAndCommitID
 	return a
 }
 
@@ -297,15 +297,16 @@ func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
 
 type SuffixFunc func(*subv1.Subscription) string
 
-func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
-	commitID := getCommitID(subIns)
-	n := len(commitID)
-
-	if n == 0 { // meaning the commitID is not synced with github
-		return ""
+func (a *AnsibleHooks) suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
+	prefixLen := 6
+	//get actual commitID
+	commitID, err := a.gitClt.GetLatestCommitID(subIns)
+	if err != nil {
+		return fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen))
 	}
 
-	prefixLen := 6
+	n := len(commitID)
+
 	if n >= prefixLen {
 		commitID = commitID[:prefixLen]
 	} else {
@@ -365,7 +366,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegis
 
 	if len(preJobs) != 0 || len(postJobs) != 0 {
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-		a.registry[subKey].lastSub = subIns.DeepCopy()
+		a.registry[subKey].lastSub = unmaskFakeCommiIDOnSubIns(subIns)
 	}
 
 	if len(preJobs) != 0 {
@@ -496,8 +497,8 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 }
 
 func isCommitIDNotEqual(old, nnew *subv1.Subscription) bool {
-	aCommit := getCommitID(old)
-	bCommit := getCommitID(nnew)
+	aCommit := unmaskFakeCommitID(getCommitID(old))
+	bCommit := unmaskFakeCommitID(getCommitID(nnew))
 
 	return aCommit != bCommit
 }

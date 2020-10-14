@@ -654,6 +654,8 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 			}
 
 			a := u.GetAnnotations()
+			// this update will be override by the actual git commit id, so it
+			// wont create an extra ansiblejob instance
 			a[subv1.AnnotationGitCommit] = "update-from-test"
 			u.SetAnnotations(a)
 
@@ -668,9 +670,9 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		Eventually(mockManagedCluster, specTimeOut, pullInterval).Should(Succeed())
 		Eventually(mockHostDpl, specTimeOut, pullInterval).Should(Succeed())
 
-		fmt.Println("\n3nd posthook should apply when the commit id of the subscription updated")
+		fmt.Println("\n3nd posthook should not apply when the commit id of the subscription annotation updated")
 		//normally it took around 5 reconcile to get the desired state
-		Eventually(waitForNthGenerateInstance(3), specTimeOut, pullInterval).Should(Succeed())
+		Eventually(waitForNthGenerateInstance(2), specTimeOut, pullInterval).Should(Succeed())
 
 		checkTopo := func() error {
 			u := &subv1.Subscription{}
@@ -685,6 +687,11 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 			if !strings.Contains(tStr, aSt) {
 				return fmt.Errorf("topo annotation is not updated")
+			}
+
+			dplAnn := u.GetAnnotations()[subv1.AnnotationDeployables]
+			if len(dplAnn) == 0 {
+				return fmt.Errorf("deployables annotation is missing")
 			}
 
 			return nil

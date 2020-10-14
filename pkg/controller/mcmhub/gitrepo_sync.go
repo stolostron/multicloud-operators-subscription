@@ -88,6 +88,7 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 		// Compare the commit to the Git repo and update deployables only if the commit has changed
 		// If subscription does not have commit annotation, it needs to be generated in this block.
 		oldCommit := getCommitID(sub)
+
 		if oldCommit == "" || !strings.EqualFold(oldCommit, commit) ||
 			r.isHookUpdate(annotations, subKey) {
 			klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", oldCommit, commit)

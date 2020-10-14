@@ -729,7 +729,6 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	r.logger.Info(fmt.Sprintf("spec or metadata of %s is updated", PrintHelper(nIns)))
-
 	//update status early to make sure the status is ready for post hook to
 	//consume
 	if !passedPrehook {

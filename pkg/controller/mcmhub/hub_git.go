@@ -38,7 +38,8 @@ import (
 )
 
 const (
-	hookInterval = time.Second * 90
+	hookInterval   = time.Second * 90
+	commitIDSuffix = "-new"
 )
 
 type GitOps interface {
@@ -314,10 +315,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	}
 
 	//make sure the initial prehook is passed
-	if getCommitID(subIns) == "" {
-		setCommitID(subIns, commitID)
-	}
-
 	if !ok {
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
@@ -353,7 +350,21 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 }
 
 func fakeCommitID(c string) string {
-	return fmt.Sprintf("%s-new", c)
+	return fmt.Sprintf("%s%s", c, commitIDSuffix)
+}
+
+func unmaskFakeCommitID(c string) string {
+	return strings.TrimSuffix(c, commitIDSuffix)
+}
+
+func unmaskFakeCommiIDOnSubIns(subIns *subv1.Subscription) *subv1.Subscription {
+	out := subIns.DeepCopy()
+
+	umaskCommitID := unmaskFakeCommitID(getCommitID(out))
+
+	setCommitID(out, umaskCommitID)
+
+	return out
 }
 
 func setCommitID(subIns *subv1.Subscription, commitID string) {

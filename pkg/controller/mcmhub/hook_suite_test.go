@@ -49,7 +49,7 @@ var setRequeueInterval = func(r *ReconcileSubscription) {
 }
 
 var gitOps GitOps
-var defaultCommit = "test-0001"
+var defaultCommit = "test-00000001"
 
 func TestHookReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
