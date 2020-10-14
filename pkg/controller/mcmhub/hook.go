@@ -173,6 +173,7 @@ func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookO
 	}
 
 	a.suffixFunc = a.suffixBasedOnSpecAndCommitID
+
 	return a
 }
 
