@@ -63,13 +63,6 @@ type hookTest struct {
 }
 
 func newHookTest() *hookTest {
-	setSufficFunc := func(r *ReconcileSubscription) {
-		sf := func(s *subv1.Subscription) string {
-			return ""
-		}
-
-		r.hooks.SetSuffixFunc(sf)
-	}
 
 	testNs := "ansible"
 	dSubKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
@@ -114,7 +107,6 @@ func newHookTest() *hookTest {
 	return &hookTest{
 		interval:            hookRequeueInterval,
 		hookRequeueInterval: setRequeueInterval,
-		suffixFunc:          setSufficFunc,
 		chnIns:              chn.DeepCopy(),
 		subIns:              subIns.DeepCopy(),
 
@@ -177,7 +169,7 @@ var _ = Describe("multiple reconcile signal of the same subscription instance sp
 
 				fmt.Printf("sub %s = u %+v\n", k, u)
 
-				return errors.New("ansiblejob is not coming up")
+				return fmt.Errorf("extra ansiblejob is created")
 			}
 
 			return nil

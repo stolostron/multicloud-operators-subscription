@@ -68,7 +68,7 @@ func deRegisterSub(key types.NamespacedName) func() error {
 	}
 }
 
-var _ = Describe("hub git ops", func() {
+var _ = PDescribe("hub git ops", func() {
 	var (
 		ctx    = context.TODO()
 		testNs = "t-ns-gitops"

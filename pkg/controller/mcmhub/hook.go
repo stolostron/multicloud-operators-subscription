@@ -166,13 +166,12 @@ func NewAnsibleHooks(clt client.Client, hookInterval time.Duration, ops ...HookO
 		mtx:          sync.Mutex{},
 		hookInterval: hookInterval,
 		registry:     map[types.NamespacedName]*Hooks{},
+		suffixFunc:   suffixBasedOnSpecAndCommitID,
 	}
 
 	for _, op := range ops {
 		op(a)
 	}
-
-	a.suffixFunc = a.suffixBasedOnSpecAndCommitID
 
 	return a
 }
@@ -296,12 +295,12 @@ func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
 	return o.GetGeneration() != n.GetGeneration()
 }
 
-type SuffixFunc func(*subv1.Subscription) string
+type SuffixFunc func(GitOps, *subv1.Subscription) string
 
-func (a *AnsibleHooks) suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
+func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) string {
 	prefixLen := 6
 	//get actual commitID
-	commitID, err := a.gitClt.GetLatestCommitID(subIns)
+	commitID, err := gClt.GetLatestCommitID(subIns)
 	if err != nil {
 		return fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen))
 	}
@@ -326,7 +325,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
+		err := a.registry[subKey].preHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -335,7 +334,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
+	err := a.registry[subKey].postHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }

@@ -49,8 +49,7 @@ type appliedJobs struct {
 	lastAppliedJobs []string
 }
 
-func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc SuffixFunc,
-	jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger,
+func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription, suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger,
 	forceRegister bool, placementRuleRv string, hookType string) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
@@ -68,7 +67,7 @@ func (jIns *JobInstances) registryJobs(subIns *subv1.Subscription, suffixFunc Su
 		}
 
 		nx := ins.DeepCopy()
-		suffix := suffixFunc(subIns)
+		suffix := suffixFunc(gClt, subIns)
 
 		if suffix == "" {
 			continue
