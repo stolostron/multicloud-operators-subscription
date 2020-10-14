@@ -431,7 +431,6 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 				u := &ansiblejob.AnsibleJob{}
 				_ = k8sClt.Get(context.TODO(), foundKey, u)
 
-
 				return fmt.Errorf("failed to find the prehook %s in status", foundKey)
 			}
 
