@@ -79,6 +79,8 @@ type HookProcessor interface {
 	//status info and make a update to the cluster
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
+	AppendPreHookStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
+
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
 }
 
@@ -94,11 +96,31 @@ type Hooks struct {
 func (h *Hooks) ConstructStatus() subv1.AnsibleJobsStatus {
 	st := subv1.AnsibleJobsStatus{}
 
+	preSt := h.constructPrehookStatus()
+	st.LastPosthookJob = preSt.LastPosthookJob
+	st.PosthookJobsHistory = preSt.PosthookJobsHistory
+
+	postSt := h.constructPosthookStatus()
+	st.LastPosthookJob = postSt.LastPosthookJob
+	st.PosthookJobsHistory = postSt.PosthookJobsHistory
+
+	return st
+}
+
+func (h *Hooks) constructPrehookStatus() subv1.AnsibleJobsStatus {
+	st := subv1.AnsibleJobsStatus{}
+
 	if h.preHooks != nil {
 		jobRecords := h.preHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPrehookJob = jobRecords.lastApplied
 		st.PrehookJobsHistory = jobRecords.lastAppliedJobs
 	}
+
+	return st
+}
+
+func (h *Hooks) constructPosthookStatus() subv1.AnsibleJobsStatus {
+	st := subv1.AnsibleJobsStatus{}
 
 	if h.postHooks != nil {
 		jobRecords := h.postHooks.outputAppliedJobs(ansiblestatusFormat)
@@ -189,6 +211,21 @@ func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) su
 	}
 
 	out.AnsibleJobsStatus = hooks.ConstructStatus()
+
+	return out
+}
+
+func (a *AnsibleHooks) AppendPreHookStatusToSubscription(subIns *subv1.Subscription) subv1.SubscriptionStatus {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	hooks := a.registry[subKey]
+	out := subIns.DeepCopy().Status
+
+	//return if the sub doesn't have hook
+	if hooks == nil {
+		return out
+	}
+
+	out.AnsibleJobsStatus = hooks.constructPrehookStatus()
 
 	return out
 }

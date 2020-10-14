@@ -731,6 +731,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	//update status early to make sure the status is ready for post hook to
 	//consume
 	if !passedPrehook {
+		nIns.Status = r.hooks.AppendPreHookStatusToSubscription(nIns)
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
 		nIns.Status.Reason = preErr.Error()
 		nIns.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
