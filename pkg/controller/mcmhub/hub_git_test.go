@@ -135,7 +135,6 @@ var _ = Describe("git ops", func() {
 
 		rr = gitOps.GetRepoRecords()
 
-		fmt.Printf("izhang ======  rr = %+v\n", rr)
 		Expect(rr).ShouldNot(HaveKey(ansibleGitURL))
 		Expect(rr).Should(HaveLen(0))
 	})

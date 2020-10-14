@@ -431,7 +431,6 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 				u := &ansiblejob.AnsibleJob{}
 				_ = k8sClt.Get(context.TODO(), foundKey, u)
 
-				fmt.Printf("izhang ======  ansible = %+v\n", u)
 
 				return fmt.Errorf("failed to find the prehook %s in status", foundKey)
 			}
@@ -608,8 +607,6 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 					for _, i := range aList.Items {
 						fmt.Printf("debug -----> list all the ansiblejob %v/%v\n", i.GetNamespace(), i.GetName())
 					}
-
-					fmt.Printf("izhang get sub %+v\n", u)
 
 					return errors.New("failed to regenerate ansiblejob upon the subscription changes")
 				}

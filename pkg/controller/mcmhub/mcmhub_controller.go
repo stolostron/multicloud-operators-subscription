@@ -451,9 +451,9 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
 	logger := r.logger.WithName(request.String())
-	logger.V(INFOLevel).Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
+	logger.Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
-	defer logger.V(INFOLevel).Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
+	defer logger.Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
 
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
@@ -727,6 +727,8 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 
 		return
 	}
+
+	r.logger.Info(fmt.Sprintf("spec or metadata of %s is updated", PrintHelper(nIns)))
 
 	//update status early to make sure the status is ready for post hook to
 	//consume
