@@ -524,9 +524,16 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		pkgMap[dplkey.Name] = true
 	}
 
-	if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
-		klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
-		doErr = err
+	if len(dplUnits) > 0 || (len(dplUnits) == 0 && doErr == nil) {
+		if len(dplUnits) == 0 {
+			klog.Warningf("The dplUnits length is 0, this might lead to deregistration for subscription %s/%s",
+				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
+		}
+
+		if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+			klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
+			doErr = err
+		}
 	}
 
 	return doErr
