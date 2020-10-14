@@ -49,7 +49,6 @@ const (
 type hookTest struct {
 	interval            time.Duration
 	hookRequeueInterval Option
-	suffixFunc          Option
 	chnIns              *chnv1.Channel
 	subIns              *subv1.Subscription
 
@@ -63,7 +62,6 @@ type hookTest struct {
 }
 
 func newHookTest() *hookTest {
-
 	testNs := "ansible"
 	dSubKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
 	chnKey := types.NamespacedName{Name: "t-chn", Namespace: testNs}

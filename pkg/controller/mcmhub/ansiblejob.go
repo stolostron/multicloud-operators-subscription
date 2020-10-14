@@ -49,8 +49,9 @@ type appliedJobs struct {
 	lastAppliedJobs []string
 }
 
-func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription, suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client, logger logr.Logger,
-	forceRegister bool, placementRuleRv string, hookType string) error {
+func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
+	suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client,
+	logger logr.Logger, forceRegister bool, placementRuleRv string, hookType string) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
