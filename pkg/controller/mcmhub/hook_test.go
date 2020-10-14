@@ -794,10 +794,20 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 				return errors.New("pre ansiblejob is not coming up")
 			}
 
+			u := &subv1.Subscription{}
+			if err := k8sClt.Get(ctx, subKey, u); err != nil {
+				return err
+			}
+
 			preHook := aList.Items[0].DeepCopy()
 
 			preHookKey.Name = preHook.GetName()
 			preHookKey.Namespace = preHook.GetNamespace()
+
+			if u.Status.AnsibleJobsStatus.LastPrehookJob != preHookKey.String() {
+				return fmt.Errorf("prehook is not wrote to the status while pending")
+			}
+
 			return nil
 		}
 
@@ -851,16 +861,14 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 
 			updateStatus := updateSub.Status.AnsibleJobsStatus
 
-			dErr := fmt.Errorf("failed to get status %s", subKey)
-
 			if updateStatus.LastPrehookJob != preHookKey.String() ||
 				len(updateStatus.PrehookJobsHistory) == 0 {
-				return dErr
+				return fmt.Errorf("failed to get prehook status %s", subKey)
 			}
 
 			if updateStatus.LastPosthookJob != postHookKey.String() ||
 				len(updateStatus.PosthookJobsHistory) == 0 {
-				return dErr
+				return fmt.Errorf("failed to get posthook status %s", subKey)
 			}
 
 			return nil

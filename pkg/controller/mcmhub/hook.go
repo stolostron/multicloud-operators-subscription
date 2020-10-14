@@ -97,8 +97,8 @@ func (h *Hooks) ConstructStatus() subv1.AnsibleJobsStatus {
 	st := subv1.AnsibleJobsStatus{}
 
 	preSt := h.constructPrehookStatus()
-	st.LastPosthookJob = preSt.LastPosthookJob
-	st.PosthookJobsHistory = preSt.PosthookJobsHistory
+	st.LastPrehookJob = preSt.LastPrehookJob
+	st.PrehookJobsHistory = preSt.PrehookJobsHistory
 
 	postSt := h.constructPosthookStatus()
 	st.LastPosthookJob = postSt.LastPosthookJob
