@@ -79,6 +79,8 @@ type HookProcessor interface {
 	//status info and make a update to the cluster
 	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
 
+	AppendPreHookStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
+
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
 }
 
@@ -94,11 +96,31 @@ type Hooks struct {
 func (h *Hooks) ConstructStatus() subv1.AnsibleJobsStatus {
 	st := subv1.AnsibleJobsStatus{}
 
+	preSt := h.constructPrehookStatus()
+	st.LastPrehookJob = preSt.LastPrehookJob
+	st.PrehookJobsHistory = preSt.PrehookJobsHistory
+
+	postSt := h.constructPosthookStatus()
+	st.LastPosthookJob = postSt.LastPosthookJob
+	st.PosthookJobsHistory = postSt.PosthookJobsHistory
+
+	return st
+}
+
+func (h *Hooks) constructPrehookStatus() subv1.AnsibleJobsStatus {
+	st := subv1.AnsibleJobsStatus{}
+
 	if h.preHooks != nil {
 		jobRecords := h.preHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPrehookJob = jobRecords.lastApplied
 		st.PrehookJobsHistory = jobRecords.lastAppliedJobs
 	}
+
+	return st
+}
+
+func (h *Hooks) constructPosthookStatus() subv1.AnsibleJobsStatus {
+	st := subv1.AnsibleJobsStatus{}
 
 	if h.postHooks != nil {
 		jobRecords := h.postHooks.outputAppliedJobs(ansiblestatusFormat)
@@ -193,6 +215,21 @@ func (a *AnsibleHooks) AppendStatusToSubscription(subIns *subv1.Subscription) su
 	return out
 }
 
+func (a *AnsibleHooks) AppendPreHookStatusToSubscription(subIns *subv1.Subscription) subv1.SubscriptionStatus {
+	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+	hooks := a.registry[subKey]
+	out := subIns.DeepCopy().Status
+
+	//return if the sub doesn't have hook
+	if hooks == nil {
+		return out
+	}
+
+	out.AnsibleJobsStatus = hooks.constructPrehookStatus()
+
+	return out
+}
+
 func (a *AnsibleHooks) SetSuffixFunc(f SuffixFunc) {
 	if f == nil {
 		return
@@ -245,8 +282,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 	}
 
 	if err := a.gitClt.DownloadAnsibleHookResource(subIns); err != nil {
-		a.logger.Error(err, fmt.Sprintf("failed to download from git source, err: %s", subKey))
-		return nil
+		return fmt.Errorf("failed to download from git source of subscription %s, err: %w", subKey, err)
 	}
 
 	//update the base Ansible job and append a generated job to the preHooks
@@ -259,21 +295,22 @@ func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
 	return o.GetGeneration() != n.GetGeneration()
 }
 
-type SuffixFunc func(*subv1.Subscription) string
+type SuffixFunc func(GitOps, *subv1.Subscription) string
 
-func suffixBasedOnSpecAndCommitID(subIns *subv1.Subscription) string {
-	commitID := getCommitID(subIns)
-	n := len(commitID)
-
-	if n == 0 { // meaning the commitID is not synced with github
+func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) string {
+	prefixLen := 6
+	//get actual commitID
+	commitID, err := gClt.GetLatestCommitID(subIns)
+	if err != nil {
 		return ""
 	}
 
-	prefixLen := 6
+	n := len(commitID)
+
 	if n >= prefixLen {
 		commitID = commitID[:prefixLen]
 	} else {
-		commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
+		return ""
 	}
 
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
@@ -288,7 +325,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
+		err := a.registry[subKey].preHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
 
 		return err
 	}
@@ -297,7 +334,7 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
+	err := a.registry[subKey].postHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
 
 	return err
 }
@@ -329,7 +366,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegis
 
 	if len(preJobs) != 0 || len(postJobs) != 0 {
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-		a.registry[subKey].lastSub = subIns.DeepCopy()
+		a.registry[subKey].lastSub = unmaskFakeCommiIDOnSubIns(subIns)
 	}
 
 	if len(preJobs) != 0 {
@@ -460,8 +497,8 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 }
 
 func isCommitIDNotEqual(old, nnew *subv1.Subscription) bool {
-	aCommit := getCommitID(old)
-	bCommit := getCommitID(nnew)
+	aCommit := unmaskFakeCommitID(getCommitID(old))
+	bCommit := unmaskFakeCommitID(getCommitID(nnew))
 
 	return aCommit != bCommit
 }
