@@ -561,11 +561,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			}
 		}
 
-		fmt.Printf("izhang ======  oins = %+v\n", oins)
 		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
-
-		fmt.Printf("izhang ====== after instance = %+v\n", instance)
 
 		if err != nil {
 			r.logger.Error(err, "failed to process on doMCMHubReconcile")
