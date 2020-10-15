@@ -311,7 +311,6 @@ func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) strin
 		commitID = commitID[:prefixLen]
 	} else {
 		return ""
-		// commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
 	}
 
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
