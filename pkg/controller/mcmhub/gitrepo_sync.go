@@ -96,8 +96,6 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
 
-			setCommitID(sub, commit)
-
 			baseDir := utils.GetLocalGitFolder(channel, sub)
 			resourcePath := getResourcePath(channel, sub)
 
@@ -107,6 +105,8 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 				klog.Error(err.Error())
 				return false, err
 			}
+
+			setCommitID(sub, commit)
 
 			r.updateGitSubDeployablesAnnotation(sub)
 

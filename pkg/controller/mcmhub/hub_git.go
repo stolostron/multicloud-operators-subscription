@@ -47,6 +47,8 @@ type GitOps interface {
 	//the resource to
 	DownloadAnsibleHookResource(*subv1.Subscription) error
 
+	HasHookFolders(*subv1.Subscription) bool
+
 	// GetHooks returns the ansiblejob from a given folder, if the folder is
 	// inaccessible, then os.Error is returned
 	GetHooks(*subv1.Subscription, string) ([]ansiblejob.AnsibleJob, error)
@@ -591,6 +593,22 @@ func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger 
 	}
 
 	return jobs, nil
+}
+
+func (h *HubGitOps) HasHookFolders(subIns *subv1.Subscription) bool {
+	pre, post := getHookPath(subIns)
+
+	if pre == "" && post == "" {
+		return false
+	}
+
+	preFullPath := fmt.Sprintf("%v/%v", h.localDir, pre)
+	_, preErr := os.Stat(preFullPath)
+
+	postFullPath := fmt.Sprintf("%v/%v", h.localDir, post)
+	_, postErr := os.Stat(postFullPath)
+
+	return preErr == nil || postErr == nil
 }
 
 //GetHooks will provided the ansibleJobs at the given hookPath(if given a
