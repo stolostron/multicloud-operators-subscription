@@ -306,6 +306,15 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		klog.Info("Update non-service object. newobj: " + newobj.GroupVersionKind().String())
 		klog.V(5).Infof("Update non-service object. newobj: %#v", newobj)
 		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+
+		// Some kubernetes resources are immutable after creation. Log and ignore update errors.
+		if errors.IsForbidden(err) {
+			klog.Info(err.Error())
+			return nil
+		} else if errors.IsInvalid(err) {
+			klog.Info(err.Error())
+			return nil
+		}
 	}
 
 	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
