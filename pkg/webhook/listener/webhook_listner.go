@@ -44,12 +44,13 @@ import (
 )
 
 const (
-	defaultKeyFile       = "/etc/subscription/tls.key"
-	defaultCrtFile       = "/etc/subscription/tls.crt"
-	GithubEventHeader    = "X-Github-Event"
-	BitbucketEventHeader = "X-Event-Key"
-	GitlabEventHeader    = "X-Gitlab-Event"
-	serviceName          = "multicluster-operators-subscription"
+	defaultKeyFile         = "/etc/subscription/tls.key"
+	defaultCrtFile         = "/etc/subscription/tls.crt"
+	GithubEventHeader      = "X-Github-Event"
+	BitbucketEventHeader   = "X-Event-Key"
+	GitlabEventHeader      = "X-Gitlab-Event"
+	serviceName            = "multicluster-operators-subscription"
+	hubSubscriptionAppName = "multicluster-operators-hub-subscription"
 )
 
 // WebhookListener is a generic webhook event listener
@@ -247,7 +248,7 @@ func webhookListnerService(client client.Client, namespace string) (*corev1.Serv
 				},
 			},
 			Selector: map[string]string{
-				"app": serviceName,
+				"app": hubSubscriptionAppName,
 			},
 			Type:            "ClusterIP",
 			SessionAffinity: "None",
