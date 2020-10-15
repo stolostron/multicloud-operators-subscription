@@ -302,7 +302,7 @@ func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) strin
 	//get actual commitID
 	commitID, err := gClt.GetLatestCommitID(subIns)
 	if err != nil {
-		return fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen))
+		return ""
 	}
 
 	n := len(commitID)
@@ -310,7 +310,8 @@ func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) strin
 	if n >= prefixLen {
 		commitID = commitID[:prefixLen]
 	} else {
-		commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
+		return ""
+		// commitID = fmt.Sprintf("%s%s", commitID, strings.Repeat("0", prefixLen-n))
 	}
 
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
