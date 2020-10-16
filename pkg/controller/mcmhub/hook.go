@@ -267,7 +267,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 
 	if !a.gitClt.HasHookFolders(subIns) {
 		a.logger.V(DebugLog).Info(fmt.Sprintf("%s doesn't have hook folder(s), skip", PrintHelper(subIns)))
-		fmt.Printf("izhang ======  no hook = \n")
+
 		return nil
 	}
 	//if not forcing a register and the subIns has not being changed compare to the hook registry

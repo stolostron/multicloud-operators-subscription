@@ -252,7 +252,7 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 	}
 }
 
-var _ = FDescribe("given a subscription pointing to a git path without hook folders", func() {
+var _ = Describe("given a subscription pointing to a git path without hook folders", func() {
 	var (
 		ctx    = context.TODO()
 		testNs = "normal-sub"
@@ -292,8 +292,7 @@ var _ = FDescribe("given a subscription pointing to a git path without hook fold
 		}
 	)
 
-	It("should donwload the git to local and add deployables annotations to subscription", func() {
-
+	FIt("should download the git to local and add deployables annotations to subscription", func() {
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
@@ -313,7 +312,7 @@ var _ = FDescribe("given a subscription pointing to a git path without hook fold
 			an := u.GetAnnotations()
 
 			if getCommitID(u) == "" || an[subv1.AnnotationDeployables] == "" || an[subv1.AnnotationTopo] == "" {
-				return fmt.Errorf("failed to get the commitId, deployables or topo annotation")
+				return fmt.Errorf("failed to get the commitID, deployables or topo annotation")
 			}
 
 			return nil
@@ -323,7 +322,7 @@ var _ = FDescribe("given a subscription pointing to a git path without hook fold
 	})
 })
 
-var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", func() {
+var _ = FDescribe("given a subscription pointing to a git path,where pre hook folder present", func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()

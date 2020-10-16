@@ -53,22 +53,25 @@ type GitOps interface {
 	// inaccessible, then os.Error is returned
 	GetHooks(*subv1.Subscription, string) ([]ansiblejob.AnsibleJob, error)
 
-	// RegisterBranch
+	// RegisterBranch to git watcher and do a initial download for other
+	// components to consume
 	RegisterBranch(*subv1.Subscription)
 
 	// DeregisterBranch
 	DeregisterBranch(types.NamespacedName)
 
-	GetSubRecords() map[types.NamespacedName]string
-
 	//helper for test
 	GetRepoRecords() map[string]*RepoRegistery
+	GetSubRecords() map[types.NamespacedName]string
 
+	//GetLatestCommitID will output the latest commit id from local git record
+	GetLatestCommitID(*subv1.Subscription) (string, error)
+	//ResolveLocalGitFolder is used to open a local folder for downloading the
+	//repo branch
 	ResolveLocalGitFolder(*chnv1.Channel, *subv1.Subscription) string
 
 	GetRepoRootDirctory(*subv1.Subscription) string
-	//GetLatestCommitID will output the latest commit id from local git record
-	GetLatestCommitID(*subv1.Subscription) (string, error)
+
 	//Runnable
 	Start(<-chan struct{}) error
 }
@@ -194,7 +197,9 @@ func (h *HubGitOps) GitWatch() {
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
 			h.logger.Info("The repo has new commit: " + nCommit)
 
-			h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir)
+			if _, err := h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir); err != nil {
+				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
+			}
 
 			for subKey := range branchInfo.registeredSub {
 				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
@@ -456,12 +461,8 @@ func (h *HubGitOps) GetRepoRootDirctory(subIns *subv1.Subscription) string {
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
-	return h.donwloadAnsibleJobFromGit(h.clt, subIns, h.logger)
-}
-
-func (h *HubGitOps) donwloadAnsibleJobFromGit(clt client.Client, subIns *subv1.Subscription, logger logr.Logger) error {
-	logger.V(DebugLog).Info("entry donwloadAnsibleJobFromGit")
-	defer logger.V(DebugLog).Info("exit donwloadAnsibleJobFromGit")
+	h.logger.V(DebugLog).Info("entry DownloadAnsibleHookResource")
+	defer h.logger.V(DebugLog).Info("exit DownloadAnsibleHookResource")
 
 	// meaning the branch is already downloaded
 	if h.GetRepoRootDirctory(subIns) != "" {
@@ -471,16 +472,6 @@ func (h *HubGitOps) donwloadAnsibleJobFromGit(clt client.Client, subIns *subv1.S
 	h.RegisterBranch(subIns)
 
 	return nil
-}
-
-func cloneGitRepo(clt client.Client, repoRoot string, chn *chnv1.Channel, sub *subv1.Subscription) (commitID string, err error) {
-	user, pwd, err := utils.GetChannelSecret(clt, chn)
-
-	if err != nil {
-		return "", err
-	}
-
-	return utils.CloneGitRepo(chn.Spec.Pathname, utils.GetSubscriptionBranch(sub), user, pwd, repoRoot)
 }
 
 func cloneGitRepoBranch(repoURL string, branchName string, user, pwd, repoBranchDir string) (string, error) {

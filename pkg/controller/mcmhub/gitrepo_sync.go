@@ -364,13 +364,14 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) error {
 	fmt.Printf("izhang ======  localRepoRoot = %+v\n", localRepoRoot)
 	fmt.Printf("izhang ======  baseDir = %+v\n", baseDir)
+
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(localRepoRoot, subPath)
+
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
 		return err
 	}
 
-	fmt.Printf("izhang ======  chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles = %+v,%+v,%+v,%+v,%+v\n", chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles)
 	// Build a helm repo index file
 	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
 
