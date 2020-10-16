@@ -96,10 +96,10 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
 
-			baseDir := utils.GetLocalGitFolder(channel, sub)
-			resourcePath := getResourcePath(channel, sub)
+			baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
+			resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, channel, sub)
 
-			err = r.processRepo(channel, sub, utils.GetLocalGitFolder(channel, sub), resourcePath, baseDir)
+			err = r.processRepo(channel, sub, r.hubGitOps.ResolveLocalGitFolder(channel, sub), resourcePath, baseDir)
 
 			if err != nil {
 				klog.Error(err.Error())
@@ -234,14 +234,14 @@ func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscriptio
 	return false
 }
 
-func getResourcePath(chn *chnv1.Channel, sub *appv1.Subscription) string {
-	resourcePath := utils.GetLocalGitFolder(chn, sub)
+func getResourcePath(localFolderFunc func(*chnv1.Channel, *appv1.Subscription) string, chn *chnv1.Channel, sub *appv1.Subscription) string {
+	resourcePath := localFolderFunc(chn, sub)
 
 	annotations := sub.GetAnnotations()
 	if annotations[appv1.AnnotationGithubPath] != "" {
-		resourcePath = filepath.Join(utils.GetLocalGitFolder(chn, sub), annotations[appv1.AnnotationGithubPath])
+		resourcePath = filepath.Join(localFolderFunc(chn, sub), annotations[appv1.AnnotationGithubPath])
 	} else if annotations[appv1.AnnotationGitPath] != "" {
-		resourcePath = filepath.Join(utils.GetLocalGitFolder(chn, sub), annotations[appv1.AnnotationGitPath])
+		resourcePath = filepath.Join(localFolderFunc(chn, sub), annotations[appv1.AnnotationGitPath])
 	}
 
 	return resourcePath
@@ -268,7 +268,7 @@ func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.
 }
 
 func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, chn *chnv1.Channel) string {
-	idxFile, err := getGitChart(sub, utils.GetLocalGitFolder(chn, sub), getResourcePath(chn, sub))
+	idxFile, err := getGitChart(sub, utils.GetLocalGitFolder(chn, sub), getResourcePath(r.hubGitOps.ResolveLocalGitFolder, chn, sub))
 	if err != nil {
 		klog.Error(err.Error())
 		return ""
@@ -362,12 +362,15 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 }
 
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) error {
+	fmt.Printf("izhang ======  localRepoRoot = %+v\n", localRepoRoot)
+	fmt.Printf("izhang ======  baseDir = %+v\n", baseDir)
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(localRepoRoot, subPath)
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
 		return err
 	}
 
+	fmt.Printf("izhang ======  chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles = %+v,%+v,%+v,%+v,%+v\n", chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles)
 	// Build a helm repo index file
 	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
 

@@ -252,6 +252,77 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 	}
 }
 
+var _ = FDescribe("given a subscription pointing to a git path without hook folders", func() {
+	var (
+		ctx    = context.TODO()
+		testNs = "normal-sub"
+		subKey = types.NamespacedName{Name: "t-sub", Namespace: testNs}
+		chnKey = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+
+		chnIns = &chnv1.Channel{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      chnKey.Name,
+				Namespace: chnKey.Namespace,
+			},
+			Spec: chnv1.ChannelSpec{
+				Pathname: ansibleGitURL,
+				Type:     chnv1.ChannelTypeGit,
+			},
+		}
+
+		subIns = &subv1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      subKey.Name,
+				Namespace: subKey.Namespace,
+				Annotations: map[string]string{
+					subv1.AnnotationGitBranch: "release-2.0",
+					subv1.AnnotationGitPath:   "test/github/resources",
+				},
+			},
+			Spec: subv1.SubscriptionSpec{
+				Channel: chnKey.String(),
+				Placement: &plrv1alpha1.Placement{
+					GenericPlacementFields: plrv1alpha1.GenericPlacementFields{
+						Clusters: []plrv1alpha1.GenericClusterReference{
+							{Name: "test-cluster"},
+						},
+					},
+				},
+			},
+		}
+	)
+
+	It("should donwload the git to local and add deployables annotations to subscription", func() {
+
+		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
+
+		defer func() {
+			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+		}()
+
+		waitForSubscription := func() error {
+			u := &subv1.Subscription{}
+
+			if err := k8sClt.Get(ctx, subKey, u); err != nil {
+				return fmt.Errorf("failed to get subscription %s, err: %s", subKey, err.Error())
+			}
+			fmt.Printf("izhang ======  u = %+v\n", u)
+
+			an := u.GetAnnotations()
+
+			if getCommitID(u) == "" || an[subv1.AnnotationDeployables] == "" || an[subv1.AnnotationTopo] == "" {
+				return fmt.Errorf("failed to get the commitId, deployables or topo annotation")
+			}
+
+			return nil
+		}
+
+		Eventually(waitForSubscription, specTimeOut, pullInterval).Should(Succeed())
+	})
+})
+
 var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", func() {
 	var (
 		testPath = newHookTest()

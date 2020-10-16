@@ -39,6 +39,7 @@ import (
 const (
 	StartTimeout        = 30 // seconds
 	hookRequeueInterval = time.Second * 1
+	testGitPath         = "../../.."
 )
 
 var k8sManager mgr.Manager
@@ -78,8 +79,12 @@ var _ = BeforeSuite(func(done Done) {
 		return defaultCommit, nil
 	}
 
-	cloneFunc := func(client.Client, string, *chnv1.Channel, *subv1.Subscription) (string, error) {
+	cloneFunc := func(string, string, string, string, string) (string, error) {
 		return defaultCommit, nil
+	}
+
+	localRepoDidr := func(*chnv1.Channel, *subv1.Subscription) string {
+		return testGitPath
 	}
 
 	defaulRequeueInterval = time.Second * 1
@@ -87,7 +92,9 @@ var _ = BeforeSuite(func(done Done) {
 	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(tlog.NullLogger{}),
 		setHubGitOpsInterval(hookRequeueInterval*1),
 		setGetCommitFunc(cFunc),
-		setGetCloneFunc(cloneFunc))
+		setGetCloneFunc(cloneFunc),
+		setLocalDirResovler(localRepoDidr),
+	)
 
 	rec := newReconciler(k8sManager, setRequeueInterval, resetHubGitOps(gitOps))
 	// adding the reconcile to manager

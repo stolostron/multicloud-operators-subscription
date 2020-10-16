@@ -267,6 +267,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 
 	if !a.gitClt.HasHookFolders(subIns) {
 		a.logger.V(DebugLog).Info(fmt.Sprintf("%s doesn't have hook folder(s), skip", PrintHelper(subIns)))
+		fmt.Printf("izhang ======  no hook = \n")
 		return nil
 	}
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
@@ -303,19 +304,14 @@ type SuffixFunc func(GitOps, *subv1.Subscription) string
 
 func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) string {
 	prefixLen := 6
+
 	//get actual commitID
 	commitID, err := gClt.GetLatestCommitID(subIns)
 	if err != nil {
 		return ""
 	}
 
-	n := len(commitID)
-
-	if n >= prefixLen {
-		commitID = commitID[:prefixLen]
-	} else {
-		return ""
-	}
+	commitID = commitID[:prefixLen]
 
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
 }
