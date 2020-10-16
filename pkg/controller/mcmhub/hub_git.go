@@ -441,12 +441,12 @@ func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error
 func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error) {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	repoName, ok := h.subRecords[subKey]
+	_, ok := h.subRecords[subKey]
 	if !ok { // when git watcher doesn't have the record, go ahead clone the repo and return the commitID
 		h.RegisterBranch(subIns)
 	}
 
-	repoName, _ = h.subRecords[subKey]
+	repoName := h.subRecords[subKey]
 
 	return h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID, nil
 }
