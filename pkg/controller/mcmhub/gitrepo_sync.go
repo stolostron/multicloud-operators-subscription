@@ -362,9 +362,6 @@ func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, al
 }
 
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) error {
-	fmt.Printf("izhang ======  localRepoRoot = %+v\n", localRepoRoot)
-	fmt.Printf("izhang ======  baseDir = %+v\n", baseDir)
-
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(localRepoRoot, subPath)
 
 	if err != nil {

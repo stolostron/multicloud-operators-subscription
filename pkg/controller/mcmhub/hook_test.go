@@ -292,7 +292,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 		}
 	)
 
-	FIt("should download the git to local and add deployables annotations to subscription", func() {
+	It("should download the git to local and add deployables annotations to subscription", func() {
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
@@ -322,7 +322,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 	})
 })
 
-var _ = FDescribe("given a subscription pointing to a git path,where pre hook folder present", func() {
+var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()

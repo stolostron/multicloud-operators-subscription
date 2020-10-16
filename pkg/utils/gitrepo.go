@@ -272,8 +272,6 @@ func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string
 
 	kubeIgnore := GetKubeIgnore(resourcePath)
 
-	fmt.Printf("izhang ======  repoRoot, resourcePath = %+v %v\n", repoRoot, resourcePath)
-
 	err := filepath.Walk(resourcePath,
 		func(path string, info os.FileInfo, err error) error {
 			if err != nil {
