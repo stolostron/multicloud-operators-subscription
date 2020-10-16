@@ -446,6 +446,8 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 		h.RegisterBranch(subIns)
 	}
 
+	repoName, _ = h.subRecords[subKey]
+
 	return h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID, nil
 }
 
