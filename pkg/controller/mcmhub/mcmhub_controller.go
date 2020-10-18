@@ -76,7 +76,7 @@ rules:
   - '*'`
 
 const (
-	hubLogger                  = "subscription-hub-reconciler"
+	reconcileName              = "subscription-hub-reconciler"
 	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
 	placementRuleFlag          = "--fired-by-placementrule"
@@ -102,11 +102,12 @@ func resetHubGitOps(g GitOps) Option {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
-	logger := klogr.New().WithName(hubLogger)
+	logger := klogr.New().WithName(reconcileName)
 
 	gitOps := NewHookGit(mgr.GetClient(), setHubGitOpsLogger(logger))
 
 	rec := &ReconcileSubscription{
+		name:   reconcileName,
 		Client: mgr.GetClient(),
 		// used for the helm to run get the resource list
 		cfg:                 mgr.GetConfig(),
@@ -344,6 +345,7 @@ var _ reconcile.Reconciler = &ReconcileSubscription{}
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
+	name string
 	client.Client
 	logger              logr.Logger
 	cfg                 *rest.Config
@@ -709,7 +711,7 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	}
 
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
-		if err := r.Client.Update(context.TODO(), nIns.DeepCopy()); err != nil {
+		if err := r.Client.Update(context.TODO(), nIns.DeepCopy(), &client.UpdateOptions{FieldManager: r.name}); err != nil {
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = defaulRequeueInterval
 				r.logger.Error(err, fmt.Sprintf("%s failed to update spec or metadata, will retry after %s", PrintHelper(nIns), res.RequeueAfter))
@@ -743,7 +745,9 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
 		nIns.Status.LastUpdateTime = metav1.Now()
 
-		if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
+		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
 			if res.RequeueAfter == time.Duration(0) {
 				res.RequeueAfter = defaulRequeueInterval
 				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
@@ -782,15 +786,15 @@ func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
 	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 	nIns.Status.LastUpdateTime = metav1.Now()
 
-	if err := r.Client.Status().Update(context.TODO(), nIns.DeepCopy()); err != nil {
-		if k8serrors.IsGone(err) {
-			return
-		}
-
+	err = r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
 		if res.RequeueAfter == time.Duration(0) {
 			res.RequeueAfter = defaulRequeueInterval
 			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
 		}
+
+		return
 	}
 }
 

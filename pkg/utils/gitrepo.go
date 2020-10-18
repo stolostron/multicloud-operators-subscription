@@ -156,22 +156,25 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 
 // GetSubscriptionBranch returns GitHub repo branch for a given subscription
 func GetSubscriptionBranch(sub *appv1.Subscription) plumbing.ReferenceName {
-	branch := plumbing.Master
-
 	annotations := sub.GetAnnotations()
-
 	branchStr := annotations[appv1.AnnotationGitBranch]
 
 	if branchStr == "" {
 		branchStr = annotations[appv1.AnnotationGithubBranch] // AnnotationGithubBranch will be depricated
 	}
 
-	if branchStr != "" {
-		if !strings.HasPrefix(branchStr, "refs/heads/") {
-			branchStr = "refs/heads/" + branchStr
+	return GetSubscriptionBranchRef(branchStr)
+}
+
+func GetSubscriptionBranchRef(b string) plumbing.ReferenceName {
+	branch := plumbing.Master
+
+	if b != "" && b != "master" {
+		if !strings.HasPrefix(b, "refs/heads/") {
+			b = "refs/heads/" + b
 		}
 
-		branch = plumbing.ReferenceName(branchStr)
+		branch = plumbing.ReferenceName(b)
 	}
 
 	return branch

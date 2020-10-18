@@ -188,7 +188,7 @@ CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
 
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
