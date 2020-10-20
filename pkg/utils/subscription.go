@@ -50,6 +50,7 @@ const (
 	maxNameLength = 52 - len("-delete-registrations")
 	randomLength  = 5
 	//minus 1 because we add a dash
+	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 )
 
@@ -98,6 +99,14 @@ func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
 	oldAnnotations := fOsub.GetAnnotations()
 	newAnnotations := fNSub.GetAnnotations()
 
+	if !isEqualAnnotationFiled(oldAnnotations, newAnnotations, appv1.AnnotationDeployables) {
+		return true
+	}
+
+	if !isEqualAnnotationFiled(oldAnnotations, newAnnotations, appv1.AnnotationTopo) {
+		return true
+	}
+
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
 		return true
@@ -111,6 +120,30 @@ func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
 	}
 
 	return false
+}
+
+func isEqualAnnotationFiled(o, n map[string]string, key string) bool {
+	oDpl := o[key]
+	nDpl := n[key]
+
+	oOut := stringToSet(oDpl, annotationsSep)
+	nOut := stringToSet(nDpl, annotationsSep)
+
+	delete(o, key)
+	delete(n, key)
+
+	return reflect.DeepEqual(oOut, nOut)
+}
+
+func stringToSet(in string, sep string) map[string]struct{} {
+	out := map[string]struct{}{}
+	for _, w := range strings.Split(in, sep) {
+		if _, ok := out[w]; !ok {
+			out[w] = struct{}{}
+		}
+	}
+
+	return out
 }
 
 // the input object shouldn't be changed at all
