@@ -189,7 +189,7 @@ func (h *HubGitOps) GitWatch() {
 
 			// safe guard condition to filter out the edge case
 			if nCommit == "" {
-				h.logger.Info(fmt.Sprintf("repo %s, branch %s get empty commit ID (%s) from remote", url, bName, nCommit))
+				h.logger.Info(fmt.Sprintf("repo %s, branch %s get empty commit ID from remote", url, bName))
 				continue
 			}
 
