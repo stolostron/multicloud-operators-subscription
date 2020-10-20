@@ -180,11 +180,17 @@ func (h *HubGitOps) GitWatch() {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
 		for bName, branchInfo := range repoRegistery.branchs {
-			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s ", url, bName))
+			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, bName))
 			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id")
+			}
+
+			// safe guard condition to filter out the edge case
+			if nCommit == "" {
+				h.logger.Info(fmt.Sprintf("repo %s, branch %s get empty commit ID from remote", url, bName))
+				continue
 			}
 
 			h.logger.V(InfoLog).Info(fmt.Sprintf("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, nCommit))
