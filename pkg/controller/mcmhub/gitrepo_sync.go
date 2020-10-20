@@ -91,7 +91,13 @@ func (r *ReconcileSubscription) UpdateGitDeployablesAnnotation(sub *appv1.Subscr
 
 		if oldCommit == "" || !strings.EqualFold(oldCommit, commit) ||
 			r.isHookUpdate(annotations, subKey) {
-			klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", oldCommit, commit)
+			if oldCommit == "" || !strings.EqualFold(oldCommit, commit) {
+				klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", oldCommit, commit)
+			}
+
+			if r.isHookUpdate(annotations, subKey) {
+				klog.Info("The topo annotation does not have applied hooks. Adding it.")
+			}
 			// Delete the existing deployables that meets the subscription
 			// selector and recreate them
 			r.deleteSubscriptionDeployables(sub)
