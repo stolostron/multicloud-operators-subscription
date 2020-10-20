@@ -79,6 +79,13 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		jobRecords.Original = ins
 
 		if forceRegister {
+			if len(jobRecords.Instance) == 0 {
+				logger.Info("forceRegister is enabled but there are no other jobs on the record, skip creating AnsibleJob.")
+				jobRecords.mux.Unlock()
+
+				return nil
+			}
+
 			plrSuffixFunc := func() string {
 				return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), placementRuleRv)
 			}
