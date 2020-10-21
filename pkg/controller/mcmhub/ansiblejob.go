@@ -96,7 +96,11 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
-			if !commitIDChanged && placementDecisionUpdated && len(jobRecords.Instance) > 0 {
+			jobRecordsInstancePopulated := len(jobRecords.Instance) > 0
+
+			if !commitIDChanged && placementDecisionUpdated && jobRecordsInstancePopulated {
+				logger.V(DebugLog).Info("Checking to see AnsibleJob should be created...")
+
 				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
 
 				// if the last job is running (or already done)
@@ -139,6 +143,10 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 					continue
 				}
+			} else {
+				logger.Info(fmt.Sprintf("Skipping duplicated AnsibleJob creation check..."+
+					" commitIDChanged=%v placementDecisionUpdated=%v jobRecordsInstancePopulated=%v",
+					commitIDChanged, placementDecisionUpdated, jobRecordsInstancePopulated))
 			}
 
 			jobRecords.InstanceSet[nxKey] = struct{}{}
