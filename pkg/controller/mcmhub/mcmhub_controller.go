@@ -541,13 +541,13 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 				return reconcile.Result{}, nil
 			}
 
-			r.overridePrehookTopoAnnotation(instance)
-
 			//if it's registered
 			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
 			if !b || err != nil {
 				// used for use the status update
 				_ = preErr
+
+				r.overridePrehookTopoAnnotation(instance)
 
 				if err != nil {
 					logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
@@ -681,6 +681,13 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 		}
 
 		for pkg, pSt := range cSt.SubscriptionPackageStatus {
+			//pSt.ResourceStatus == nil is used to prevent the initialize error
+			if pSt.ResourceStatus == nil || string(pSt.ResourceStatus.Raw) == "{}" {
+				r.logger.Error(fmt.Errorf("cluster %s package %s's resources %s", cluster,
+					pkg, pSt.ResourceStatus), "subscription is not completed")
+				return false, nil
+			}
+
 			if pSt.Phase != subv1.SubscriptionSubscribed {
 				r.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
 					"subscription is not completed")
