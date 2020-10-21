@@ -137,6 +137,7 @@ func isEqualAnnotationFiled(o, n map[string]string, key string) bool {
 
 func stringToSet(in string, sep string) map[string]struct{} {
 	out := map[string]struct{}{}
+
 	for _, w := range strings.Split(in, sep) {
 		if _, ok := out[w]; !ok {
 			out[w] = struct{}{}

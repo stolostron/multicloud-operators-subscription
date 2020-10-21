@@ -588,13 +588,15 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 			oldIns: &appv1.Subscription{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
+						//nolint
 						"apps.open-cluster-management.io/deployables": "test/pacman-subscription-0-ansible-pacman-mongo-deployment,test/pacman-subscription-0-ansible-pacman-pacman-deployment,test/pacman-subscription-0-ansible-pacman-f5-gslb-pacman-route,test/pacman-subscription-0-ansible-pacman-pacman-route,test/pacman-subscription-0-ansible-pacman-mongo-service,test/pacman-subscription-0-ansible-pacman-pacman-service,test/pacman-subscription-0-ansible-pacman-mongo-storage-persistentvolumeclaim",
 						"apps.open-cluster-management.io/git-branch":  "master",
 						"apps.open-cluster-management.io/git-commit":  "389b2a1f023caa314a4a92c3831d86bbff0acf08",
 						"apps.open-cluster-management.io/git-path":    "ansible/pacman",
-						"apps.open-cluster-management.io/topo":        "deployable//Deployment//mongo/1,deployable//Deployment//pacman/1,deployable//Route//f5-gslb-pacman/0,deployable//Route//pacman/0,deployable//Service//mongo/0,deployable//Service//pacman/0,deployable//PersistentVolumeClaim//mongo-storage/0,hook//AnsibleJob/test/service-now-nginx-demo-1-389b2a/0,hook//AnsibleJob/test/f5-update-dns-load-balancer-1-389b2a/0",
-						"open-cluster-management.io/user-group":       "c3lzdGVtOmNsdXN0ZXItYWRtaW5zLHN5c3RlbTphdXRoZW50aWNhdGVk",
-						"open-cluster-management.io/user-identity":    "a3ViZTphZG1pbg==",
+						//nolint
+						"apps.open-cluster-management.io/topo":     "deployable//Deployment//mongo/1,deployable//Deployment//pacman/1,deployable//Route//f5-gslb-pacman/0,deployable//Route//pacman/0,deployable//Service//mongo/0,deployable//Service//pacman/0,deployable//PersistentVolumeClaim//mongo-storage/0,hook//AnsibleJob/test/service-now-nginx-demo-1-389b2a/0,hook//AnsibleJob/test/f5-update-dns-load-balancer-1-389b2a/0",
+						"open-cluster-management.io/user-group":    "c3lzdGVtOmNsdXN0ZXItYWRtaW5zLHN5c3RlbTphdXRoZW50aWNhdGVk",
+						"open-cluster-management.io/user-identity": "a3ViZTphZG1pbg==",
 					},
 				},
 			},
@@ -602,13 +604,15 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 			newIns: &appv1.Subscription{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{
+						//nolint
 						"apps.open-cluster-management.io/deployables": "test/pacman-subscription-0-ansible-pacman-mongo-storage-persistentvolumeclaim,test/pacman-subscription-0-ansible-pacman-mongo-deployment,test/pacman-subscription-0-ansible-pacman-pacman-deployment,test/pacman-subscription-0-ansible-pacman-f5-gslb-pacman-route,test/pacman-subscription-0-ansible-pacman-pacman-route,test/pacman-subscription-0-ansible-pacman-mongo-service,test/pacman-subscription-0-ansible-pacman-pacman-service",
 						"apps.open-cluster-management.io/git-branch":  "master",
 						"apps.open-cluster-management.io/git-commit":  "389b2a1f023caa314a4a92c3831d86bbff0acf08",
 						"apps.open-cluster-management.io/git-path":    "ansible/pacman",
-						"apps.open-cluster-management.io/topo":        "deployable//Service//mongo/0,deployable//Service//pacman/0,deployable//PersistentVolumeClaim//mongo-storage/0,deployable//Deployment//mongo/1,deployable//Deployment//pacman/1,deployable//Route//f5-gslb-pacman/0,deployable//Route//pacman/0,hook//AnsibleJob/test/service-now-nginx-demo-1-389b2a/0,hook//AnsibleJob/test/f5-update-dns-load-balancer-1-389b2a/0",
-						"open-cluster-management.io/user-group":       "c3lzdGVtOmNsdXN0ZXItYWRtaW5zLHN5c3RlbTphdXRoZW50aWNhdGVk",
-						"open-cluster-management.io/user-identity":    "a3ViZTphZG1pbg==",
+						//nolint
+						"apps.open-cluster-management.io/topo":     "deployable//Service//mongo/0,deployable//Service//pacman/0,deployable//PersistentVolumeClaim//mongo-storage/0,deployable//Deployment//mongo/1,deployable//Deployment//pacman/1,deployable//Route//f5-gslb-pacman/0,deployable//Route//pacman/0,hook//AnsibleJob/test/service-now-nginx-demo-1-389b2a/0,hook//AnsibleJob/test/f5-update-dns-load-balancer-1-389b2a/0",
+						"open-cluster-management.io/user-group":    "c3lzdGVtOmNsdXN0ZXItYWRtaW5zLHN5c3RlbTphdXRoZW50aWNhdGVk",
+						"open-cluster-management.io/user-identity": "a3ViZTphZG1pbg==",
 					},
 				},
 			},
