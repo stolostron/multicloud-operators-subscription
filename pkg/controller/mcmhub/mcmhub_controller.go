@@ -461,11 +461,11 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	passedPrehook := true
 
 	//flag used to determine if the reconcile came from a placementrule decision change then force register
-	forceRegister := false
+	placementDecisionUpdated := false
 	placementRuleRv := ""
 
 	if strings.Contains(request.Name, placementRuleFlag) {
-		forceRegister = true
+		placementDecisionUpdated = true
 		placementRuleRv = after(request.Name, placementRuleFlag)
 		request.Name = strings.TrimSuffix(request.Name, placementRuleRv)
 		request.Name = strings.TrimSuffix(request.Name, placementRuleFlag)
@@ -520,7 +520,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		r.hubGitOps.RegisterBranch(instance)
 		// register will skip the failed clone repo
-		if err := r.hooks.RegisterSubscription(instance, forceRegister, placementRuleRv); err != nil {
+		if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
 			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 

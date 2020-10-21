@@ -247,7 +247,7 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
-func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
+func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string) error {
 	a.logger.V(DebugLog).Info("entry register subscription")
 	defer a.logger.V(DebugLog).Info("exit register subscription")
 
@@ -272,7 +272,8 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 	}
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	if getCommitID(subIns) != "" && !forceRegister && !a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual) {
+	commitIDChanged := a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual)
+	if getCommitID(subIns) != "" && !placementDecisionUpdated && !commitIDChanged {
 		return nil
 	}
 
@@ -291,7 +292,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, forceReg
 	}
 
 	//update the base Ansible job and append a generated job to the preHooks
-	return a.addHookToRegisitry(subIns, forceRegister, placementRuleRv)
+	return a.addHookToRegisitry(subIns, placementDecisionUpdated, placementRuleRv, commitIDChanged)
 }
 
 func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
@@ -317,7 +318,8 @@ func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) strin
 }
 
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
-	jobs []ansiblejob.AnsibleJob, forceRegister bool, placementRuleRv string) error {
+	jobs []ansiblejob.AnsibleJob, placementDecisionUpdated bool, placementRuleRv string,
+	commitIDChanged bool) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if hookFlag == PreHookType {
@@ -325,7 +327,8 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 			a.registry[subKey].preHooks = &JobInstances{}
 		}
 
-		err := a.registry[subKey].preHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "prehook")
+		err := a.registry[subKey].preHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger,
+			placementDecisionUpdated, placementRuleRv, "prehook", commitIDChanged)
 
 		return err
 	}
@@ -334,7 +337,8 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 		a.registry[subKey].postHooks = &JobInstances{}
 	}
 
-	err := a.registry[subKey].postHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger, forceRegister, placementRuleRv, "posthook")
+	err := a.registry[subKey].postHooks.registryJobs(a.gitClt, subIns, a.suffixFunc, jobs, a.clt, a.logger,
+		placementDecisionUpdated, placementRuleRv, "posthook", commitIDChanged)
 
 	return err
 }
@@ -354,7 +358,8 @@ func getHookPath(subIns *subv1.Subscription) (string, string) {
 	return preHookPath, postHookPath
 }
 
-func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegister bool, placementRuleRv string) error {
+func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string,
+	commitIDChanged bool) error {
 	a.logger.V(2).Info("entry addNewHook subscription")
 	defer a.logger.V(2).Info("exit addNewHook subscription")
 
@@ -376,13 +381,13 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, forceRegis
 	}
 
 	if len(preJobs) != 0 {
-		if err := a.registerHook(subIns, PreHookType, preJobs, forceRegister, placementRuleRv); err != nil {
+		if err := a.registerHook(subIns, PreHookType, preJobs, placementDecisionUpdated, placementRuleRv, commitIDChanged); err != nil {
 			return err
 		}
 	}
 
 	if len(postJobs) != 0 {
-		if err := a.registerHook(subIns, PostHookType, postJobs, forceRegister, placementRuleRv); err != nil {
+		if err := a.registerHook(subIns, PostHookType, postJobs, placementDecisionUpdated, placementRuleRv, commitIDChanged); err != nil {
 			return err
 		}
 	}
