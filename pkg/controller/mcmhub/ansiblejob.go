@@ -51,7 +51,8 @@ type appliedJobs struct {
 
 func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client,
-	logger logr.Logger, forceRegister bool, placementRuleRv string, hookType string) error {
+	logger logr.Logger, placementDecisionUpdated bool, placementRuleRv string, hookType string,
+	commitIDChanged bool) error {
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
@@ -78,14 +79,14 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		jobRecords.mux.Lock()
 		jobRecords.Original = ins
 
-		if forceRegister && len(jobRecords.Instance) != 0 {
+		if placementDecisionUpdated && len(jobRecords.Instance) != 0 {
 			plrSuffixFunc := func() string {
 				return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), placementRuleRv)
 			}
 
 			suffix = plrSuffixFunc()
 
-			logger.Info("forceRegister suffix is: " + suffix)
+			logger.V(DebugLog).Info("placementDecisionUpdated suffix is: " + suffix)
 		}
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
@@ -95,7 +96,11 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
-			if forceRegister && len(jobRecords.Instance) > 0 {
+			jobRecordsInstancePopulated := len(jobRecords.Instance) > 0
+
+			if !commitIDChanged && placementDecisionUpdated && jobRecordsInstancePopulated {
+				logger.V(DebugLog).Info("Checking to see AnsibleJob should be created...")
+
 				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
 
 				// if the last job is running (or already done)
@@ -138,6 +143,10 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 					continue
 				}
+			} else {
+				logger.Info(fmt.Sprintf("Skipping duplicated AnsibleJob creation check..."+
+					" commitIDChanged=%v placementDecisionUpdated=%v jobRecordsInstancePopulated=%v",
+					commitIDChanged, placementDecisionUpdated, jobRecordsInstancePopulated))
 			}
 
 			jobRecords.InstanceSet[nxKey] = struct{}{}
