@@ -468,6 +468,12 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 
 		for _, ov := range sub.Spec.PackageOverrides {
 			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
+
+			// If the kustomization path is not specified, use the current path
+			if ovKustomizeDir == "" {
+				ovKustomizeDir = relativePath
+			}
+
 			if !strings.EqualFold(ovKustomizeDir, relativePath) {
 				continue
 			} else {

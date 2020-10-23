@@ -289,11 +289,8 @@ func setBranch(subIns *subv1.Subscription, bName string) {
 	subIns.SetAnnotations(an)
 }
 
-func genRepoName(repoURL, user, pwd string) string {
-	repoName := repoURL
-	if pwd != "" {
-		repoName += user
-	}
+func genRepoName(subName, subNamespace string) string {
+	repoName := subName + subNamespace
 
 	return repoName
 }
@@ -328,7 +325,10 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	}
 
 	repoURL := channel.Spec.Pathname
-	repoName := genRepoName(repoURL, user, pwd)
+	// repoName is the key of a map that stores repository information for subscription.
+	// It needs to be unique for each subscription because each subscription need to
+	// have its own copy of cloned repo to work on subscription specific overrides.
+	repoName := genRepoName(subIns.Name, subIns.Namespace)
 	branchName := genBranchString(subIns)
 	repoBranchDir := h.downloadDirResolver(channel, subIns)
 
