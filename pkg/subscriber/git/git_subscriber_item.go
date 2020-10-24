@@ -222,8 +222,11 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
 			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
 
-			//If the full kustomization.yaml path is specified but different than the current kustomize dir, egnore
-			if !strings.EqualFold(ovKustomizeDir, relativePath) && !strings.EqualFold(ovKustomizeDir, "") {
+			if ovKustomizeDir == "" {
+				ovKustomizeDir = relativePath
+			}
+
+			if !strings.EqualFold(ovKustomizeDir, relativePath) {
 				continue
 			} else {
 				klog.Info("Overriding kustomization ", kustomizeDir)
