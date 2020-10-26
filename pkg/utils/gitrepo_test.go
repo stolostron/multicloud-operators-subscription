@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -193,6 +194,27 @@ data:
 	if len(ret) != 1 {
 		t.Errorf("faild to parse yaml objects, wanted %v, got %v", 1, len(ret))
 	}
+}
+
+func TestParseMultiDocYAML(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// This tests that a multi document YAML can be parsed properly
+	// and handle the --- delimiter correctly
+	// The test file contains --- characters in a resource and delimeters --- with trailing spaces
+	content, err := ioutil.ReadFile("../../test/github/multiresource/multiresource.yaml")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	items := ParseYAML(content)
+	// There are 3 config maps
+	g.Expect(len(items)).To(gomega.Equal(3))
+
+	configMapWithCert := &corev1.ConfigMap{}
+	err = yaml.Unmarshal([]byte(items[0]), &configMapWithCert)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	// The first config map contains a certificate
+	g.Expect(configMapWithCert.Data["ca.crt"]).To(gomega.HavePrefix("-----BEGIN"))
+	g.Expect(configMapWithCert.Data["ca.crt"]).To(gomega.HaveSuffix("CERTIFICATE-----"))
 }
 
 func TestGetSubscriptionBranch(t *testing.T) {
@@ -457,7 +479,7 @@ func TestSortResources(t *testing.T) {
 	g.Expect(len(kustomizeDirs)).To(gomega.Equal(7))
 	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(2))
 	g.Expect(len(rbacFiles)).To(gomega.Equal(3))
-	g.Expect(len(otherFiles)).To(gomega.Equal(4))
+	g.Expect(len(otherFiles)).To(gomega.Equal(5))
 }
 
 func TestNestedKustomize(t *testing.T) {
