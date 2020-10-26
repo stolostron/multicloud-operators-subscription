@@ -479,7 +479,7 @@ func TestSortResources(t *testing.T) {
 	g.Expect(len(kustomizeDirs)).To(gomega.Equal(7))
 	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(2))
 	g.Expect(len(rbacFiles)).To(gomega.Equal(3))
-	g.Expect(len(otherFiles)).To(gomega.Equal(4))
+	g.Expect(len(otherFiles)).To(gomega.Equal(5))
 }
 
 func TestNestedKustomize(t *testing.T) {
