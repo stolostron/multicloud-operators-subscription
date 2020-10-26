@@ -30,7 +30,7 @@ func Test_RunKustomizeBuild(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Split the output of kustomize build output into individual kube resource YAML files
-	resources := strings.Split(string(out), "---")
+	resources := ParseYAML(out)
 	for _, resource := range resources {
 		resourceFile := []byte(strings.Trim(resource, "\t \n"))
 
