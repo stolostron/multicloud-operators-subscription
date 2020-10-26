@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-map-with-cert
+  namespace: default
+data:
+  ca.crt: |
+    -----BEGIN CERTIFICATE-----
+    MIIGMzCCBBugAwIBAgIBADANBgkqhkiG9w0BAQ0FADBvMRkwFwYDVQQDExB1bWJy
+    ZWxsYS1yb290LWNhMQswCQYDVQQGEwJVUzERMA8GA1UECBMIVmlyZ2luaWExFTAT
+    BgNVBAcTDFJhY2Nvb24gQ2l0eTENMAsGA1UEChMETGFiczEMMAoGA1UECxMDUEtJ
+    MBHbJ+an3A==
+    -----END CERTIFICATE-----
+---        
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-1
+  namespace: default
+data:
+  path: resource555
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: configmap-2
+  namespace: test2
+data:
+  path: resource555

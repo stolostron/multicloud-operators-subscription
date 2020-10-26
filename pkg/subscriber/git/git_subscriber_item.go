@@ -247,7 +247,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 		}
 
 		// Split the output of kustomize build output into individual kube resource YAML files
-		resources := strings.Split(string(out), "---")
+		resources := utils.ParseYAML(out)
 		for _, resource := range resources {
 			resourceFile := []byte(strings.Trim(resource, "\t \n"))
 
