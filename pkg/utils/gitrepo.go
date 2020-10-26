@@ -59,7 +59,7 @@ type kubeResource struct {
 func ParseKubeResoures(file []byte) [][]byte {
 	var ret [][]byte
 
-	items := strings.Split(string(file), "---")
+	items := ParseYAML(file)
 
 	for _, i := range items {
 		item := []byte(strings.Trim(i, "\t \n"))
@@ -82,6 +82,26 @@ func ParseKubeResoures(file []byte) [][]byte {
 	}
 
 	return ret
+}
+
+func ParseYAML(fileContent []byte) []string {
+	fileContentString := string(fileContent)
+	lines := strings.Split(fileContentString, "\n")
+	newFileContent := []byte("")
+
+	// Multi-document YAML delimeter --- might have trailing spaces. Trim those first.
+	for _, line := range lines {
+		if strings.HasPrefix(line, "---") {
+			line = strings.Trim(line, " ")
+		}
+		line += "\n"
+		newFileContent = append(newFileContent, line...)
+	}
+
+	// Then now split the YAML content using --- delimeter
+	items := strings.Split(string(newFileContent), "\n---\n")
+
+	return items
 }
 
 // CloneGitRepo clones a GitHub repository
