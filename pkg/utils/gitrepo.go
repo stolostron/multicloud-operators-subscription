@@ -562,7 +562,9 @@ func ParseYAML(fileContent []byte) []string {
 		if strings.HasPrefix(line, "---") {
 			line = strings.Trim(line, " ")
 		}
+
 		line += "\n"
+
 		newFileContent = append(newFileContent, line...)
 	}
 
