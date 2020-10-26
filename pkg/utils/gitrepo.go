@@ -75,7 +75,7 @@ type Kube func(KubeResource) bool
 func KubeResourceParser(file []byte, cond Kube) [][]byte {
 	var ret [][]byte
 
-	items := strings.Split(string(file), "---")
+	items := ParseYAML(file)
 
 	for _, i := range items {
 		item := []byte(strings.Trim(i, "\t \n"))
@@ -550,6 +550,26 @@ func GetLatestCommitID(url, branch string, clt ...*github.Client) (string, error
 	}
 
 	return *b.Commit.SHA, nil
+}
+
+func ParseYAML(fileContent []byte) []string {
+	file_content := string(fileContent)
+	lines := strings.Split(file_content, "\n")
+	new_file_content := []byte("")
+
+	// Multi-document YAML delimeter --- might have trailing spaces. Trim those first.
+	for _, line := range lines {
+		if strings.HasPrefix(line, "---") {
+			line = strings.Trim(line, " ")
+		}
+		line = line + "\n"
+		new_file_content = append(new_file_content, line...)
+	}
+
+	// Then now split the YAML content using --- delimeter
+	items := strings.Split(string(new_file_content), "\n---\n")
+
+	return items
 }
 
 /*
