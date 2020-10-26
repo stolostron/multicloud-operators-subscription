@@ -99,7 +99,8 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	subDeployables := rec.getSubscriptionDeployables(githubsub)
-	g.Expect(len(subDeployables)).To(gomega.Equal(39))
+	// To align with 3 new test yaml resources being added to test/github repo in #331 :-)
+	g.Expect(len(subDeployables)).To(gomega.Equal(42))
 
 	rec.deleteSubscriptionDeployables(githubsub)
 
