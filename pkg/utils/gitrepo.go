@@ -553,21 +553,21 @@ func GetLatestCommitID(url, branch string, clt ...*github.Client) (string, error
 }
 
 func ParseYAML(fileContent []byte) []string {
-	file_content := string(fileContent)
-	lines := strings.Split(file_content, "\n")
-	new_file_content := []byte("")
+	fileContentString := string(fileContent)
+	lines := strings.Split(fileContentString, "\n")
+	newFileContent := []byte("")
 
 	// Multi-document YAML delimeter --- might have trailing spaces. Trim those first.
 	for _, line := range lines {
 		if strings.HasPrefix(line, "---") {
 			line = strings.Trim(line, " ")
 		}
-		line = line + "\n"
-		new_file_content = append(new_file_content, line...)
+		line += "\n"
+		newFileContent = append(newFileContent, line...)
 	}
 
 	// Then now split the YAML content using --- delimeter
-	items := strings.Split(string(new_file_content), "\n---\n")
+	items := strings.Split(string(newFileContent), "\n---\n")
 
 	return items
 }
