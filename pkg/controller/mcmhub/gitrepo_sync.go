@@ -440,7 +440,7 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 
 		klog.Info("Processing ... " + rscFile)
 
-		resourceDir := strings.Split(dir, baseDir)[1]
+		resourceDir := strings.TrimPrefix(dir, baseDir)
 		resourceDir = strings.Trim(resourceDir, "/")
 
 		resources := utils.ParseKubeResoures(file)
