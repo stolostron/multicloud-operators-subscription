@@ -16,12 +16,15 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -37,6 +40,7 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
+	gitclient "gopkg.in/src-d/go-git.v4/plumbing/transport/client"
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -101,7 +105,7 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 }
 
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string) (commitID string, err error) {
+func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string, insecureSkipVerify bool) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -115,6 +119,25 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 			Username: user,
 			Password: password,
 		}
+	}
+
+	// skip TLS certificate verification for Git servers with custom or self-signed certs
+	if insecureSkipVerify {
+		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
+		customClient := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+			},
+
+			// 15 second timeout
+			Timeout: 15 * time.Second,
+
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		gitclient.InstallProtocol("https", githttp.NewClient(customClient))
 	}
 
 	if _, err := os.Stat(destDir); os.IsNotExist(err) {
@@ -207,6 +230,24 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 	}
 
 	return username, accessToken, nil
+}
+
+// GetDataFromChannelConfigMap returns username and password for channel
+func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.ConfigMap {
+	if chn.Spec.ConfigMapRef != nil {
+		configMapRet := &corev1.ConfigMap{}
+		cmns := chn.Namespace
+
+		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.ConfigMapRef.Name, Namespace: cmns}, configMapRet)
+		if err != nil {
+			klog.Error(err, "Unable to get config map from local cluster.")
+			return nil
+		}
+
+		return configMapRet
+	}
+
+	return nil
 }
 
 func ParseChannelSecret(secret *corev1.Secret) (string, string, error) {

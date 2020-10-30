@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -77,11 +79,12 @@ type GitOps interface {
 }
 
 type branchInfo struct {
-	localDir      string
-	lastCommitID  string
-	username      string
-	secret        string
-	registeredSub map[types.NamespacedName]struct{}
+	localDir           string
+	lastCommitID       string
+	username           string
+	secret             string
+	insecureSkipVerify bool
+	registeredSub      map[types.NamespacedName]struct{}
 }
 
 type RepoRegistery struct {
@@ -90,7 +93,7 @@ type RepoRegistery struct {
 }
 
 type GetCommitFunc func(string, string, string, string) (string, error)
-type cloneFunc func(string, string, string, string, string) (string, error)
+type cloneFunc func(string, string, string, string, string, bool) (string, error)
 
 type HubGitOps struct {
 	clt                 client.Client
@@ -203,7 +206,7 @@ func (h *HubGitOps) GitWatch() {
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
 			h.logger.Info("The repo has new commit: " + nCommit)
 
-			if _, err := h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir); err != nil {
+			if _, err := h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify); err != nil {
 				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
 			}
 
@@ -324,6 +327,19 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		return
 	}
 
+	channelConfigMap := utils.GetChannelConfigMap(h.clt, channel)
+	skipCertVerify := false
+
+	if channelConfigMap != nil {
+		if channelConfigMap.Data["insecureSkipVerify"] != "" {
+			skipCertVerify, err = strconv.ParseBool(channelConfigMap.Data["insecureSkipVerify"])
+
+			if err != nil {
+				klog.Error(err, "Unable to parse insecureSkipVerify: ", channelConfigMap.Data["insecureSkipVerify"])
+			}
+		}
+	}
+
 	repoURL := channel.Spec.Pathname
 	// repoName is the key of a map that stores repository information for subscription.
 	// It needs to be unique for each subscription because each subscription need to
@@ -338,7 +354,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	h.subRecords[subKey] = repoName
 	bInfo, ok := h.repoRecords[repoName]
 
-	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, repoBranchDir)
+	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, repoBranchDir, skipCertVerify)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
 	}
@@ -349,10 +365,11 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			url: repoURL,
 			branchs: map[string]*branchInfo{
 				branchName: {
-					localDir:     repoBranchDir,
-					username:     user,
-					secret:       pwd,
-					lastCommitID: commitID,
+					localDir:           repoBranchDir,
+					username:           user,
+					secret:             pwd,
+					insecureSkipVerify: skipCertVerify,
+					lastCommitID:       commitID,
 					registeredSub: map[types.NamespacedName]struct{}{
 						subKey: {},
 					},
@@ -365,10 +382,11 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 
 	if bInfo.branchs[branchName] == nil {
 		bInfo.branchs[branchName] = &branchInfo{
-			username:     user,
-			secret:       pwd,
-			localDir:     repoBranchDir,
-			lastCommitID: commitID,
+			username:           user,
+			secret:             pwd,
+			insecureSkipVerify: skipCertVerify,
+			localDir:           repoBranchDir,
+			lastCommitID:       commitID,
 			registeredSub: map[types.NamespacedName]struct{}{
 				subKey: {},
 			},
@@ -482,8 +500,8 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 	return nil
 }
 
-func cloneGitRepoBranch(repoURL string, branchName string, user, pwd, repoBranchDir string) (string, error) {
-	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName), user, pwd, repoBranchDir)
+func cloneGitRepoBranch(repoURL string, branchName string, user, pwd, repoBranchDir string, skipCertVerify bool) (string, error) {
+	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName), user, pwd, repoBranchDir, skipCertVerify)
 }
 
 type gitSortResult struct {

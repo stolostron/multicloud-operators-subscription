@@ -79,7 +79,7 @@ var _ = BeforeSuite(func(done Done) {
 		return defaultCommit, nil
 	}
 
-	cloneFunc := func(string, string, string, string, string) (string, error) {
+	cloneFunc := func(string, string, string, string, string, bool) (string, error) {
 		return defaultCommit, nil
 	}
 
