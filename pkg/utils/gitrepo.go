@@ -126,6 +126,7 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
 
 		customClient := &http.Client{
+			/* #nosec G402 */
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, // #nosec G402 InsecureSkipVerify conditionally
 			},
