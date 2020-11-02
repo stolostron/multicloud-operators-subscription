@@ -337,6 +337,8 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			if err != nil {
 				klog.Error(err, "Unable to parse insecureSkipVerify: ", channelConfigMap.Data["insecureSkipVerify"])
 			}
+
+			h.logger.Info("Channel config map found with insecureSkipVerify: " + channelConfigMap.Data["insecureSkipVerify"])
 		}
 	}
 

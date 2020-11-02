@@ -528,6 +528,8 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 				klog.Error(err, "Unable to parse insecureSkipVerify: ", ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"])
 				return "", err
 			}
+
+			klog.Info("Channel config map found with insecureSkipVerify: " + ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"])
 		}
 	}
 

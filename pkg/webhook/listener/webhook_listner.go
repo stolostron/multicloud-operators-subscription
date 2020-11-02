@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -137,14 +138,12 @@ func CreateWebhookListener(config,
 
 	var err error
 
-	klog.Info("ROKEROKE 1")
 	dynamicClient := dynamic.NewForConfigOrDie(config)
 
 	l := &WebhookListener{
 		DynamicClient: dynamicClient,
 		localConfig:   config,
 	}
-	klog.Info("ROKEROKE 2")
 
 	// The user-provided key and cert files take precedence over the default provided files if both sets exist.
 	if _, err := os.Stat(defaultKeyFile); err == nil {
@@ -165,8 +164,6 @@ func CreateWebhookListener(config,
 
 	l.LocalClient, err = client.New(config, client.Options{})
 
-	klog.Info("ROKEROKE 3")
-
 	if err != nil {
 		klog.Error("Failed to initialize client to update local status. error: ", err)
 		return nil, err
@@ -182,9 +179,7 @@ func CreateWebhookListener(config,
 		}
 	}
 
-	klog.Info("ROKEROKE 4")
-
-	/*if createService {
+	if createService {
 		namespace, err := k8sutil.GetOperatorNamespace()
 
 		if err != nil {
@@ -198,7 +193,7 @@ func CreateWebhookListener(config,
 			klog.Error("Failed to create a service for Git webhook listener. error: ", err)
 			return nil, err
 		}
-	}*/
+	}
 
 	return l, err
 }
