@@ -297,7 +297,7 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 		err = subitem.sortClonedGitRepo()
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(len(subitem.indexFile.Entries)).To(Equal(2))
+		Expect(len(subitem.indexFile.Entries)).To(Equal(3))
 
 		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
 		Expect(len(subitem.rbacFiles)).To(Equal(3))
