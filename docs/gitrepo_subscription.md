@@ -171,7 +171,7 @@ spec:
       name: my-git-secret
 ```
 
-## Subscribing to a self-hosted Git repository with custom or self-signed TLS certificate
+## Subscribing to a self-hosted Git server with custom or self-signed TLS certificate
 
 If a Git server has a custom or self-signed TLS certificate, you need to associate the channel with a config map to skip the certificate verification. Otherwise, the connection to the Git server will fail with an error similar to the following.
 
