@@ -171,6 +171,40 @@ spec:
       name: my-git-secret
 ```
 
+## Subscribing to a self-hosted Git repository with custom or self-signed TLS certificate
+
+If a Git server has a custom or self-signed TLS certificate, you need to associate the channel with a config map to skip the certificate verification. Otherwise, the connection to the Git server will fail with an error similar to the following.
+
+```
+x509: certificate is valid for localhost.com, not localhost
+```
+
+Update you channel resource to reference a Kubernetes config map and define the YAML content to skip certificate verification. The `data` section of the config map must contain `insecureSkipVerify: "true"`.
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skip-cert-verify
+  namespace: sample
+data:
+  insecureSkipVerify: "true"
+---
+apiVersion: apps.open-cluster-management.io/v1
+ind: Channel
+metadata:
+labels:
+  name: sample-channel
+  namespace: sample
+spec:
+  type: GitHub
+  pathname: <Git URL>
+  configMapRef:
+    name: skip-cert-verify
+    apiVersion: v1
+    kind: ConfigMap
+```
+
 ## .kubernetesignore file
 
 You can include a `.kubernetesignore` file within your Git repository root directory, or within the `data.path` directory that is specified in the ConfigMap that is defined for your subscription `spec.packageFilter.filterRef` field.
