@@ -151,6 +151,24 @@ var (
 			Channel: bitbucketsharedkey.String(),
 		},
 	}
+	skipCertCfgMapKey = types.NamespacedName{
+		Name:      "skip-cert-verify",
+		Namespace: bitbucketsharedkey.Namespace,
+	}
+
+	skipCertCfgMap = &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      skipCertCfgMapKey.Name,
+			Namespace: skipCertCfgMapKey.Namespace,
+		},
+		Data: map[string]string{
+			"insecureSkipVerify": "true",
+		},
+	}
 )
 
 var _ = Describe("github subscriber reconcile logic", func() {
@@ -257,6 +275,29 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(len(subitem.indexFile.Entries)).To(Equal(3))
+
+		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
+		Expect(len(subitem.rbacFiles)).To(Equal(3))
+		Expect(len(subitem.otherFiles)).To(Equal(2))
+		Expect(subitem.crdsAndNamespaceFiles[0]).To(ContainSubstring("resources/deploy/crds/crontab.yaml"))
+	})
+})
+
+var _ = Describe("test subscribing to bitbucket repository", func() {
+	It("should be able to clone the bitbucket repo with skip certificate verificationand sort resources", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = bitbucketsub
+		subitem.Channel = bitbucketchn
+		subitem.ChannelConfigMap = skipCertCfgMap
+		subitem.synchronizer = defaultSubscriber.synchronizer
+		commitid, err := subitem.cloneGitRepo()
+		Expect(commitid).ToNot(Equal(""))
+		Expect(err).NotTo(HaveOccurred())
+
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(len(subitem.indexFile.Entries)).To(Equal(2))
 
 		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
 		Expect(len(subitem.rbacFiles)).To(Equal(3))
