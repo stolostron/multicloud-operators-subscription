@@ -127,7 +127,7 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 
 		customClient := &http.Client{
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12},
+				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, // #nosec G402 InsecureSkipVerify conditionally
 			},
 
 			// 15 second timeout
