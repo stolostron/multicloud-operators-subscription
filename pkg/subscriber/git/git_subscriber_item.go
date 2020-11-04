@@ -20,7 +20,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -518,20 +517,6 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 
 	user := ""
 	token := ""
-	insecureSkipVerify := false
-
-	if ghsi.SubscriberItem.ChannelConfigMap != nil {
-		if ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"] != "" {
-			insecureSkipVerify, err = strconv.ParseBool(ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"])
-
-			if err != nil {
-				klog.Error(err, "Unable to parse insecureSkipVerify: ", ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"])
-				return "", err
-			}
-
-			klog.Info("Channel config map found with insecureSkipVerify: " + ghsi.SubscriberItem.ChannelConfigMap.Data["insecureSkipVerify"])
-		}
-	}
 
 	if ghsi.SubscriberItem.ChannelSecret != nil {
 		user, token, err = utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
@@ -541,7 +526,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, token, ghsi.repoRoot, insecureSkipVerify)
+	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, token, ghsi.repoRoot, ghsi.Channel.Spec.InsecureSkipVerify)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

@@ -108,7 +108,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 	//Retrieve the helm repo
 	repoURL := hrsi.Channel.Spec.Pathname
 
-	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap)
+	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap, hrsi.Channel.Spec.InsecureSkipVerify)
 
 	if err != nil {
 		klog.Error(err, "Unable to create client for helm repo", repoURL)
@@ -275,7 +275,7 @@ func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash 
 	return nil
 }
 
-func getHelmRepoClient(chnCfg *corev1.ConfigMap) (*http.Client, error) {
+func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http.Client, error) {
 	client := http.DefaultClient
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
@@ -289,7 +289,7 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap) (*http.Client, error) {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: false,
+			InsecureSkipVerify: insecureSkipVerify,
 			MinVersion:         tls.VersionTLS12,
 		},
 	}
@@ -373,7 +373,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 	return indexfile, hash, err
 }
 
-func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
+func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription, insecureSkipVerify bool) ([]*releasev1.HelmRelease, error) {
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
 
@@ -424,7 +424,7 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 		}
 	}
 
-	httpClient, err := getHelmRepoClient(chnCfg)
+	httpClient, err := getHelmRepoClient(chnCfg, insecureSkipVerify)
 	if err != nil {
 		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", repoURL)
 	}

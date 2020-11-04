@@ -151,24 +151,6 @@ var (
 			Channel: bitbucketsharedkey.String(),
 		},
 	}
-	skipCertCfgMapKey = types.NamespacedName{
-		Name:      "skip-cert-verify",
-		Namespace: bitbucketsharedkey.Namespace,
-	}
-
-	skipCertCfgMap = &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      skipCertCfgMapKey.Name,
-			Namespace: skipCertCfgMapKey.Namespace,
-		},
-		Data: map[string]string{
-			"insecureSkipVerify": "true",
-		},
-	}
 )
 
 var _ = Describe("github subscriber reconcile logic", func() {
@@ -287,8 +269,8 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 	It("should be able to clone the bitbucket repo with skip certificate verificationand sort resources", func() {
 		subitem := &SubscriberItem{}
 		subitem.Subscription = bitbucketsub
+		bitbucketchn.Spec.InsecureSkipVerify = true
 		subitem.Channel = bitbucketchn
-		subitem.ChannelConfigMap = skipCertCfgMap
 		subitem.synchronizer = defaultSubscriber.synchronizer
 		commitid, err := subitem.cloneGitRepo()
 		Expect(commitid).ToNot(Equal(""))

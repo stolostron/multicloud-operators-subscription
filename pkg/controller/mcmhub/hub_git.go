@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,7 +34,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -327,19 +325,11 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 		return
 	}
 
-	channelConfigMap := utils.GetChannelConfigMap(h.clt, channel)
 	skipCertVerify := false
 
-	if channelConfigMap != nil {
-		if channelConfigMap.Data["insecureSkipVerify"] != "" {
-			skipCertVerify, err = strconv.ParseBool(channelConfigMap.Data["insecureSkipVerify"])
-
-			if err != nil {
-				klog.Error(err, "Unable to parse insecureSkipVerify: ", channelConfigMap.Data["insecureSkipVerify"])
-			}
-
-			h.logger.Info("Channel config map found with insecureSkipVerify: " + channelConfigMap.Data["insecureSkipVerify"])
-		}
+	if channel.Spec.InsecureSkipVerify {
+		skipCertVerify = true
+		h.logger.Info("Channel spec has insecureSkipVerify: true.")
 	}
 
 	repoURL := channel.Spec.Pathname

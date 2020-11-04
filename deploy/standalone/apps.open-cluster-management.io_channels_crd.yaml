@@ -144,6 +144,10 @@ spec:
                 URL for the channel contents; For a `objectbucket` channel, pathname
                 is the URL and name of the bucket.
               type: string
+            insecureSkipVerify:
+              description: Skip server TLS certificate verification for Git or Helm
+                channel.
+              type: boolean
             secretRef:
               description: For a `github` channel or a `helmrepo` channel on github,
                 this can be used to reference a Secret which contains the credentials
