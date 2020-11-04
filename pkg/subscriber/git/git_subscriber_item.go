@@ -526,7 +526,13 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
-	return utils.CloneGitRepo(ghsi.Channel.Spec.Pathname, utils.GetSubscriptionBranch(ghsi.Subscription), user, token, ghsi.repoRoot, ghsi.Channel.Spec.InsecureSkipVerify)
+	return utils.CloneGitRepo(
+		ghsi.Channel.Spec.Pathname,
+		utils.GetSubscriptionBranch(ghsi.Subscription),
+		user,
+		token,
+		ghsi.repoRoot,
+		ghsi.Channel.Spec.InsecureSkipVerify)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

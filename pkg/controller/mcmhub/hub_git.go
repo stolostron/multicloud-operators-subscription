@@ -329,6 +329,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 
 	if channel.Spec.InsecureSkipVerify {
 		skipCertVerify = true
+
 		h.logger.Info("Channel spec has insecureSkipVerify: true.")
 	}
 
