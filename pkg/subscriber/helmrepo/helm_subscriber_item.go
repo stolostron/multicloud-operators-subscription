@@ -277,6 +277,11 @@ func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash 
 
 func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http.Client, error) {
 	client := http.DefaultClient
+
+	if insecureSkipVerify {
+		klog.Info("Channel spec has insecureSkipVerify: true. Skipping Helm repo server certificate verification.")
+	}
+
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -295,7 +300,7 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 		},
 	}
 
-	if chnCfg != nil {
+	if chnCfg != nil && !insecureSkipVerify {
 		helmRepoConfigData := chnCfg.Data
 		klog.V(5).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
 
