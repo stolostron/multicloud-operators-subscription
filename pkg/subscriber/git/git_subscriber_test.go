@@ -265,6 +265,29 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 	})
 })
 
+var _ = Describe("test subscribing to bitbucket repository", func() {
+	It("should be able to clone the bitbucket repo with skip certificate verificationand sort resources", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = bitbucketsub
+		bitbucketchn.Spec.InsecureSkipVerify = true
+		subitem.Channel = bitbucketchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
+		commitid, err := subitem.cloneGitRepo()
+		Expect(commitid).ToNot(Equal(""))
+		Expect(err).NotTo(HaveOccurred())
+
+		err = subitem.sortClonedGitRepo()
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(len(subitem.indexFile.Entries)).To(Equal(3))
+
+		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
+		Expect(len(subitem.rbacFiles)).To(Equal(3))
+		Expect(len(subitem.otherFiles)).To(Equal(2))
+		Expect(subitem.crdsAndNamespaceFiles[0]).To(ContainSubstring("resources/deploy/crds/crontab.yaml"))
+	})
+})
+
 var _ = Describe("test subscribe invalid resource", func() {
 	It("should not return error or panic", func() {
 		subitem := &SubscriberItem{}

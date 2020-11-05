@@ -171,6 +171,27 @@ spec:
       name: my-git-secret
 ```
 
+## Subscribing to a self-hosted Git server with custom or self-signed TLS certificate
+
+If a Git server has a custom or self-signed TLS certificate, you can use `insecureSkipVerify: true` in the channel spec. Otherwise, the connection to the Git server will fail with an error similar to the following.
+
+```
+x509: certificate is valid for localhost.com, not localhost
+```
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+ind: Channel
+metadata:
+labels:
+  name: sample-channel
+  namespace: sample
+spec:
+  type: GitHub
+  pathname: <Git URL>
+  insecureSkipVerify: true
+```
+
 ## .kubernetesignore file
 
 You can include a `.kubernetesignore` file within your Git repository root directory, or within the `data.path` directory that is specified in the ConfigMap that is defined for your subscription `spec.packageFilter.filterRef` field.

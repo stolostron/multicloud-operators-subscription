@@ -62,13 +62,13 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription) bool {
+func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) bool {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
 	}
 
-	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, sub)
+	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, sub, insecureSkipVeriy)
 	if err != nil {
 		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false
