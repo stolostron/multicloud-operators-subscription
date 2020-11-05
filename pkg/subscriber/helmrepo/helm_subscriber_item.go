@@ -312,6 +312,10 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 			}
 
 			transport.TLSClientConfig.InsecureSkipVerify = b
+
+			if b {
+				klog.Info("Channel has config map with insecureSkipVerify: true. Skipping Helm repo server certificate verification.")
+			}
 		} else {
 			klog.V(5).Info("helmRepoConfigData[\"insecureSkipVerify\"] is empty")
 		}
