@@ -84,7 +84,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     chnv1alpha1.ChannelTypeHelmRepo,
-			Pathname: "https://helm.nginx.com/stable",
+			Pathname: "https://kubernetes-charts.storage.googleapis.com",
 			ConfigMapRef: &corev1.ObjectReference{
 				Name:       cfgMap.Name,
 				Namespace:  cfgMap.Namespace,

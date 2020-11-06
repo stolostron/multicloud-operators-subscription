@@ -427,7 +427,7 @@ func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) er
 			}
 		}
 	} else {
-		return fmt.Errorf("subsciption.spec.name is missing for subscription: %s/%s", sub.Namespace, sub.Name)
+		return fmt.Errorf("subsciption.spec.package is missing for subscription: %s/%s", sub.Namespace, sub.Name)
 	}
 
 	klog.V(4).Info("After name matching:", indexFile)
