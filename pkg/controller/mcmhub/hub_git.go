@@ -472,6 +472,10 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 		h.RegisterBranch(subIns)
 	}
 
+	if len(h.repoRecords) == 0 {
+		return "", fmt.Errorf("failed to register the branch")
+	}
+
 	repoName := h.subRecords[subKey]
 
 	return h.repoRecords[repoName].branchs[genBranchString(subIns)].lastCommitID, nil
