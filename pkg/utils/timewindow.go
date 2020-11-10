@@ -57,7 +57,7 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 
 	if IsInWindow(tw, uniCurTime) {
 		vHr := validateHourRange(tw.Hours, getLoc(tw.Location))
-		vdays, rveDays := validateDaysofweekSlice(tw.Daysofweek)
+		vdays, _ := validateDaysofweekSlice(tw.Daysofweek)
 		rvevHr := reverseRange(vHr, getLoc(tw.Location))
 
 		// If currently not blocked but the time window type is `blocked`, we need to get the next time
@@ -66,7 +66,8 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 			return generateNextPoint(vHr, vdays, uniCurTime, false) + 1*time.Minute
 		}
 
-		return generateNextPoint(rvevHr, rveDays, uniCurTime, false) + 1*time.Minute
+		// The window type is active so we need to get the next time it should be blocked.
+		return generateNextPoint(rvevHr, vdays, uniCurTime, false) + 1*time.Minute
 	}
 
 	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
