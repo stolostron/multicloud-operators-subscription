@@ -1,0 +1,75 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: git-sub-ns
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ch-git
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  name: git-sub-app
+  namespace: git-sub-ns
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  descriptor: {}
+  selector:
+    matchLabels:
+      name: git-sub
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: git
+  namespace: ch-git
+  labels:
+    name: git-sub
+spec:
+  type: Git
+  pathname: https://try.gogs.io/wzhan366/random-git.git
+  secretRef:
+    name: dev
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: dev
+  namespace: ch-git
+data:
+  user: <base64 encode string>
+  accessToken: <base64 encode string>
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: towhichcluster
+  namespace: git-sub-ns
+  labels:
+    name: git-sub
+spec:
+  clusterReplicas: 1
+  clusterLabels:
+    matchLabels:
+      name: spoke
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: git-sub
+  namespace: git-sub-ns
+  labels:
+    name: git-sub
+  annotations:
+    apps.open-cluster-management.io/github-path: git-ops/bookinfo/guestbook
+spec:
+  channel: ch-git/git
+  placement:
+    placementRef: 
+      name: towhichcluster
+
