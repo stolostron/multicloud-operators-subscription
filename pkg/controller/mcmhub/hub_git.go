@@ -89,8 +89,12 @@ type RepoRegistery struct {
 	branchs map[string]*branchInfo
 }
 
-type GetCommitFunc func(string, string, string, string) (string, error)
-type cloneFunc func(string, string, string, string, string) (string, error)
+type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
+
+type cloneFunc func(url string, branchName string, user string, secret string,
+	localDir string, insecureSkipVerify bool) (string, error)
+
+type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
 
 type HubGitOps struct {
 	clt                 client.Client
@@ -99,7 +103,7 @@ type HubGitOps struct {
 	watcherInterval     time.Duration
 	subRecords          map[types.NamespacedName]string
 	repoRecords         map[string]*RepoRegistery
-	downloadDirResolver func(*chnv1.Channel, *subv1.Subscription) string
+	downloadDirResolver dirResolver
 	getCommitFunc       GetCommitFunc
 	cloneFunc           cloneFunc
 }
@@ -184,7 +188,12 @@ func (h *HubGitOps) GitWatch() {
 			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 
 			if err != nil {
-				h.logger.Error(err, "failed to get the latest commit id")
+				h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
+
+				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify)
+				if err != nil {
+					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
+				}
 			}
 
 			// safe guard condition to filter out the edge case
@@ -435,9 +444,9 @@ func (h *HubGitOps) DeregisterBranch(subKey types.NamespacedName) {
 	}
 }
 
-func GetLatestRemoteGitCommitID(repo, branch, secret, pwd string) (string, error) {
+func GetLatestRemoteGitCommitID(repo, branch, user, pwd string) (string, error) {
 	tp := github.BasicAuthTransport{
-		Username: strings.TrimSpace(secret),
+		Username: strings.TrimSpace(user),
 		Password: strings.TrimSpace(pwd),
 	}
 
@@ -450,6 +459,10 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 	_, ok := h.subRecords[subKey]
 	if !ok { // when git watcher doesn't have the record, go ahead clone the repo and return the commitID
 		h.RegisterBranch(subIns)
+	}
+
+	if len(h.repoRecords) == 0 {
+		return "", fmt.Errorf("failed to register the branch")
 	}
 
 	repoName := h.subRecords[subKey]
