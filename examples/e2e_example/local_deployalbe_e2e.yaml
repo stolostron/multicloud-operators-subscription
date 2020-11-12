@@ -18,14 +18,6 @@ spec:
     matchLabels:
       name: helm-sub-local
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: skip-cert-verify
-  namespace: helm-local
-data:
-  insecureSkipVerify: "true"
----
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
@@ -36,10 +28,7 @@ metadata:
 spec:
   type: HelmRepo
   pathname: https://ianzhang366.github.io/guestbook-chart/
-  configMapRef: 
-    name: skip-cert-verify
-    apiVersion: v1
-    kind: ConfigMap
+  insecureSkipVerify: true
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription

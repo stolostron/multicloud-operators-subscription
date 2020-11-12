@@ -58,21 +58,6 @@ var (
 		Namespace: "ch-helm-ns",
 	}
 
-	cfgMapKey = types.NamespacedName{
-		Name:      "skip-cert-verify",
-		Namespace: helmKey.Namespace,
-	}
-
-	cfgMap = &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cfgMapKey.Name,
-			Namespace: cfgMapKey.Namespace,
-		},
-		Data: map[string]string{
-			"insecureSkipVerify": "true",
-		},
-	}
-
 	chHelm = &chnv1alpha1.Channel{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "apps.open-cluster-management.io/v1",
@@ -83,14 +68,9 @@ var (
 			Namespace: helmKey.Namespace,
 		},
 		Spec: chnv1alpha1.ChannelSpec{
-			Type:     chnv1alpha1.ChannelTypeHelmRepo,
-			Pathname: "https://kubernetes-charts.storage.googleapis.com",
-			ConfigMapRef: &corev1.ObjectReference{
-				Name:       cfgMap.Name,
-				Namespace:  cfgMap.Namespace,
-				Kind:       "ConfigMap",
-				APIVersion: "v1",
-			},
+			Type:               chnv1alpha1.ChannelTypeHelmRepo,
+			Pathname:           "https://kubernetes-charts.storage.googleapis.com",
+			InsecureSkipVerify: true,
 		},
 	}
 )
