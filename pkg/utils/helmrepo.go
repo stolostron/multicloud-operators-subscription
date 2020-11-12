@@ -159,11 +159,12 @@ func CreateOrUpdateHelmChart(
 					}},
 				},
 				Repo: releasev1.HelmReleaseRepo{
-					Source:       source,
-					ConfigMapRef: channel.Spec.ConfigMapRef,
-					SecretRef:    channel.Spec.SecretRef,
-					ChartName:    packageName,
-					Version:      chartVersions[0].GetVersion(),
+					Source:             source,
+					ConfigMapRef:       channel.Spec.ConfigMapRef,
+					InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
+					SecretRef:          channel.Spec.SecretRef,
+					ChartName:          packageName,
+					Version:            chartVersions[0].GetVersion(),
 				},
 			}
 		} else {
@@ -176,11 +177,12 @@ func CreateOrUpdateHelmChart(
 		helmRelease.Kind = "HelmRelease"
 		klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
 		helmRelease.Repo = releasev1.HelmReleaseRepo{
-			Source:       source,
-			ConfigMapRef: channel.Spec.ConfigMapRef,
-			SecretRef:    channel.Spec.SecretRef,
-			ChartName:    packageName,
-			Version:      chartVersions[0].GetVersion(),
+			Source:             source,
+			ConfigMapRef:       channel.Spec.ConfigMapRef,
+			InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
+			SecretRef:          channel.Spec.SecretRef,
+			ChartName:          packageName,
+			Version:            chartVersions[0].GetVersion(),
 		}
 	}
 

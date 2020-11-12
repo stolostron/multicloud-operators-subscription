@@ -52,12 +52,6 @@ func TestTopoAnnotationUpdateHelm(t *testing.T) {
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(stopMgr)).Should(gomega.BeTrue())
 
-	g.Expect(c.Create(context.TODO(), cfgMap)).Should(gomega.Succeed())
-
-	defer func() {
-		g.Expect(c.Delete(context.TODO(), cfgMap)).Should(gomega.Succeed())
-	}()
-
 	rec := newReconciler(mgr).(*ReconcileSubscription)
 
 	chn := chHelm.DeepCopy()
@@ -428,12 +422,9 @@ func TestTopoAnnotationUpdateHelmChannel(t *testing.T) {
 				Namespace: tpChnKey.Namespace,
 			},
 			Spec: chnv1.ChannelSpec{
-				Type:     chnv1.ChannelTypeHelmRepo,
-				Pathname: "https://ianzhang366.github.io/guestbook-chart/",
-				ConfigMapRef: &corev1.ObjectReference{
-					Name:      cfgMapKey.Name,
-					Namespace: cfgMapKey.Namespace,
-				},
+				Type:               chnv1.ChannelTypeHelmRepo,
+				Pathname:           "https://ianzhang366.github.io/guestbook-chart/",
+				InsecureSkipVerify: true,
 			},
 		}
 	)
