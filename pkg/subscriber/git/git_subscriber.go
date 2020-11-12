@@ -108,23 +108,28 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	ghs.itemmap[itemkey] = ghssubitem
 
-	// If the channel has annotation webhookenabled="true", do not poll the repo.
-	// Do subscription only on webhook events.
-	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
-		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = true
-	} else {
-		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = false
-	}
-
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
 	}
 
-	ghssubitem.Start()
+	// If the channel has annotation webhookenabled="true", do not poll the repo.
+	// Do subscription only on webhook events.
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
+		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = true
+
+		err := ghssubitem.doSubscription()
+
+		if err != nil {
+			klog.Error(err, "Subscription error.")
+		}
+	} else {
+		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = false
+		ghssubitem.Start()
+	}
 
 	return nil
 }

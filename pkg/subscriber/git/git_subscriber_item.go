@@ -126,11 +126,6 @@ func (ghsi *SubscriberItem) Stop() {
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
-	// If webhook is enabled, don't do anything until next reconcilitation.
-	if ghsi.webhookEnabled {
-		return nil
-	}
-
 	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
