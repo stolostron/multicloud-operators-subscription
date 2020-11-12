@@ -21,7 +21,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201103204539-9d9004e1f5e6
 	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20200817152717-50b364f569c6
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201106174543-f710c1acbb23
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201109222655-d7e79a56b37b
 	github.com/operator-framework/operator-sdk v0.18.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.9.1
