@@ -141,7 +141,9 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	subitem, ok := ghs.itemmap[key]
 
 	if ok {
-		subitem.Stop()
+		if !subitem.webhookEnabled {
+			subitem.Stop()
+		}
 		delete(ghs.itemmap, key)
 
 		if err := ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String()); err != nil {
