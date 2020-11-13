@@ -907,10 +907,8 @@ github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-202008
 github.com/open-cluster-management/multicloud-operators-placementrule v0.0.0-20200624201731-5e0510647fa9/go.mod h1:hYm11hhApBvgzuk0/VRJzezbwtvUWayoYb/MRrTQdZE=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f h1:m1N00bmMOkMRg8zcCYqha1AjLrFDdD16sZ2WOCbQPhk=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20200817152733-689893a33a7f/go.mod h1:A3sMwp+AWM4QQg/ka8gIQ+SpLG2LZXtTZA/MYdrpWVI=
-github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201106174543-f710c1acbb23 h1:7itmppdEZhsFpbI4DXvUk5/ZnFdTqLQADbP3SUDoGg8=
-github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201106174543-f710c1acbb23/go.mod h1:1qj02jDo5gXdLwWK4T5WAZskZoOVTn47cXXNX+W0UWU=
-github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201109222655-d7e79a56b37b h1:nK0t/nCMujZ7qYErwsOsS8Sk4XZF4FAryb/6gVF8KGY=
-github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201109222655-d7e79a56b37b/go.mod h1:1qj02jDo5gXdLwWK4T5WAZskZoOVTn47cXXNX+W0UWU=
+github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201113214137-90d127fc16da h1:qQT2aiWdYbJeqE001AP/sqvaIYuZFMIndNoNHP4m7f0=
+github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201113214137-90d127fc16da/go.mod h1:1qj02jDo5gXdLwWK4T5WAZskZoOVTn47cXXNX+W0UWU=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v0.0.0-20180430190053-c9281466c8b2/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1 h1:WzifXhOVOEOuFYOJAW6aQqW0TooG2iki3E3Ii+WN7gQ=
