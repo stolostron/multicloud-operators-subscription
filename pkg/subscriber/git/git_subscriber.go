@@ -119,17 +119,15 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.webhookEnabled = true
-
-		err := ghssubitem.doSubscription()
-
-		if err != nil {
-			klog.Error(err, "Subscription error.")
-		}
+		// Set successful to false so that the subscription keeps trying until all resources are successfully
+		// applied until the next webhook event.
+		ghssubitem.successful = false
 	} else {
 		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.webhookEnabled = false
-		ghssubitem.Start()
 	}
+
+	ghssubitem.Start()
 
 	return nil
 }
@@ -141,9 +139,8 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	subitem, ok := ghs.itemmap[key]
 
 	if ok {
-		if !subitem.webhookEnabled {
-			subitem.Stop()
-		}
+		subitem.Stop()
+
 		delete(ghs.itemmap, key)
 
 		if err := ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String()); err != nil {
