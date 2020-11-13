@@ -128,12 +128,13 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {
 		klog.Infof("Git Webhook is enabled on subscription %s.", ghsi.Subscription.Name)
+
 		if ghsi.successful {
 			klog.Infof("All resources are reconciled successfully. Waiting for the next Git Webhook event.")
 			return nil
-		} else {
-			klog.Infof("Resources are not reconciled successfuly yet. Continue reconciling.")
 		}
+
+		klog.Infof("Resources are not reconciled successfully yet. Continue reconciling.")
 	}
 
 	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
