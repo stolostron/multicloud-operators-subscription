@@ -140,7 +140,6 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 
 	if ok {
 		subitem.Stop()
-
 		delete(ghs.itemmap, key)
 
 		if err := ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String()); err != nil {
