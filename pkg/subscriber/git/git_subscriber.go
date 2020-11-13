@@ -113,6 +113,9 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.webhookEnabled = true
+		// Set successful to false so that the subscription keeps trying until all resources are successfully
+		// applied until the next webhook event.
+		ghssubitem.successful = false
 	} else {
 		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.webhookEnabled = false
