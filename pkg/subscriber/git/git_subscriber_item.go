@@ -74,6 +74,7 @@ type SubscriberItem struct {
 	resources             []kubesynchronizer.DplUnit
 	indexFile             *repo.IndexFile
 	webhookEnabled        bool
+	successful            bool
 	clusterAdmin          bool
 }
 
@@ -91,8 +92,6 @@ func (ghsi *SubscriberItem) Start() {
 	}
 
 	ghsi.stopch = make(chan struct{})
-
-	klog.Info("Polling on SubscriberItem ", ghsi.Subscription.Name)
 
 	go wait.Until(func() {
 		tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -128,7 +127,14 @@ func (ghsi *SubscriberItem) Stop() {
 func (ghsi *SubscriberItem) doSubscription() error {
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {
-		return nil
+		klog.Infof("Git Webhook is enabled on subscription %s.", ghsi.Subscription.Name)
+
+		if ghsi.successful {
+			klog.Infof("All resources are reconciled successfully. Waiting for the next Git Webhook event.")
+			return nil
+		}
+
+		klog.Infof("Resources are not reconciled successfully yet. Continue reconciling.")
 	}
 
 	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
@@ -205,6 +211,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	ghsi.rbacFiles = nil
 	ghsi.otherFiles = nil
 	ghsi.indexFile = nil
+	ghsi.successful = true
 
 	return nil
 }
