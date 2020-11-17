@@ -17,6 +17,9 @@
     - [Subscribe a helm chart](#subscribe-a-helm-chart)
     - [Trouble shooting](#trouble-shooting)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
+- [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+- [Security Response](#security-response)
 - [References](#references)
     - [multicloud-operators repositories](#multicloud-operators-repositories)
 
@@ -136,27 +139,27 @@ Please refer to [Trouble shooting documentation](docs/trouble_shooting.md) for f
 
 ## Community, discussion, contribution, and support
 
-------
-
-Check the [DEVELOPMENT Doc](docs/development.md) for how to build and make changes.
-
 Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
 
-You can reach the maintainers of this by raising issues. Slack communication is coming soon
+------
+
+## Getting Started
+
+### Prerequisites
+
+Check the [Development Doc](docs/development.md) for how to contribute to the repo.
+
+## Security Response
+
+Check the [Security Doc](SECURITY.md) if you've found a security issue.
 
 ## References
 
-------
-
 ### multicloud-operators repositories
 
+- [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
+- [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
 - [multicloud-operators-deployable](https://github.com/open-cluster-management/multicloud-operators-deployable)
 - [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
-- [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
 - [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
 - [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
-
-------
-
-If you have any further questions, please refer to
-[help documentation](docs/help.md) for further information.
