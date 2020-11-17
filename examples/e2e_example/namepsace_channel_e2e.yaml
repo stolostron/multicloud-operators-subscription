@@ -42,6 +42,8 @@ metadata:
   name: payload-cfg-namespace-channel
   labels:
     name: ns-sub
+    apps.open-cluster-management.io/channel: ns
+    apps.open-cluster-management.io/channel-type: Namespace
   annotations: 
     apps.open-cluster-management.io/is-local-deployable: "false"
   namespace: default
