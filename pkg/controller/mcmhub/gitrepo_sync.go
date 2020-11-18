@@ -228,7 +228,10 @@ func ifUpdateAnnotation(origanno, newanno map[string]string, annoString string) 
 // AddClusterAdminAnnotation adds cluster-admin annotation if conditions are met
 func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscription) bool {
 	annotations := sub.GetAnnotations()
-	delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
+	if annotations[appv1.AnnotationHosting] == "" {
+		// if there is hosting subscription, the cluster admin annotation must have been inherited. Don't remove.
+		delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
+	}
 
 	if utils.IsClusterAdmin(r.Client, sub, r.eventRecorder) {
 		annotations[appv1.AnnotationClusterAdmin] = "true"
