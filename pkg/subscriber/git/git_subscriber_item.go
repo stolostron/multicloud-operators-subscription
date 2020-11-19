@@ -349,12 +349,25 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	}
 
 	dpl := &dplv1.Deployable{}
+
 	if ghsi.Channel == nil {
 		dpl.Name = ghsi.Subscription.Name + "-" + rsc.GetKind() + "-" + rsc.GetName()
 		dpl.Namespace = ghsi.Subscription.Namespace
+
+		if ghsi.clusterAdmin && (rsc.GetNamespace() != "") {
+			// With the cluster admin, the same resource with the same name can be applied to multiple namespaces.
+			// This avoids name collisions.
+			dpl.Namespace = rsc.GetNamespace()
+		}
 	} else {
 		dpl.Name = ghsi.Channel.Name + "-" + rsc.GetKind() + "-" + rsc.GetName()
 		dpl.Namespace = ghsi.Channel.Namespace
+
+		if ghsi.clusterAdmin && (rsc.GetNamespace() != "") {
+			// With the cluster admin, the same resource with the same name can be applied to multiple namespaces.
+			// This avoids name collisions.
+			dpl.Namespace = rsc.GetNamespace()
+		}
 	}
 
 	orggvk := rsc.GetObjectKind().GroupVersionKind()
