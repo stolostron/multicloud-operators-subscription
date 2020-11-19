@@ -30,6 +30,7 @@ import (
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -277,6 +278,42 @@ var PlacementRulePredicateFunctions = predicate.Funcs{
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
+	},
+}
+
+// ServiceAccountPredicateFunctions watches for changes in klusterlet-addon-appmgr service account in open-cluster-management-agent-addon namespace
+var ServiceAccountPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newSA := e.ObjectNew.(*corev1.ServiceAccount)
+		//oldSA := e.ObjectOld.(*corev1.ServiceAccount)
+
+		/*if strings.EqualFold(newSA.Namespace, "open-cluster-management-agent-addon") && strings.EqualFold(newSA.Name, "klusterlet-addon-appmgr") {
+			return true
+		}*/
+
+		if strings.EqualFold(newSA.Namespace, "default") && strings.EqualFold(newSA.Name, "klusterlet-addon-appmgr") {
+			return true
+		}
+
+		return false
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		sa := e.Object.(*corev1.ServiceAccount)
+
+		if strings.EqualFold(sa.Namespace, "default") && strings.EqualFold(sa.Name, "klusterlet-addon-appmgr") {
+			return true
+		}
+
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		sa := e.Object.(*corev1.ServiceAccount)
+
+		if strings.EqualFold(sa.Namespace, "default") && strings.EqualFold(sa.Name, "klusterlet-addon-appmgr") {
+			return true
+		}
+
+		return false
 	},
 }
 
