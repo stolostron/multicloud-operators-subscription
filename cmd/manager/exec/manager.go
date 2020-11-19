@@ -19,8 +19,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-
 	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -46,10 +44,14 @@ var (
 	operatorMetricsPort int = 8684
 )
 
-func RunManager() {
+// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+// which is the namespace where the watch activity happens.
+// this value is empty if the operator is running with clusterScope.
+const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
+func RunManager() {
 	// Get watch namespace setting of controller
-	namespace, err := k8sutil.GetWatchNamespace()
+	namespace, err := getWatchNamespace()
 	if err != nil {
 		log.Error(err, " - Failed to get watch namespace")
 		os.Exit(1)
@@ -110,8 +112,10 @@ func RunManager() {
 		}
 
 		enableLeaderElection := false
+
 		if _, err := rest.InClusterConfig(); err == nil {
 			klog.Info("LeaderElection enabled as running in a cluster")
+
 			enableLeaderElection = true
 		} else {
 			klog.Info("LeaderElection disabled as not running in a cluster")
@@ -182,4 +186,14 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	return nil
+}
+
+// getWatchNamespace returns the namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
+	}
+
+	return ns, nil
 }

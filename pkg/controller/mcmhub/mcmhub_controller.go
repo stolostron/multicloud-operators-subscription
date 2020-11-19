@@ -814,6 +814,6 @@ func after(value string, a string) string {
 	return value[adjustedPos:]
 }
 
-func PrintHelper(o metav1.Object) types.NamespacedName {
+func PrintHelper(o metav1.Object) types.NamespacedName { //nolint
 	return types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()}
 }
