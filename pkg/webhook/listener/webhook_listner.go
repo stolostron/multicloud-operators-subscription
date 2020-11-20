@@ -17,6 +17,7 @@ package listener
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -38,7 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -180,7 +180,7 @@ func CreateWebhookListener(config,
 	}
 
 	if createService {
-		namespace, err := k8sutil.GetOperatorNamespace()
+		namespace, err := getOperatorNamespace()
 
 		if err != nil {
 			return nil, err
@@ -360,4 +360,20 @@ func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription
 	}
 
 	return newsub
+}
+
+func getOperatorNamespace() (string, error) {
+	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("namespace not found for current environment")
+		}
+
+		return "", err
+	}
+
+	ns := strings.TrimSpace(string(nsBytes))
+	klog.V(1).Info("Found namespace", "Namespace", ns)
+
+	return ns, nil
 }

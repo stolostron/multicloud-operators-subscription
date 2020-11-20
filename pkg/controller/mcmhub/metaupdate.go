@@ -27,6 +27,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -34,8 +35,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
 
-	helmclient "github.com/operator-framework/operator-sdk/pkg/helm/client"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
+	"k8s.io/client-go/discovery"
+	cached "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -57,6 +62,53 @@ const (
 	helmChartParent  = "helmchart"
 	hookParent       = "hook"
 )
+
+var _ genericclioptions.RESTClientGetter = &restClientGetter{}
+
+type restClientGetter struct {
+	restConfig      *rest.Config
+	discoveryClient discovery.CachedDiscoveryInterface
+	restMapper      meta.RESTMapper
+	namespaceConfig clientcmd.ClientConfig
+}
+
+func (c *restClientGetter) ToRESTConfig() (*rest.Config, error) {
+	return c.restConfig, nil
+}
+
+func (c *restClientGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return c.discoveryClient, nil
+}
+
+func (c *restClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	return c.restMapper, nil
+}
+
+func (c *restClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return c.namespaceConfig
+}
+
+var _ clientcmd.ClientConfig = &namespaceClientConfig{}
+
+type namespaceClientConfig struct {
+	namespace string
+}
+
+func (c namespaceClientConfig) RawConfig() (clientcmdapi.Config, error) {
+	return clientcmdapi.Config{}, nil
+}
+
+func (c namespaceClientConfig) ClientConfig() (*rest.Config, error) {
+	return nil, nil
+}
+
+func (c namespaceClientConfig) Namespace() (string, bool, error) {
+	return c.namespace, false, nil
+}
+
+func (c namespaceClientConfig) ConfigAccess() clientcmd.ConfigAccess {
+	return nil
+}
 
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
@@ -292,7 +344,7 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 		return nil, fmt.Errorf("failed to load chart dir: %w", err)
 	}
 
-	rcg, err := helmclient.NewRESTClientGetter(mgr, s.Namespace)
+	rcg, err := newRESTClientGetter(mgr, s.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get REST client getter from manager: %w", err)
 	}
@@ -424,4 +476,23 @@ func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map
 	anno[subv1.AnnotationTopo] = topo
 
 	return anno
+}
+
+func newRESTClientGetter(mgr manager.Manager, ns string) (genericclioptions.RESTClientGetter, error) {
+	cfg := mgr.GetConfig()
+
+	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	cdc := cached.NewMemCacheClient(dc)
+	rm := mgr.GetRESTMapper()
+
+	return &restClientGetter{
+		restConfig:      cfg,
+		discoveryClient: cdc,
+		restMapper:      rm,
+		namespaceConfig: &namespaceClientConfig{ns},
+	}, nil
 }

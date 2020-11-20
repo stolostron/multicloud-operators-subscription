@@ -15,27 +15,19 @@
 package exec
 
 import (
-	"context"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 
-	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
-	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
-	"github.com/operator-framework/operator-sdk/pkg/leader"
-	"github.com/operator-framework/operator-sdk/pkg/metrics"
-	sdkVersion "github.com/operator-framework/operator-sdk/version"
-
 	"github.com/prometheus/common/log"
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
@@ -47,22 +39,19 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost               = "0.0.0.0"
-	metricsPort         int32 = 8383
-	operatorMetricsPort int32 = 8686
+	metricsHost             = "0.0.0.0"
+	metricsPort         int = 8381
+	operatorMetricsPort int = 8684
 )
 
-func printVersion() {
-	klog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	klog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	klog.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-}
+// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
+// which is the namespace where the watch activity happens.
+// this value is empty if the operator is running with clusterScope.
+const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
-func RunManager(sig <-chan struct{}) {
-	printVersion()
-
+func RunManager() {
 	// Get watch namespace setting of controller
-	namespace, err := k8sutil.GetWatchNamespace()
+	namespace, err := getWatchNamespace()
 	if err != nil {
 		log.Error(err, " - Failed to get watch namespace")
 		os.Exit(1)
@@ -73,8 +62,6 @@ func RunManager(sig <-chan struct{}) {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
-
-	ctx := context.TODO()
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := manager.New(cfg, manager.Options{
@@ -123,13 +110,30 @@ func RunManager(sig <-chan struct{}) {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
-		// Become the leader before proceeding
-		err = leader.Become(ctx, "multicloud-operators-subscription-lock")
+
+		enableLeaderElection := false
+
+		if _, err := rest.InClusterConfig(); err == nil {
+			klog.Info("LeaderElection enabled as running in a cluster")
+
+			enableLeaderElection = true
+		} else {
+			klog.Info("LeaderElection disabled as not running in a cluster")
+		}
+
+		// Create a new Cmd to provide shared dependencies and start components
+		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+			Port:                    operatorMetricsPort,
+			LeaderElection:          enableLeaderElection,
+			LeaderElectionID:        "multicloud-operators-subscription-leader.open-cluster-management.io",
+			LeaderElectionNamespace: "kube-system",
+		})
+
 		if err != nil {
 			klog.Error(err, "")
 			os.Exit(1)
 		}
-
 		// Setup Webhook listner
 		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
@@ -145,44 +149,7 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(1)
 	}
 
-	if err = serveCRMetrics(cfg); err != nil {
-		klog.Info("Could not generate and serve custom resource metrics", "error", err.Error())
-	}
-
-	// Add to the below struct any other metrics ports you want to expose.
-	servicePorts := []v1.ServicePort{
-		{
-			Port:       metricsPort,
-			Name:       metrics.OperatorPortName,
-			Protocol:   v1.ProtocolTCP,
-			TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: metricsPort},
-		},
-		{
-			Port:       operatorMetricsPort,
-			Name:       metrics.CRPortName,
-			Protocol:   v1.ProtocolTCP,
-			TargetPort: intstr.IntOrString{Type: intstr.Int, IntVal: operatorMetricsPort},
-		},
-	}
-	// Create Service object to expose the metrics port(s).
-	service, err := metrics.CreateMetricsService(ctx, cfg, servicePorts)
-	if err != nil {
-		klog.Info("Could not create metrics Service", "error", err.Error())
-	}
-
-	// CreateServiceMonitors will automatically create the prometheus-operator ServiceMonitor resources
-	// necessary to configure Prometheus to scrape metrics from this operator.
-	services := []*v1.Service{service}
-	_, err = metrics.CreateServiceMonitors(cfg, "", services)
-
-	if err != nil {
-		log.Info("Could not create ServiceMonitor object", "error", err.Error())
-		// If this operator is deployed to a cluster without the prometheus-operator running, it will return
-		// ErrServiceMonitorNotPresent, which can be used to safely skip ServiceMonitor creation.
-		if err == metrics.ErrServiceMonitorNotPresent {
-			klog.Info("Install prometheus-operator in your cluster to create ServiceMonitor objects", "error", err.Error())
-		}
-	}
+	sig := signals.SetupSignalHandler()
 
 	klog.Info("Starting the Cmd.")
 
@@ -221,22 +188,12 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	return nil
 }
 
-// serveCRMetrics gets the Operator/CustomResource GVKs and generates metrics based on those types.
-// It serves those metrics on "http://metricsHost:operatorMetricsPort".
-func serveCRMetrics(cfg *rest.Config) error {
-	// Below function returns filtered operator/CustomResource specific GVKs.
-	// For more control override the below GVK list with your own custom logic.
-	filteredGVK, err := k8sutil.GetGVKsFromAddToScheme(apis.AddToScheme)
-	if err != nil {
-		return err
+// getWatchNamespace returns the namespace the operator should be watching for changes
+func getWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
 	}
-	// Get the namespace the operator is currently deployed in.
-	operatorNs, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return err
-	}
-	// To generate metrics in other namespaces, add the values below.
-	ns := []string{operatorNs}
-	// Generate and serve custom resource specific metrics.
-	return kubemetrics.GenerateAndServeCRMetrics(cfg, ns, filteredGVK, metricsHost, operatorMetricsPort)
+
+	return ns, nil
 }
