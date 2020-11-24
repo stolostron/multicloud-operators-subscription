@@ -19,13 +19,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/prometheus/common/log"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
@@ -50,24 +48,25 @@ var (
 const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 func RunManager() {
-	// Get watch namespace setting of controller
-	namespace, err := getWatchNamespace()
-	if err != nil {
-		log.Error(err, " - Failed to get watch namespace")
-		os.Exit(1)
-	}
-	// Get a config to talk to the apiserver
-	cfg, err := config.GetConfig()
-	if err != nil {
-		klog.Error(err, "")
-		os.Exit(1)
+	enableLeaderElection := false
+
+	if _, err := rest.InClusterConfig(); err == nil {
+		klog.Info("LeaderElection enabled as running in a cluster")
+
+		enableLeaderElection = true
+	} else {
+		klog.Info("LeaderElection disabled as not running in a cluster")
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:                    operatorMetricsPort,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "multicloud-operators-subscription-leader.open-cluster-management.io",
+		LeaderElectionNamespace: "kube-system",
 	})
+
 	if err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
@@ -111,29 +110,6 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		enableLeaderElection := false
-
-		if _, err := rest.InClusterConfig(); err == nil {
-			klog.Info("LeaderElection enabled as running in a cluster")
-
-			enableLeaderElection = true
-		} else {
-			klog.Info("LeaderElection disabled as not running in a cluster")
-		}
-
-		// Create a new Cmd to provide shared dependencies and start components
-		mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-			MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-			Port:                    operatorMetricsPort,
-			LeaderElection:          enableLeaderElection,
-			LeaderElectionID:        "multicloud-operators-subscription-leader.open-cluster-management.io",
-			LeaderElectionNamespace: "kube-system",
-		})
-
-		if err != nil {
-			klog.Error(err, "")
-			os.Exit(1)
-		}
 		// Setup Webhook listner
 		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
@@ -186,14 +162,4 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	return nil
-}
-
-// getWatchNamespace returns the namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
-	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
-	if !found {
-		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
-	}
-
-	return ns, nil
 }
