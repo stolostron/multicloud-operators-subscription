@@ -41,7 +41,7 @@ func main() {
 	pflag.Parse()
 
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		log.Println(http.ListenAndServe(":6060", nil))
 	}()
 
 	exec.RunManager()
