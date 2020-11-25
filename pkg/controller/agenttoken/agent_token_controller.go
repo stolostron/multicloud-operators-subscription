@@ -16,8 +16,10 @@ package agenttoken
 
 import (
 	"context"
+	"encoding/json"
 
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -46,9 +48,6 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 			klog.Error("Failed to generate client to hub cluster with error:", err)
 			return err
 		}
-
-		klog.Info("ROKEROKE  " + hubconfig.Host)
-		klog.Info("ROKEROKE token " + hubconfig.BearerToken)
 
 		return add(mgr, newReconciler(mgr, hubclient, syncid, hubconfig.Host))
 	}
@@ -90,7 +89,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileAgentToken{}
 
-// ReconcileAppMgrToken reconciles a service account object
+// ReconcileAppMgrToken syncid is the namespaced name of this managed cluster.
+// host is the API server URL of this managed cluster.
 type ReconcileAgentToken struct {
 	client.Client
 	hubclient client.Client
@@ -99,8 +99,8 @@ type ReconcileAgentToken struct {
 	host      string
 }
 
-// Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
-// and what is in the Subscription.Spec
+// Reconciles <clusterName>-cluster-secret secret in the managed cluster's namespace
+// on the hub cluster to the klusterlet-addon-appmgr service account's token secret.
 func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	appmgrsa := &corev1.ServiceAccount{}
 
@@ -135,31 +135,51 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 		if !ok {
 			klog.Error("Serviceaccount token secret does not contain token.")
 		} else {
-			klog.Info("I HAVE TOKEN")
-			/*decodedBytes, err := base64.StdEncoding.DecodeString(string(token))
-			if err != nil {
-				klog.Error("Failed to base64 decode")
-				klog.Error(err)
-			}
+			// Get the name, server, bearerToken and compare them to the ones from the hub.
+			// Create if the secret does not exist.
+			// Update if they are different.
+			hubSecret := &corev1.Secret{}
 
-			klog.Info(string(decodedBytes))*/
-			klog.Info(string(token))
+			hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + "-cluster-secret"}
 
-			secret := r.createSecret(string(token))
+			secret := r.createAgentTokenSecret(string(token))
 
-			err := r.hubclient.Create(context.TODO(), secret)
+			err := r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
 
 			if err != nil {
-				klog.Error("Failed to create secret : ", err)
+				if kerrors.IsNotFound(err) {
+					klog.Info("ROKEROKE Creating the cluster secret on the hub.")
+
+					err := r.hubclient.Create(context.TODO(), secret)
+
+					if err != nil {
+						klog.Error("Failed to create secret : ", err)
+					}
+
+					klog.Info("ROKEROKE The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
+				} else {
+					klog.Error("Failed to get secret from the hub: ", err)
+				}
+			} else {
+				// Update if the content has changed
+				klog.Info("new data config = " + string(secret.StringData["config"]))
+				klog.Info("hub data config = " + string(hubSecret.Data["config"]))
+
+				if string(secret.StringData["config"]) != string(hubSecret.Data["config"]) ||
+					string(secret.StringData["name"]) != string(hubSecret.Data["name"]) ||
+					string(secret.StringData["server"]) != string(hubSecret.Data["server"]) {
+					klog.Infof("The service account klusterlet-addon-appmgr token secret has changed. Updating %s on the hub cluster.", hubSecretName.String())
+				} else {
+					klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
+				}
 			}
 		}
-
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileAgentToken) createSecret(token string) *corev1.Secret {
+func (r *ReconcileAgentToken) createAgentTokenSecret(token string) *corev1.Secret {
 	mcSecret := &corev1.Secret{}
 	mcSecret.Name = r.syncid.Name + "-cluster-secret"
 	mcSecret.Namespace = r.syncid.Namespace
@@ -171,19 +191,30 @@ func (r *ReconcileAgentToken) createSecret(token string) *corev1.Secret {
 	mcSecret.SetLabels(labels)
 
 	type Config struct {
-		BearerToken string
-		Host        string
-		Name        string
+		BearerToken     string          `json:"bearerToken"`
+		TlsClientConfig map[string]bool `json:"tlsClientConfig"`
 	}
 
-	config := &Config{}
-	config.BearerToken = token
-	config.Host = r.host
-	config.Name = r.syncid.Name
+	configData := &Config{}
+	configData.BearerToken = token
+	tlsClientConfig := make(map[string]bool)
+	tlsClientConfig["insecure"] = true
+	configData.TlsClientConfig = tlsClientConfig
 
-	//stringData := make(map[string]string)
+	jsonConfigData, err := json.MarshalIndent(configData, "", "  ")
 
-	mcSecret.StringData = config
+	if err != nil {
+		klog.Error(err)
+	}
+
+	klog.Info(string(jsonConfigData))
+
+	data := make(map[string]string)
+	data["name"] = r.syncid.Name
+	data["server"] = r.host
+	data["config"] = string(jsonConfigData)
+
+	mcSecret.StringData = data
 
 	return mcSecret
 }

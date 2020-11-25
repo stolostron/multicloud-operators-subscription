@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
+	agentv1 "github.com/open-cluster-management/endpoint-operator/pkg/apis/agent/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
@@ -48,10 +49,12 @@ type NsSubscriberItem struct {
 	cache                cache.Cache
 	deployablecontroller controller.Controller
 	secretcontroller     controller.Controller
+	tokencontroller      controller.Controller
 	clusterscoped        bool
 	stopch               chan struct{}
 	dplreconciler        *DeployableReconciler
 	srtreconciler        *SecretReconciler
+	tokenreconciler      *AgentTokenReconciler
 }
 
 type itemmap map[types.NamespacedName]*NsSubscriberItem
@@ -138,7 +141,7 @@ func (ns *NsSubscriber) SubscribeNamespaceItem(subitem *appv1alpha1.SubscriberIt
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	klog.V(2).Info("subscribeItem ", itemkey)
+	klog.Info("subscribeItem ", itemkey)
 
 	nssubitem, ok := ns.itemmap[itemkey]
 
@@ -224,6 +227,29 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to watch secret")
 	}
 
+	tokenreconciler := NewKlusterletTokenReconciler(ns.manager, hubclient, itemkey, ns.config.Host)
+
+	nssubitem.tokencontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: tokenreconciler})
+
+	if err != nil {
+		return errors.Wrap(err, "failed to create klusterlet token controller for namespace subscriber item")
+	}
+
+	tokenifm, err := nssubitem.cache.GetInformer(context.TODO(), &agentv1.KlusterletAddonConfig{})
+	//tokenifm, err := nssubitem.cache.GetInformer(context.TODO(), &v1.Secret{})
+
+	if err != nil {
+		return errors.Wrap(err, "failed to get informer for KlusterletAddonConfig from cache")
+	}
+
+	tokensrc := &source.Informer{Informer: tokenifm}
+
+	err = nssubitem.secretcontroller.Watch(tokensrc, &handler.EnqueueRequestForObject{})
+
+	if err != nil {
+		return errors.Wrap(err, "failed to watch KlusterletAddonConfig")
+	}
+
 	nssubitem.stopch = make(chan struct{})
 
 	go func() {
@@ -247,8 +273,16 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		}
 	}()
 
+	go func() {
+		err := nssubitem.tokencontroller.Start(nssubitem.stopch)
+		if err != nil {
+			klog.Error("failed to start agent token controller for Namespace subscriber item with error: ", err)
+		}
+	}()
+
 	nssubitem.dplreconciler = dplReconciler
 	nssubitem.srtreconciler = secretreconciler
+	nssubitem.tokenreconciler = tokenreconciler
 
 	subitem.DeepCopyInto(&nssubitem.SubscriberItem)
 	ns.itemmap[itemkey] = nssubitem
