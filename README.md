@@ -15,7 +15,7 @@
 - [Overview](#overview)
 - [Quick Start](#quick-start)
     - [Subscribe a helm chart](#subscribe-a-helm-chart)
-    - [Trouble shooting](#trouble-shooting)
+    - [Troubleshooting](#troubleshooting)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
 - [Getting Started](#getting-started)
     - [Prerequisites](#prerequisites)
@@ -77,7 +77,7 @@ nginx-ingress-default-backend-6b8dc9d88f-n26ls   1/1     Running   0          96
 
 Check the [Getting Started](docs/getting_started.md) doc for more details
 
-### Trouble shooting
+### Troubleshooting
 
 - Check operator availability
 
@@ -134,8 +134,6 @@ Status:
             Phase:        Success
 Events:                   <none>
 ```
-
-Please refer to [Trouble shooting documentation](docs/trouble_shooting.md) for further info.
 
 ## Community, discussion, contribution, and support
 
