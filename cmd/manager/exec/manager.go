@@ -150,15 +150,17 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, standalone); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, id, standalone); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}
 
-	// Setup Webhook listner
-	if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
-		klog.Error("Failed to initialize WebHook listener with error:", err)
-		return err
+	if standalone {
+		// Setup Webhook listner
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
+			klog.Error("Failed to initialize WebHook listener with error:", err)
+			return err
+		}
 	}
 
 	return nil
