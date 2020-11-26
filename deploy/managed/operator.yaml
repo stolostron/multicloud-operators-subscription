@@ -1,3 +1,5 @@
+# before applying, filled in the <managed cluster name> and <managed cluster namespace> and run the following command:
+# kubectl -n multicluster-operators create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=</path/to/hub_cluster/kubeconfig> # note: the file name must be 'kubeconfig'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,6 +18,11 @@ spec:
         name: multicluster-operators-subscription
     spec:
       serviceAccountName: multicluster-operators
+      volumes:
+      - name: klusterlet-config
+        secret:
+          defaultMode: 420
+          secretName: appmgr-hub-kubeconfig
       containers:
         - name: multicluster-operators-subscription
           image: quay.io/open-cluster-management/multicluster-operators-subscription:community-latest
@@ -23,8 +30,10 @@ spec:
           - containerPort: 8443
           command:
           - /usr/local/bin/multicluster-operators-subscription
-          - --sync-interval=10
-          - --standalone
+          - --alsologtostderr
+          - --cluster-name=<managed cluster name> # cluster1
+          - --cluster-namespace=<managed cluster namespace> # cluster1
+          - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE
@@ -41,3 +50,6 @@ spec:
               limits:
                 cpu: 500m
                 memory: 512Mi
+          volumeMounts:
+          - mountPath: /var/run/klusterlet
+            name: klusterlet-config
