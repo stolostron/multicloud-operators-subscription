@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package agenttoken
+package klusterlettoken
 
 import (
 	"context"
 	"encoding/json"
+	"time"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,10 +36,10 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
-/**
-* USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
-* business logic.  Delete these comments after modifying this file.*
- */
+const (
+	SECRET_SUFFIX           = "-cluster-secret"
+	RECONCILE_REQUEUE_AFTER = 5
+)
 
 // Add creates a new agent token controller and adds it to the Manager if standalone is false.
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, standalone bool) error {
@@ -70,9 +72,9 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, syncid *types.N
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	klog.Info("Adding agent token controller.")
+	klog.Info("Adding klusterlet token controller.")
 	// Create a new controller
-	c, err := controller.New("agent-token-controller", mgr, controller.Options{Reconciler: r})
+	c, err := controller.New("klusterlet-token-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
 		return err
 	}
@@ -101,17 +103,23 @@ type ReconcileAgentToken struct {
 
 // Reconciles <clusterName>-cluster-secret secret in the managed cluster's namespace
 // on the hub cluster to the klusterlet-addon-appmgr service account's token secret.
+// If it is running on the hub, don't do anything.
 func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+
+	// TODO: If it is running on the hub, don't do anything.
+
 	appmgrsa := &corev1.ServiceAccount{}
 
 	err := r.Client.Get(context.TODO(), request.NamespacedName, appmgrsa)
 
 	if err != nil {
 		klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
+		return reconcile.Result{}, err
 	}
 
 	// Get the service account token from the service account's secret list
 	saSecret := &corev1.Secret{}
+
 	for _, secret := range appmgrsa.Secrets {
 		secretName := types.NamespacedName{
 			Name:      secret.Name,
@@ -130,45 +138,49 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 	if saSecret == nil {
 		klog.Error("Failed to find the service account token.")
+		return reconcile.Result{}, errors.New("Failed to find the klusterlet agent addon service account token secret.")
 	} else {
 		token, ok := saSecret.Data["token"]
 		if !ok {
 			klog.Error("Serviceaccount token secret does not contain token.")
+			return reconcile.Result{}, errors.New("The klusterlet agent addon service account token secret does not contain token.")
 		} else {
-			// Get the name, server, bearerToken and compare them to the ones from the hub.
-			// Create if the secret does not exist.
-			// Update if they are different.
-			hubSecret := &corev1.Secret{}
-
-			hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + "-cluster-secret"}
-
+			// Create the secret to be created/updated in the managed cluster namespace on the hub
 			secret := r.createAgentTokenSecret(string(token))
 
+			// Get the existing secret in the managed cluster namespace from the hub
+			hubSecret := &corev1.Secret{}
+			hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + SECRET_SUFFIX}
 			err := r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
 
 			if err != nil {
 				if kerrors.IsNotFound(err) {
-					klog.Info("ROKEROKE Creating the cluster secret on the hub.")
+					klog.Info("Secret " + hubSecretName.String() + " not found on the hub.")
 
 					err := r.hubclient.Create(context.TODO(), secret)
 
 					if err != nil {
-						klog.Error("Failed to create secret : ", err)
+						klog.Error(err.Error())
+						return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
 					}
 
-					klog.Info("ROKEROKE The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
+					klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
 				} else {
 					klog.Error("Failed to get secret from the hub: ", err)
+					return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
 				}
 			} else {
 				// Update if the content has changed
-				klog.Info("new data config = " + string(secret.StringData["config"]))
-				klog.Info("hub data config = " + string(hubSecret.Data["config"]))
-
 				if string(secret.StringData["config"]) != string(hubSecret.Data["config"]) ||
 					string(secret.StringData["name"]) != string(hubSecret.Data["name"]) ||
 					string(secret.StringData["server"]) != string(hubSecret.Data["server"]) {
 					klog.Infof("The service account klusterlet-addon-appmgr token secret has changed. Updating %s on the hub cluster.", hubSecretName.String())
+					r.hubclient.Update(context.TODO(), secret)
+
+					if err != nil {
+						klog.Error("Failed to update secret : ", err)
+						return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
+					}
 				} else {
 					klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
 				}
@@ -181,7 +193,7 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 func (r *ReconcileAgentToken) createAgentTokenSecret(token string) *corev1.Secret {
 	mcSecret := &corev1.Secret{}
-	mcSecret.Name = r.syncid.Name + "-cluster-secret"
+	mcSecret.Name = r.syncid.Name + SECRET_SUFFIX
 	mcSecret.Namespace = r.syncid.Namespace
 
 	labels := make(map[string]string)
