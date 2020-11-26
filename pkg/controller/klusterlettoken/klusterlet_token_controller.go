@@ -37,8 +37,8 @@ import (
 )
 
 const (
-	SECRET_SUFFIX           = "-cluster-secret"
-	RECONCILE_REQUEUE_AFTER = 5
+	secretSuffix = "-cluster-secret"
+	requeuAfter  = 5
 )
 
 // Add creates a new agent token controller and adds it to the Manager if standalone is false.
@@ -101,99 +101,99 @@ type ReconcileAgentToken struct {
 	host      string
 }
 
+type Config struct {
+	BearerToken     string          `json:"bearerToken"`
+	TLSClientConfig map[string]bool `json:"tlsClientConfig"`
+}
+
 // Reconciles <clusterName>-cluster-secret secret in the managed cluster's namespace
 // on the hub cluster to the klusterlet-addon-appmgr service account's token secret.
 // If it is running on the hub, don't do anything.
 func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-
-	// TODO: If it is running on the hub, don't do anything.
+	klog.Infof("Reconciling %s", request.NamespacedName)
 
 	appmgrsa := &corev1.ServiceAccount{}
 
 	err := r.Client.Get(context.TODO(), request.NamespacedName, appmgrsa)
 
 	if err != nil {
-		klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
-		return reconcile.Result{}, err
+		if kerrors.IsNotFound(err) {
+			klog.Infof("%s is not found. Deleting the secret from the hub.", request.NamespacedName)
+
+			err := r.hubclient.Delete(context.TODO(), r.prepareAgentTokenSecret(""))
+
+			if err != nil {
+				klog.Error("Failed to delete the secret from the hub.")
+				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+			}
+		} else {
+			klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
+			return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+		}
 	}
 
 	// Get the service account token from the service account's secret list
-	saSecret := &corev1.Secret{}
-
-	for _, secret := range appmgrsa.Secrets {
-		secretName := types.NamespacedName{
-			Name:      secret.Name,
-			Namespace: appmgrsa.Namespace,
-		}
-
-		if err := r.Client.Get(context.TODO(), secretName, saSecret); err != nil {
-			continue
-		}
-
-		// Get the service account token
-		if saSecret.Type == corev1.SecretTypeServiceAccountToken {
-			break
-		}
-	}
+	saSecret := r.getServiceAccountTokenSecret(*appmgrsa)
 
 	if saSecret == nil {
 		klog.Error("Failed to find the service account token.")
-		return reconcile.Result{}, errors.New("Failed to find the klusterlet agent addon service account token secret.")
-	} else {
-		token, ok := saSecret.Data["token"]
-		if !ok {
-			klog.Error("Serviceaccount token secret does not contain token.")
-			return reconcile.Result{}, errors.New("The klusterlet agent addon service account token secret does not contain token.")
-		} else {
-			// Create the secret to be created/updated in the managed cluster namespace on the hub
-			secret := r.createAgentTokenSecret(string(token))
+		return reconcile.Result{}, errors.New("failed to find the klusterlet agent addon service account token secret")
+	}
 
-			// Get the existing secret in the managed cluster namespace from the hub
-			hubSecret := &corev1.Secret{}
-			hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + SECRET_SUFFIX}
-			err := r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
+	token, ok := saSecret.Data["token"]
+
+	if !ok {
+		klog.Error("Serviceaccount token secret does not contain token.")
+		return reconcile.Result{}, errors.New("the klusterlet agent addon service account token secret does not contain token")
+	}
+
+	// Prepare the secret to be created/updated in the managed cluster namespace on the hub
+	secret := r.prepareAgentTokenSecret(string(token))
+
+	// Get the existing secret in the managed cluster namespace from the hub
+	hubSecret := &corev1.Secret{}
+	hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + secretSuffix}
+	err = r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
+
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			klog.Info("Secret " + hubSecretName.String() + " not found on the hub.")
+
+			err := r.hubclient.Create(context.TODO(), secret)
 
 			if err != nil {
-				if kerrors.IsNotFound(err) {
-					klog.Info("Secret " + hubSecretName.String() + " not found on the hub.")
-
-					err := r.hubclient.Create(context.TODO(), secret)
-
-					if err != nil {
-						klog.Error(err.Error())
-						return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
-					}
-
-					klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
-				} else {
-					klog.Error("Failed to get secret from the hub: ", err)
-					return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
-				}
-			} else {
-				// Update if the content has changed
-				if string(secret.StringData["config"]) != string(hubSecret.Data["config"]) ||
-					string(secret.StringData["name"]) != string(hubSecret.Data["name"]) ||
-					string(secret.StringData["server"]) != string(hubSecret.Data["server"]) {
-					klog.Infof("The service account klusterlet-addon-appmgr token secret has changed. Updating %s on the hub cluster.", hubSecretName.String())
-					r.hubclient.Update(context.TODO(), secret)
-
-					if err != nil {
-						klog.Error("Failed to update secret : ", err)
-						return reconcile.Result{Requeue: true, RequeueAfter: RECONCILE_REQUEUE_AFTER * time.Minute}, err
-					}
-				} else {
-					klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
-				}
+				klog.Error(err.Error())
+				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
 			}
+
+			klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
+		} else {
+			klog.Error("Failed to get secret from the hub: ", err)
+			return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+		}
+	} else {
+		// Update if the content has changed
+		if secret.StringData["config"] != string(hubSecret.Data["config"]) ||
+			secret.StringData["name"] != string(hubSecret.Data["name"]) ||
+			secret.StringData["server"] != string(hubSecret.Data["server"]) {
+			klog.Infof("The service account klusterlet-addon-appmgr token secret has changed. Updating %s on the hub cluster.", hubSecretName.String())
+			err = r.hubclient.Update(context.TODO(), secret)
+
+			if err != nil {
+				klog.Error("Failed to update secret : ", err)
+				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+			}
+		} else {
+			klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
 		}
 	}
 
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileAgentToken) createAgentTokenSecret(token string) *corev1.Secret {
+func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secret {
 	mcSecret := &corev1.Secret{}
-	mcSecret.Name = r.syncid.Name + SECRET_SUFFIX
+	mcSecret.Name = r.syncid.Name + secretSuffix
 	mcSecret.Namespace = r.syncid.Namespace
 
 	labels := make(map[string]string)
@@ -202,16 +202,11 @@ func (r *ReconcileAgentToken) createAgentTokenSecret(token string) *corev1.Secre
 
 	mcSecret.SetLabels(labels)
 
-	type Config struct {
-		BearerToken     string          `json:"bearerToken"`
-		TlsClientConfig map[string]bool `json:"tlsClientConfig"`
-	}
-
 	configData := &Config{}
 	configData.BearerToken = token
 	tlsClientConfig := make(map[string]bool)
 	tlsClientConfig["insecure"] = true
-	configData.TlsClientConfig = tlsClientConfig
+	configData.TLSClientConfig = tlsClientConfig
 
 	jsonConfigData, err := json.MarshalIndent(configData, "", "  ")
 
@@ -229,4 +224,27 @@ func (r *ReconcileAgentToken) createAgentTokenSecret(token string) *corev1.Secre
 	mcSecret.StringData = data
 
 	return mcSecret
+}
+
+func (r *ReconcileAgentToken) getServiceAccountTokenSecret(sa corev1.ServiceAccount) *corev1.Secret {
+	// Get the service account token from the service account's secret list
+	saSecret := &corev1.Secret{}
+
+	for _, secret := range sa.Secrets {
+		secretName := types.NamespacedName{
+			Name:      secret.Name,
+			Namespace: sa.Namespace,
+		}
+
+		if err := r.Client.Get(context.TODO(), secretName, saSecret); err != nil {
+			continue
+		}
+
+		// Get the service account token
+		if saSecret.Type == corev1.SecretTypeServiceAccountToken {
+			break
+		}
+	}
+
+	return saSecret
 }

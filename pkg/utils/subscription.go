@@ -53,6 +53,9 @@ const (
 	//minus 1 because we add a dash
 	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
+	// klusterletagentaddon secret token reconcile
+	addonServiceAccountName      = "klusterlet-addon-appmgr"
+	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
 )
 
 func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
@@ -285,13 +288,8 @@ var PlacementRulePredicateFunctions = predicate.Funcs{
 var ServiceAccountPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		newSA := e.ObjectNew.(*corev1.ServiceAccount)
-		//oldSA := e.ObjectOld.(*corev1.ServiceAccount)
 
-		/*if strings.EqualFold(newSA.Namespace, "open-cluster-management-agent-addon") && strings.EqualFold(newSA.Name, "klusterlet-addon-appmgr") {
-			return true
-		}*/
-
-		if strings.EqualFold(newSA.Namespace, "default") && strings.EqualFold(newSA.Name, "klusterlet-addon-appmgr") {
+		if strings.EqualFold(newSA.Namespace, addonServiceAccountNamespace) && strings.EqualFold(newSA.Name, addonServiceAccountName) {
 			return true
 		}
 
@@ -300,7 +298,7 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
 		sa := e.Object.(*corev1.ServiceAccount)
 
-		if strings.EqualFold(sa.Namespace, "default") && strings.EqualFold(sa.Name, "klusterlet-addon-appmgr") {
+		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
 			return true
 		}
 
@@ -309,7 +307,7 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		sa := e.Object.(*corev1.ServiceAccount)
 
-		if strings.EqualFold(sa.Namespace, "default") && strings.EqualFold(sa.Name, "klusterlet-addon-appmgr") {
+		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
 			return true
 		}
 
