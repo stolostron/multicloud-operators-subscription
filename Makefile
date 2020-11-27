@@ -138,7 +138,7 @@ local:
 ############################################################
 
 build-images: build
-	@docker build build -t ${IMAGE_NAME_AND_VERSION}
+	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
 	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 build-latest-community-operator:
