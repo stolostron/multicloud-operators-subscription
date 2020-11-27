@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <testsuite name="Subscription-E2E-test" tests="2" failures="0" errors="0" time="13.25">
+      <testcase name="subscription-test sub-001" classname="Subscription-E2E-test" time="7.670264357"></testcase>
+      <testcase name="subscription-test sub-002" classname="Subscription-E2E-test" time="5.544804533"></testcase>
+  </testsuite>

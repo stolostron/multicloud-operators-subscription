@@ -86,3 +86,6 @@ OPENSOURCE.check
 !vbh/.build-harness-vendorized
 !vbh/build-harness
 !vbh/build-harness-extensions
+
+applifecycle-backend-e2e
+cluster_config

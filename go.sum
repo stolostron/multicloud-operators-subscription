@@ -918,12 +918,17 @@ github.com/open-cluster-management/ansiblejob-go-lib v0.1.12 h1:ZO9ZqZNqHs/pRith
 github.com/open-cluster-management/ansiblejob-go-lib v0.1.12/go.mod h1:dDL15yXQUna2cVZwjgnQ/HZ95deXgI4Uj8/djY4A5o4=
 github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294 h1:Ek/KLp95G0ThcfUQ5vFj7VAySJvOXbXBD4vJzHrkgJg=
 github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294/go.mod h1:F1hDJHtWuV7BAUtfL4XRS9GZjUpksleLgEcisNXvQEw=
+github.com/open-cluster-management/applifecycle-backend-e2e v0.1.5 h1:KoLNZQdD0rGHk+sFG3jVk5U7+/5/56bgJWVMyqgmS1Q=
+github.com/open-cluster-management/applifecycle-backend-e2e v0.1.5/go.mod h1:epk+wzREODyT9Uu6B2fCo9v67b4QnL7l12CzkRXW5pI=
 github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45 h1:GuMOB2hJjZA1jxcoQ1PsTMtBSrDfN74E9/ex66hLT0M=
 github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45/go.mod h1:aL69GeyC51UBT9jmpogrvoJUQC5gVm+QvRY+e56NjH4=
 github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20201119200129-dcb15e7afa3f h1:6ot3tv+fvbEWAhfqzrYFzaq9TXy0cCnJqgdSvG0rEI8=
 github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20201119200129-dcb15e7afa3f/go.mod h1:IgsJxFw2EyGpwxTNMz9MzAC3Ci6cry2DErgBl3cv+SI=
+github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre h1:ZrQ1ssZ6pXFrPY9ZEMb0ANs3UqTb6tMwCidcwDMEddc=
+github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre/go.mod h1:IgsJxFw2EyGpwxTNMz9MzAC3Ci6cry2DErgBl3cv+SI=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12 h1:iPQiiQSTOYvUXxOYZ4YjcuafOse2LnuY318yhDeJ+NU=
 github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12/go.mod h1:qoFtdFcv8E5Ewuvw5MCSTfMp5/iVR0kPfdWg7/VTESM=
+github.com/open-cluster-management/multicloud-operators-subscription v0.2.2-pre/go.mod h1:Se+fBDKfY1SysKjxRrcjVxATaaWpwDBNKAXovZOn+yQ=
 github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201120152906-e64e01280049 h1:Sre0c4KlZ6mtqM3Pu4iv4lzsg7DRpisE1j2wV6gVmz8=
 github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201120152906-e64e01280049/go.mod h1:B0Q7zr3KI5Z3k3DdjpSXnt4EI2F8Cf2Ckdkv72hTxzo=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
@@ -1666,6 +1671,8 @@ gopkg.in/yaml.v3 v3.0.0-20190905181640-827449938966/go.mod h1:K4uyk7z7BCEPqu6E+C
 gopkg.in/yaml.v3 v3.0.0-20200121175148-a6ecf24a6d71/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c h1:dUUwHk2QECo/6vqA44rthZ8ie2QXMNeKRTHCNY2nXvo=
 gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
+gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776 h1:tQIYjPdBoyREyB9XMu+nnTclpTYkz2zFM+lzLJFO4gQ=
+gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 gotest.tools v2.2.0+incompatible h1:VsBPFP1AI068pPrMxtb/S8Zkgf9xEmTLJjfM+P5UIEo=
 gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81HFBacw=
 gotest.tools/v3 v3.0.2/go.mod h1:3SzNCllyD9/Y+b5r9JIKQ474KzkZyqLqEfYqMsX94Bk=
