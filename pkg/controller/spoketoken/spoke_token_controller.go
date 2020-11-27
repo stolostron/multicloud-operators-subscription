@@ -181,7 +181,7 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 			if err != nil {
 				klog.Error("Failed to update secret : ", err)
-				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
+				return reconcile.Result{RequeueAfter: time.Duration(requeuAfter * time.Minute.Milliseconds())}, err
 			}
 		} else {
 			klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
@@ -213,8 +213,6 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 	if err != nil {
 		klog.Error(err)
 	}
-
-	klog.Info(string(jsonConfigData))
 
 	data := make(map[string]string)
 	data["name"] = r.syncid.Name
