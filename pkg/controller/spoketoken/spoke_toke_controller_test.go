@@ -216,38 +216,9 @@ func TestReconcile(t *testing.T) {
 
 	// Check that cluster1/cluster1-cluster-secret is deleted upon the deletion of the service account.
 	g.Expect(kerrors.IsNotFound(c.Get(context.TODO(), secretkey, theDeletedSecret))).To(gomega.BeTrue())
-}
 
-func TestIgnoreReconcile(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	host := "https://localhost:6443"
-
-	clusterID := types.NamespacedName{Name: clusterName, Namespace: clusterName}
-
-	rec := newReconciler(mgr, c, &clusterID, host).(*ReconcileAgentToken)
-
-	recFn, requests := SetupTestReconcile(rec)
-
-	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	// Verify that service accounts other than open-cluster-management-agent-addon/klusterlet-addon-appmgr
-	// should trigger reconcile.
-	g.Expect(c.Create(context.TODO(), agentNamespace)).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), agentNamespace)
-
+	// Verify that service accounts other than open-cluster-management-agent-addon/klusterlet-addon-appmgr-
+	// trigger a reconcile.
 	unexpectedSakey := types.NamespacedName{
 		Name:      saToBeIgnored.Name,
 		Namespace: saToBeIgnored.Namespace,
@@ -255,7 +226,7 @@ func TestIgnoreReconcile(t *testing.T) {
 
 	unexpectedRequest := reconcile.Request{NamespacedName: unexpectedSakey}
 
-	// Create the source service account.
+	// Create the service account to be ignored.
 	g.Expect(c.Create(context.TODO(), saToBeIgnored)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), saToBeIgnored)
 
