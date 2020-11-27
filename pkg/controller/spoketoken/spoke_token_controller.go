@@ -51,7 +51,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 			return err
 		}
 
-		return add(mgr, newReconciler(mgr, hubclient, syncid, hubconfig.Host))
+		return add(mgr, newReconciler(mgr, hubclient, syncid, mgr.GetConfig().Host))
 	}
 
 	return nil
