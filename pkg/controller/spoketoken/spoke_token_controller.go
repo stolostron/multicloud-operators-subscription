@@ -124,11 +124,11 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 			if err != nil {
 				klog.Error("Failed to delete the secret from the hub.")
-				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 			}
 		} else {
 			klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
-			return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+			return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 		}
 	}
 
@@ -163,13 +163,13 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 			if err != nil {
 				klog.Error(err.Error())
-				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 			}
 
 			klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
 		} else {
 			klog.Error("Failed to get secret from the hub: ", err)
-			return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+			return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 		}
 	} else {
 		// Update if the content has changed
@@ -181,7 +181,7 @@ func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Re
 
 			if err != nil {
 				klog.Error("Failed to update secret : ", err)
-				return reconcile.Result{Requeue: true, RequeueAfter: requeuAfter * time.Minute}, err
+				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 			}
 		} else {
 			klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
