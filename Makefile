@@ -137,8 +137,8 @@ local:
 # images section
 ############################################################
 
-build-images:
-	@operator-sdk build ${IMAGE_NAME_AND_VERSION}
+build-images: build
+	@docker build build -t ${IMAGE_NAME_AND_VERSION}
 	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 build-latest-community-operator:
