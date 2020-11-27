@@ -85,6 +85,21 @@ var (
 		},
 	}
 
+	saToBeIgnored = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "sa-to-be-ignored",
+			Namespace: "open-cluster-management-agent-addon",
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name: "klusterlet-addon-appmgr-token-2",
+			},
+			{
+				Name: "klusterlet-addon-appmgr-dockercfg-tlxd5",
+			},
+		},
+	}
+
 	secret1 = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "klusterlet-addon-appmgr-token-1",
@@ -201,4 +216,48 @@ func TestReconcile(t *testing.T) {
 
 	// Check that cluster1/cluster1-cluster-secret is deleted upon the deletion of the service account.
 	g.Expect(kerrors.IsNotFound(c.Get(context.TODO(), secretkey, theDeletedSecret))).To(gomega.BeTrue())
+}
+
+func TestIgnoreReconcile(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	host := "https://localhost:6443"
+
+	clusterID := types.NamespacedName{Name: clusterName, Namespace: clusterName}
+
+	rec := newReconciler(mgr, c, &clusterID, host).(*ReconcileAgentToken)
+
+	recFn, requests := SetupTestReconcile(rec)
+
+	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+	stopMgr, mgrStopped := StartTestManager(mgr, g)
+
+	defer func() {
+		close(stopMgr)
+		mgrStopped.Wait()
+	}()
+
+	// Verify that service accounts other than open-cluster-management-agent-addon/klusterlet-addon-appmgr
+	// should trigger reconcile.
+	g.Expect(c.Create(context.TODO(), agentNamespace)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), agentNamespace)
+
+	unexpectedSakey := types.NamespacedName{
+		Name:      saToBeIgnored.Name,
+		Namespace: saToBeIgnored.Namespace,
+	}
+
+	unexpectedRequest := reconcile.Request{NamespacedName: unexpectedSakey}
+
+	// Create the source service account.
+	g.Expect(c.Create(context.TODO(), saToBeIgnored)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), saToBeIgnored)
+
+	g.Eventually(requests, timeout).ShouldNot(gomega.Receive(gomega.Equal(unexpectedRequest)))
 }
