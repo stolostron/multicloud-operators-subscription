@@ -3,11 +3,8 @@ module github.com/open-cluster-management/multicloud-operators-subscription
 go 1.15
 
 require (
-	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
-	github.com/emicklei/go-restful v2.11.1+incompatible // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.3.0
 	github.com/go-openapi/spec v0.19.5
@@ -18,8 +15,9 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/open-cluster-management/ansiblejob-go-lib v0.1.12
 	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
+	github.com/open-cluster-management/applifecycle-backend-e2e v0.1.5
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45
-	github.com/open-cluster-management/multicloud-operators-deployable v0.0.0-20201119200129-dcb15e7afa3f
+	github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12
 	github.com/open-cluster-management/multicloud-operators-subscription-release v0.2.2-pre
 	github.com/pkg/errors v0.9.1
