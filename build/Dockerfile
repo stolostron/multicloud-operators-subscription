@@ -12,10 +12,10 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     ZONEINFO=/usr/share/timezone
 
 # install operator binary
-COPY _output/bin/multicluster-operators-subscription ${OPERATOR}
-COPY _output/bin/uninstall-crd /usr/local/bin
+COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY build/_output/bin/uninstall-crd /usr/local/bin
 
-COPY bin /usr/local/bin
+COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
      
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
