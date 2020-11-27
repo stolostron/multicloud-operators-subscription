@@ -112,7 +112,7 @@ lint: lint-all
 
 test:
 	@kubebuilder version
-	@go test ${TESTARGS} ./...
+	@go test ${TESTARGS} ./cmd/... ./pkg/...
 
 ############################################################
 # coverage section
@@ -193,3 +193,11 @@ CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=deploy/crds
+
+
+############################################################
+# run the e2e on a local kind
+############################################################
+export CONTAINER_NAME=e2e
+e2e: build build-images
+	build/run-e2e-tests.sh
