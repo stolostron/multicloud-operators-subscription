@@ -3,8 +3,10 @@ module github.com/open-cluster-management/multicloud-operators-subscription
 go 1.15
 
 require (
+	github.com/MakeNowJust/heredoc v0.0.0-20171113091838-e9091a26100e // indirect
 	github.com/aws/aws-sdk-go-v2 v0.18.0
 	github.com/blang/semver v3.5.1+incompatible
+	github.com/docker/spdystream v0.0.0-20181023171402-6480d4af844c // indirect
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-logr/logr v0.3.0
 	github.com/go-openapi/spec v0.19.5
@@ -15,12 +17,12 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/open-cluster-management/ansiblejob-go-lib v0.1.12
 	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
-	github.com/open-cluster-management/applifecycle-backend-e2e v0.1.5
-	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45
-	github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre
-	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201120152906-e64e01280049
-	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	github.com/open-cluster-management/applifecycle-backend-e2e v0.1.6 // indirect
+	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
+	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
+	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20201130-cb443
+	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5

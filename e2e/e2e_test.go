@@ -15,15 +15,111 @@
 package e2e
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"testing"
 )
 
-var _ = Describe("subscription-test", func() {
-	It("sub-001", func() {
-		Eventually(func() error { return DefaultRunner.Run("sub-001") }, 5*pullInterval, pullInterval).Should(Succeed())
-	})
-	It("sub-002", func() {
-		Eventually(func() error { return DefaultRunner.Run("sub-002") }, 5*pullInterval, pullInterval).Should(Succeed())
-	})
-})
+const (
+	defaultAddr     = "localhost:8765"
+	runEndpoint     = "/run"
+	clusterEndpoint = "/clusters"
+	Succeed         = "succeed"
+)
+
+func IsSeverUp(addr, cluster string) error {
+	URL := fmt.Sprintf("http://%s%s", addr, cluster)
+	resp, err := http.Get(URL)
+
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("e2e server is not up")
+	}
+
+	return nil
+}
+
+type Runner struct {
+	Addr     string
+	Endpoint string
+}
+
+func NewRunner(url, endpoint string) *Runner {
+	return &Runner{
+		Addr:     url,
+		Endpoint: endpoint,
+	}
+}
+
+type TResponse struct {
+	TestID  string      `json:"test_id"`
+	Name    string      `json:"name"`
+	Status  string      `json:"run_status"`
+	Error   string      `json:"error"`
+	Details interface{} `json:"details"`
+}
+
+func (tr *TResponse) String() string {
+	o, err := json.MarshalIndent(tr, "", "\t")
+	if err != nil {
+		return ""
+	}
+
+	return string(o)
+}
+
+func (r *Runner) Run(runID string) error {
+	URL := fmt.Sprintf("http://%s%s?id=%s", r.Addr, r.Endpoint, runID)
+	resp, err := http.Get(URL)
+
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		bodyBytes, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		res := &TResponse{}
+
+		if err := json.Unmarshal(bodyBytes, res); err != nil {
+			return err
+		}
+
+		if res.Status != Succeed {
+			return fmt.Errorf("failed test on %s, with status %s err: %s", res.TestID, res.Status, res.Status)
+		}
+
+		return nil
+	}
+
+	return fmt.Errorf("incorrect response code %v", resp.StatusCode)
+}
+func TestE2ESuite(t *testing.T) {
+	if err := IsSeverUp(defaultAddr, clusterEndpoint); err != nil {
+		t.Fatal(err)
+	}
+
+	runner := NewRunner(defaultAddr, runEndpoint)
+
+	testIDs := []string{"sub-001", "sub-002"}
+
+	for _, tID := range testIDs {
+		if err := runner.Run(tID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Logf("subscription e2e tests %v passed", testIDs)
+}
