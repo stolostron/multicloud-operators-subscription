@@ -216,7 +216,7 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 		klog.Error(err)
 	}
 
-	apiServerUrl, err := r.getKubeAPIServerAddress()
+	apiServerURL, err := r.getKubeAPIServerAddress()
 
 	if err != nil {
 		klog.Error(err)
@@ -224,7 +224,7 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 
 	data := make(map[string]string)
 	data["name"] = r.syncid.Name
-	data["server"] = apiServerUrl
+	data["server"] = apiServerURL
 	data["config"] = string(jsonConfigData)
 
 	mcSecret.StringData = data
