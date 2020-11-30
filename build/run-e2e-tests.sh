@@ -108,17 +108,12 @@ kind get kubeconfig > cluster_config/hub
 
 # over here, we are build the test server on the fly since, the `go get` will
 # mess up the go.mod file when doing the local test
-echo -e "\nGet the applifecycle-backend-e2e data"
-rm -rf applifecycle-backend-e2e
-git clone https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/open-cluster-management/applifecycle-backend-e2e.git
-
-
-# cd applifecycle-backend-e2e && make gobuild && cd -
+echo -e "\nGet the applifecycle-backend-e2e server"
+go get github.com/open-cluster-management/applifecycle-backend-e2e@v0.1.6
 
 E2E_BINARY_NAME="applifecycle-backend-e2e"
-E2E_BINARY_PATH="applifecycle-backend-e2e/build/_output/bin"
-E2E_DATA_PATH="applifecycle-backend-e2e/default-e2e-test-data"
 
+${E2E_BINARY_NAME} -cfg cluster_config &
 
 echo -e "\nStart to run e2e test(s)\n"
 go test -v ./e2e

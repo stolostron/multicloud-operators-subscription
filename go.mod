@@ -15,11 +15,11 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/open-cluster-management/ansiblejob-go-lib v0.1.12
 	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
-	github.com/open-cluster-management/applifecycle-backend-e2e v0.1.5
-	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45
-	github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre
-	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201120152906-e64e01280049
+	github.com/open-cluster-management/applifecycle-backend-e2e v0.1.6
+	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
+	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
+	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20201130-cb443
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
