@@ -33,6 +33,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
+	ocinfrav1 "github.com/openshift/api/config/v1"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -122,8 +123,14 @@ func RunManager() {
 			os.Exit(1)
 		}
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+		// Setup ocinfrav1 Scheme for manager
+		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
 		if err := setupStandalone(mgr, hubconfig, id, false); err != nil {
-			klog.Error("Failed to setup standalone subscription, error:", err)
+			klog.Error("Failed to setup managed subscription, error:", err)
 			os.Exit(1)
 		}
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
