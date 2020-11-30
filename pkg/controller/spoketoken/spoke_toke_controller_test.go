@@ -133,7 +133,7 @@ func TestReconcile(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	host := "https://localhost:6443"
+	host := ""
 
 	clusterID := types.NamespacedName{Name: clusterName, Namespace: clusterName}
 
