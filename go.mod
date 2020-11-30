@@ -39,4 +39,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.6.0
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.19.3
+replace (
+	github.com/openshift/api => github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	k8s.io/client-go => k8s.io/client-go v0.19.3
+)
