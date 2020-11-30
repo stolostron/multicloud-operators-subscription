@@ -19,7 +19,8 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.0.1-0.20201120143200-e505a259de45
 	github.com/open-cluster-management/multicloud-operators-deployable v0.2.2-pre
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.0.1-2020-06-08-14-28-27.0.20201118195339-05a8c4c89c12
-	github.com/open-cluster-management/multicloud-operators-subscription-release v0.2.2-pre
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.0.1-2020-06-08-14-28-27.0.20201120152906-e64e01280049
+	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/common v0.10.0
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94

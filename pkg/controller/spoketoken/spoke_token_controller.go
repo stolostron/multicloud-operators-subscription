@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"time"
 
+	ocinfrav1 "github.com/openshift/api/config/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -37,8 +38,9 @@ import (
 )
 
 const (
-	secretSuffix = "-cluster-secret"
-	requeuAfter  = 5
+	secretSuffix             = "-cluster-secret"
+	requeuAfter              = 5
+	infrastructureConfigName = "cluster"
 )
 
 // Add creates a new agent token controller and adds it to the Manager if standalone is false.
@@ -214,9 +216,15 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 		klog.Error(err)
 	}
 
+	apiServerUrl, err := r.getKubeAPIServerAddress()
+
+	if err != nil {
+		klog.Error(err)
+	}
+
 	data := make(map[string]string)
 	data["name"] = r.syncid.Name
-	data["server"] = r.host
+	data["server"] = apiServerUrl
 	data["config"] = string(jsonConfigData)
 
 	mcSecret.StringData = data
@@ -245,4 +253,15 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret(sa corev1.ServiceAcco
 	}
 
 	return saSecret
+}
+
+// getKubeAPIServerAddress - Get the API server address from OpenShift kubernetes cluster. This does not work with other kubernetes.
+func (r *ReconcileAgentToken) getKubeAPIServerAddress() (string, error) {
+	infraConfig := &ocinfrav1.Infrastructure{}
+
+	if err := r.Client.Get(context.TODO(), types.NamespacedName{Name: infrastructureConfigName}, infraConfig); err != nil {
+		return "", err
+	}
+
+	return infraConfig.Status.APIServerURL, nil
 }
