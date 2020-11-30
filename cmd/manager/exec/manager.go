@@ -58,12 +58,18 @@ func RunManager() {
 		klog.Info("LeaderElection disabled as not running in a cluster")
 	}
 
+	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
+
+	if Options.Standalone {
+		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        "multicloud-operators-subscription-leader.open-cluster-management.io",
+		LeaderElectionID:        leaderElectionID,
 		LeaderElectionNamespace: "kube-system",
 	})
 
