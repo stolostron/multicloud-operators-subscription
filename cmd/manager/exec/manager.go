@@ -59,10 +59,15 @@ func RunManager() {
 		klog.Info("LeaderElection disabled as not running in a cluster")
 	}
 
+	// for hub subcription pod
 	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
 
 	if Options.Standalone {
+		// for standalone subcription pod
 		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
+	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
+		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
