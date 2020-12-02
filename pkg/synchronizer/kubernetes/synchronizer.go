@@ -229,7 +229,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	var err error
 
 	overwrite := false
-	merge := false
+	merge := true
 	tplown := sync.Extension.GetHostFromObject(tplunit)
 
 	tmplAnnotations := tplunit.GetAnnotations()
@@ -265,8 +265,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 	}
 
-	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) {
-		merge = true
+	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile) {
+		merge = false
 	}
 
 	newobj := tplunit.Unstructured.DeepCopy()
@@ -304,12 +304,13 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		klog.Info("Patch object. obj: " + obj.GroupVersionKind().String())
+		klog.Infof("Patch object. obj: %s, %s, patch: %s", obj.GetName(), obj.GroupVersionKind().String(), string(pb))
 		klog.V(5).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
+
 		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
-		klog.Info("Update non-service object. newobj: " + newobj.GroupVersionKind().String())
-		klog.V(5).Infof("Update non-service object. newobj: %#v", newobj)
+		klog.Info("Apply object. newobj: " + newobj.GroupVersionKind().String())
+		klog.V(5).Infof("Apply object. newobj: %#v", newobj)
 		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 
 		// Some kubernetes resources are immutable after creation. Log and ignore update errors.
@@ -321,9 +322,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return nil
 		}
 	}
-
-	sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
-		"Synchronizer updated resource for template "+tplunit.GetName()+" of gvk:"+tplunit.GroupVersionKind().String(), err)
 
 	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
