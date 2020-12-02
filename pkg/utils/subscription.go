@@ -183,12 +183,46 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	return out
 }
 
+// assuming the message is only storing the window info, following format:
+// cluster1:active,cluster2:block
+func isSameMessage(aMsg, bMsg string) bool {
+	aMap, bMap := stringToMap(aMsg), stringToMap(bMsg)
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	for ak, av := range aMap {
+		if bv, ok := bMap[ak]; !ok || av != bv {
+			return false
+		}
+	}
+
+	return true
+}
+
+func stringToMap(msg string) map[string]string {
+	cunits := strings.Split(msg, ",")
+	out := map[string]string{}
+
+	for _, val := range cunits {
+		u := strings.Split(val, ":")
+
+		if len(u) == 2 {
+			out[u[0]] = u[1]
+		} else if len(u) == 1 {
+			out[u[0]] = ""
+		}
+	}
+
+	return out
+}
+
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 	if !isAnsibleStatusEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
 
-	if old.Phase != nnew.Phase || old.Message != nnew.Message {
+	if old.Phase != nnew.Phase || !isSameMessage(old.Message, nnew.Message) {
 		return true
 	}
 
@@ -522,7 +556,11 @@ func isEqualSubscriptionUnitStatus(a, b *appv1.SubscriptionUnitStatus) bool {
 		return false
 	}
 
-	if a.Phase != b.Phase || a.Message != b.Message || a.Reason != b.Reason ||
+	if !isSameMessage(a.Message, b.Message) {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason ||
 		!reflect.DeepEqual(a.ResourceStatus, b.ResourceStatus) {
 		return false
 	}

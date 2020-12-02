@@ -39,6 +39,8 @@ export TESTARGS ?= $(TESTARGS_DEFAULT)
 DEST ?= $(GOPATH)/src/$(GIT_HOST)/$(BASE_DIR)
 VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
 IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG)
+HUB_KUBECONFIG ?= $(HOME)/hub-kubeconfig
+MANAGED_CLUSTER_NAME ?= cluster1
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
@@ -52,10 +54,6 @@ else
 endif
 
 .PHONY: fmt lint test coverage build build-images
-
-ifneq ("$(realpath $(DEST))", "$(realpath $(PWD))")
-    $(error Please run 'make' from $(DEST). Current directory is $(PWD))
-endif
 
 
 # GITHUB_USER containing '@' char must be escaped with '%40'
@@ -196,8 +194,32 @@ manifests: controller-gen
 
 
 ############################################################
+# deploy a community hub stack onto a cluster
+############################################################
+deploy-community-hub:
+	kubectl apply -f deploy/common
+	kubectl apply -f deploy/hub
+
+
+############################################################
+# deploy a community managed stack onto a cluster
+############################################################
+deploy-community-managed:
+	cp -f $(HUB_KUBECONFIG) /tmp/kubeconfig
+	kubectl apply -f deploy/common
+	kubectl -n multicluster-operators delete secret appmgr-hub-kubeconfig --ignore-not-found
+	kubectl -n multicluster-operators create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=/tmp/kubeconfig
+	sed -i 's/<managed cluster name>/$(MANAGED_CLUSTER_NAME)/g' deploy/managed/operator.yaml
+	sed -i 's/<managed cluster namespace>/$(MANAGED_CLUSTER_NAME)/g' deploy/managed/operator.yaml
+	kubectl apply -f deploy/managed
+
+
+############################################################
 # run the e2e on a local kind
 ############################################################
 export CONTAINER_NAME=e2e
 e2e: build build-images
 	build/run-e2e-tests.sh
+
+e2e-setup: e2e
+	build/set_up_e2e_local_dir.sh
