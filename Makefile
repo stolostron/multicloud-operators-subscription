@@ -201,3 +201,6 @@ manifests: controller-gen
 export CONTAINER_NAME=e2e
 e2e: build build-images
 	build/run-e2e-tests.sh
+
+e2e-setup: e2e
+	build/set_up_e2e_local_dir.sh
