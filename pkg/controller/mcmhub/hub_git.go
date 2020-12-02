@@ -92,7 +92,7 @@ type RepoRegistery struct {
 type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
 
 type cloneFunc func(url string, branchName string, user string, secret string,
-	localDir string, insecureSkipVerify bool) (string, error)
+	localDir string) (string, error)
 
 type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
 
@@ -190,7 +190,7 @@ func (h *HubGitOps) GitWatch() {
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
 
-				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify)
+				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir)
 				if err != nil {
 					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
 				}
