@@ -23,8 +23,7 @@ spec:
           - containerPort: 8443
           command:
           - /usr/local/bin/multicluster-operators-subscription
-          - --sync-interval=10
-          - --standalone
+          - --sync-interval=60
           imagePullPolicy: Always
           env:
             - name: WATCH_NAMESPACE

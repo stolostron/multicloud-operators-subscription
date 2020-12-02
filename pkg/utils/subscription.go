@@ -30,6 +30,7 @@ import (
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,6 +53,9 @@ const (
 	//minus 1 because we add a dash
 	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
+	// klusterletagentaddon secret token reconcile
+	addonServiceAccountName      = "klusterlet-addon-appmgr"
+	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
 )
 
 func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
@@ -179,12 +183,46 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	return out
 }
 
+// assuming the message is only storing the window info, following format:
+// cluster1:active,cluster2:block
+func isSameMessage(aMsg, bMsg string) bool {
+	aMap, bMap := stringToMap(aMsg), stringToMap(bMsg)
+	if len(aMap) != len(bMap) {
+		return false
+	}
+
+	for ak, av := range aMap {
+		if bv, ok := bMap[ak]; !ok || av != bv {
+			return false
+		}
+	}
+
+	return true
+}
+
+func stringToMap(msg string) map[string]string {
+	cunits := strings.Split(msg, ",")
+	out := map[string]string{}
+
+	for _, val := range cunits {
+		u := strings.Split(val, ":")
+
+		if len(u) == 2 {
+			out[u[0]] = u[1]
+		} else if len(u) == 1 {
+			out[u[0]] = ""
+		}
+	}
+
+	return out
+}
+
 func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 	if !isAnsibleStatusEqual(old.AnsibleJobsStatus, nnew.AnsibleJobsStatus) {
 		return true
 	}
 
-	if old.Phase != nnew.Phase || old.Message != nnew.Message {
+	if old.Phase != nnew.Phase || !isSameMessage(old.Message, nnew.Message) {
 		return true
 	}
 
@@ -277,6 +315,37 @@ var PlacementRulePredicateFunctions = predicate.Funcs{
 
 	DeleteFunc: func(e event.DeleteEvent) bool {
 		return true
+	},
+}
+
+// ServiceAccountPredicateFunctions watches for changes in klusterlet-addon-appmgr service account in open-cluster-management-agent-addon namespace
+var ServiceAccountPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newSA := e.ObjectNew.(*corev1.ServiceAccount)
+
+		if strings.EqualFold(newSA.Namespace, addonServiceAccountNamespace) && strings.EqualFold(newSA.Name, addonServiceAccountName) {
+			return true
+		}
+
+		return false
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		sa := e.Object.(*corev1.ServiceAccount)
+
+		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
+			return true
+		}
+
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		sa := e.Object.(*corev1.ServiceAccount)
+
+		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
+			return true
+		}
+
+		return false
 	},
 }
 
@@ -487,7 +556,11 @@ func isEqualSubscriptionUnitStatus(a, b *appv1.SubscriptionUnitStatus) bool {
 		return false
 	}
 
-	if a.Phase != b.Phase || a.Message != b.Message || a.Reason != b.Reason ||
+	if !isSameMessage(a.Message, b.Message) {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason ||
 		!reflect.DeepEqual(a.ResourceStatus, b.ResourceStatus) {
 		return false
 	}

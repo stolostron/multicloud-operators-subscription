@@ -15,12 +15,13 @@
 package controller
 
 import (
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
-var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, bool) error
+var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, bool) error
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
@@ -29,7 +30,7 @@ var AddToManagerFuncs []func(manager.Manager) error
 var AddHubToManagerFuncs []func(manager.Manager) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config, standalone bool) error {
+func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
@@ -37,7 +38,7 @@ func AddToManager(m manager.Manager, cfg *rest.Config, standalone bool) error {
 	}
 
 	for _, f := range AddToManagerMCMFuncs {
-		if err := f(m, cfg, standalone); err != nil {
+		if err := f(m, cfg, syncid, standalone); err != nil {
 			return err
 		}
 	}

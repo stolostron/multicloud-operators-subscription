@@ -33,6 +33,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
+	ocinfrav1 "github.com/openshift/api/config/v1"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -58,12 +59,23 @@ func RunManager() {
 		klog.Info("LeaderElection disabled as not running in a cluster")
 	}
 
+	// for hub subcription pod
+	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
+
+	if Options.Standalone {
+		// for standalone subcription pod
+		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
+	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
+		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
+	}
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        "multicloud-operators-subscription-leader.open-cluster-management.io",
+		LeaderElectionID:        leaderElectionID,
 		LeaderElectionNamespace: "kube-system",
 	})
 
@@ -116,8 +128,14 @@ func RunManager() {
 			os.Exit(1)
 		}
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+		// Setup ocinfrav1 Scheme for manager
+		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
 		if err := setupStandalone(mgr, hubconfig, id, false); err != nil {
-			klog.Error("Failed to setup standalone subscription, error:", err)
+			klog.Error("Failed to setup managed subscription, error:", err)
 			os.Exit(1)
 		}
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
@@ -150,15 +168,17 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, standalone); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, id, standalone); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}
 
-	// Setup Webhook listner
-	if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
-		klog.Error("Failed to initialize WebHook listener with error:", err)
-		return err
+	if standalone {
+		// Setup Webhook listner
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
+			klog.Error("Failed to initialize WebHook listener with error:", err)
+			return err
+		}
 	}
 
 	return nil
