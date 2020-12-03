@@ -159,11 +159,6 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 			nsanno[appv1alpha1.AnnotationSyncSource] = "subnsdpl-" + tplanno[appv1alpha1.AnnotationHosting]
 		}
 
-		if tplanno[appv1alpha1.AnnotationClusterAdmin] > "" {
-			// Do this so that nested children subscriptions inherit the cluster-admin role elevation as well.
-			nsanno[appv1alpha1.AnnotationClusterAdmin] = tplanno[appv1alpha1.AnnotationClusterAdmin]
-		}
-
 		ns.SetAnnotations(nsanno)
 
 		klog.V(1).Infof("Apply - Creating New Namespace: %#v", ns)

@@ -381,19 +381,6 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 				klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
 				rsc.SetNamespace(ghsi.Subscription.Namespace)
 			}
-
-			rscAnnotations := rsc.GetAnnotations()
-
-			if rscAnnotations == nil {
-				rscAnnotations = make(map[string]string)
-			}
-
-			if strings.EqualFold(rsc.GroupVersionKind().Group, "apps.open-cluster-management.io") &&
-				strings.EqualFold(rsc.GroupVersionKind().Kind, "Subscription") {
-				// Adding cluster-admin=true annotation to child subscription
-				rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
-				rsc.SetAnnotations(rscAnnotations)
-			}
 		} else {
 			klog.Info("No cluster-admin. Setting it to subscription namespace " + ghsi.Subscription.Namespace)
 			rsc.SetNamespace(ghsi.Subscription.Namespace)
