@@ -669,6 +669,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 			Annotations: map[string]string{
 				dplv1alpha1.AnnotationLocal:       "false",
 				dplv1alpha1.AnnotationIsGenerated: "true",
+				appv1.AnnotationHosting:           fmt.Sprintf("%s/%s", sub.GetNamespace(), sub.GetName()),
 			},
 		},
 		Spec: dplv1alpha1.DeployableSpec{
