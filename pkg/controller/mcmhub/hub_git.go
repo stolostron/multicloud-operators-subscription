@@ -214,7 +214,13 @@ func (h *HubGitOps) GitWatch() {
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
 			h.logger.Info("The repo has new commit: " + nCommit)
 
-			if _, err := h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify, branchInfo.gitCACert); err != nil {
+			if _, err := h.cloneFunc(url,
+				bName,
+				branchInfo.username,
+				branchInfo.secret,
+				branchInfo.localDir,
+				branchInfo.insecureSkipVerify,
+				branchInfo.gitCACert); err != nil {
 				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
 			}
 
