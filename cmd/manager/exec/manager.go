@@ -68,6 +68,7 @@ func RunManager() {
 		metricsPort = 8389
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
+		metricsPort = 8388
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
