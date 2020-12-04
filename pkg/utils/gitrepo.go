@@ -147,7 +147,7 @@ func CloneGitRepo(
 			certPool = x509.NewCertPool()
 		}
 
-		// Append our cert to the system pool
+		// Append the Git root/intermediate CA cert to the system pool
 		if ok := certPool.AppendCertsFromPEM([]byte(caCert)); !ok {
 			klog.Error("Failed to add Git server's CA certificate to trust certificate pool")
 		}
