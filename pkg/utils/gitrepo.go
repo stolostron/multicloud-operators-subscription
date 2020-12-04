@@ -129,14 +129,13 @@ func CloneGitRepo(
 
 	installProtocol := false
 
-	clientConfig := &tls.Config{}
+	clientConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {
 		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
 
 		clientConfig.InsecureSkipVerify = true
-		clientConfig.MinVersion = tls.VersionTLS12
 
 		installProtocol = true
 	} else if !strings.EqualFold(caCert, "") {
@@ -153,7 +152,6 @@ func CloneGitRepo(
 		}
 
 		clientConfig.RootCAs = certPool
-		clientConfig.MinVersion = tls.VersionTLS12
 
 		installProtocol = true
 	}
