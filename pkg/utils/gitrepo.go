@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -105,7 +106,12 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 }
 
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string, insecureSkipVerify bool) (commitID string, err error) {
+func CloneGitRepo(
+	repoURL string,
+	branch plumbing.ReferenceName,
+	user, password, destDir string,
+	insecureSkipVerify bool,
+	caCert string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -121,14 +127,42 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 		}
 	}
 
+	installProtocol := false
+
+	clientConfig := &tls.Config{}
+
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {
 		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
 
+		clientConfig.InsecureSkipVerify = true
+		clientConfig.MinVersion = tls.VersionTLS12
+
+		installProtocol = true
+	} else if !strings.EqualFold(caCert, "") {
+		klog.Info("Adding Git server's CA certificate to trust certificate pool")
+
+		certPool, _ := x509.SystemCertPool()
+		if certPool == nil {
+			certPool = x509.NewCertPool()
+		}
+
+		// Append our cert to the system pool
+		if ok := certPool.AppendCertsFromPEM([]byte(caCert)); !ok {
+			klog.Error("Failed to add Git server's CA certificate to trust certificate pool")
+		}
+
+		clientConfig.RootCAs = certPool
+		clientConfig.MinVersion = tls.VersionTLS12
+
+		installProtocol = true
+	}
+
+	if installProtocol {
 		customClient := &http.Client{
 			/* #nosec G402 */
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, // #nosec G402 InsecureSkipVerify conditionally
+				TLSClientConfig: clientConfig,
 			},
 
 			// 15 second timeout
