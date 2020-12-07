@@ -38,9 +38,10 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost             = "0.0.0.0"
-	metricsPort         int = 8381
-	operatorMetricsPort int = 8684
+	metricsHost              = "0.0.0.0"
+	metricsPort          int = 8381
+	operatorMetricsPort  int = 8684
+	enableLeaderElection     = false
 )
 
 // WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
@@ -49,36 +50,25 @@ var (
 const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
 func RunManager() {
-	enableLeaderElection := false
-
-	if _, err := rest.InClusterConfig(); err == nil {
-		klog.Info("LeaderElection enabled as running in a cluster")
-
-		enableLeaderElection = true
-	} else {
-		klog.Info("LeaderElection disabled as not running in a cluster")
+	if _, err := rest.InClusterConfig(); err != nil {
+		klog.Error("faild to get inclusterConfig,")
 	}
 
-	// for hub subcription pod
-	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
-
+	//making sure the metrics server is running on different port based on the
+	//subscription mode
 	if Options.Standalone {
 		// for standalone subcription pod
-		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
-		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:                    operatorMetricsPort,
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: "kube-system",
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:               operatorMetricsPort,
+		LeaderElection:     enableLeaderElection,
 	})
 
 	if err != nil {
