@@ -34,16 +34,16 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
-	ocinfrav1 "github.com/openshift/api/config/v1"
 
+	ocinfrav1 "github.com/openshift/api/config/v1"
 	"github.com/prometheus/common/log"
 )
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost             = "0.0.0.0"
-	metricsPort         int = 8381
-	operatorMetricsPort int = 8684
+	metricsHost               = "0.0.0.0"
+	metricsPort         int32 = 8381
+	operatorMetricsPort int   = 8684
 )
 
 // WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
@@ -80,15 +80,12 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("izhang ======  namespace = %+v\n", namespace)
-
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		Namespace:          namespace,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:               operatorMetricsPort,
 	})
-
 	if err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
@@ -145,7 +142,7 @@ func RunManager(sig <-chan struct{}) {
 		}
 
 		if err := setupStandalone(mgr, hubconfig, id, false); err != nil {
-			klog.Error("Failed to setup managed subscription, error:", err)
+			klog.Error("Failed to setup standalone subscription, error:", err)
 			os.Exit(1)
 		}
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
