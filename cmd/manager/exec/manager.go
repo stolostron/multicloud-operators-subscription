@@ -65,12 +65,17 @@ func RunManager(sig <-chan struct{}) {
 		os.Exit(1)
 	}
 
+	// for hub subcription pod
+	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
+
 	if Options.Standalone {
 		// for standalone subcription pod
+		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
+		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
 	// Get watch namespace setting of controller
@@ -82,9 +87,12 @@ func RunManager(sig <-chan struct{}) {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:               operatorMetricsPort,
+		Namespace:               namespace,
+		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:                    operatorMetricsPort,
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        leaderElectionID,
+		LeaderElectionNamespace: "kube-system",
 	})
 	if err != nil {
 		klog.Error(err, "")
