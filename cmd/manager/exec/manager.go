@@ -66,6 +66,7 @@ func RunManager(sig <-chan struct{}) {
 	}
 
 	// for hub subcription pod
+	enableLeaderElection := true
 	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
 
 	if Options.Standalone {
@@ -203,5 +204,6 @@ func GetWatchNamespace() (string, error) {
 	if !found {
 		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
 	}
+
 	return ns, nil
 }

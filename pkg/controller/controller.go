@@ -23,7 +23,8 @@ import (
 // AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
 var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, bool) error
 
-// AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
+// AddToManagerMCMSideFuncs is a list of functions to add all MCM Controllers
+// (with config to hub) as side car
 var AddToManagerMCMSideFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, bool) error
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
