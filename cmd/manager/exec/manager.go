@@ -17,6 +17,7 @@ package exec
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -24,8 +25,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
@@ -34,6 +35,8 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
+
+	"github.com/prometheus/common/log"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -48,37 +51,42 @@ var (
 // this value is empty if the operator is running with clusterScope.
 const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
 
-func RunManager() {
-	enableLeaderElection := false
+func printVersion() {
+	klog.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
+	klog.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
+}
 
-	if _, err := rest.InClusterConfig(); err == nil {
-		klog.Info("LeaderElection enabled as running in a cluster")
-
-		enableLeaderElection = true
-	} else {
-		klog.Info("LeaderElection disabled as not running in a cluster")
+func RunManager(sig <-chan struct{}) {
+	printVersion()
+	// Get a config to talk to the apiserver
+	cfg, err := config.GetConfig()
+	if err != nil {
+		klog.Error(err, "")
+		os.Exit(1)
 	}
-
-	// for hub subcription pod
-	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
 
 	if Options.Standalone {
 		// for standalone subcription pod
-		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
-		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
+	// Get watch namespace setting of controller
+	namespace, err := GetWatchNamespace()
+	if err != nil {
+		log.Error(err, " - Failed to get watch namespace")
+		os.Exit(1)
+	}
+
+	fmt.Printf("izhang ======  namespace = %+v\n", namespace)
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:                    operatorMetricsPort,
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: "kube-system",
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
+		Namespace:          namespace,
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:               operatorMetricsPort,
 	})
 
 	if err != nil {
@@ -145,8 +153,6 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	sig := signals.SetupSignalHandler()
-
 	klog.Info("Starting the Cmd.")
 
 	// Start the Cmd
@@ -184,4 +190,13 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	return nil
+}
+
+// GetWatchNamespace returns the namespace the operator should be watching for changes
+func GetWatchNamespace() (string, error) {
+	ns, found := os.LookupEnv(WatchNamespaceEnvVar)
+	if !found {
+		return "", fmt.Errorf("%s must be set", WatchNamespaceEnvVar)
+	}
+	return ns, nil
 }

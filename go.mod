@@ -24,6 +24,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20201130-cb443
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/common v0.10.0
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
@@ -41,4 +42,7 @@ require (
 	sigs.k8s.io/kustomize/api v0.6.0
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.19.3
+replace (
+	k8s.io/client-go => k8s.io/client-go v0.19.3
+	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
+)

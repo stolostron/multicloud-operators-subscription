@@ -18,6 +18,7 @@ import (
 	"flag"
 
 	"github.com/spf13/pflag"
+	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	"k8s.io/klog"
 
@@ -36,5 +37,5 @@ func main() {
 
 	pflag.Parse()
 
-	exec.RunManager()
+	exec.RunManager(signals.SetupSignalHandler())
 }

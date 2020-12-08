@@ -111,7 +111,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	defaultNsSubscriber = nssubscriber
 
-	//set up bootstrap logic for manged cluster, normally if this controller is runnning
+	//set up bootstrap logic for managed cluster, normally if this controller is runnning
 	// on managed cluster, then the syncid would be <cluster_name/cluster_namespace> such as,
 	//heathen/heathen
 	if syncid.String() != "/" {

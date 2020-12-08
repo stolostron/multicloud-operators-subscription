@@ -60,7 +60,7 @@ const (
 // and Start it when the Manager is Started.
 // If standalone = true, it will only reconcile standalone subscriptions without hosting subscription from ACM hub.
 // If standalone = false, it will only reconcile subscriptions that are propagated from ACM hub.
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, standalone bool) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, standalone bool) error {
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to hub cluster with error:", err)

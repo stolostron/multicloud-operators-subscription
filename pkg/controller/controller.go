@@ -21,7 +21,10 @@ import (
 )
 
 // AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
-var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, bool) error
+var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, bool) error
+
+// AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
+var AddToManagerMCMSideFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, bool) error
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
@@ -38,6 +41,12 @@ func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedN
 	}
 
 	for _, f := range AddToManagerMCMFuncs {
+		if err := f(m, cfg, standalone); err != nil {
+			return err
+		}
+	}
+
+	for _, f := range AddToManagerMCMSideFuncs {
 		if err := f(m, cfg, syncid, standalone); err != nil {
 			return err
 		}
