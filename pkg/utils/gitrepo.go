@@ -108,8 +108,11 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 
 func getCertChain(certs string) tls.Certificate {
 	var certChain tls.Certificate
+
 	certPEMBlock := []byte(certs)
+
 	var certDERBlock *pem.Block
+
 	for {
 		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
 		if certDERBlock == nil {
@@ -119,6 +122,7 @@ func getCertChain(certs string) tls.Certificate {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}
 	}
+
 	return certChain
 }
 
@@ -296,11 +300,12 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 // GetDataFromChannelConfigMap returns username and password for channel
 func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.ConfigMap {
 	if chn.Spec.ConfigMapRef != nil {
-		klog.Info("ROKEROKE There is configmap " + chn.Spec.ConfigMapRef.Name)
 		configMapRet := &corev1.ConfigMap{}
+
 		cmns := chn.Namespace
 
 		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.ConfigMapRef.Name, Namespace: cmns}, configMapRet)
+
 		if err != nil {
 			klog.Error(err, "Unable to get config map from local cluster.")
 			return nil
