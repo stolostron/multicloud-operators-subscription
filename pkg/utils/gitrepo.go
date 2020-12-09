@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -105,13 +106,29 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 	return ret
 }
 
+func getCertChain(certs string) tls.Certificate {
+	var certChain tls.Certificate
+	certPEMBlock := []byte(certs)
+	var certDERBlock *pem.Block
+	for {
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == "CERTIFICATE" {
+			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+		}
+	}
+	return certChain
+}
+
 // CloneGitRepo clones a GitHub repository
 func CloneGitRepo(
 	repoURL string,
 	branch plumbing.ReferenceName,
 	user, password, destDir string,
 	insecureSkipVerify bool,
-	caCert string) (commitID string, err error) {
+	caCerts string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -138,7 +155,7 @@ func CloneGitRepo(
 		clientConfig.InsecureSkipVerify = true
 
 		installProtocol = true
-	} else if !strings.EqualFold(caCert, "") {
+	} else if !strings.EqualFold(caCerts, "") {
 		klog.Info("Adding Git server's CA certificate to trust certificate pool")
 
 		certPool, _ := x509.SystemCertPool()
@@ -146,9 +163,19 @@ func CloneGitRepo(
 			certPool = x509.NewCertPool()
 		}
 
-		// Append the Git root/intermediate CA cert to the system pool
-		if ok := certPool.AppendCertsFromPEM([]byte(caCert)); !ok {
-			klog.Error("Failed to add Git server's CA certificate to trust certificate pool")
+		certChain := getCertChain(caCerts)
+
+		if len(certChain.Certificate) == 0 {
+			klog.Warning("No certificate found")
+		}
+
+		for _, cert := range certChain.Certificate {
+			x509Cert, err := x509.ParseCertificate(cert)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println("Adding certificate -->" + x509Cert.Subject.String())
+			certPool.AddCert(x509Cert)
 		}
 
 		clientConfig.RootCAs = certPool
@@ -269,6 +296,7 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 // GetDataFromChannelConfigMap returns username and password for channel
 func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.ConfigMap {
 	if chn.Spec.ConfigMapRef != nil {
+		klog.Info("ROKEROKE There is configmap " + chn.Spec.ConfigMapRef.Name)
 		configMapRet := &corev1.ConfigMap{}
 		cmns := chn.Namespace
 

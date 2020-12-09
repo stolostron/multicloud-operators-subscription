@@ -562,7 +562,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	caCert := ""
 
 	if ghsi.SubscriberItem.ChannelConfigMap != nil {
-		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data["ca.crt"]
+		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelCertificateData]
 	}
 
 	return utils.CloneGitRepo(

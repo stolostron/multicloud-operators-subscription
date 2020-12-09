@@ -345,7 +345,10 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	caCert := ""
 
 	if channelConfig != nil {
-		caCert = channelConfig.Data["ca.crt"]
+		caCert = channelConfig.Data[subv1.ChannelCertificateData]
+		if caCert != "" {
+			h.logger.Info("Channel config map with CA certs found")
+		}
 	}
 
 	skipCertVerify := false
