@@ -164,6 +164,7 @@ func CloneGitRepo(
 	} else if !strings.EqualFold(caCerts, "") {
 		klog.Info("Adding Git server's CA certificate to trust certificate pool")
 
+		// Load the host's trusted certs into memory
 		certPool, _ := x509.SystemCertPool()
 		if certPool == nil {
 			certPool = x509.NewCertPool()
@@ -175,12 +176,14 @@ func CloneGitRepo(
 			klog.Warning("No certificate found")
 		}
 
+		// Add CA certs from the channel config map to the cert pool
+		// It will not add duplicate certs
 		for _, cert := range certChain.Certificate {
 			x509Cert, err := x509.ParseCertificate(cert)
 			if err != nil {
 				panic(err)
 			}
-			fmt.Println("Adding certificate -->" + x509Cert.Subject.String())
+			klog.Info("Adding certificate -->" + x509Cert.Subject.String())
 			certPool.AddCert(x509Cert)
 		}
 
@@ -464,7 +467,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			err := yaml.Unmarshal(resources[0], &t)
 
 			if err != nil {
-				fmt.Println("Failed to unmarshal YAML file")
+				klog.Warning("Failed to unmarshal YAML file")
 				// Just ignore the YAML
 				return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 			}
