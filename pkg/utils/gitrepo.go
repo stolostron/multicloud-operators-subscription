@@ -115,9 +115,11 @@ func getCertChain(certs string) tls.Certificate {
 
 	for {
 		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+
 		if certDERBlock == nil {
 			break
 		}
+
 		if certDERBlock.Type == "CERTIFICATE" {
 			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
 		}
