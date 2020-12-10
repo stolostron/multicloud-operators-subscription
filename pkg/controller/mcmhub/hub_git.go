@@ -319,9 +319,10 @@ func (h *HubGitOps) ResolveLocalGitFolder(chn *chnv1.Channel, subIns *subv1.Subs
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	if _, ok := h.subRecords[subKey]; ok {
-		return
-	}
+	// This does not pick up new changes to channel configuration
+	//if _, ok := h.subRecords[subKey]; ok {
+	//	return
+	//}
 
 	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
 
