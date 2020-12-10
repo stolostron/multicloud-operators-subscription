@@ -13,13 +13,13 @@
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
 - [Overview](#overview)
-- [Quick Start](#quick-start)
-    - [Subscribe a helm chart](#subscribe-a-helm-chart)
+- [Quick start](#quick-start)
+    - [Subscribe a Helm chart](#subscribe-a-helm-chart)
     - [Troubleshooting](#troubleshooting)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
-- [Getting Started](#getting-started)
+- [Getting started](#getting-started)
     - [Prerequisites](#prerequisites)
-- [Security Response](#security-response)
+- [Security response](#security-response)
 - [References](#references)
     - [multicloud-operators repositories](#multicloud-operators-repositories)
 
@@ -29,15 +29,15 @@
 
 ------
 
-Subscribes resources from Channels and apply them to kubernetes
+Subscribes resources from channels and applies them to Kubernetes
 
-## Quick Start
+## Quick start
 
 ------
 
-### Subscribe a helm chart
+### Subscribe a Helm chart
 
-- Clone the subscription operator repository
+- Clone the [multicloud-operators-subscription GitHub repository](https://github.com/open-cluster-management/multicloud-operators-subscription).
 
 ```shell
 mkdir -p "$GOPATH"/src/github.com/open-cluster-management
@@ -46,13 +46,13 @@ git clone https://github.com/open-cluster-management/multicloud-operators-subscr
 cd "$GOPATH"/src/github.com/open-cluster-management/multicloud-operators-subscription
 ```
 
-- Setup environment and deploy subscription operator
+- Set up the environment, and deploy the subscription operator.
 
 ```shell
 kubectl apply -f ./deploy/standalone
 ```
 
-- Create a Channel and Subscription
+- Create a Channel and a Subscription.
 
 ```shell
 kubectl apply -f ./examples/helmrepo-channel
@@ -64,7 +64,7 @@ kubectl apply -f ./examples/helmrepo-channel
 kubectl patch subscriptions.apps.open-cluster-management.io simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
 ```
 
-Find the nginx pods deployed to current namespace, and the number of backend pods is overrided to 3
+Find the nginx pods that are deployed to the current namespace. You should have 3 backend pods with the controller.
 
 ```shell
 % kubectl get pods -l app=nginx-ingress
@@ -75,7 +75,7 @@ nginx-ingress-default-backend-6b8dc9d88f-drt7c   1/1     Running   0          96
 nginx-ingress-default-backend-6b8dc9d88f-n26ls   1/1     Running   0          96s
 ```
 
-Check the [Getting Started](docs/getting_started.md) doc for more details
+Check the [Getting started](docs/getting_started.md) doc for more details.
 
 ### Troubleshooting
 
@@ -90,7 +90,7 @@ NAME                                                     READY     STATUS    RES
 pod/multicloud-operators-subscription-557c676479-dh2fg   1/1       Running   0          24s
 ```
 
-- Check Subscription and its status
+- Check the Subscription and its status.
 
 ```shell
 % kubectl describe appsub simple
@@ -137,23 +137,23 @@ Events:                   <none>
 
 ## Community, discussion, contribution, and support
 
-Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
+Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repository.
 
 ------
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
 
-Check the [Development Doc](docs/development.md) for how to contribute to the repo.
+Check the [Development Doc](docs/development.md) for information about how to contribute to the repository.
 
-## Security Response
+## Security response
 
-Check the [Security Doc](SECURITY.md) if you've found a security issue.
+Check the [Security Doc](SECURITY.md) if you find a security issue.
 
 ## References
 
-### multicloud-operators repositories
+### Multicloud-operators repositories
 
 - [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
 - [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
