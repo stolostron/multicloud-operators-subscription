@@ -17,7 +17,9 @@ package utils
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -104,8 +106,35 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 	return ret
 }
 
+func getCertChain(certs string) tls.Certificate {
+	var certChain tls.Certificate
+
+	certPEMBlock := []byte(certs)
+
+	var certDERBlock *pem.Block
+
+	for {
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+
+		if certDERBlock == nil {
+			break
+		}
+
+		if certDERBlock.Type == "CERTIFICATE" {
+			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+		}
+	}
+
+	return certChain
+}
+
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string, insecureSkipVerify bool) (commitID string, err error) {
+func CloneGitRepo(
+	repoURL string,
+	branch plumbing.ReferenceName,
+	user, password, destDir string,
+	insecureSkipVerify bool,
+	caCerts string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -121,14 +150,53 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 		}
 	}
 
+	installProtocol := false
+
+	clientConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {
 		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
 
+		clientConfig.InsecureSkipVerify = true
+
+		installProtocol = true
+	} else if !strings.EqualFold(caCerts, "") {
+		klog.Info("Adding Git server's CA certificate to trust certificate pool")
+
+		// Load the host's trusted certs into memory
+		certPool, _ := x509.SystemCertPool()
+		if certPool == nil {
+			certPool = x509.NewCertPool()
+		}
+
+		certChain := getCertChain(caCerts)
+
+		if len(certChain.Certificate) == 0 {
+			klog.Warning("No certificate found")
+		}
+
+		// Add CA certs from the channel config map to the cert pool
+		// It will not add duplicate certs
+		for _, cert := range certChain.Certificate {
+			x509Cert, err := x509.ParseCertificate(cert)
+			if err != nil {
+				panic(err)
+			}
+			klog.Info("Adding certificate -->" + x509Cert.Subject.String())
+			certPool.AddCert(x509Cert)
+		}
+
+		clientConfig.RootCAs = certPool
+
+		installProtocol = true
+	}
+
+	if installProtocol {
 		customClient := &http.Client{
 			/* #nosec G402 */
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, // #nosec G402 InsecureSkipVerify conditionally
+				TLSClientConfig: clientConfig,
 			},
 
 			// 15 second timeout
@@ -238,9 +306,11 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.ConfigMap {
 	if chn.Spec.ConfigMapRef != nil {
 		configMapRet := &corev1.ConfigMap{}
+
 		cmns := chn.Namespace
 
 		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.ConfigMapRef.Name, Namespace: cmns}, configMapRet)
+
 		if err != nil {
 			klog.Error(err, "Unable to get config map from local cluster.")
 			return nil
@@ -397,7 +467,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			err := yaml.Unmarshal(resources[0], &t)
 
 			if err != nil {
-				fmt.Println("Failed to unmarshal YAML file")
+				klog.Warning("Failed to unmarshal YAML file")
 				// Just ignore the YAML
 				return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 			}

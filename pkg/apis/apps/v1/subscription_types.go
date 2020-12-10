@@ -89,6 +89,8 @@ const (
 	ReplaceReconcile = "replace"
 	// SubscriptionNameSuffix is appended to the subscription name when propagated to managed clusters
 	SubscriptionNameSuffix = ""
+	// ChannelCertificateData is the configmap data spec field containing trust certificates
+	ChannelCertificateData = "caCerts"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

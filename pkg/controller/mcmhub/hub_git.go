@@ -83,6 +83,7 @@ type branchInfo struct {
 	secret             string
 	insecureSkipVerify bool
 	registeredSub      map[types.NamespacedName]struct{}
+	gitCACert          string
 }
 
 type RepoRegistery struct {
@@ -93,7 +94,7 @@ type RepoRegistery struct {
 type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
 
 type cloneFunc func(url string, branchName string, user string, secret string,
-	localDir string, insecureSkipVerify bool) (string, error)
+	localDir string, insecureSkipVerify bool, caCert string) (string, error)
 
 type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
 
@@ -191,7 +192,7 @@ func (h *HubGitOps) GitWatch() {
 			if err != nil {
 				h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
 
-				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify)
+				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify, branchInfo.gitCACert)
 				if err != nil {
 					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
 				}
@@ -213,7 +214,13 @@ func (h *HubGitOps) GitWatch() {
 			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
 			h.logger.Info("The repo has new commit: " + nCommit)
 
-			if _, err := h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret, branchInfo.localDir, branchInfo.insecureSkipVerify); err != nil {
+			if _, err := h.cloneFunc(url,
+				bName,
+				branchInfo.username,
+				branchInfo.secret,
+				branchInfo.localDir,
+				branchInfo.insecureSkipVerify,
+				branchInfo.gitCACert); err != nil {
 				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
 			}
 
@@ -312,9 +319,10 @@ func (h *HubGitOps) ResolveLocalGitFolder(chn *chnv1.Channel, subIns *subv1.Subs
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	if _, ok := h.subRecords[subKey]; ok {
-		return
-	}
+	// This does not pick up new changes to channel configuration
+	//if _, ok := h.subRecords[subKey]; ok {
+	//	return
+	//}
 
 	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
 
@@ -332,6 +340,16 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to git watcher register")
 		return
+	}
+
+	channelConfig := utils.GetChannelConfigMap(h.clt, channel)
+	caCert := ""
+
+	if channelConfig != nil {
+		caCert = channelConfig.Data[subv1.ChannelCertificateData]
+		if caCert != "" {
+			h.logger.Info("Channel config map with CA certs found")
+		}
 	}
 
 	skipCertVerify := false
@@ -356,7 +374,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	h.subRecords[subKey] = repoName
 	bInfo, ok := h.repoRecords[repoName]
 
-	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, repoBranchDir, skipCertVerify)
+	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, repoBranchDir, skipCertVerify, caCert)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
 	}
@@ -392,6 +410,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			registeredSub: map[types.NamespacedName]struct{}{
 				subKey: {},
 			},
+			gitCACert: caCert,
 		}
 
 		return
@@ -506,8 +525,8 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 	return nil
 }
 
-func cloneGitRepoBranch(repoURL string, branchName string, user, pwd, repoBranchDir string, skipCertVerify bool) (string, error) {
-	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName), user, pwd, repoBranchDir, skipCertVerify)
+func cloneGitRepoBranch(repoURL string, branchName string, user, pwd, repoBranchDir string, skipCertVerify bool, caCert string) (string, error) {
+	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName), user, pwd, repoBranchDir, skipCertVerify, caCert)
 }
 
 type gitSortResult struct {

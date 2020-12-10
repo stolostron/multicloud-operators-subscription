@@ -559,13 +559,20 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
+	caCert := ""
+
+	if ghsi.SubscriberItem.ChannelConfigMap != nil {
+		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelCertificateData]
+	}
+
 	return utils.CloneGitRepo(
 		ghsi.Channel.Spec.Pathname,
 		utils.GetSubscriptionBranch(ghsi.Subscription),
 		user,
 		token,
 		ghsi.repoRoot,
-		ghsi.Channel.Spec.InsecureSkipVerify)
+		ghsi.Channel.Spec.InsecureSkipVerify,
+		caCert)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
