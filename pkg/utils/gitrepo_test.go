@@ -272,7 +272,7 @@ func TestGetChannelSecret(t *testing.T) {
 
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, err := GetChannelSecret(c, githubchn)
+	user, pwd, _, _, err := GetChannelSecret(c, githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Equal("admin"))
 	g.Expect(pwd).To(gomega.Equal("1f2d1e2e67df"))
@@ -281,7 +281,7 @@ func TestGetChannelSecret(t *testing.T) {
 	secretRef.Name = "correct-secret_nogood"
 	githubchn.Spec.SecretRef = secretRef
 
-	_, _, err = GetChannelSecret(c, githubchn)
+	_, _, _, _, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 
 	// Test when secret has incorrect data
@@ -295,7 +295,7 @@ func TestGetChannelSecret(t *testing.T) {
 	secretRef.Name = "incorrect-secret"
 	githubchn.Spec.SecretRef = secretRef
 
-	_, _, err = GetChannelSecret(c, githubchn)
+	_, _, _, _, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 }
 
