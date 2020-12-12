@@ -31,6 +31,7 @@ import (
 
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -143,13 +144,22 @@ func CloneGitRepo(
 	sshKey, passphrase []byte,
 	destDir string,
 	insecureSkipVerify bool,
-	caCerts, knownhostlist string) (commitID string, err error) {
+	caCerts, knownhosts string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		ReferenceName:     branch,
+	}
+
+	err = os.RemoveAll(destDir)
+	if err != nil {
+		klog.Warning(err, "Failed to remove directory ", destDir)
+	}
+	err = os.MkdirAll(destDir, os.ModePerm)
+	if err != nil {
+		return "", err
 	}
 
 	if strings.HasPrefix(repoURL, "http") {
@@ -159,27 +169,27 @@ func CloneGitRepo(
 			klog.Error(err, "failed to prepare HTTP clone options")
 			return "", err
 		}
-		klog.Info("ROKEROKE options.Auth.String() = " + options.Auth.String())
 	} else {
 		klog.Info("Connecting to Git server via SSH")
-		err := getSSHOptions(options, sshKey, passphrase, knownhostlist)
-		if err != nil {
-			klog.Error(err, "failed to prepare HTTP clone options")
-			return "", err
-		}
-		klog.Info("ROKEROKE options.Auth.String() = " + options.Auth.String())
-	}
 
-	if _, err := os.Stat(destDir); os.IsNotExist(err) {
-		err = os.MkdirAll(destDir, os.ModePerm)
-		if err != nil {
-			klog.Error(err, "Failed to make directory ", destDir)
-			return "", err
+		knownhostsfile := filepath.Join(destDir, "known_hosts")
+
+		if knownhosts != "" {
+			d1 := []byte(knownhosts)
+			err = ioutil.WriteFile(knownhostsfile, d1, 0644)
+
+			if err != nil {
+				klog.Error(err, "failed to write known_hosts file")
+				return "", err
+			}
+		} else {
+			klog.Error("No known SSH host provided")
+			return "", errors.New("No known SSH host provided")
 		}
-	} else {
-		err = os.RemoveAll(destDir)
+
+		err := getSSHOptions(options, sshKey, passphrase, knownhostsfile)
 		if err != nil {
-			klog.Error(err, "Failed to remove directory ", destDir)
+			klog.Error(err, "failed to prepare SSH clone options")
 			return "", err
 		}
 	}
@@ -207,19 +217,7 @@ func CloneGitRepo(
 	return commit.ID().String(), nil
 }
 
-func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostlist string) error {
-	if knownhostlist == "" {
-		return errors.New("No known host.")
-	}
-
-	err = ioutil.WriteFile(GetGitSshFolder(), []byte(strings.TrimSpace(knownhostlist)), 0644)
-
-	if err != nil {
-		fmt.Print(err.Error())
-	} else {
-		fmt.Println("Wrote " + known_hosts_file_path)
-	}
-
+func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostsfile string) error {
 	publicKey := &gitssh.PublicKeys{}
 	publicKey.User = "git"
 
@@ -239,6 +237,15 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 		}
 		publicKey.Signer = signer
 	}
+
+	callback, err := knownhosts.New(knownhostsfile)
+
+	if err != nil {
+		klog.Error("failed to get knownhosts ", err)
+		return err
+	}
+
+	publicKey.HostKeyCallback = callback
 
 	options.Auth = publicKey
 	return nil

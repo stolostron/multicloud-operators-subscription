@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -570,16 +569,6 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		sshKnownHosts = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelKnownhostsData]
 	}
 
-	knownHostsPath := filepath.Join(os.TempDir(), ghsi.Channel.Name, "known_hosts")
-
-	if !strings.HasPrefix(ghsi.Channel.Spec.Pathname, "http") {
-		err := utils.WriteKnownHostsFile(sshKnownHosts, knownHostsPath)
-
-		if err != nil {
-			return "", err
-		}
-	}
-
 	return utils.CloneGitRepo(
 		ghsi.Channel.Spec.Pathname,
 		utils.GetSubscriptionBranch(ghsi.Subscription),
@@ -590,7 +579,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		ghsi.repoRoot,
 		ghsi.Channel.Spec.InsecureSkipVerify,
 		caCert,
-		knownHostsPath)
+		sshKnownHosts)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {
