@@ -60,7 +60,7 @@ const (
 	// AccessToken is key of GitHub user password or personal token in secret
 	AccessToken = "accessToken"
 	// SSHKey is use to connect to the channel via SSH
-	SSHKey = "ssh_key"
+	SSHKey = "sshKey"
 	// Passphrase is used to open the SSH key
 	Passphrase = "passphrase"
 )
