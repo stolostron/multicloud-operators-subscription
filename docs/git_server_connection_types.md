@@ -1,3 +1,36 @@
+# Different ways to connect to a Git repository
+These are currently supported ways to connect to a Git server using channel and subscription.
+
+## Connecting to a private repository using user and access token
+
+1. Create a secret in the same namespace as channel. Set the `user` field to be a Git user ID and the `accessToken` field to be a Git personal access token. The values should be base64 encoded.
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-git-secret
+  namespace: channel-ns
+data:
+  user: dXNlcgo=
+  accessToken: cGFzc3dvcmQK
+```
+
+2. Configure the channel with this secret like this.
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: sample-channel
+  namespace: channel-ns
+spec:
+    type: Git
+    pathname: <Git URL>
+    secretRef:
+      name: my-git-secret
+``` 
+
 ## Insecure HTTPS connection
 
 You can use this connection method in development environment to connect to a privately hosted Git server with SSL certificates signed by custom or self-signed certificate authority. This is not recommented for production.
