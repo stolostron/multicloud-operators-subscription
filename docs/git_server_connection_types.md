@@ -241,3 +241,7 @@ spec:
   pathname: https://my.git.server.com/test1.git
   type: Git
 ```
+
+## Updating channel secret and config map
+
+If Git channel connection configuration, such as CA certificates, credentials, or SSH key, requires an update, create new secret and config map in the same namespace and update the channel to reference the new secret and configmap.
