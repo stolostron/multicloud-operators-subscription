@@ -55,7 +55,7 @@ type GitOps interface {
 
 	// RegisterBranch to git watcher and do a initial download for other
 	// components to consume
-	RegisterBranch(*subv1.Subscription)
+	RegisterBranch(*subv1.Subscription) error
 
 	// DeregisterBranch
 	DeregisterBranch(types.NamespacedName)
@@ -324,7 +324,7 @@ func (h *HubGitOps) ResolveLocalGitFolder(chn *chnv1.Channel, subIns *subv1.Subs
 	return h.downloadDirResolver(chn, subIns)
 }
 
-func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
+func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	// This does not pick up new changes to channel configuration
@@ -336,18 +336,18 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to GitOps")
-		return
+		return err
 	}
 
 	if !isGitChannel(channel) {
-		return
+		return nil
 	}
 
 	user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, channel)
 
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to git watcher register")
-		return
+		return err
 	}
 
 	channelConfig := utils.GetChannelConfigMap(h.clt, channel)
@@ -392,6 +392,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, sshKey, passphrase, repoBranchDir, skipCertVerify, caCert, sshKnownHosts)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
+		return err
 	}
 
 	//make sure the initial prehook is passed
@@ -410,11 +411,21 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 					registeredSub: map[types.NamespacedName]struct{}{
 						subKey: {},
 					},
+					sshKnownHosts: sshKnownHosts,
 				},
 			},
 		}
 
-		return
+		return nil
+	} else {
+		// Pick up new channel configurations
+		bInfo.branchs[branchName].username = user
+		bInfo.branchs[branchName].secret = pwd
+		bInfo.branchs[branchName].passphrase = passphrase
+		bInfo.branchs[branchName].sshKey = sshKey
+		bInfo.branchs[branchName].sshKnownHosts = sshKnownHosts
+		bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
+		bInfo.branchs[branchName].gitCACert = caCert
 	}
 
 	if bInfo.branchs[branchName] == nil {
@@ -433,10 +444,12 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			sshKnownHosts: sshKnownHosts,
 		}
 
-		return
+		return nil
 	}
 
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+
+	return nil
 }
 
 func fakeCommitID(c string) string {
@@ -508,7 +521,8 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 
 	_, ok := h.subRecords[subKey]
 	if !ok { // when git watcher doesn't have the record, go ahead clone the repo and return the commitID
-		h.RegisterBranch(subIns)
+		err := h.RegisterBranch(subIns)
+		return "", err
 	}
 
 	if len(h.repoRecords) == 0 {

@@ -423,7 +423,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 
 	if len(sshKey) == 0 {
 		if username == "" || accessToken == "" {
-			klog.Error(err, "ssh_key (and optinally passphrase) or user and accressToken need to be specified in the channel secret")
+			klog.Error(err, "sshKey (and optinally passphrase) or user and accressToken need to be specified in the channel secret")
 			return username, accessToken, sshKey, passphrase, errors.New("ssh_key (and optinally passphrase) or user and accressToken need to be specified in the channel secret")
 		}
 	}

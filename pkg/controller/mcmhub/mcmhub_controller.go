@@ -455,7 +455,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	logger := r.logger.WithName(request.String())
 	logger.Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
-	defer logger.Info(fmt.Sprint("exist Hub Reconciling subscription: ", request.String()))
+	defer logger.Info(fmt.Sprint("exit Hub Reconciling subscription: ", request.String()))
+
+	//flag used to indicate Git branch connection intialiazion failed
+	passedBranchRegistration := true
 
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
@@ -478,7 +481,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	oins := &appv1.Subscription{}
 
 	defer func() {
-		r.finalCommit(passedPrehook, preErr, oins, instance, request, &result)
+		r.finalCommit(passedBranchRegistration, passedPrehook, preErr, oins, instance, request, &result)
 	}()
 
 	err := r.CreateSubscriptionAdminRBAC()
@@ -518,7 +521,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
-		r.hubGitOps.RegisterBranch(instance)
+		if err := r.hubGitOps.RegisterBranch(instance); err != nil {
+			logger.Error(err, "failed to initialize Git connection")
+			preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
+
+			passedBranchRegistration = false
+
+			return reconcile.Result{}, nil
+		}
+
 		// register will skip the failed clone repo
 		if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
 			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
@@ -699,15 +710,23 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 //
 //the requeue logic is done via set up the RequeueAfter parameter of the
 //reconciel.Result
-func (r *ReconcileSubscription) finalCommit(passedPrehook bool, preErr error,
+func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passedPrehook bool, preErr error,
 	oIns, nIns *subv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
 	r.logger.Info("Enter finalCommit...")
-	defer r.logger.Info("Eixt finalCommit...")
+	defer r.logger.Info("Exit finalCommit...")
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
 		return
+	}
+
+	if !passedBranchRegistration {
+		nIns.Status = r.hooks.AppendPreHookStatusToSubscription(nIns)
+		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
+		nIns.Status.Reason = preErr.Error()
+		nIns.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
+		res.RequeueAfter = defaulRequeueInterval
 	}
 
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
