@@ -92,6 +92,8 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 		}
 		if _, err := r.hubClient.CoordinationV1().Leases(r.LeaseNamespace).Create(context.TODO(), lease, metav1.CreateOptions{}); err != nil {
 			klog.Errorf("unable to create addon lease %q/%q on hub cluster. error:%v", r.LeaseNamespace, r.LeaseName, err)
+		} else {
+			klog.Infof("addon lease %q/%q on hub cluster created", r.LeaseNamespace, r.LeaseName)
 		}
 
 		return
@@ -103,6 +105,8 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 		lease.Spec.RenewTime = &metav1.MicroTime{Time: time.Now()}
 		if _, err = r.hubClient.CoordinationV1().Leases(r.LeaseNamespace).Update(context.TODO(), lease, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("unable to update cluster lease %q/%q on hub cluster. error:%v", r.LeaseNamespace, r.LeaseName, err)
+		} else {
+			klog.Infof("addon lease %q/%q on hub cluster updated", r.LeaseNamespace, r.LeaseName)
 		}
 
 		return
