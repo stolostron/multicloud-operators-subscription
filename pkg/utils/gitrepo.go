@@ -533,8 +533,6 @@ func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string
 			return nil
 		})
 
-	klog.Infof("otherFiles size %v", len(otherFiles))
-
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 }
 
@@ -562,8 +560,6 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			}
 
 			if t.APIVersion != "" && t.Kind != "" {
-				klog.Info(t.APIVersion + "/" + t.Kind)
-
 				if strings.EqualFold(t.Kind, "customresourcedefinition") {
 					crdsAndNamespaceFiles = append(crdsAndNamespaceFiles, path)
 				} else if strings.EqualFold(t.Kind, "namespace") {
