@@ -364,7 +364,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		if sshKnownHosts != "" {
 			h.logger.Info("Channel config map with SSH known hosts found")
 		}
-
 	}
 
 	skipCertVerify := false
@@ -417,16 +416,16 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		}
 
 		return nil
-	} else {
-		// Pick up new channel configurations
-		bInfo.branchs[branchName].username = user
-		bInfo.branchs[branchName].secret = pwd
-		bInfo.branchs[branchName].passphrase = passphrase
-		bInfo.branchs[branchName].sshKey = sshKey
-		bInfo.branchs[branchName].sshKnownHosts = sshKnownHosts
-		bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
-		bInfo.branchs[branchName].gitCACert = caCert
 	}
+
+	// Pick up new channel configurations
+	bInfo.branchs[branchName].username = user
+	bInfo.branchs[branchName].secret = pwd
+	bInfo.branchs[branchName].passphrase = passphrase
+	bInfo.branchs[branchName].sshKey = sshKey
+	bInfo.branchs[branchName].sshKnownHosts = sshKnownHosts
+	bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
+	bInfo.branchs[branchName].gitCACert = caCert
 
 	if bInfo.branchs[branchName] == nil {
 		bInfo.branchs[branchName] = &branchInfo{
@@ -554,7 +553,9 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 		return nil
 	}
 
-	h.RegisterBranch(subIns)
+	if err := h.RegisterBranch(subIns); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -157,6 +157,7 @@ func CloneGitRepo(
 	if err != nil {
 		klog.Warning(err, "Failed to remove directory ", destDir)
 	}
+
 	err = os.MkdirAll(destDir, os.ModePerm)
 	if err != nil {
 		return "", err
@@ -164,7 +165,9 @@ func CloneGitRepo(
 
 	if strings.HasPrefix(repoURL, "http") {
 		klog.Info("Connecting to Git server via HTTP")
-		err := getHttpOptions(options, user, password, caCerts, insecureSkipVerify)
+
+		err := getHTTPOptions(options, user, password, caCerts, insecureSkipVerify)
+
 		if err != nil {
 			klog.Error(err, "failed to prepare HTTP clone options")
 			return "", err
@@ -183,8 +186,8 @@ func CloneGitRepo(
 				return "", err
 			}
 		} else {
-			klog.Error("No known SSH host provided")
-			return "", errors.New("No known SSH host provided")
+			klog.Error("no known SSH host provided")
+			return "", errors.New("no known SSH host provided")
 		}
 
 		err := getSSHOptions(options, sshKey, passphrase, knownhostsfile)
@@ -223,11 +226,14 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 
 	if len(passphrase) > 0 {
 		klog.Info("Parsing SSH private key with passphrase")
+
 		signer, err := ssh.ParsePrivateKeyWithPassphrase(sshKey, passphrase)
+
 		if err != nil {
 			klog.Error("failed to parse SSH key", err.Error())
 			return err
 		}
+
 		publicKey.Signer = signer
 	} else {
 		signer, err := ssh.ParsePrivateKey(sshKey)
@@ -246,12 +252,12 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 	}
 
 	publicKey.HostKeyCallback = callback
-
 	options.Auth = publicKey
+
 	return nil
 }
 
-func getHttpOptions(options *git.CloneOptions, user, password, caCerts string, insecureSkipVerify bool) error {
+func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, insecureSkipVerify bool) error {
 	if user != "" && password != "" {
 		options.Auth = &githttp.BasicAuth{
 			Username: user,
@@ -423,8 +429,9 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 
 	if len(sshKey) == 0 {
 		if username == "" || accessToken == "" {
-			klog.Error(err, "sshKey (and optinally passphrase) or user and accressToken need to be specified in the channel secret")
-			return username, accessToken, sshKey, passphrase, errors.New("ssh_key (and optinally passphrase) or user and accressToken need to be specified in the channel secret")
+			klog.Error(err, "sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
+			return username, accessToken, sshKey, passphrase,
+				errors.New("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
 		}
 	}
 
@@ -434,11 +441,6 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 // GetLocalGitFolder returns the local Git repo clone directory
 func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
-}
-
-// GetGitSshFolder returns the local directory containing SSH related files such as known_hosts
-func GetGitSshFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
-	return filepath.Join(os.TempDir(), chn.Namespace, chn.Name, ".ssh")
 }
 
 // WriteKnownHostsFile writes knownhosts file for SSH connection
