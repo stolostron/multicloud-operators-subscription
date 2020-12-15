@@ -178,8 +178,7 @@ func CloneGitRepo(
 		knownhostsfile := filepath.Join(destDir, "known_hosts")
 
 		if knownhosts != "" {
-			d1 := []byte(knownhosts)
-			err = ioutil.WriteFile(knownhostsfile, d1, 0644)
+			err = ioutil.WriteFile(knownhostsfile, []byte(knownhosts), 0600)
 
 			if err != nil {
 				klog.Error(err, "failed to write known_hosts file")
@@ -441,23 +440,6 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 // GetLocalGitFolder returns the local Git repo clone directory
 func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
-}
-
-// WriteKnownHostsFile writes knownhosts file for SSH connection
-func WriteKnownHostsFile(sshKnownHosts, path string) error {
-	// For SSH Git connection, knownhosts must be provided through channel configmap
-	if sshKnownHosts == "" {
-		klog.Error("knownhosts must be provided through the channel config map for ssh connection to Git")
-		return errors.New("knownhosts must be provided through the channel config map for ssh connection to Git")
-	}
-
-	err := ioutil.WriteFile(path, []byte(strings.TrimSpace(sshKnownHosts)), 0644)
-
-	if err != nil {
-		return err
-	}
-
-	return nil
 }
 
 type SkipFunc func(string, string) bool
