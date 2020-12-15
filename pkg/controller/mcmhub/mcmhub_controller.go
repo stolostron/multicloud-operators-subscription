@@ -727,6 +727,19 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 		nIns.Status.Reason = preErr.Error()
 		nIns.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
 		res.RequeueAfter = defaulRequeueInterval
+		nIns.Status.LastUpdateTime = metav1.Now()
+
+		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+
+		if err != nil && !k8serrors.IsNotFound(err) {
+			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = defaulRequeueInterval
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+			}
+
+			return
+		}
 	}
 
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status

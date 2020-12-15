@@ -260,7 +260,7 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 
 		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
 		Expect(len(subitem.rbacFiles)).To(Equal(3))
-		Expect(len(subitem.otherFiles)).To(Equal(9))
+		Expect(len(subitem.otherFiles)).To(Equal(2))
 		Expect(subitem.crdsAndNamespaceFiles[0]).To(ContainSubstring("resources/deploy/crds/crontab.yaml"))
 	})
 })
@@ -283,7 +283,7 @@ var _ = Describe("test subscribing to bitbucket repository", func() {
 
 		Expect(len(subitem.crdsAndNamespaceFiles)).To(Equal(2))
 		Expect(len(subitem.rbacFiles)).To(Equal(3))
-		Expect(len(subitem.otherFiles)).To(Equal(9))
+		Expect(len(subitem.otherFiles)).To(Equal(2))
 		Expect(subitem.crdsAndNamespaceFiles[0]).To(ContainSubstring("resources/deploy/crds/crontab.yaml"))
 	})
 })
