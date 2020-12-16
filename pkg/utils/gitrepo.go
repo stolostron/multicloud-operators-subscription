@@ -221,6 +221,7 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 
 	cmd := exec.Command("ssh-keyscan", sshhostname)
 	stdout, err := cmd.Output()
+
 	if err != nil {
 		klog.Error("failed to get public SSH host key: ", err)
 		return err
