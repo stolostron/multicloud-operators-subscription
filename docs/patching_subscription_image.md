@@ -1,4 +1,4 @@
-# Patching ACM hub and managed clusters with the latest subscription docker images
+# Patching ACM hub and managed clusters with another subscription docker images
 
 In open-cluster-management namespace on ACM hub cluster, edit the advanced-cluster-management.v2.1.0 csv. (or 2.1.1 CSV)
 
