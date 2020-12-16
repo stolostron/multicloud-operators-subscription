@@ -303,7 +303,7 @@ func TestGetChannelSecret(t *testing.T) {
 
 	user, pwd, sshKey, passphrase, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(user).To(gomega.Equal(""))
+	g.Expect(user).To(gomega.Equal("admin"))
 	g.Expect(pwd).To(gomega.Equal(""))
 	g.Expect(string(sshKey)).To(gomega.Equal(""))
 	g.Expect(string(passphrase)).To(gomega.Equal(""))
