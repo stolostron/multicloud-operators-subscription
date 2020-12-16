@@ -219,7 +219,7 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 
 	klog.Info("Getting public SSH host key for " + sshhostname)
 
-	cmd := exec.Command("ssh-keyscan", sshhostname)
+	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
 	stdout, err := cmd.Output()
 
 	if err != nil {
