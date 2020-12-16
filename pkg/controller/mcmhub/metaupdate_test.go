@@ -63,9 +63,9 @@ func TestTopoAnnotationUpdateHelm(t *testing.T) {
 
 	subIns := subscription.DeepCopy()
 	subIns.SetName("helm-sub")
-	subIns.Spec.Package = "nginx-ingress"
+	subIns.Spec.Package = "gbapp"
 	subIns.Spec.Channel = helmKey.String()
-	subIns.Spec.PackageFilter = &subv1.PackageFilter{Version: "1.26.0"}
+	subIns.Spec.PackageFilter = &subv1.PackageFilter{Version: "0.1.0"}
 	g.Expect(c.Create(context.TODO(), subIns)).NotTo(gomega.HaveOccurred())
 
 	defer func() {
