@@ -29,12 +29,14 @@ type SubscriptionCMDOptions struct {
 	SyncInterval          int
 	DisableTLS            bool
 	Standalone            bool
+	LeaseDurationSeconds  int
 }
 
 var Options = SubscriptionCMDOptions{
-	MetricsAddr:  "",
-	SyncInterval: 60,
-	Standalone:   false,
+	MetricsAddr:          "",
+	SyncInterval:         60,
+	LeaseDurationSeconds: 60,
+	Standalone:           false,
 }
 
 // ProcessFlags parses command line parameters into Options
@@ -74,6 +76,13 @@ func ProcessFlags() {
 		"sync-interval",
 		Options.SyncInterval,
 		"The interval of housekeeping in seconds.",
+	)
+
+	flag.IntVar(
+		&Options.LeaseDurationSeconds,
+		"lease-duration",
+		Options.LeaseDurationSeconds,
+		"The lease duration in seconds.",
 	)
 
 	flag.BoolVar(
