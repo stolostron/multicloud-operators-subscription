@@ -160,6 +160,7 @@ func RunManager() {
 			LeaseNamespace:       Options.ClusterName,
 			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
 			HubKubeConfigPath:    Options.HubConfigFilePathName,
+			KubeFake:             false,
 		}
 
 		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,

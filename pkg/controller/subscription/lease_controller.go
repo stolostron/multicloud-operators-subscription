@@ -25,11 +25,12 @@ var (
 
 // LeaseReconciler reconciles a Secret object
 type LeaseReconciler struct {
+	KubeFake             bool
+	LeaseDurationSeconds int32
 	KubeClient           kubernetes.Interface
 	LeaseName            string
 	LeaseNamespace       string
 	HubKubeConfigPath    string
-	LeaseDurationSeconds int32
 	cachedKubeConfig     []byte
 	componentNamespace   string
 	hubClient            kubernetes.Interface
@@ -46,28 +47,41 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 		if len(r.componentNamespace) == 0 {
 			r.componentNamespace, err = utils.GetComponentNamespace()
 			if err != nil {
-				klog.Errorf("failed to get the klusterlet-addon-appmgr pod namespace use. error:%v", err)
+				klog.Errorf("use the open-cluster-management-agent-addon namespace. error:%v", err)
 			}
 		}
 
 		if len(r.cachedKubeConfig) != 0 {
 			//If kubeconfig changed, restart agent pods
 			labelSelector := labels.FormatLabels(agentLabel)
-			err = r.KubeClient.CoreV1().Pods(r.componentNamespace).DeleteCollection(context.TODO(), metav1.DeleteOptions{},
+
+			appmgrPods, err := r.KubeClient.CoreV1().Pods(r.componentNamespace).List(context.TODO(),
 				metav1.ListOptions{LabelSelector: labelSelector})
 
 			if err != nil {
-				klog.Errorf("failed to restart the klusterlet-addon-appmgr pod. error:%v", err)
+				klog.Infof("failed to fetch appmgrPods, err: %v", err)
+			}
+
+			for _, appmgrPod := range appmgrPods.Items {
+				err = r.KubeClient.CoreV1().Pods(r.componentNamespace).Delete(context.TODO(), appmgrPod.GetName(),
+					metav1.DeleteOptions{})
+
+				if err != nil {
+					klog.Errorf("failed to delete the klusterlet-addon-appmgr pod. error:%v", err)
+				}
 			}
 
 			return
 		}
 
-		//update cached kubeconfig and hub client
-		r.hubClient, err = utils.BuildKubeClient(r.HubKubeConfigPath)
-		if err != nil {
-			klog.Errorf("failed to build hub client. error:%v", err)
-			return
+		// update cached kubeconfig to new hub client.
+		// kubefake is true only when the reconcicle is triggerred by the lease controller unit test.
+		if !r.KubeFake {
+			r.hubClient, err = utils.BuildKubeClient(r.HubKubeConfigPath)
+			if err != nil {
+				klog.Errorf("failed to build hub client. error:%v", err)
+				return
+			}
 		}
 
 		r.cachedKubeConfig = curKubeConfig
