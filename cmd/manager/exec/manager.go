@@ -77,8 +77,15 @@ func RunManager() {
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
+	// increase the dafault QPS(5) to 100, only sends 5 requests to API server
+	// seems to be unrealistic. Reading some other projects, it seems QPS 100 is
+	// a pretty common practice
+	cfg := ctrl.GetConfigOrDie()
+	cfg.QPS = 100.0
+	cfg.Burst = 200
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
