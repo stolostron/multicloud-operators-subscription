@@ -191,7 +191,7 @@ metadata:
 spec:
   configMapRef:
     name: git-ca
-  pathname: https://my.git.server.com/test1.git
+  pathname: <Git URL>
   type: Git
 ```
 
@@ -222,8 +222,24 @@ metadata:
 spec:
   secretRef:
     name: git-ssh-key
-  pathname: https://my.git.server.com/test1.git
+  pathname: <Git SSH URL>
   type: Git
+```
+
+3. The subscription controller does `ssh-keyscan` with the provided Git hostname to build the known_hosts list to prevent MITM attack in SSH connection. If you want to skip this and make insecure connection, use `insecureSkipVerify: true` in the channel configuration.
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: my-channel
+  namespace: channel-ns
+spec:
+  secretRef:
+    name: git-ssh-key
+  pathname: <Git SSH URL>
+  type: Git
+  insecureSkipVerify: true
 ```
 
 ## Updating channel secret and config map
