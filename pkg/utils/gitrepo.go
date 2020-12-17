@@ -184,7 +184,7 @@ func CloneGitRepo(
 			return "", err
 		}
 
-		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile)
+		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
 		if err != nil {
 			klog.Error(err, "failed to prepare SSH clone options")
 			return "", err
@@ -227,6 +227,8 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 		return err
 	}
 
+	klog.Info("SSH host key: " + string(stdout))
+
 	if err := ioutil.WriteFile(filepath, stdout, 0600); err != nil {
 		klog.Error("failed to write known_hosts file: ", err)
 		return err
@@ -235,7 +237,7 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 	return nil
 }
 
-func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostsfile string) error {
+func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostsfile string, insecureSkipVerify bool) error {
 	publicKey := &gitssh.PublicKeys{}
 	publicKey.User = "git"
 
@@ -259,14 +261,21 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 		publicKey.Signer = signer
 	}
 
-	callback, err := knownhosts.New(knownhostsfile)
+	if insecureSkipVerify {
+		klog.Info("Insecure ignore SSH host key")
+		publicKey.HostKeyCallback = ssh.InsecureIgnoreHostKey()
+	} else {
+		klog.Info("Using SSH known host keys")
+		callback, err := knownhosts.New(knownhostsfile)
 
-	if err != nil {
-		klog.Error("failed to get knownhosts ", err)
-		return err
+		if err != nil {
+			klog.Error("failed to get knownhosts ", err)
+			return err
+		}
+
+		publicKey.HostKeyCallback = callback
 	}
 
-	publicKey.HostKeyCallback = callback
 	options.Auth = publicKey
 
 	return nil
