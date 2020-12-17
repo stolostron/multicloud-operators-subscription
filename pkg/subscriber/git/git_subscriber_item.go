@@ -562,11 +562,9 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	}
 
 	caCert := ""
-	sshKnownHosts := ""
 
 	if ghsi.SubscriberItem.ChannelConfigMap != nil {
 		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelCertificateData]
-		sshKnownHosts = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelKnownhostsData]
 	}
 
 	return utils.CloneGitRepo(
@@ -578,8 +576,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		passphrase,
 		ghsi.repoRoot,
 		ghsi.Channel.Spec.InsecureSkipVerify,
-		caCert,
-		sshKnownHosts)
+		caCert)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

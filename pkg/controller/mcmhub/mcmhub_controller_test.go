@@ -69,7 +69,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:               chnv1alpha1.ChannelTypeHelmRepo,
-			Pathname:           "https://ianzhang366.github.io/guestbook-chart/",
+			Pathname:           "https://charts.helm.sh/stable",
 			InsecureSkipVerify: true,
 		},
 	}
