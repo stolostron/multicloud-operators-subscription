@@ -86,7 +86,6 @@ type branchInfo struct {
 	insecureSkipVerify bool
 	registeredSub      map[types.NamespacedName]struct{}
 	gitCACert          string
-	sshKnownHosts      string
 }
 
 type RepoRegistery struct {
@@ -97,7 +96,7 @@ type RepoRegistery struct {
 type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
 
 type cloneFunc func(url, branchName, user, secret string, sshKey, passphrase []byte,
-	localDir string, insecureSkipVerify bool, caCert string, sshKnownHosts string) (string, error)
+	localDir string, insecureSkipVerify bool, caCert string) (string, error)
 
 type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
 
@@ -197,7 +196,7 @@ func (h *HubGitOps) GitWatch() {
 
 				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret,
 					branchInfo.sshKey, branchInfo.passphrase, branchInfo.localDir,
-					branchInfo.insecureSkipVerify, branchInfo.gitCACert, branchInfo.sshKnownHosts)
+					branchInfo.insecureSkipVerify, branchInfo.gitCACert)
 				if err != nil {
 					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
 				}
@@ -227,8 +226,7 @@ func (h *HubGitOps) GitWatch() {
 				branchInfo.passphrase,
 				branchInfo.localDir,
 				branchInfo.insecureSkipVerify,
-				branchInfo.gitCACert,
-				branchInfo.sshKnownHosts); err != nil {
+				branchInfo.gitCACert); err != nil {
 				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
 			}
 
@@ -352,17 +350,11 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 
 	channelConfig := utils.GetChannelConfigMap(h.clt, channel)
 	caCert := ""
-	sshKnownHosts := ""
 
 	if channelConfig != nil {
 		caCert = channelConfig.Data[subv1.ChannelCertificateData]
 		if caCert != "" {
 			h.logger.Info("Channel config map with CA certs found")
-		}
-
-		sshKnownHosts = channelConfig.Data[subv1.ChannelKnownhostsData]
-		if sshKnownHosts != "" {
-			h.logger.Info("Channel config map with SSH known hosts found")
 		}
 	}
 
@@ -388,7 +380,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	h.subRecords[subKey] = repoName
 	bInfo, ok := h.repoRecords[repoName]
 
-	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, sshKey, passphrase, repoBranchDir, skipCertVerify, caCert, sshKnownHosts)
+	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, sshKey, passphrase, repoBranchDir, skipCertVerify, caCert)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
 		return err
@@ -410,7 +402,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 					registeredSub: map[types.NamespacedName]struct{}{
 						subKey: {},
 					},
-					sshKnownHosts: sshKnownHosts,
 				},
 			},
 		}
@@ -423,7 +414,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	bInfo.branchs[branchName].secret = pwd
 	bInfo.branchs[branchName].passphrase = passphrase
 	bInfo.branchs[branchName].sshKey = sshKey
-	bInfo.branchs[branchName].sshKnownHosts = sshKnownHosts
 	bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
 	bInfo.branchs[branchName].gitCACert = caCert
 
@@ -439,8 +429,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 			registeredSub: map[types.NamespacedName]struct{}{
 				subKey: {},
 			},
-			gitCACert:     caCert,
-			sshKnownHosts: sshKnownHosts,
+			gitCACert: caCert,
 		}
 
 		return nil
@@ -567,10 +556,9 @@ func cloneGitRepoBranch(
 	sshkey, passphrase []byte,
 	repoBranchDir string,
 	skipCertVerify bool,
-	caCert string,
-	sshKnownHosts string) (string, error) {
+	caCert string) (string, error) {
 	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName),
-		user, pwd, sshkey, passphrase, repoBranchDir, skipCertVerify, caCert, sshKnownHosts)
+		user, pwd, sshkey, passphrase, repoBranchDir, skipCertVerify, caCert)
 }
 
 type gitSortResult struct {

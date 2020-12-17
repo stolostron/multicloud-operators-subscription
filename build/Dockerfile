@@ -4,6 +4,7 @@ RUN  microdnf update -y \
         && rpm -e --nodeps tzdata \
         && microdnf install tzdata \
         && microdnf install git \
+        && microdnf install openssh-clients \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
