@@ -26,6 +26,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -144,7 +145,7 @@ func CloneGitRepo(
 	sshKey, passphrase []byte,
 	destDir string,
 	insecureSkipVerify bool,
-	caCerts, knownhosts string) (commitID string, err error) {
+	caCerts string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -177,19 +178,13 @@ func CloneGitRepo(
 
 		knownhostsfile := filepath.Join(destDir, "known_hosts")
 
-		if knownhosts != "" {
-			err = ioutil.WriteFile(knownhostsfile, []byte(knownhosts), 0600)
+		err := getKnownHostFromURL(repoURL, knownhostsfile)
 
-			if err != nil {
-				klog.Error(err, "failed to write known_hosts file")
-				return "", err
-			}
-		} else {
-			klog.Error("no known SSH host provided")
-			return "", errors.New("no known SSH host provided")
+		if err != nil {
+			return "", err
 		}
 
-		err := getSSHOptions(options, sshKey, passphrase, knownhostsfile)
+		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile)
 		if err != nil {
 			klog.Error(err, "failed to prepare SSH clone options")
 			return "", err
@@ -217,6 +212,27 @@ func CloneGitRepo(
 	}
 
 	return commit.ID().String(), nil
+}
+
+func getKnownHostFromURL(sshURL string, filepath string) error {
+	sshhostname := strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
+
+	klog.Info("Getting public SSH host key for " + sshhostname)
+
+	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		klog.Error("failed to get public SSH host key: ", err)
+		return err
+	}
+
+	if err := ioutil.WriteFile(filepath, stdout, 0600); err != nil {
+		klog.Error("failed to write known_hosts file: ", err)
+		return err
+	}
+
+	return nil
 }
 
 func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostsfile string) error {

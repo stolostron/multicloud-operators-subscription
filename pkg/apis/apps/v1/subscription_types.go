@@ -91,8 +91,6 @@ const (
 	SubscriptionNameSuffix = ""
 	// ChannelCertificateData is the configmap data spec field containing trust certificates
 	ChannelCertificateData = "caCerts"
-	// ChannelKnownhostsData is the configmap data spec field containing SSH known hosts
-	ChannelKnownhostsData = "knownHosts"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
