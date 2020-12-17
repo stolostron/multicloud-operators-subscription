@@ -263,6 +263,7 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 
 	if insecureSkipVerify {
 		klog.Info("Insecure ignore SSH host key")
+
 		publicKey.HostKeyCallback = ssh.InsecureIgnoreHostKey()
 	} else {
 		klog.Info("Using SSH known host keys")
