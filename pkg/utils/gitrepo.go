@@ -15,17 +15,24 @@
 package utils
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 
+	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
@@ -53,6 +60,10 @@ const (
 	UserID = "user"
 	// AccessToken is key of GitHub user password or personal token in secret
 	AccessToken = "accessToken"
+	// SSHKey is use to connect to the channel via SSH
+	SSHKey = "sshKey"
+	// Passphrase is used to open the SSH key
+	Passphrase = "passphrase"
 )
 
 type kubeResource struct {
@@ -104,8 +115,37 @@ func KubeResourceParser(file []byte, cond Kube) [][]byte {
 	return ret
 }
 
+func getCertChain(certs string) tls.Certificate {
+	var certChain tls.Certificate
+
+	certPEMBlock := []byte(certs)
+
+	var certDERBlock *pem.Block
+
+	for {
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+
+		if certDERBlock == nil {
+			break
+		}
+
+		if certDERBlock.Type == "CERTIFICATE" {
+			certChain.Certificate = append(certChain.Certificate, certDERBlock.Bytes)
+		}
+	}
+
+	return certChain
+}
+
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password, destDir string, insecureSkipVerify bool) (commitID string, err error) {
+func CloneGitRepo(
+	repoURL string,
+	branch plumbing.ReferenceName,
+	user, password string,
+	sshKey, passphrase []byte,
+	destDir string,
+	insecureSkipVerify bool,
+	caCerts string) (commitID string, err error) {
 	options := &git.CloneOptions{
 		URL:               repoURL,
 		Depth:             1,
@@ -114,44 +154,39 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 		ReferenceName:     branch,
 	}
 
-	if user != "" && password != "" {
-		options.Auth = &githttp.BasicAuth{
-			Username: user,
-			Password: password,
-		}
+	err = os.RemoveAll(destDir)
+	if err != nil {
+		klog.Warning(err, "Failed to remove directory ", destDir)
 	}
 
-	// skip TLS certificate verification for Git servers with custom or self-signed certs
-	if insecureSkipVerify {
-		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
-
-		customClient := &http.Client{
-			/* #nosec G402 */
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true, MinVersion: tls.VersionTLS12}, // #nosec G402 InsecureSkipVerify conditionally
-			},
-
-			// 15 second timeout
-			Timeout: 15 * time.Second,
-
-			CheckRedirect: func(req *http.Request, via []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}
-
-		gitclient.InstallProtocol("https", githttp.NewClient(customClient))
+	err = os.MkdirAll(destDir, os.ModePerm)
+	if err != nil {
+		return "", err
 	}
 
-	if _, err := os.Stat(destDir); os.IsNotExist(err) {
-		err = os.MkdirAll(destDir, os.ModePerm)
+	if strings.HasPrefix(repoURL, "http") {
+		klog.Info("Connecting to Git server via HTTP")
+
+		err := getHTTPOptions(options, user, password, caCerts, insecureSkipVerify)
+
 		if err != nil {
-			klog.Error(err, "Failed to make directory ", destDir)
+			klog.Error(err, "failed to prepare HTTP clone options")
 			return "", err
 		}
 	} else {
-		err = os.RemoveAll(destDir)
+		klog.Info("Connecting to Git server via SSH")
+
+		knownhostsfile := filepath.Join(destDir, "known_hosts")
+
+		err := getKnownHostFromURL(repoURL, knownhostsfile)
+
 		if err != nil {
-			klog.Error(err, "Failed to remove directory ", destDir)
+			return "", err
+		}
+
+		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
+		if err != nil {
+			klog.Error(err, "failed to prepare SSH clone options")
 			return "", err
 		}
 	}
@@ -177,6 +212,145 @@ func CloneGitRepo(repoURL string, branch plumbing.ReferenceName, user, password,
 	}
 
 	return commit.ID().String(), nil
+}
+
+func getKnownHostFromURL(sshURL string, filepath string) error {
+	sshhostname := strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
+
+	klog.Info("Getting public SSH host key for " + sshhostname)
+
+	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
+	stdout, err := cmd.Output()
+
+	if err != nil {
+		klog.Error("failed to get public SSH host key: ", err)
+		return err
+	}
+
+	klog.Info("SSH host key: " + string(stdout))
+
+	if err := ioutil.WriteFile(filepath, stdout, 0600); err != nil {
+		klog.Error("failed to write known_hosts file: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownhostsfile string, insecureSkipVerify bool) error {
+	publicKey := &gitssh.PublicKeys{}
+	publicKey.User = "git"
+
+	if len(passphrase) > 0 {
+		klog.Info("Parsing SSH private key with passphrase")
+
+		signer, err := ssh.ParsePrivateKeyWithPassphrase(sshKey, passphrase)
+
+		if err != nil {
+			klog.Error("failed to parse SSH key", err.Error())
+			return err
+		}
+
+		publicKey.Signer = signer
+	} else {
+		signer, err := ssh.ParsePrivateKey(sshKey)
+		if err != nil {
+			klog.Error("failed to parse SSH key", err.Error())
+			return err
+		}
+		publicKey.Signer = signer
+	}
+
+	if insecureSkipVerify {
+		klog.Info("Insecure ignore SSH host key")
+
+		publicKey.HostKeyCallback = ssh.InsecureIgnoreHostKey() // #nosec G106 this is optional and used only if users specify it in channel configuration
+	} else {
+		klog.Info("Using SSH known host keys")
+		callback, err := knownhosts.New(knownhostsfile)
+
+		if err != nil {
+			klog.Error("failed to get knownhosts ", err)
+			return err
+		}
+
+		publicKey.HostKeyCallback = callback
+	}
+
+	options.Auth = publicKey
+
+	return nil
+}
+
+func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, insecureSkipVerify bool) error {
+	if user != "" && password != "" {
+		options.Auth = &githttp.BasicAuth{
+			Username: user,
+			Password: password,
+		}
+	}
+
+	installProtocol := false
+
+	clientConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+
+	// skip TLS certificate verification for Git servers with custom or self-signed certs
+	if insecureSkipVerify {
+		klog.Info("insecureSkipVerify = true, skipping Git server's certificate verification.")
+
+		clientConfig.InsecureSkipVerify = true
+
+		installProtocol = true
+	} else if !strings.EqualFold(caCerts, "") {
+		klog.Info("Adding Git server's CA certificate to trust certificate pool")
+
+		// Load the host's trusted certs into memory
+		certPool, _ := x509.SystemCertPool()
+		if certPool == nil {
+			certPool = x509.NewCertPool()
+		}
+
+		certChain := getCertChain(caCerts)
+
+		if len(certChain.Certificate) == 0 {
+			klog.Warning("No certificate found")
+		}
+
+		// Add CA certs from the channel config map to the cert pool
+		// It will not add duplicate certs
+		for _, cert := range certChain.Certificate {
+			x509Cert, err := x509.ParseCertificate(cert)
+			if err != nil {
+				return err
+			}
+			klog.Info("Adding certificate -->" + x509Cert.Subject.String())
+			certPool.AddCert(x509Cert)
+		}
+
+		clientConfig.RootCAs = certPool
+
+		installProtocol = true
+	}
+
+	if installProtocol {
+		customClient := &http.Client{
+			/* #nosec G402 */
+			Transport: &http.Transport{
+				TLSClientConfig: clientConfig,
+			},
+
+			// 15 second timeout
+			Timeout: 15 * time.Second,
+
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		gitclient.InstallProtocol("https", githttp.NewClient(customClient))
+	}
+
+	return nil
 }
 
 // GetSubscriptionBranch returns GitHub repo branch for a given subscription
@@ -206,9 +380,11 @@ func GetSubscriptionBranchRef(b string) plumbing.ReferenceName {
 }
 
 // GetChannelSecret returns username and password for channel
-func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, error) {
+func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, []byte, []byte, error) {
 	username := ""
 	accessToken := ""
+	sshKey := []byte("")
+	passphrase := []byte("")
 
 	if chn.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
@@ -221,26 +397,28 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.SecretRef.Name, Namespace: secns}, secret)
 		if err != nil {
 			klog.Error(err, "Unable to get secret from local cluster.")
-			return "", "", err
+			return username, accessToken, sshKey, passphrase, err
 		}
 
-		username, accessToken, err = ParseChannelSecret(secret)
+		username, accessToken, sshKey, passphrase, err = ParseChannelSecret(secret)
 
 		if err != nil {
-			return "", "", err
+			return username, accessToken, sshKey, passphrase, err
 		}
 	}
 
-	return username, accessToken, nil
+	return username, accessToken, sshKey, passphrase, nil
 }
 
 // GetDataFromChannelConfigMap returns username and password for channel
 func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.ConfigMap {
 	if chn.Spec.ConfigMapRef != nil {
 		configMapRet := &corev1.ConfigMap{}
+
 		cmns := chn.Namespace
 
 		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.ConfigMapRef.Name, Namespace: cmns}, configMapRet)
+
 		if err != nil {
 			klog.Error(err, "Unable to get config map from local cluster.")
 			return nil
@@ -252,30 +430,37 @@ func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.Confi
 	return nil
 }
 
-func ParseChannelSecret(secret *corev1.Secret) (string, string, error) {
+func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, error) {
 	username := ""
 	accessToken := ""
+	sshKey := []byte("")
+	passphrase := []byte("")
 	err := yaml.Unmarshal(secret.Data[UserID], &username)
 
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal username from the secret.")
-		return "", "", err
-	} else if username == "" {
-		klog.Error(err, "Failed to get user from the secret.")
-		return "", "", errors.New("failed to get user from the secret")
+		return username, accessToken, sshKey, passphrase, err
 	}
 
 	err = yaml.Unmarshal(secret.Data[AccessToken], &accessToken)
 
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal accessToken from the secret.")
-		return "", "", err
-	} else if accessToken == "" {
-		klog.Error(err, "Failed to get accressToken from the secret.")
-		return "", "", errors.New("failed to get accressToken from the secret")
+		return username, accessToken, sshKey, passphrase, err
 	}
 
-	return username, accessToken, nil
+	sshKey = bytes.TrimSpace(secret.Data[SSHKey])
+	passphrase = bytes.TrimSpace(secret.Data[Passphrase])
+
+	if len(sshKey) == 0 {
+		if username == "" || accessToken == "" {
+			klog.Error(err, "sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
+			return username, accessToken, sshKey, passphrase,
+				errors.New("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
+		}
+	}
+
+	return username, accessToken, sshKey, passphrase, nil
 }
 
 // GetLocalGitFolder returns the local Git repo clone directory
@@ -374,8 +559,6 @@ func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string
 			return nil
 		})
 
-	klog.Infof("otherFiles size %v", len(otherFiles))
-
 	return chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 }
 
@@ -397,14 +580,12 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			err := yaml.Unmarshal(resources[0], &t)
 
 			if err != nil {
-				fmt.Println("Failed to unmarshal YAML file")
+				klog.Warning("Failed to unmarshal YAML file")
 				// Just ignore the YAML
 				return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 			}
 
 			if t.APIVersion != "" && t.Kind != "" {
-				klog.Info(t.APIVersion + "/" + t.Kind)
-
 				if strings.EqualFold(t.Kind, "customresourcedefinition") {
 					crdsAndNamespaceFiles = append(crdsAndNamespaceFiles, path)
 				} else if strings.EqualFold(t.Kind, "namespace") {

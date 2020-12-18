@@ -69,7 +69,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:               chnv1alpha1.ChannelTypeHelmRepo,
-			Pathname:           "https://kubernetes-charts.storage.googleapis.com",
+			Pathname:           "https://charts.helm.sh/stable",
 			InsecureSkipVerify: true,
 		},
 	}

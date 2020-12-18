@@ -15,11 +15,15 @@
 package exec
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog"
@@ -30,6 +34,7 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
+	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
@@ -43,10 +48,10 @@ var (
 	operatorMetricsPort int = 8684
 )
 
-// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
-// which is the namespace where the watch activity happens.
-// this value is empty if the operator is running with clusterScope.
-const WatchNamespaceEnvVar = "WATCH_NAMESPACE"
+const (
+	AddonName               = "application-manager"
+	leaseUpdateJitterFactor = 0.25
+)
 
 func RunManager() {
 	enableLeaderElection := false
@@ -72,8 +77,15 @@ func RunManager() {
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
+	// increase the dafault QPS(5) to 100, only sends 5 requests to API server
+	// seems to be unrealistic. Reading some other projects, it seems QPS 100 is
+	// a pretty common practice
+	cfg := ctrl.GetConfigOrDie()
+	cfg.QPS = 100.0
+	cfg.Burst = 200
+
 	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
@@ -140,6 +152,26 @@ func RunManager() {
 			klog.Error("Failed to setup managed subscription, error:", err)
 			os.Exit(1)
 		}
+
+		// set up lease controller for updating the application-manager lease in each managed cluster namespace on hub
+		// The application-manager lease resource is jitter updated every 60 seconds by default.
+		managedClusterKubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
+		if err != nil {
+			klog.Error("Unable to create managed cluster kube client.", err)
+			os.Exit(1)
+		}
+
+		leaseReconciler := leasectrl.LeaseReconciler{
+			KubeClient:           managedClusterKubeClient,
+			LeaseName:            AddonName,
+			LeaseNamespace:       Options.ClusterName,
+			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
+			HubKubeConfigPath:    Options.HubConfigFilePathName,
+			KubeFake:             false,
+		}
+
+		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
+			time.Duration(Options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
