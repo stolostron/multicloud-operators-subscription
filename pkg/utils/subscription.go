@@ -488,7 +488,11 @@ func isEqualSubscriptionStatus(a, b *appv1.SubscriptionStatus) bool {
 		return false
 	}
 
-	if a.Message != b.Message || a.Phase != b.Phase || a.Reason != b.Reason {
+	if !isSameMessage(a.Message, b.Message) {
+		return false
+	}
+
+	if a.Phase != b.Phase || a.Reason != b.Reason {
 		return false
 	}
 
