@@ -27,7 +27,7 @@ BUILD_IMAGE=${IMAGE_NAME}:latest
 echo "travis parameters: event type $TRAVIS_EVENT_TYPE, pull request: $TRAVIS_PULL_REQUEST commit $TRAVIS_COMMIT\n"
 
 if [ "$TRAVIS_BUILD" != 1 ]; then
-    echo -e "Build is on Travis" 
+    echo -e "Build is on Travis"
 
 
     echo -e "\nGet kubectl binary\n"
@@ -91,8 +91,8 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
     sleep 35
 fi
 
-echo -e "\nCheck if subscription operator is created\n" 
-kubectl rollout status deployment/multicluster-operators-subscription -n multicluster-operators 
+echo -e "\nCheck if subscription operator is created\n"
+kubectl rollout status deployment/multicluster-operators-subscription -n multicluster-operators
 if [ $? != 0 ]; then
     echo "failed to deploy the subscription operator"
     exit $?;
@@ -119,10 +119,18 @@ ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}' | xargs kil
 
 ${E2E_BINARY_NAME} -cfg cluster_config &
 
+function cleanup()
+{
+    echo -e "\nTerminate the running test server\n"
+	ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}' | xargs kill -9
+
+	kubectl get po -A
+}
+
+trap cleanup EXIT
+
+
 echo -e "\nStart to run e2e test(s)\n"
 go test -v ./e2e
-
-echo -e "\nTerminate the test server\n"
-ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}' | xargs kill -9
 
 exit 0;
