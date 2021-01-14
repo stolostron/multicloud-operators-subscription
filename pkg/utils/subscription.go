@@ -998,8 +998,18 @@ func IsHub(config *rest.Config) bool {
 
 	objlist, err := dl.List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		klog.Infof("Listing multiclusterHub resource failed, err: %v", err)
-		return false
+		if kerrors.IsNotFound(err) {
+			klog.Infof("No multiclusterHub resource found, err: %v", err)
+			return false
+		}
+
+		klog.Infof("Listing multiclusterHub resource failed, exit... err: %v", err)
+		os.Exit(1)
+	}
+
+	if objlist == nil {
+		klog.Infof("obj list is nil, exit...")
+		os.Exit(1)
 	}
 
 	objCount := len(objlist.Items)
