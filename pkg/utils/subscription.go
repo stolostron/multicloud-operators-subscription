@@ -38,7 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -977,4 +980,30 @@ func IsSubscriptionBeDeleted(clt client.Client, subKey types.NamespacedName) boo
 	}
 
 	return !subIns.GetDeletionTimestamp().IsZero()
+}
+
+// IsHub determines the hub cluster by listing multiclusterhubs resource items
+func IsHub(config *rest.Config) bool {
+	var dl dynamic.ResourceInterface
+
+	multiclusterHubGVR := schema.GroupVersionResource{
+		Group:    "operator.open-cluster-management.io",
+		Version:  "v1",
+		Resource: "multiclusterhubs",
+	}
+
+	dynamicClient := dynamic.NewForConfigOrDie(config)
+
+	dl = dynamicClient.Resource(multiclusterHubGVR)
+
+	objlist, err := dl.List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		klog.Infof("Listing multiclusterHub resource failed, err: %v", err)
+		return false
+	}
+
+	objCount := len(objlist.Items)
+	klog.Infof("multiclusterHub resource count: %v", objCount)
+
+	return objCount > 0
 }
