@@ -109,7 +109,7 @@ kind get kubeconfig > cluster_config/hub
 # over here, we are build the test server on the fly since, the `go get` will
 # mess up the go.mod file when doing the local test
 echo -e "\nGet the applifecycle-backend-e2e server"
-go get github.com/open-cluster-management/applifecycle-backend-e2e@v0.1.9
+go get github.com/open-cluster-management/applifecycle-backend-e2e@v0.2.1
 
 
 E2E_BINARY_NAME="applifecycle-backend-e2e"
@@ -124,6 +124,8 @@ function cleanup()
     echo -e "\nTerminate the running test server\n"
 	ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}' | xargs kill -9
 
+	echo -e "\nRunning images\n"
+	kubectl get deploy -A -o jsonpath='{.items[*].spec.template.spec.containers[*].image}' | xargs -n1 echo
 	kubectl get po -A
 }
 
