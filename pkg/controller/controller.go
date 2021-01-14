@@ -15,10 +15,6 @@
 package controller
 
 import (
-	"reflect"
-	"runtime"
-	"strings"
-
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
@@ -32,26 +28,29 @@ var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, *types.Namespaced
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
 
+// AddHelmToManagerFuncs is a list of functions to add helmrelease Controller to the Manager
+var AddHelmToManagerFuncs []func(manager.Manager) error
+
 // AddHubToManagerFuncs is a list of functions to add all Hub Controllers to the Manager
 var AddHubToManagerFuncs []func(manager.Manager) error
 
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
-		// If remote subscription pod (appmgr) is running in hub, don't add helmrelease controller to the manager,
-		// As there has been a helmrelease controller running in standalone subscription pod
-		addFuncName := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
-		klog.Infof("AddToManagerFunc: %s", addFuncName)
-
-		if strings.Contains(addFuncName, "multicloud-operators-subscription-release/pkg/controller/helmrelease.Add") &&
-			utils.IsHub(m.GetConfig()) &&
-			!standalone {
-			klog.Info("Don't add helmrelease controller to the manager as the remote subscription is running on hub cluster")
-			continue
-		}
-
 		if err := f(m); err != nil {
 			return err
+		}
+	}
+
+	// If remote subscription pod (appmgr) is running in hub, don't add helmrelease controller to the manager,
+	// As there has been a helmrelease controller running in standalone subscription pod
+	if !utils.IsHub(m.GetConfig()) || standalone {
+		klog.Info("Add helmrelease controller when the remote subscription is NOT running on hub or standalone subscription")
+
+		for _, f := range AddHelmToManagerFuncs {
+			if err := f(m); err != nil {
+				return err
+			}
 		}
 	}
 

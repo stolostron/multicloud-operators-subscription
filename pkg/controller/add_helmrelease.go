@@ -19,6 +19,6 @@ import (
 )
 
 func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, helmrelease.Add)
+	// AddHelmToManagerFuncs is a list of functions to create controllers and add them to a manager.
+	AddHelmToManagerFuncs = append(AddHelmToManagerFuncs, helmrelease.Add)
 }
