@@ -17,6 +17,6 @@ package controller
 import "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/spoketoken"
 
 func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
+	// AddToManagerMCMFuncs is a list of functions to create controllers and add them to a manager.
 	AddToManagerMCMFuncs = append(AddToManagerMCMFuncs, spoketoken.Add)
 }

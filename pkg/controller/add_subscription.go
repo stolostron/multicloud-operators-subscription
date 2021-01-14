@@ -19,6 +19,6 @@ import (
 )
 
 func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
+	// AddToManagerMCMFuncs is a list of functions to create controllers and add them to a manager.
 	AddToManagerMCMFuncs = append(AddToManagerMCMFuncs, subscription.Add)
 }
