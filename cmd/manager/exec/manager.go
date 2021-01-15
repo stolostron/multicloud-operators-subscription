@@ -133,7 +133,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	if !options.Standalone && options.ClusterName == "" && options.ClusterNamespace == "" {
+	if !options.Standalone && options.ClusterName == "" && options.ClusterNamespace == "" { //start the appsub controller in hub mode
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")
@@ -146,7 +146,7 @@ func RunManager() {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
-	} else if !strings.EqualFold(options.ClusterName, "") && !strings.EqualFold(options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(options.ClusterName, "") && !strings.EqualFold(options.ClusterNamespace, "") { //start the appsub controller in remote mode
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
 			klog.Error(err, "")
@@ -178,7 +178,7 @@ func RunManager() {
 
 		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
 			time.Duration(options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
-	} else if err := setupStandalone(mgr, hubconfig, options); err != nil {
+	} else if err := setupStandalone(mgr, hubconfig, options); err != nil { //start the appsub controller in standalone mode
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
 	}
