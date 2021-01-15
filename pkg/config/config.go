@@ -6,6 +6,12 @@ import (
 
 // SubscriptionCMDOptions for command line flag parsing
 type SubscriptionCMDoptions struct {
+	SyncInterval          int
+	LeaseDurationSeconds  int
+	DisableTLS            bool
+	Standalone            bool
+	CreateService         bool
+	Beta                  bool
 	MetricsAddr           string
 	ClusterName           string
 	ClusterNamespace      string
@@ -13,10 +19,4 @@ type SubscriptionCMDoptions struct {
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
 	Syncid                *types.NamespacedName
-	SyncInterval          int
-	DisableTLS            bool
-	Standalone            bool
-	LeaseDurationSeconds  int
-	CreateService         bool
-	Beta                  bool
 }

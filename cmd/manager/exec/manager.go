@@ -38,6 +38,8 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
+
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/config"
 	ocinfrav1 "github.com/openshift/api/config/v1"
 )
 
@@ -151,7 +153,8 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		if err := setupStandalone(mgr, hubconfig, id, false); err != nil {
+		options.Standalone = false
+		if err := setupStandalone(mgr, hubconfig, options); err != nil {
 			klog.Error("Failed to setup managed subscription, error:", err)
 			os.Exit(1)
 		}
@@ -175,7 +178,7 @@ func RunManager() {
 
 		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
 			time.Duration(options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
-	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
+	} else if err := setupStandalone(mgr, hubconfig, options); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
 	}
@@ -191,29 +194,29 @@ func RunManager() {
 	}
 }
 
-func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName, standalone bool) error {
+func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, ops config.SubscriptionCMDoptions) error {
 	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, options); err != nil {
+	if err := synchronizer.AddToManager(mgr, hubconfig, ops); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 		return err
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, options); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, ops); err != nil {
 		klog.Error("Failed to initialize subscriber with error:", err)
 		return err
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, options); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, ops); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}
 
-	if standalone {
+	if ops.Standalone {
 		// Setup Webhook listner
-		options.CreateService = false
-		if err := webhook.AddToManager(mgr, hubconfig, options); err != nil {
+		ops.CreateService = false
+		if err := webhook.AddToManager(mgr, hubconfig, ops); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			return err
 		}
