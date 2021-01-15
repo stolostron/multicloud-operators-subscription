@@ -67,11 +67,11 @@ func RunManager() {
 	// for hub subcription pod
 	leaderElectionID := "multicloud-operators-hub-subscription-leader.open-cluster-management.io"
 
-	if Options.Standalone {
+	if options.Standalone {
 		// for standalone subcription pod
 		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(options.ClusterName, "") && !strings.EqualFold(options.ClusterNamespace, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
@@ -100,17 +100,19 @@ func RunManager() {
 
 	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
-		Name:      Options.ClusterName,
-		Namespace: Options.ClusterNamespace,
+		Name:      options.ClusterName,
+		Namespace: options.ClusterNamespace,
 	}
+
+	options.Syncid = id
 
 	// generate config to hub cluster
 	hubconfig := mgr.GetConfig()
-	if Options.HubConfigFilePathName != "" {
-		hubconfig, err = clientcmd.BuildConfigFromFlags("", Options.HubConfigFilePathName)
+	if options.HubConfigFilePathName != "" {
+		hubconfig, err = clientcmd.BuildConfigFromFlags("", options.HubConfigFilePathName)
 
 		if err != nil {
-			klog.Error("Failed to build config to hub cluster with the pathname provided ", Options.HubConfigFilePathName, " err:", err)
+			klog.Error("Failed to build config to hub cluster with the pathname provided ", options.HubConfigFilePathName, " err:", err)
 			os.Exit(1)
 		}
 	}
@@ -129,7 +131,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+	if !options.Standalone && options.ClusterName == "" && options.ClusterNamespace == "" {
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")
@@ -137,11 +139,12 @@ func RunManager() {
 		}
 
 		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
+		options.CreateService = true
+		if err := webhook.AddToManager(mgr, hubconfig, options); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(options.ClusterName, "") && !strings.EqualFold(options.ClusterNamespace, "") {
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
 			klog.Error(err, "")
@@ -164,14 +167,14 @@ func RunManager() {
 		leaseReconciler := leasectrl.LeaseReconciler{
 			KubeClient:           managedClusterKubeClient,
 			LeaseName:            AddonName,
-			LeaseNamespace:       Options.ClusterName,
-			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
-			HubKubeConfigPath:    Options.HubConfigFilePathName,
+			LeaseNamespace:       options.ClusterName,
+			LeaseDurationSeconds: int32(options.LeaseDurationSeconds),
+			HubKubeConfigPath:    options.HubConfigFilePathName,
 			KubeFake:             false,
 		}
 
 		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
-			time.Duration(Options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
+			time.Duration(options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)
@@ -190,26 +193,27 @@ func RunManager() {
 
 func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName, standalone bool) error {
 	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	if err := synchronizer.AddToManager(mgr, hubconfig, options); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 		return err
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, options); err != nil {
 		klog.Error("Failed to initialize subscriber with error:", err)
 		return err
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, id, standalone); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, options); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 		return err
 	}
 
 	if standalone {
 		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
+		options.CreateService = false
+		if err := webhook.AddToManager(mgr, hubconfig, options); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			return err
 		}
