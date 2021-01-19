@@ -44,7 +44,7 @@ func AddToManager(m manager.Manager, cfg *rest.Config, ops config.SubscriptionCM
 
 	// If remote subscription pod (appmgr) is running in hub, don't add helmrelease controller to the manager,
 	// As there has been a helmrelease controller running in standalone subscription pod
-	if !utils.IsHub(m.GetConfig()) || ops.Standalone {
+	if ops.Standalone || !utils.IsHub(m.GetConfig()) {
 		klog.Info("Add helmrelease controller when the remote subscription is NOT running on hub or standalone subscription")
 
 		for _, f := range AddHelmToManagerFuncs {
