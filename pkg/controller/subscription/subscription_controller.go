@@ -180,7 +180,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 	annotations := instance.GetAnnotations()
 	pl := instance.Spec.Placement
 
-	if pl != nil && pl.Local != nil && *pl.Local {
+	if pl != nil && pl.Local != nil && *pl.Local && pl.PlacementRef == nil && pl.Clusters == nil && pl.ClusterSelector == nil {
 		// If standalone = true, reconcile standalone subscriptions without hosting subscription from ACM hub.
 		// If standalone = false, reconcile subscriptions that are propagated from ACM hub. These subscriptions have this annotation.
 		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
