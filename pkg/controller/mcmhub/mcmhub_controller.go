@@ -521,7 +521,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) && (pl.Local != nil && *pl.Local) {
-		logger.Error("both local placement and remote placement rule are defined in the subscription")
+		logger.Info("both local placement and remote placement rule are defined in the subscription")
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "local placement and remote placement rule cannot be used together"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
