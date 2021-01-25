@@ -154,7 +154,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
-	fullUrls = append(fullUrls, "https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.36.3.tgz")
+	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")
 
 	var fullChartVersions []*repo.ChartVersion
 	fullChartVersions = append(fullChartVersions, &repo.ChartVersion{URLs: fullUrls})
@@ -164,7 +164,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.36.3.tgz"))
+			"https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz"))
 }
 
 func TestCheckTillerVersion(t *testing.T) {
@@ -442,6 +442,6 @@ func TestDeleteHelmReleaseCRD(t *testing.T) {
 func TestIsURL(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	g.Expect(IsURL("https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.40.1.tgz")).To(gomega.BeTrue())
+	g.Expect(IsURL("https://charts.helm.sh/stable/packages/nginx-ingress-1.40.1.tgz")).To(gomega.BeTrue())
 	g.Expect(IsURL("nginx-ingress-1.40.1.tgz")).To(gomega.BeFalse())
 }
