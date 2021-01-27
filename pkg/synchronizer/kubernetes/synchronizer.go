@@ -286,6 +286,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		if isService {
 			klog.Info("merging services or service account resource")
 		}
+
 		var objb, tplb, pb []byte
 		objb, err = obj.MarshalJSON()
 
