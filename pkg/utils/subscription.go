@@ -863,7 +863,6 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 		delete(objanno, appv1.AnnotationSyncSource)
 		delete(objanno, dplv1.AnnotationHosting)
 		delete(objanno, appv1.AnnotationChannelType)
-		delete(objanno, appv1.AnnotationResourceReconcileOption)
 	}
 
 	if len(objanno) > 0 {

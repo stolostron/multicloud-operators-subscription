@@ -231,10 +231,10 @@ In order to configure webhook in a Git repository, you need a target webhook pay
 Create a route (ingress) to expose the subscription operator's webhook event listener service where `<operator namespace>` is the namespace where the subscription operator runs in.
 
   ```shell
-  oc create route passthrough --service=multicloud-operators-subscription -n <operator namespace>
+  oc create route passthrough --service=multicluster-operators-subscription -n <operator namespace>
   ```
 
-Then, use `oc get route multicloud-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
+Then, use `oc get route multicluster-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
 
 ### WebHook secret
 
