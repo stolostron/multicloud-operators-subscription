@@ -54,7 +54,9 @@ func registerSub(key types.NamespacedName) func() error {
 			return err
 		}
 
-		gitOps.RegisterBranch(u)
+		if err := gitOps.RegisterBranch(u); err != nil {
+			return err
+		}
 
 		return nil
 	}
