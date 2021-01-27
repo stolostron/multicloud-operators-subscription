@@ -283,6 +283,9 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	}
 
 	if merge || isService {
+		if isService {
+			klog.Info("merging services or service account resource")
+		}
 		var objb, tplb, pb []byte
 		objb, err = obj.MarshalJSON()
 
@@ -345,12 +348,17 @@ var serviceGVR = schema.GroupVersionResource{
 	Resource: "services",
 }
 
+var serviceAccountGVR = schema.GroupVersionResource{
+	Version:  "v1",
+	Resource: "serviceaccounts",
+}
+
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
-		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, (res.GroupVersionResource == serviceGVR))
+		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, (res.GroupVersionResource == serviceGVR || res.GroupVersionResource == serviceAccountGVR))
 
 		if err != nil {
 			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)

@@ -449,8 +449,14 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 			rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		}
 
-		if subAnnotations[appv1.AnnotationResourceReconcileOption] != "" {
-			rscAnnotations[appv1.AnnotationResourceReconcileOption] = subAnnotations[appv1.AnnotationResourceReconcileOption]
+		// If the reconcile-option is set in the resource, honor that. Otherwise, take the subscription's reconcile-option
+		if rscAnnotations[appv1.AnnotationResourceReconcileOption] == "" {
+			if subAnnotations[appv1.AnnotationResourceReconcileOption] != "" {
+				rscAnnotations[appv1.AnnotationResourceReconcileOption] = subAnnotations[appv1.AnnotationResourceReconcileOption]
+			} else {
+				// By default, merge reconcile
+				rscAnnotations[appv1.AnnotationResourceReconcileOption] = appv1.MergeReconcile
+			}
 		}
 
 		rsc.SetAnnotations(rscAnnotations)
