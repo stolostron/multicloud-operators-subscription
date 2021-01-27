@@ -55,7 +55,7 @@ type GitOps interface {
 
 	// RegisterBranch to git watcher and do a initial download for other
 	// components to consume
-	RegisterBranch(*subv1.Subscription)
+	RegisterBranch(*subv1.Subscription) error
 
 	// DeregisterBranch
 	DeregisterBranch(types.NamespacedName)
@@ -308,29 +308,30 @@ func (h *HubGitOps) ResolveLocalGitFolder(chn *chnv1.Channel, subIns *subv1.Subs
 	return h.downloadDirResolver(chn, subIns)
 }
 
-func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
+func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-	if _, ok := h.subRecords[subKey]; ok {
-		return
-	}
+	// This does not pick up new changes to channel configuration
+	//if _, ok := h.subRecords[subKey]; ok {
+	//	return
+	//}
 
 	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
 
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to GitOps")
-		return
+		return err
 	}
 
 	if !isGitChannel(channel) {
-		return
+		return nil
 	}
 
 	user, pwd, err := utils.GetChannelSecret(h.clt, channel)
 
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to git watcher register")
-		return
+		return err
 	}
 
 	repoURL := channel.Spec.Pathname
@@ -350,6 +351,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, repoBranchDir)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
+		return err
 	}
 
 	//make sure the initial prehook is passed
@@ -369,7 +371,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			},
 		}
 
-		return
+		return nil
 	}
 
 	if bInfo.branchs[branchName] == nil {
@@ -383,10 +385,12 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) {
 			},
 		}
 
-		return
+		return nil
 	}
 
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+
+	return nil
 }
 
 func fakeCommitID(c string) string {
@@ -458,7 +462,12 @@ func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error
 
 	_, ok := h.subRecords[subKey]
 	if !ok { // when git watcher doesn't have the record, go ahead clone the repo and return the commitID
-		h.RegisterBranch(subIns)
+		err := h.RegisterBranch(subIns)
+		return "", err
+	}
+
+	if len(h.repoRecords) == 0 {
+		return "", fmt.Errorf("failed to register the branch")
 	}
 
 	if len(h.repoRecords) == 0 {
@@ -490,7 +499,9 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 		return nil
 	}
 
-	h.RegisterBranch(subIns)
+	if err := h.RegisterBranch(subIns); err != nil {
+		return err
+	}
 
 	return nil
 }
