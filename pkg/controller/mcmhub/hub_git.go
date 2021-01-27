@@ -486,7 +486,9 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 		return nil
 	}
 
-	h.RegisterBranch(subIns)
+	if err := h.RegisterBranch(subIns); err != nil {
+		return err
+	}
 
 	return nil
 }
