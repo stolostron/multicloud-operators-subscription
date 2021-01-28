@@ -5,8 +5,8 @@ name: chart1
 version: 1.2.2
 category: "Development"
 verified: "QA"
-tillerVersion: ">=2.9.1"
 kubeVersion: ">=1.10.0"
+digest: fake-digest-chart1-1.2.2
 keywords:
   - deploy
   - amd64

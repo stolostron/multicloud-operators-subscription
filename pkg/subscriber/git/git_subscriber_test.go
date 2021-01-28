@@ -440,8 +440,11 @@ data:
 		// chart1 has two versions but it will only contain the latest version (test/github/helmcharts/chart1Upgrade)
 		chartVersion, err := subitem.indexFile.Get("chart1", "1.2.2")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(chartVersion.GetName()).To(Equal("chart1"))
-		Expect(chartVersion.GetVersion()).To(Equal("1.2.2"))
+		Expect(chartVersion.Name).To(Equal("chart1"))
+		Expect(chartVersion.Version).To(Equal("1.2.2"))
+
+		// This check needs to commented out first because the test file must be updated first
+		// Expect(chartVersion.Digest).To(Equal("fake-digest-chart1-1.2.2"))
 
 		_, err = subitem.indexFile.Get("chart1", "1.1.1")
 		Expect(err).To(HaveOccurred())
@@ -458,67 +461,11 @@ data:
 
 		chartVersion, err = subitem.indexFile.Get("chart1", "1.1.1")
 		Expect(err).NotTo(HaveOccurred())
-		Expect(chartVersion.GetName()).To(Equal("chart1"))
-		Expect(chartVersion.GetVersion()).To(Equal("1.1.1"))
+		Expect(chartVersion.Name).To(Equal("chart1"))
+		Expect(chartVersion.Version).To(Equal("1.1.1"))
 
-		err = k8sClient.Delete(context.TODO(), pathConfigMap)
-		Expect(err).NotTo(HaveOccurred())
-
-		githubsub.Spec.Package = ""
-		githubsub.Spec.PackageFilter = nil
-	})
-
-	It("should check Tiller version", func() {
-		pathConfigMapYAML := `apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: path-config-map2
-  namespace: default
-data:
-  path: test/github/helmcharts`
-
-		pathConfigMap := &corev1.ConfigMap{}
-		err := yaml.Unmarshal([]byte(pathConfigMapYAML), &pathConfigMap)
-
-		Expect(err).NotTo(HaveOccurred())
-
-		err = k8sClient.Create(context.TODO(), pathConfigMap)
-		Expect(err).NotTo(HaveOccurred())
-
-		filterRef := &corev1.LocalObjectReference{}
-		filterRef.Name = "path-config-map2"
-
-		packageFilter := &appv1alpha1.PackageFilter{}
-		packageFilter.FilterRef = filterRef
-
-		annotations := make(map[string]string)
-		annotations["tillerVersion"] = "2.8.0"
-
-		packageFilter.Annotations = annotations
-
-		githubsub.Spec.PackageFilter = packageFilter
-
-		githubsub.Spec.Package = "chart2"
-
-		subitem := &SubscriberItem{}
-		subitem.Subscription = githubsub
-		subitem.Channel = githubchn
-		subitem.synchronizer = defaultSubscriber.synchronizer
-
-		// Set the cloned Git repo root directory to this Git repository root.
-		subitem.repoRoot = "../../.."
-
-		err = subitem.sortClonedGitRepo()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(subitem.indexFile.Entries)).To(Equal(0))
-
-		annotations["tillerVersion"] = "2.9.2"
-
-		// In test/github/helmcharts directory, filter out all helm charts except charts with name "chart2"
-		// and with tillerVersion annotation that satisfies subscription's tillerVersion annotation
-		err = subitem.sortClonedGitRepo()
-		Expect(err).NotTo(HaveOccurred())
-		Expect(len(subitem.indexFile.Entries)).To(Equal(1))
+		// This check needs to commented out first because the test file must be updated first
+		// Expect(chartVersion.Digest).To(Equal("fake-digest-chart1-1.1.1"))
 
 		err = k8sClient.Delete(context.TODO(), pathConfigMap)
 		Expect(err).NotTo(HaveOccurred())

@@ -19,7 +19,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210219-20d51c
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210225-ce05ec7
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
@@ -33,7 +33,6 @@ require (
 	k8s.io/apimachinery v0.20.2
 	k8s.io/cli-runtime v0.20.2
 	k8s.io/client-go v12.0.0+incompatible
-	k8s.io/helm v2.17.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	sigs.k8s.io/controller-runtime v0.6.3

@@ -24,13 +24,13 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"helm.sh/helm/v3/pkg/repo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 
 	corev1 "k8s.io/api/core/v1"
