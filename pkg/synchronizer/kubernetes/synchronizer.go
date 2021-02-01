@@ -269,6 +269,13 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		merge = false
 	}
 
+	if strings.EqualFold(tplunit.GetKind(), "subscription") &&
+		strings.EqualFold(tplunit.GetAPIVersion(), "apps.open-cluster-management.io/v1") {
+		klog.Info("Always apply replace to appsub kind resource")
+
+		merge = false
+	}
+
 	newobj := tplunit.Unstructured.DeepCopy()
 	newobj.SetResourceVersion(obj.GetResourceVersion())
 
@@ -302,6 +309,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
+		// Note: this 3-way merge patch doesn't work on deletion patch, we don't support delete patch yet.
+		// replace is recommended for deleting fields
 		pb, err = jsonpatch.CreateThreeWayJSONMergePatch(tplb, tplb, objb)
 		if err != nil {
 			klog.Error("Failed to make patch with error:", err)
