@@ -285,6 +285,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	if merge || isService {
 		if isService {
 			klog.Info("merging services or service account resource")
+
+			// delete original spec.clusterIP from the service object before merge patch as clusterIP is auto-generated and immutable
+			unstructured.RemoveNestedField(obj.Object, "spec", "clusterIP")
+
+			klog.Infof("new service obj: %#v", obj.Object)
 		}
 
 		var objb, tplb, pb []byte
@@ -302,7 +307,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			return err
 		}
 
-		pb, err = jsonpatch.CreateThreeWayJSONMergePatch(tplb, tplb, objb)
+		pb, err = jsonpatch.CreateThreeWayJSONMergePatch(objb, tplb, objb)
 		if err != nil {
 			klog.Error("Failed to make patch with error:", err)
 			return err
