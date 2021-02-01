@@ -292,14 +292,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	if merge || isService {
 		if isService {
 			klog.Info("merging services or service account resource")
-
-			if strings.EqualFold(tplunit.GetKind(), "service") &&
-				strings.EqualFold(tplunit.GetAPIVersion(), "v1") {
-				// delete original spec.clusterIP from the service object before merge patch as clusterIP is auto-generated and immutable
-				unstructured.RemoveNestedField(obj.Object, "spec", "clusterIP")
-
-				klog.Infof("new service obj: %#v", obj.Object)
-			}
 		}
 
 		var objb, tplb, pb []byte
