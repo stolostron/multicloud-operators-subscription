@@ -79,7 +79,9 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		jobRecords.mux.Lock()
 		jobRecords.Original = ins
 
-		if placementDecisionUpdated && len(jobRecords.Instance) != 0 {
+		// ROKE COMMENT: Why check len(jobRecords.Instance) != 0 ? Whenever there is a placement decision change, we need to evaluate whether to craete a new ansiblejob or not.
+		// The whole block should be executed only when placement decision is updated. No placement decision upadte, no ansiblejob CR creation.
+		if placementDecisionUpdated {
 			plrSuffixFunc := func() string {
 				return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), placementRuleRv)
 			}
@@ -87,70 +89,75 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 			suffix = plrSuffixFunc()
 
 			logger.V(DebugLog).Info("placementDecisionUpdated suffix is: " + suffix)
-		}
 
-		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
+			nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
 
-		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
+			nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
 
-		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
+			if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
+				jobRecordsInstancePopulated := len(jobRecords.Instance) > 0
 
-		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
-			jobRecordsInstancePopulated := len(jobRecords.Instance) > 0
+				// ROKE COMMENT
+				// At this point, there was a placement rule change.
+				// Why do we care about commit ID here? We are trying to determine whether to create a new ansiblejob CR or not based on
+				// the existing job's ExtraVars upon placement decision change.
+				// If jobRecordsInstancePopulated, we should also check if the target cluster is changed. If so, create a new job.
+				if jobRecordsInstancePopulated {
+					logger.V(DebugLog).Info("Checking to see AnsibleJob should be created...")
 
-			if !commitIDChanged && placementDecisionUpdated && jobRecordsInstancePopulated {
-				logger.V(DebugLog).Info("Checking to see AnsibleJob should be created...")
+					lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
 
-				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
+					// if the last job is running (or already done)
+					// AND the last job's target_clusters is the same as the new job's target_clusters
+					// then skip creating new Ansible Job
+					if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
+						jobDoneOrRunning := isJobDoneOrRunning(lastJob, logger)
 
-				// if the last job is running (or already done)
-				// AND the last job's target_clusters is the same as the new job's target_clusters
-				// then skip creating new Ansible Job
-				if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
-					jobDoneOrRunning := isJobDoneOrRunning(lastJob, logger)
+						if jobDoneOrRunning {
+							jobMap := make(map[string]interface{})
+							lastJobMap := make(map[string]interface{})
 
-					if jobDoneOrRunning {
-						jobMap := make(map[string]interface{})
-						lastJobMap := make(map[string]interface{})
+							err := json.Unmarshal(nx.Spec.ExtraVars, &jobMap)
+							if err != nil {
+								jobRecords.mux.Unlock()
 
-						err := json.Unmarshal(nx.Spec.ExtraVars, &jobMap)
-						if err != nil {
-							jobRecords.mux.Unlock()
+								return err
+							}
 
-							return err
+							err = json.Unmarshal(lastJob.Spec.ExtraVars, &lastJobMap)
+							if err != nil {
+								jobRecords.mux.Unlock()
+
+								return err
+							}
+
+							targetClusters := jobMap["target_clusters"]
+							lastJobTargetClusters := lastJobMap["target_clusters"]
+
+							if reflect.DeepEqual(targetClusters, lastJobTargetClusters) {
+								logger.Info("Both last and new ansible job target cluster list are equal")
+								jobRecords.mux.Unlock()
+
+								continue
+							}
 						}
+					} else if nx.Spec.ExtraVars == nil && lastJob.Spec.ExtraVars == nil {
+						logger.Info("Both last and new ansible job spec extraVars are empty")
+						jobRecords.mux.Unlock()
 
-						err = json.Unmarshal(lastJob.Spec.ExtraVars, &lastJobMap)
-						if err != nil {
-							jobRecords.mux.Unlock()
-
-							return err
-						}
-
-						targetClusters := jobMap["target_clusters"]
-						lastJobTargetClusters := lastJobMap["target_clusters"]
-
-						if reflect.DeepEqual(targetClusters, lastJobTargetClusters) {
-							logger.Info("Both last and new ansible job target cluster list are equal")
-							jobRecords.mux.Unlock()
-
-							continue
-						}
+						continue
 					}
-				} else if nx.Spec.ExtraVars == nil && lastJob.Spec.ExtraVars == nil {
-					logger.Info("Both last and new ansible job spec extraVars are empty")
-					jobRecords.mux.Unlock()
-
-					continue
+				} else {
+					logger.Info(fmt.Sprintf("Skipping duplicated AnsibleJob creation check..."+
+						" commitIDChanged=%v placementDecisionUpdated=%v jobRecordsInstancePopulated=%v",
+						commitIDChanged, placementDecisionUpdated, jobRecordsInstancePopulated))
 				}
-			} else {
-				logger.Info(fmt.Sprintf("Skipping duplicated AnsibleJob creation check..."+
-					" commitIDChanged=%v placementDecisionUpdated=%v jobRecordsInstancePopulated=%v",
-					commitIDChanged, placementDecisionUpdated, jobRecordsInstancePopulated))
-			}
 
-			jobRecords.InstanceSet[nxKey] = struct{}{}
-			jobRecords.Instance = append(jobRecords.Instance, *nx)
+				jobRecords.InstanceSet[nxKey] = struct{}{}
+				jobRecords.Instance = append(jobRecords.Instance, *nx)
+				logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
+
+			}
 		}
 
 		jobRecords.mux.Unlock()
