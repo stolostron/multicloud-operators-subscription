@@ -69,12 +69,8 @@ kind: ManagedCluster
 metadata:
   labels:
     cloud: "Amazon"
-    clusterID: "db22eed1-7700-423d-99a2-0a970c02f0cc"
-    installer.name: "multiclusterhub"
-    installer.namespace: "open-cluster-management"
     local-cluster: "true"
     name: "test-cluster"
-    vendor: "OpenShift"
   name: test-cluster
 spec:
   hubAcceptsClient: true
