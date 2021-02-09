@@ -609,6 +609,12 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		a[subv1.AnnotationGitPath] = "test/hooks/ansible/post-only"
 		subIns.SetAnnotations(a)
 
+		testManagedCluster := &spokeClusterV1.ManagedCluster{}
+		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
+		Expect(err).NotTo(gomega.HaveOccurred())
+
+		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
+
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 
 		// tells the subscription operator to process the hooks
@@ -619,6 +625,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 		defer func() {
 			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, testManagedCluster)).Should(Succeed())
 		}()
 
 		// mock the subscription deployable status to propagation,which is copied over to the
