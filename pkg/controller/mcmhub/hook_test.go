@@ -20,9 +20,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
+	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
+	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
@@ -60,6 +63,22 @@ type hookTest struct {
 	preAnsibleKey  types.NamespacedName
 	postAnsibleKey types.NamespacedName
 }
+
+const testCluster = `apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  labels:
+    cloud: "Amazon"
+    clusterID: "db22eed1-7700-423d-99a2-0a970c02f0cc"
+    installer.name: "multiclusterhub"
+    installer.namespace: "open-cluster-management"
+    local-cluster: "true"
+    name: "test-cluster"
+    vendor: "OpenShift"
+  name: test-cluster
+spec:
+  hubAcceptsClient: true
+  leaseDurationSeconds: 60`
 
 func newHookTest() *hookTest {
 	testNs := "ansible"
@@ -341,13 +360,23 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
+		testManagedCluster := &spokeClusterV1.ManagedCluster{}
+		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
+		Expect(err).NotTo(gomega.HaveOccurred())
+
+		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
 			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, testManagedCluster)).Should(Succeed())
 		}()
+
+		chtestManagedCluster := &spokeClusterV1.ManagedCluster{}
+		Expect(k8sClt.Get(context.TODO(), types.NamespacedName{Name: "test-cluster"}, chtestManagedCluster)).Should(Succeed())
+
 		ansibleIns := &ansiblejob.AnsibleJob{}
 
 		waitForPreHookCR := func() error {
