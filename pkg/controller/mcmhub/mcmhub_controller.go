@@ -279,7 +279,7 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				continue
 			}
 
-			// ROKE COMMENT: If there is no cluster in placement decision, no reconcile.
+			// If there is no cluster in placement decision, no reconcile.
 			placementRule := &plrv1.PlacementRule{}
 			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.Meta.GetName(), Namespace: obj.Meta.GetNamespace()}, placementRule)
 
