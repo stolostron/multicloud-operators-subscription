@@ -864,12 +864,18 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 		// tells the subscription operator to process the hooks
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
+		testManagedCluster := &spokeClusterV1.ManagedCluster{}
+		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
+		Expect(err).NotTo(gomega.HaveOccurred())
+
+		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
 			Expect(k8sClt.Delete(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, testManagedCluster)).Should(Succeed())
 		}()
 
 		mockManagedCluster := func() error {
