@@ -122,7 +122,7 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 
 	select {
 	case sync.tplCh <- rsOrder:
-		klog.V(1).Infof("wrote resource request/order to cache: %#v", rsOrder)
+		klog.V(1).Info("wrote resource request/order to cache")
 	default:
 		return gerr.New("cache channel is full retry later")
 	}
