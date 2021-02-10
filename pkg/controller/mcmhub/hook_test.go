@@ -27,14 +27,12 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -192,7 +190,7 @@ var _ = Describe("multiple reconcile signal of the same subscription instance sp
 	})
 })
 
-func UpdateHostDeployableStatus(clt client.Client, sKey types.NamespacedName, tPhase dplv1.DeployablePhase) error {
+/*func UpdateHostDeployableStatus(clt client.Client, sKey types.NamespacedName, tPhase dplv1.DeployablePhase) error {
 	hubdpl := &dplv1.Deployable{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sKey.Name + "-deployable",
@@ -249,7 +247,7 @@ func waitForHostDeployable(clt client.Client, subKey types.NamespacedName) error
 		Namespace: subKey.Namespace}
 
 	return clt.Get(context.TODO(), hostDplKey, t)
-}
+}*/
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() error {
 	return func() error {
