@@ -457,6 +457,8 @@ func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJ
 			}
 
 			job.Spec.ExtraVars = extraVars
+		} else {
+			job.Spec.ExtraVars = nil
 		}
 	}
 
