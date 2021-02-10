@@ -53,6 +53,8 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client,
 	logger logr.Logger, placementDecisionUpdated bool, placementRuleRv string, hookType string,
 	commitIDChanged bool) error {
+	logger.Info(fmt.Sprintf("In registryJobs, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
+
 	for _, job := range jobs {
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
@@ -75,6 +77,11 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 			continue
 		}
 
+		if nx.Spec.ExtraVars == nil {
+			// No ExtraVars, skip
+			continue
+		}
+
 		jobRecords := (*jIns)[jobKey]
 		jobRecords.mux.Lock()
 		jobRecords.Original = ins
@@ -91,22 +98,29 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
 
+		// The key name is the job name + suffix.
+		// The suffix can be commit id or placement rule resource version.
+		// So the same job can have multiple key names -> multiple jobRecords.InstanceSet[nxKey].
+		// Why multiple jobRecords.InstanceSet?
 		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
 
-		logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
-
+		// jobRecords.InstanceSet[nxKey] is to prevent creating the same ansibleJob CR with the same name.
+		// jobRecords.Instance is an array of ansibleJob CRs that have been created so far.
 		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
+			// If there is no instance set,
+			logger.Info("there is no jobRecords.InstanceSet for " + nxKey.String())
+
 			jobRecordsInstancePopulated := len(jobRecords.Instance) > 0
 
-			if !commitIDChanged && placementDecisionUpdated && jobRecordsInstancePopulated {
-				logger.V(DebugLog).Info("Checking to see AnsibleJob should be created...")
+			if jobRecordsInstancePopulated {
+				if placementDecisionUpdated {
+					// If placement decision is updated, then see if the previously run ansible job
+					// has the same target cluster. If so, skip creating a new ansible job. Otherwise,
+					// re-create the ansible job since the target clusters are different now.
+					lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
 
-				lastJob := jobRecords.Instance[len(jobRecords.Instance)-1]
-
-				// if the last job is running (or already done)
-				// AND the last job's target_clusters is the same as the new job's target_clusters
-				// then skip creating new Ansible Job
-				if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
+					// No need to check this because an ansiblejob will not be created if Spec.ExtraVars == nil.
+					//if nx.Spec.ExtraVars != nil && lastJob.Spec.ExtraVars != nil {
 					jobDoneOrRunning := isJobDoneOrRunning(lastJob, logger)
 
 					if jobDoneOrRunning {
@@ -137,19 +151,23 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 							continue
 						}
 					}
-				} else if nx.Spec.ExtraVars == nil && lastJob.Spec.ExtraVars == nil {
-					logger.Info("Both last and new ansible job spec extraVars are empty")
-					jobRecords.mux.Unlock()
-
+				} else if commitIDChanged {
+					// Commit ID has changed. Re-run all pre/post ansible jobs
+					logger.Info("Skipping duplicated AnsibleJob creation check because commit ID has changed")
+				} else {
+					// Commit ID hasn't changed and placement decision hasn't been updated. Don't create ansible job.
+					logger.Info("Commit ID and placement decision are the same.")
 					continue
 				}
 			} else {
-				logger.Info(fmt.Sprintf("Skipping duplicated AnsibleJob creation check..."+
-					" commitIDChanged=%v placementDecisionUpdated=%v jobRecordsInstancePopulated=%v",
-					commitIDChanged, placementDecisionUpdated, jobRecordsInstancePopulated))
+				// If there is no jobRecordsInstance, this is the first time to create this ansiblejob CR. Just create it.
+				logger.Info("Skipping duplicated AnsibleJob creation check because no job has been created yet")
 			}
 
 			jobRecords.InstanceSet[nxKey] = struct{}{}
+
+			logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
+
 			jobRecords.Instance = append(jobRecords.Instance, *nx)
 		}
 
