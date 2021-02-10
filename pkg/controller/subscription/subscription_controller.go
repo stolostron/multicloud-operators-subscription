@@ -378,23 +378,6 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	}
 
 	if sub, ok := r.subscribers[subtype]; ok {
-		// If the app sub time window is blocked, un-subscribe the app sub
-		tw := subitem.Subscription.Spec.TimeWindow
-		if tw != nil {
-			nextRun := utils.NextStartPoint(tw, time.Now())
-			if nextRun > time.Duration(0) {
-				klog.Infof("Subscription %v/%v is unsubscribed as it is currently blocked by the time window, It will be deployed after %v",
-					subitem.Subscription.GetNamespace(),
-					subitem.Subscription.GetName(), nextRun)
-
-				if err := sub.UnsubscribeItem(types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}); err != nil {
-					klog.Errorf("failed to unsubscribe, error: %+v", err)
-				}
-
-				return nil
-			}
-		}
-
 		if err := sub.SubscribeItem(subitem); err != nil {
 			klog.Errorf("failed to subscribe with subscriber %v, error %+v", subtype, err)
 		}
