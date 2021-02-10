@@ -353,6 +353,15 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 	// subscribe it with right channel type and unsubscribe from other channel types (in case user modify channel type)
 	for k, sub := range r.subscribers {
+		// git, github actually use the same subscriber.
+		// The block is to prevent git sub from being un-subscribed by github subscriber.
+		// e.g. The git sub time window keeps active, but its time window spec could change.
+		// In this reconcile, we should prevent the git sub from being un-subscribed.
+		if (strings.EqualFold(k, chnv1.ChannelTypeGit) || strings.EqualFold(k, chnv1.ChannelTypeGitHub)) &&
+			(strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub)) {
+			continue
+		}
+
 		if k != subtype {
 			klog.V(1).Infof("k: %v, sub: %v, subtype:%v,  unsubscribe %v/%v", k, sub, subtype, subitem.Subscription.Namespace, subitem.Subscription.Name)
 
