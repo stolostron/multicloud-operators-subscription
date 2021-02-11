@@ -303,11 +303,7 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription) (
 	chSrt := &corev1.Secret{}
 
 	if chn.Spec.SecretRef != nil {
-		srtNs := chn.Spec.ConfigMapRef.Namespace
-
-		if srtNs == "" {
-			srtNs = chn.GetNamespace()
-		}
+		srtNs := chn.GetNamespace()
 
 		chnSrtKey := types.NamespacedName{
 			Name:      chn.Spec.SecretRef.Name,
