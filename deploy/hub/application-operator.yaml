@@ -118,6 +118,7 @@ spec:
       - command:
         - /usr/local/bin/multicluster-operators-channel
         - --alsologtostderr
+        - --debug=true
         env:
         - name: WATCH_NAMESPACE
         - name: POD_NAME
