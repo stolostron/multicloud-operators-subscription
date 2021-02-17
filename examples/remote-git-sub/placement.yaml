@@ -1,0 +1,9 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: nginx-pr
+  namespace: nginx-app-ns
+spec:
+  clusterSelector:
+    matchLabels:
+      env: dev
