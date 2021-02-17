@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: nginx-virtual-host-ingress-placement
+spec:
+  rules:
+  - host: placement-nginx.apps.redacted.com
+    http:
+      paths:
+      - backend:
+          serviceName: placement-nginx-service
+          servicePort: 8080
