@@ -122,6 +122,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
+		ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
+		ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
 	}
 
 	ghssubitem.Start()
