@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-placement
+  labels:
+    app: nginx-placement
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-placement
+  template:
+    metadata:
+      labels:
+        app: nginx-placement
+    spec:
+      containers:
+      - name: nginx
+        image: bitnami/nginx:1.16.1
+        ports:
+        - containerPort: 8080
