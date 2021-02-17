@@ -314,7 +314,8 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
 
-				if ghsi.clusterAdmin && t.Kind == "subscription" {
+				// We always override a subscription with the parent(seed) values
+				if t.Kind == "subscription" {
 					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 					resource, err = yaml.Marshal(&t)
