@@ -222,11 +222,16 @@ func getAdditionValue(obj runtime.Object) int {
 		return -1
 	}
 
+	if unstructuredObj == nil {
+		return -1
+	}
+
 	spec := unstructuredObj["spec"]
-	if md, ok := spec.(map[string]interface{}); ok {
-		if v, f := md["replicas"]; f {
-			res := int(v.(int64))
-			return res
+	if md, ok := spec.(map[string]interface{}); ok && md != nil {
+		if v, f := md["replicas"]; f && v != nil {
+			if w, g := v.(int64); g {
+				return int(w)
+			}
 		}
 	}
 

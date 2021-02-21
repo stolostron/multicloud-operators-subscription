@@ -134,7 +134,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 // UnsubscribeItem uhrsubscribes a namespace subscriber item
 func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
-	klog.V(2).Info("UnsubscribeItem ", key)
+	klog.Info("git UnsubscribeItem ", key)
 
 	subitem, ok := ghs.itemmap[key]
 

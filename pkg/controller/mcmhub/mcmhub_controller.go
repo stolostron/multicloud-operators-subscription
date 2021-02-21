@@ -279,6 +279,19 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				continue
 			}
 
+			// If there is no cluster in placement decision, no reconcile.
+			placementRule := &plrv1.PlacementRule{}
+			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.Meta.GetName(), Namespace: obj.Meta.GetNamespace()}, placementRule)
+
+			if err != nil {
+				klog.Error("failed to get placementrule error:", err)
+				continue
+			}
+
+			if len(placementRule.Status.Decisions) == 0 {
+				continue
+			}
+
 			// in Reconcile(), removed the below suffix flag when processing the subscription
 			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.Meta.GetResourceVersion(), Namespace: sub.GetNamespace()}
 
@@ -520,6 +533,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
+	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) && (pl.Local != nil && *pl.Local) {
+		logger.Info("both local placement and remote placement rule are defined in the subscription")
+		instance.Status.Phase = appv1.SubscriptionPropagationFailed
+		instance.Status.Reason = "local placement and remote placement rule cannot be used together"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		if err := r.hubGitOps.RegisterBranch(instance); err != nil {
 			logger.Error(err, "failed to initialize Git connection")
