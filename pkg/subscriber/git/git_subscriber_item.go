@@ -125,6 +125,10 @@ func (ghsi *SubscriberItem) Stop() {
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
+	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
+	klog.V(2).Info("enter doSubscription: ", hostkey.String())
+	defer klog.V(2).Info("exist doSubscription: ", hostkey.String())
+
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {
 		klog.Infof("Git Webhook is enabled on subscription %s.", ghsi.Subscription.Name)
@@ -137,7 +141,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Infof("Resources are not reconciled successfully yet. Continue reconciling.")
 	}
 
-	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
+
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
@@ -147,6 +151,11 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	klog.Info("Git commit: ", commitID)
 
+	if commitID == ghsi.commitID && ghsi.successful == true {
+		klog.Infof("appsub %s Git commit: %s hasn't changed",hostkey.String(), commitID)
+		return nil
+	}
+
 	ghsi.resources = []kubesynchronizer.DplUnit{}
 
 	err = ghsi.sortClonedGitRepo()
@@ -155,7 +164,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
-	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
+
 	syncsource := githubk8ssyncsource + hostkey.String()
 
 	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
