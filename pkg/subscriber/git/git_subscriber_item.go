@@ -76,6 +76,7 @@ type SubscriberItem struct {
 	webhookEnabled        bool
 	successful            bool
 	clusterAdmin          bool
+	lastUpdateTime        time.Time
 }
 
 type kubeResource struct {
@@ -141,7 +142,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Infof("Resources are not reconciled successfully yet. Continue reconciling.")
 	}
 
-
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
@@ -150,9 +150,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	klog.Info("Git commit: ", commitID)
+	now := time.Now()
 
-	if commitID == ghsi.commitID && ghsi.successful == true {
-		klog.Infof("appsub %s Git commit: %s hasn't changed",hostkey.String(), commitID)
+	if now.Sub(ghsi.lastUpdateTime) < time.Minute*5 &&
+		commitID == ghsi.commitID && ghsi.successful == true {
+		klog.Infof("appsub %s Git commit: %s hasn't changed", hostkey.String(), commitID)
+
 		return nil
 	}
 
@@ -163,7 +166,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, "Unable to sort helm charts and kubernetes resources from the cloned git repo.")
 		return err
 	}
-
 
 	syncsource := githubk8ssyncsource + hostkey.String()
 
@@ -212,7 +214,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	ghsi.commitID = commitID
-
+	ghsi.lastUpdateTime = now
 	ghsi.resources = nil
 	ghsi.chartDirs = nil
 	ghsi.kustomizeDirs = nil

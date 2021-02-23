@@ -17,6 +17,7 @@ package git
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -126,7 +127,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
 	}
-
+	ghssubitem.lastUpdateTime = time.Now()
 	ghssubitem.Start()
 
 	return nil
