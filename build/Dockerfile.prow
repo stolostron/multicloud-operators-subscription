@@ -1,3 +1,9 @@
+FROM registry.ci.openshift.org/open-cluster-management/builder:go1.15-linux-amd64 AS builder
+
+WORKDIR /go/src/github.com/open-cluster-management/multicluster-operators-subscription
+COPY . .
+RUN make -f Makefile.prow build
+
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 
 RUN  microdnf update -y \ 
@@ -13,12 +19,12 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     ZONEINFO=/usr/share/timezone
 
 # install operator binary
-COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
-COPY build/_output/bin/uninstall-crd /usr/local/bin
+COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
-     
+
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 USER ${USER_UID}
