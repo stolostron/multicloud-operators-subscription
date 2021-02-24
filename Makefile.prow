@@ -20,3 +20,4 @@ IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
