@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io/ioutil"
+	"math/rand"
 	"path/filepath"
 	"strings"
 	"time"
@@ -214,7 +215,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	ghsi.commitID = commitID
-	ghsi.lastUpdateTime = now
+	// have some randomness to eash the pressure on the sync queue
+	delta := rand.Intn(90-30) + 30
+	ghsi.lastUpdateTime = now.Add(time.Duration(delta) * time.Second)
 	ghsi.resources = nil
 	ghsi.chartDirs = nil
 	ghsi.kustomizeDirs = nil
