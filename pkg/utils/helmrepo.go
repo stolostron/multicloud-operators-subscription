@@ -25,6 +25,8 @@ import (
 
 	"github.com/blang/semver"
 	"github.com/ghodss/yaml"
+	"helm.sh/helm/v3/pkg/chartutil"
+	"helm.sh/helm/v3/pkg/repo"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,8 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/helm/pkg/chartutil"
-	"k8s.io/helm/pkg/repo"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -80,7 +80,10 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 			return indexFile, err
 		}
 
-		indexFile.Add(chartMetadata, chartFolderName, chartBaseDir, "generated-by-multicloud-operators-subscription")
+		err = indexFile.MustAdd(chartMetadata, chartFolderName, chartBaseDir, "generated-by-multicloud-operators-subscription")
+		if err != nil {
+			klog.Warning("There was a problem in adding content to helm charts index file: ", err.Error())
+		}
 	}
 
 	indexFile.SortEntries()
@@ -143,6 +146,17 @@ func CreateOrUpdateHelmChart(
 		if errors.IsNotFound(err) {
 			klog.V(2).Infof("Create helmRelease %s", releaseCRName)
 
+			version := ""
+			digest := ""
+
+			if len(chartVersions) > 0 && chartVersions[0] != nil {
+				if chartVersions[0].Metadata != nil {
+					version = chartVersions[0].Version
+				}
+
+				digest = chartVersions[0].Digest
+			}
+
 			helmRelease = &releasev1.HelmRelease{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "apps.open-cluster-management.io/v1",
@@ -164,7 +178,8 @@ func CreateOrUpdateHelmChart(
 					InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
 					SecretRef:          channel.Spec.SecretRef,
 					ChartName:          packageName,
-					Version:            chartVersions[0].GetVersion(),
+					Version:            version,
+					Digest:             digest,
 				},
 			}
 		} else {
@@ -176,13 +191,26 @@ func CreateOrUpdateHelmChart(
 		helmRelease.APIVersion = "apps.open-cluster-management.io/v1"
 		helmRelease.Kind = "HelmRelease"
 		klog.V(2).Infof("Update helmRelease repo %s", helmRelease.Name)
+
+		version := ""
+		digest := ""
+
+		if len(chartVersions) > 0 && chartVersions[0] != nil {
+			if chartVersions[0].Metadata != nil {
+				version = chartVersions[0].Version
+			}
+
+			digest = chartVersions[0].Digest
+		}
+
 		helmRelease.Repo = releasev1.HelmReleaseRepo{
 			Source:             source,
 			ConfigMapRef:       channel.Spec.ConfigMapRef,
 			InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
 			SecretRef:          channel.Spec.SecretRef,
 			ChartName:          packageName,
-			Version:            chartVersions[0].GetVersion(),
+			Version:            version,
+			Digest:             digest,
 		}
 	}
 
@@ -246,7 +274,9 @@ func PkgToReleaseCRName(sub *appv1.Subscription, packageName string) (string, er
 		releaseCRName = packageName
 		subUID := string(sub.UID)
 
-		releaseCRName += "-" + getShortSubUID(subUID)
+		if subUID != "" {
+			releaseCRName += "-" + getShortSubUID(subUID)
+		}
 	}
 
 	releaseCRName, err := GetReleaseName(releaseCRName)
@@ -357,14 +387,14 @@ func getOverrides(packageName string, sub *appv1.Subscription) dplv1.Overrides {
 	return dploverrides
 }
 
-//FilterCharts filters the indexFile by name, tillerVersion, version, digest
+//FilterCharts filters the indexFile by name, version, digest
 func FilterCharts(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
 	//Removes all entries from the indexFile with non matching name
 	err := removeNoMatchingName(sub, indexFile)
 	if err != nil {
 		klog.Warning(err)
 	}
-	//Removes non matching version, tillerVersion, digest
+	//Removes non matching version, digest
 	filterOnVersion(sub, indexFile)
 	//Keep only the lastest version if multiple remains after filtering.
 	err = takeLatestVersion(indexFile)
@@ -437,9 +467,8 @@ func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) er
 	return nil
 }
 
-//filterOnVersion filters the indexFile with the version, tillerVersion and Digest provided in the subscription
+//filterOnVersion filters the indexFile with the version, and Digest provided in the subscription
 //The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
-//The tillerVersion and the digest provided in the subscription must be literals.
 func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
 	keys := make([]string, 0)
 	for k := range indexFile.Entries {
@@ -451,7 +480,7 @@ func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
 		newChartVersions := make([]*repo.ChartVersion, 0)
 
 		for index, chartVersion := range chartVersions {
-			if checkKeywords(sub, chartVersion) && checkDigest(sub, chartVersion) && checkTillerVersion(sub, chartVersion) && checkVersion(sub, chartVersion) {
+			if checkKeywords(sub, chartVersion) && checkDigest(sub, chartVersion) && checkVersion(sub, chartVersion) {
 				newChartVersions = append(newChartVersions, chartVersions[index])
 			}
 		}
@@ -476,42 +505,11 @@ func checkKeywords(sub *appv1.Subscription, chartVersion *repo.ChartVersion) boo
 	return KeywordsChecker(labelSelector, chartVersion.Keywords)
 }
 
-//checkTillerVersion Checks if the TillerVersion matches
-func checkTillerVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
-	if sub.Spec.PackageFilter != nil {
-		if sub.Spec.PackageFilter.Annotations != nil {
-			if filterTillerVersion, ok := sub.Spec.PackageFilter.Annotations["tillerVersion"]; ok {
-				tillerVersion := chartVersion.GetTillerVersion()
-				if tillerVersion != "" {
-					tillerVersionVersion, err := semver.ParseRange(tillerVersion)
-					if err != nil {
-						klog.Errorf("Error while parsing tillerVersion: %s of %s Error: %s", tillerVersion, chartVersion.GetName(), err.Error())
-						return false
-					}
-
-					filterTillerVersion, err := semver.Parse(filterTillerVersion)
-
-					if err != nil {
-						klog.Error(err)
-						return false
-					}
-
-					return tillerVersionVersion(filterTillerVersion)
-				}
-			}
-		}
-	}
-
-	klog.V(4).Info("Tiller check passed for:", chartVersion)
-
-	return true
-}
-
 //checkVersion checks if the version matches
 func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.PackageFilter.Version != "" {
-			version := chartVersion.GetVersion()
+			version := chartVersion.Version
 			versionVersion, err := semver.Parse(version)
 
 			if err != nil {

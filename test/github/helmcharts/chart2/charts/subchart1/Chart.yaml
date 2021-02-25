@@ -5,7 +5,6 @@ name: subchart1
 version: 3.3.3
 category: "Development"
 verified: "QA"
-tillerVersion: ">=2.9.1"
 kubeVersion: ">=1.10.0"
 keywords:
   - subchart
