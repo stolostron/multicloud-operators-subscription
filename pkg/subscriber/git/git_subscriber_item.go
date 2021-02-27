@@ -93,6 +93,8 @@ func (ghsi *SubscriberItem) Start() {
 		return
 	}
 
+	gitSubscriberGoroutinue.Inc()
+
 	ghsi.stopch = make(chan struct{})
 
 	go wait.Until(func() {
@@ -113,6 +115,12 @@ func (ghsi *SubscriberItem) Start() {
 			return
 		}
 
+		entryTime := time.Now()
+
+		defer func() {
+			gitSubscriberTime.Observe(time.Now().Sub(entryTime).Seconds())
+		}()
+
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
@@ -124,6 +132,8 @@ func (ghsi *SubscriberItem) Start() {
 func (ghsi *SubscriberItem) Stop() {
 	klog.V(4).Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
+
+	gitSubscriberGoroutinue.Dec()
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
@@ -132,7 +142,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	defer klog.V(2).Info("exist doSubscription: ", hostkey.String())
 
 	gitSubscriberAwake.Inc()
-	defer gitSubscriberAwake.Dec()
+	defer func() {
+		gitSubscriberAwake.Dec()
+	}()
 
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {

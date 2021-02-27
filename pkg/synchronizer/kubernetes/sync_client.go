@@ -120,6 +120,10 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 		err:     make(chan error, 1),
 	}
 
+	sync.kmtx.Lock()
+	sycnInqueue.Set(float64(len(sync.tplCh)))
+	sync.kmtx.Unlock()
+
 	select {
 	case sync.tplCh <- rsOrder:
 		klog.V(1).Info("wrote resource request/order to cache")
