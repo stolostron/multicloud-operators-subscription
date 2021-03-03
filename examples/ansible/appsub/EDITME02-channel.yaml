@@ -1,0 +1,9 @@
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: git
+  namespace: ansible-pre-post
+spec:
+  type: git
+  pathname: https://github.com/<_replace_me_>/multicloud-operators-subscription.git
