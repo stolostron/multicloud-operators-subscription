@@ -1,4 +1,5 @@
 # Temporary Build Files
+test
 build/_output
 build/_test
 build-harness
