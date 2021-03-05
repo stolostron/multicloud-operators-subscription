@@ -13,6 +13,7 @@
 # limitations under the License.
 
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
+export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test )
 
 .PHONY: build
 
@@ -21,3 +22,13 @@ IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+
+.PHONY: lint
+
+lint:
+	@build/run-code-lint.sh
+
+.PHONY: test
+
+test: 
+	@build/run-unit-tests.sh
