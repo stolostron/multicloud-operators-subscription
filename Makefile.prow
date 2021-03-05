@@ -13,7 +13,7 @@
 # limitations under the License.
 
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
-export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test )
+export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
 
 .PHONY: build
 
