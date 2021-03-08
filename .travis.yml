@@ -10,7 +10,7 @@ services:
 
 branches:
   only:
-    - master
+    - main
     - dev
     - ibm-*
     - /^[0-9]+\..*$/
