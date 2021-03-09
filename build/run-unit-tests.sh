@@ -13,19 +13,19 @@ if ! which patter > /dev/null; then      echo "Installing patter ..."; pushd $(m
 if ! which gocovmerge > /dev/null; then  echo "Installing gocovmerge..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/wadey/gocovmerge && popd; fi
 
 export GOFLAGS=""
-mkdir -p test/unit/coverage
-echo 'mode: atomic' > test/unit/coverage/cover.out
-echo '' > test/unit/coverage/cover.tmp
+mkdir -p test_tmp/unit/coverage
+echo 'mode: atomic' > test_tmp/unit/coverage/cover.out
+echo '' > test_tmp/unit/coverage/cover.tmp
 echo -e "${GOPACKAGES// /\\n}" | xargs -n1 -I{} $_script_dir/test-package.sh {} ${GOPACKAGES// /,}
 
-if [ ! -f test/unit/coverage/cover.out ]; then
-    echo "Coverage file test/unit/coverage/cover.out does not exist"
+if [ ! -f test_tmp/unit/coverage/cover.out ]; then
+    echo "Coverage file test_tmp/unit/coverage/cover.out does not exist"
     exit 0
 fi
 
-COVERAGE=$(go tool cover -func=test/unit/coverage/cover.out | grep "total:" | awk '{ print $3 }' | sed 's/[][()><%]/ /g')
+COVERAGE=$(go tool cover -func=test_tmp/unit/coverage/cover.out | grep "total:" | awk '{ print $3 }' | sed 's/[][()><%]/ /g')
 echo "-------------------------------------------------------------------------"
 echo "TOTAL COVERAGE IS ${COVERAGE}%"
 echo "-------------------------------------------------------------------------"
 
-go tool cover -html=test/unit/coverage/cover.out -o=test/unit/coverage/cover.html
+go tool cover -html=test_tmp/unit/coverage/cover.out -o=test_tmp/unit/coverage/cover.html
