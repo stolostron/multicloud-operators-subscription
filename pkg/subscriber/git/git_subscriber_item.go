@@ -66,8 +66,10 @@ type SubscriberItem struct {
 	otherFiles            []string
 	repoRoot              string
 	commitID              string
+	reconcile_level       string
 	stopch                chan struct{}
 	syncinterval          int
+	count                 int
 	synchronizer          SyncSource
 	chartDirs             map[string]string
 	kustomizeDirs         map[string]string
@@ -84,14 +86,40 @@ type kubeResource struct {
 }
 
 // Start subscribes a subscriber item with github channel
-func (ghsi *SubscriberItem) Start() {
+func (ghsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if ghsi.stopch != nil {
-		klog.V(4).Info("SubscriberItem already started: ", ghsi.Subscription.Name)
-		return
+		if restart {
+			// restart this goroutine
+			ghsi.Stop()
+		} else {
+			klog.Info("SubscriberItem already started: ", ghsi.Subscription.Name)
+			return
+		}
 	}
 
+	ghsi.count = 0 // reset the counter
+
 	ghsi.stopch = make(chan struct{})
+
+	var loop_period time.Duration = 3 * time.Minute // every 3 minutes
+	if strings.EqualFold(ghsi.reconcile_level, "off") {
+		klog.Infof("OFF")
+		err := ghsi.doSubscription()
+		if err != nil {
+			klog.Error(err, "Subscription error.")
+		}
+		return
+	} else if strings.EqualFold(ghsi.reconcile_level, "low") {
+		klog.Infof("LOW")
+		loop_period = 1 * time.Hour // every hour
+	} else if strings.EqualFold(ghsi.reconcile_level, "medium") {
+		klog.Infof("MED")
+		loop_period = 3 * time.Minute // every 3 minutes
+	} else if strings.EqualFold(ghsi.reconcile_level, "high") {
+		klog.Infof("HIGH")
+		loop_period = 2 * time.Minute // every 2 minutes
+	}
 
 	go wait.Until(func() {
 		tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -114,17 +142,24 @@ func (ghsi *SubscriberItem) Start() {
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
+			ghsi.successful = false
+		} else {
+			ghsi.successful = true
 		}
-	}, time.Duration(ghsi.syncinterval)*time.Second, ghsi.stopch)
+	}, loop_period, ghsi.stopch)
 }
 
 // Stop unsubscribes a subscriber item with namespace channel
 func (ghsi *SubscriberItem) Stop() {
-	klog.V(4).Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
+	klog.Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
+	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
+	klog.Info("enter doSubscription: ", hostkey.String())
+	defer klog.Info("exit doSubscription: ", hostkey.String())
+
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {
 		klog.Infof("Git Webhook is enabled on subscription %s.", ghsi.Subscription.Name)
@@ -138,6 +173,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
+
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
@@ -147,6 +183,26 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	klog.Info("Git commit: ", commitID)
 
+	if strings.EqualFold(ghsi.reconcile_level, "medium") {
+		// every 3 minutes, compare commit ID. If changed, reconcile resources.
+		// every 15 minutes, reconcile resources without commit ID comparison.
+		ghsi.count = ghsi.count + 1
+
+		if ghsi.commitID == "" {
+			klog.Infof("No previous commit. DEPLOY")
+		} else {
+			if ghsi.count < 6 {
+				if commitID == ghsi.commitID && ghsi.successful == true {
+					klog.Infof("Appsub %s Git commit: %s hasn't changed. Skip reconcile.", hostkey.String(), commitID)
+					return nil
+				}
+			} else {
+				klog.Infof("Reconciling all resources")
+				ghsi.count = 0
+			}
+		}
+	}
+
 	ghsi.resources = []kubesynchronizer.DplUnit{}
 
 	err = ghsi.sortClonedGitRepo()
@@ -155,7 +211,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
-	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 	syncsource := githubk8ssyncsource + hostkey.String()
 
 	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
@@ -164,6 +219,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe crd and ns resources")
+		return err
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -172,6 +228,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe rbac resources")
+		return err
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -180,6 +237,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe other resources")
+		return err
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -188,6 +246,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe kustomize resources")
+		return err
 	}
 
 	klog.V(4).Info("Applying helm charts..")
@@ -196,10 +255,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe helm charts")
+		return err
 	}
 
 	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
 		klog.Error(err)
+		return err
 	}
 
 	ghsi.commitID = commitID

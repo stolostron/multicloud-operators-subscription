@@ -65,20 +65,20 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	updateSubDplAnno := false
+	updateSubDplAnno := true
+	/*
+		switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
+		case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
+			updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
+		case chnv1alpha1.ChannelTypeHelmRepo:
+			updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
+		default:
+			updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+		}
 
-	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
-	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
-		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
-	case chnv1alpha1.ChannelTypeHelmRepo:
-		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
-	default:
-		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
-	}
-
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}*/
 
 	klog.Infof("subscription: %v/%v, update Subscription: %v, update Subscription Deployable Annotation: %v",
 		sub.GetNamespace(), sub.GetName(), updateSub, updateSubDplAnno)
@@ -117,11 +117,13 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	updateTargetAnno := checkRollingUpdateAnno(found, targetDpl, dpl)
+	//updateTargetAnno := checkRollingUpdateAnno(found, targetDpl, dpl)
 
-	updateSubDpl := checkSubDeployables(found, dpl)
+	//updateSubDpl := checkSubDeployables(found, dpl)
+	//updateSubDpl := false
+	//updateTargetAnno = false
 
-	if updateSub || updateSubDpl || updateTargetAnno {
+	/*if updateSub || updateSubDpl || updateTargetAnno {
 		klog.V(1).Infof("updateSub: %v, updateSubDpl: %v, updateTargetAnno: %v", updateSub, updateSubDpl, updateTargetAnno)
 
 		if targetDpl != nil {
@@ -147,10 +149,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		if err != nil {
 			return err
 		}
-	} else {
-		klog.V(1).Infof("update Subscription status, sub:%v/%v", sub.GetNamespace(), sub.GetName())
-		err = r.updateSubscriptionStatus(sub, found, channel)
-	}
+	} else {*/
+	klog.V(1).Infof("update Subscription status, sub:%v/%v", sub.GetNamespace(), sub.GetName())
+	err = r.updateSubscriptionStatus(sub, found, channel)
+	//}
 
 	return err
 }
@@ -748,6 +750,10 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationResourceReconcileOption], "") {
 		subepanno[appv1alpha1.AnnotationResourceReconcileOption] = origsubanno[appv1alpha1.AnnotationResourceReconcileOption]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationResourceReconcileLevel], "") {
+		subepanno[appv1alpha1.AnnotationResourceReconcileLevel] = origsubanno[appv1alpha1.AnnotationResourceReconcileLevel]
 	}
 
 	// Add annotation for git path and branch

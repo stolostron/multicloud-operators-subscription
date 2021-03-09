@@ -95,6 +95,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
 	klog.V(2).Info("subscribeItem ", itemkey)
+	klog.Info("ROKEROKE subscribeItem ", itemkey)
 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
@@ -121,13 +122,49 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.webhookEnabled = false
 	}
 
+	previousReconcileLevel := ghssubitem.reconcile_level
+
+	klog.Info("ROKEROKE ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] = " + ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
+
+	// If the channel does not have reconcile-level, default it to medium
+	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
+		klog.Info("Setting reconcile-level to default: medium")
+		ghssubitem.reconcile_level = "medium"
+	} else {
+		if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+			ghssubitem.reconcile_level = "off"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "low") {
+			ghssubitem.reconcile_level = "low"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "medium") {
+			ghssubitem.reconcile_level = "medium"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "high") {
+			ghssubitem.reconcile_level = "high"
+		} else {
+			klog.Info("Channel's reconcile-level has unknown value: ", ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
+			klog.Info("Setting it to medium")
+			ghssubitem.reconcile_level = "medium"
+		}
+	}
+
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
 	}
 
-	ghssubitem.Start()
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile level %s to turn it off", ghssubitem.reconcile_level)
+		ghssubitem.reconcile_level = "off"
+	}
+
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcile_level) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	ghssubitem.Start(restart)
 
 	return nil
 }
