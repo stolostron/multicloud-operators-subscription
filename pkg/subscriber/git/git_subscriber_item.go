@@ -242,8 +242,10 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 					klog.Error("Failed to apply kustomization, error: ", err.Error())
 				} else {
 					klog.Info("Overriding kustomization ", kustomizeDir)
+
 					pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
 					err := utils.OverrideKustomize(pov, kustomizeDir)
+
 					if err != nil {
 						klog.Error("Failed to override kustomization.")
 						break
