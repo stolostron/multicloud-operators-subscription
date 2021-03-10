@@ -27,12 +27,9 @@ _tap_name=${_tap_name//\//_}
 
 mkdir -p $_tap_out_dir
 
-mkdir -p test_tmp/bin
-_test_bin_dir=$(realpath test_tmp/bin)
-export KUBEBUILDER_ASSETS=$_test_bin_dir/kubebuilder/bin
-
-PATH=$_test_bin_dir/kubebuilder/bin:${PATH}
+PATH=/go/src/github.com/open-cluster-management/multicloud-operators-subscription/test_tmp/bin/kubebuilder/bin:${PATH}
 export PATH
+export KUBEBUILDER_ASSETS=/go/src/github.com/open-cluster-management/multicloud-operators-subscription/test_tmp/bin/kubebuilder/bin
 
 # Run tests
 # DO NOT USE -coverpkg=./...
