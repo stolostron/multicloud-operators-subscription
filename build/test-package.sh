@@ -22,17 +22,17 @@ rm -f test_tmp/unit/coverage/cover.tmp
 # Support for TAP output
 _package_base=${PROJECT_DIR/$GOPATH\/src\/}  # TODO need a better solution since $(go list) doesn't work any more (won't work with go 1.11)
 _tap_out_dir=$GOPATH/src/$_package_base/test_tmp/out
-_tap_bin_dir=$GOPATH/src/$_package_base/test_tmp/bin
 _tap_name="${_package/$_package_base/}"
 _tap_name=${_tap_name//\//_}
 
 mkdir -p $_tap_out_dir
-mkdir -p $_tap_bin_dir
 
-PATH=$_tap_bin_dir/kubebuilder/bin:${PATH}
+mkdir -p test_tmp/bin
+_test_bin_dir=$(realpath test_tmp/bin)
+export KUBEBUILDER_ASSETS=$_test_bin_dir/kubebuilder/bin
+
+PATH=$_test_bin_dir/kubebuilder/bin:${PATH}
 export PATH
-
-export KUBEBUILDER_ASSETS=$_tap_bin_dir/kubebuilder/bin
 
 # Run tests
 # DO NOT USE -coverpkg=./...
