@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -51,6 +52,14 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 	}
 
 	return byteOut, nil
+}
+
+func CheckPackageOverride(ov *appv1.Overrides) error {
+	if ov.PackageOverrides == nil {
+		return errors.New("No PackageOverride is specified. Skipping to override kustomization")
+	}
+
+	return nil
 }
 
 func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
