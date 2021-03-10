@@ -32,7 +32,7 @@ mkdir -p $_tap_bin_dir
 PATH=$_tap_bin_dir/kubebuilder/bin:${PATH}
 export PATH
 
-kubebuilder version
+export KUBEBUILDER_ASSETS=$_tap_bin_dir/kubebuilder/bin
 
 # Run tests
 # DO NOT USE -coverpkg=./...
