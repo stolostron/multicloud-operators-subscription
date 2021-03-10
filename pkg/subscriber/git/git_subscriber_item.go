@@ -151,7 +151,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	err = ghsi.sortClonedGitRepo()
 	if err != nil {
-		klog.Error(err, "Unable to sort helm charts and kubernetes resources from the cloned git repo.")
+		klog.Error(err, " Unable to sort helm charts and kubernetes resources from the cloned git repo.")
 		return err
 	}
 
@@ -163,7 +163,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	err = ghsi.subscribeResources(ghsi.crdsAndNamespaceFiles)
 
 	if err != nil {
-		klog.Error(err, "Unable to subscribe crd and ns resources")
+		klog.Error(err, " Unable to subscribe crd and ns resources")
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -171,7 +171,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	err = ghsi.subscribeResources(ghsi.rbacFiles)
 
 	if err != nil {
-		klog.Error(err, "Unable to subscribe rbac resources")
+		klog.Error(err, " Unable to subscribe rbac resources")
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -179,7 +179,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	err = ghsi.subscribeResources(ghsi.otherFiles)
 
 	if err != nil {
-		klog.Error(err, "Unable to subscribe other resources")
+		klog.Error(err, " Unable to subscribe other resources")
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -187,7 +187,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	err = ghsi.subscribeKustomizations()
 
 	if err != nil {
-		klog.Error(err, "Unable to subscribe kustomize resources")
+		klog.Error(err, " Unable to subscribe kustomize resources")
 	}
 
 	klog.V(4).Info("Applying helm charts..")
@@ -226,30 +226,12 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 			relativePath = strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")[1]
 		}
 
-		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
-			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
-
-			if ovKustomizeDir == "" {
-				ovKustomizeDir = relativePath
-			}
-
-			if !strings.EqualFold(ovKustomizeDir, relativePath) {
-				continue
-			} else {
-				klog.Info("Overriding kustomization ", kustomizeDir)
-				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
-				err := utils.OverrideKustomize(pov, kustomizeDir)
-				if err != nil {
-					klog.Error("Failed to override kustomization.")
-					break
-				}
-			}
-		}
+		utils.VerifyAndOverrideKustomize(ghsi.Subscription.Spec.PackageOverrides, relativePath, kustomizeDir)
 
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
 		if err != nil {
-			klog.Error("Failed to applying kustomization, error: ", err.Error())
+			klog.Error("Failed to apply kustomization, error: ", err.Error())
 			return err
 		}
 
