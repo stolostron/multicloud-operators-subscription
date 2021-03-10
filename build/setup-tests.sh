@@ -17,6 +17,3 @@ curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
 mkdir -p test_tmp/bin
 _test_bin_dir=$(realpath test_tmp/bin)
 mv /tmp/kubebuilder_2.3.1_${os}_${arch} $_test_bin_dir/kubebuilder
-
-PATH=$_test_bin_dir/kubebuilder/bin:${PATH}
-export PATH

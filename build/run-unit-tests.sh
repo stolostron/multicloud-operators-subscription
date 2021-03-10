@@ -8,6 +8,12 @@
 # Copyright Contributors to the Open Cluster Management project
 ###############################################################################
 
+mkdir -p test_tmp/bin
+_test_bin_dir=$(realpath test_tmp/bin)
+
+PATH=$_test_bin_dir/kubebuilder/bin:${PATH}
+export PATH
+
 _script_dir=$(dirname "$0")
 if ! which patter > /dev/null; then      echo "Installing patter ..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/apg/patter && popd; fi
 if ! which gocovmerge > /dev/null; then  echo "Installing gocovmerge..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/wadey/gocovmerge && popd; fi
