@@ -226,25 +226,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 			relativePath = strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")[1]
 		}
 
-		for _, ov := range ghsi.Subscription.Spec.PackageOverrides {
-			ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
-
-			if ovKustomizeDir == "" {
-				ovKustomizeDir = relativePath
-			}
-
-			if !strings.EqualFold(ovKustomizeDir, relativePath) {
-				continue
-			} else {
-				klog.Info("Overriding kustomization ", kustomizeDir)
-				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
-				err := utils.OverrideKustomize(pov, kustomizeDir)
-				if err != nil {
-					klog.Error("Failed to override kustomization.")
-					break
-				}
-			}
-		}
+		utils.VerifyAndOverrideKustomize(ghsi.Subscription.Spec.PackageOverrides, relativePath, kustomizeDir)
 
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 

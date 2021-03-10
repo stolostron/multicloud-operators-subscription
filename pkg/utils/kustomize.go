@@ -15,6 +15,7 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -51,6 +52,41 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 	}
 
 	return byteOut, nil
+}
+
+func CheckPackageOverride(ov *appv1.Overrides) error {
+	if ov.PackageOverrides == nil {
+		return errors.New("no PackageOverride is specified. Skipping to override kustomization")
+	}
+
+	return nil
+}
+
+func VerifyAndOverrideKustomize(packageOverrides []*appv1.Overrides, relativePath, kustomizeDir string) {
+	for _, ov := range packageOverrides {
+		ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
+
+		//If the full kustomization.yaml path is specified but different than the current kustomize dir, egnore
+		if !strings.EqualFold(ovKustomizeDir, relativePath) && !strings.EqualFold(ovKustomizeDir, "") {
+			continue
+		} else {
+			err := CheckPackageOverride(ov)
+
+			if err != nil {
+				klog.Error("Failed to apply kustomization, error: ", err.Error())
+			} else {
+				klog.Info("Overriding kustomization ", kustomizeDir)
+
+				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
+				err := OverrideKustomize(pov, kustomizeDir)
+
+				if err != nil {
+					klog.Error("Failed to override kustomization.")
+					break
+				}
+			}
+		}
+	}
 }
 
 func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
