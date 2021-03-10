@@ -216,7 +216,6 @@ spec:
                     type: array
                 required:
                 - packageName
-                - packageOverrides
                 type: object
               type: array
             placement:
