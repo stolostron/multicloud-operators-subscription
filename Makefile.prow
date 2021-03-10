@@ -28,6 +28,11 @@ build:
 lint:
 	@build/run-code-lint.sh
 
+.PHONY: setup-tests
+
+setup-tests:
+	@build/setup-tests.sh
+
 .PHONY: test
 
 test: 
