@@ -114,7 +114,7 @@ type PackageOverride struct {
 type Overrides struct {
 	PackageAlias     string            `json:"packageAlias,omitempty"`
 	PackageName      string            `json:"packageName"`
-	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"` // To be added
+	PackageOverrides []PackageOverride `json:"packageOverrides"` // To be added
 }
 
 // TimeWindow defines a time window for subscription to run or be blocked

@@ -457,6 +457,31 @@ spec:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
+func TestWrongKustomizeOverride(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: github-resource-subscription
+  namespace: default
+spec:
+  channel: github-ns/github-ch
+  placement:
+  local: true
+  packageOverrides:
+    - packageName: kustomize/overlays/production/kustomization.yaml`
+
+	subscription := &appv1alpha1.Subscription{}
+	err := yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ov := subscription.Spec.PackageOverrides[0]
+
+	err = CheckPackageOverride(ov)
+	g.Expect(err).To(gomega.HaveOccurred())
+}
+
 func copy(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {

@@ -476,12 +476,16 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 			if !strings.EqualFold(ovKustomizeDir, relativePath) && !strings.EqualFold(ovKustomizeDir, "") {
 				continue
 			} else {
-				klog.Info("Overriding kustomization ", kustomizeDir)
-				pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
-				err := utils.OverrideKustomize(pov, kustomizeDir)
-				if err != nil {
-					klog.Error("Failed to override kustomization.")
-					break
+				if ov.PackageOverrides == nil {
+					klog.Warning("No PackageOverride is specified. Skipping to override kustomization")
+				} else {
+					klog.Info("Overriding kustomization ", kustomizeDir)
+					pov := ov.PackageOverrides[0] // there is only one override for kustomization.yaml
+					err := utils.OverrideKustomize(pov, kustomizeDir)
+					if err != nil {
+						klog.Error("Failed to override kustomization.")
+						break
+					}
 				}
 			}
 		}
