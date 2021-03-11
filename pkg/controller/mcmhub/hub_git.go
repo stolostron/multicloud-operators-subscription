@@ -482,6 +482,10 @@ func (h *HubGitOps) DeregisterBranch(subKey types.NamespacedName) {
 	repoName := h.subRecords[subKey]
 	delete(h.subRecords, subKey)
 
+	if h.repoRecords == nil || h.repoRecords[repoName] == nil || h.repoRecords[repoName].branchs == nil {
+		return
+	}
+
 	for bName := range h.repoRecords[repoName].branchs {
 		delete(h.repoRecords[repoName].branchs[bName].registeredSub, subKey)
 
