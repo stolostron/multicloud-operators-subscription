@@ -12,12 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+-include /opt/build-harness/Makefile.prow
+
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
 
 .PHONY: build
-
--include /opt/build-harness/Makefile.prow
 
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
@@ -30,10 +30,8 @@ lint:
 
 .PHONY: setup-tests
 
-setup-tests:
-	@build/setup-tests.sh
-
 .PHONY: test
 
-test: 
+test:
+	@build/setup-tests.sh
 	@build/run-unit-tests.sh
