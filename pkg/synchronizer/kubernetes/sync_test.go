@@ -502,6 +502,40 @@ var _ = Describe("harvest existing", func() {
 	})
 })
 
+var _ = Describe("test special resources", func() {
+	It("namespace should be a special resource", func() {
+		result := isSpecialResource(schema.GroupVersionResource{
+			Version:  "v1",
+			Resource: "namespaces",
+		})
+		Expect(result).To(BeTrue())
+	})
+
+	It("serviceaccount should be a special resource", func() {
+		result := isSpecialResource(schema.GroupVersionResource{
+			Version:  "v1",
+			Resource: "serviceaccounts",
+		})
+		Expect(result).To(BeTrue())
+	})
+
+	It("service should be a special resource", func() {
+		result := isSpecialResource(schema.GroupVersionResource{
+			Version:  "v1",
+			Resource: "services",
+		})
+		Expect(result).To(BeTrue())
+	})
+
+	It("configmap should not be a special resource", func() {
+		result := isSpecialResource(schema.GroupVersionResource{
+			Version:  "v1",
+			Resource: "configmaps",
+		})
+		Expect(result).To(BeFalse())
+	})
+})
+
 var _ = Describe("test service resource", func() {
 	var (
 		svcSharedkey = types.NamespacedName{
