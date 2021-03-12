@@ -508,7 +508,7 @@ var _ = Describe("test special resources", func() {
 			Version:  "v1",
 			Resource: "namespaces",
 		})
-		Expect(result).To(BeFalse())
+		Expect(result).To(BeTrue())
 	})
 
 	It("serviceaccount should be a special resource", func() {
@@ -516,7 +516,7 @@ var _ = Describe("test special resources", func() {
 			Version:  "v1",
 			Resource: "serviceaccounts",
 		})
-		Expect(result).To(BeFalse())
+		Expect(result).To(BeTrue())
 	})
 
 	It("service should be a special resource", func() {
@@ -524,7 +524,7 @@ var _ = Describe("test special resources", func() {
 			Version:  "v1",
 			Resource: "services",
 		})
-		Expect(result).To(BeFalse())
+		Expect(result).To(BeTrue())
 	})
 
 	It("configmap should not be a special resource", func() {
