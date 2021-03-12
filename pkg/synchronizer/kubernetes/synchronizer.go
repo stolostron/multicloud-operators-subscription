@@ -225,7 +225,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 //
 //updateResourceByTemplateUnit will then update,patch the obj given tplunit.
 func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface,
-	obj *unstructured.Unstructured, tplunit *TemplateUnit, isService bool) error {
+	obj *unstructured.Unstructured, tplunit *TemplateUnit, specialResource bool) error {
 	var err error
 
 	overwrite := false
@@ -289,9 +289,9 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		newobj = utils.RemoveSubOwnerRef(newobj)
 	}
 
-	if merge || isService {
-		if isService {
-			klog.Info("merging services or service account resource")
+	if merge || specialResource {
+		if specialResource {
+			klog.Info("One of special resources requiring merge update")
 		}
 
 		var objb, tplb, pb []byte
@@ -363,12 +363,21 @@ var serviceAccountGVR = schema.GroupVersionResource{
 	Resource: "serviceaccounts",
 }
 
+var namespaceGVR = schema.GroupVersionResource{
+	Version:  "v1",
+	Resource: "namespaces",
+}
+
+func isSpecialResource(gvr schema.GroupVersionResource) bool {
+	return gvr == serviceGVR || gvr == serviceAccountGVR || gvr == namespaceGVR
+}
+
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
-		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, (res.GroupVersionResource == serviceGVR || res.GroupVersionResource == serviceAccountGVR))
+		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
 		if err != nil {
 			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
@@ -377,7 +386,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	k string, tplunit *TemplateUnit, isService bool) error {
+	k string, tplunit *TemplateUnit, specialResource bool) error {
 	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 	var ri dynamic.ResourceInterface
@@ -401,7 +410,7 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 			klog.Error("Failed to apply resource with error:", err)
 		}
 	} else if !tplunit.ResourceUpdated {
-		err = sync.updateResourceByTemplateUnit(ri, obj, tplunit, isService)
+		err = sync.updateResourceByTemplateUnit(ri, obj, tplunit, specialResource)
 		// don't process the err of status update. leave it to next round house keeping
 	}
 	// leave the sync the check routine, not this one
