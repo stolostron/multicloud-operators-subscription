@@ -65,6 +65,22 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
+	chnAnnotations := channel.GetAnnotations()
+
+	if chnAnnotations[appv1.AnnotationResourceReconcileLevel] != "" {
+		// When channel reconcile rate is changed, this label is used to trigger
+		// managed cluster to pick up the channel change and adjust reconcile rate.
+		sublabels := sub.GetLabels()
+
+		if sublabels == nil {
+			sublabels = make(map[string]string)
+		}
+
+		sublabels[appv1.AnnotationResourceReconcileLevel] = chnAnnotations[appv1.AnnotationResourceReconcileLevel]
+		klog.Infof("Adding subscription label ", appv1.AnnotationResourceReconcileLevel, ": ", chnAnnotations[appv1.AnnotationResourceReconcileLevel])
+		sub.SetLabels(sublabels)
+	}
+
 	updateSubDplAnno := false
 
 	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
@@ -194,7 +210,7 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 	fFnd := utils.FilterOutTimeRelatedFields(fnd)
 
 	if !reflect.DeepEqual(fOrg, fFnd) {
-		klog.V(5).Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
+		klog.Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
 		return true
 	}
 
