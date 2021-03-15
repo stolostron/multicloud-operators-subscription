@@ -38,8 +38,8 @@ Use the following example to create a channel that connects to a public IBM Git 
    apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
-   name: ibm-charts-git
-   namespace: ibmcharts
+     name: ibm-charts-git
+     namespace: ibmcharts
    spec:
        type: Git
        pathname: https://github.com/IBM/charts.git
@@ -181,9 +181,8 @@ x509: certificate is valid for localhost.com, not localhost
 
 ```
 apiVersion: apps.open-cluster-management.io/v1
-ind: Channel
+kind: Channel
 metadata:
-labels:
   name: sample-channel
   namespace: sample
 spec:
@@ -240,6 +239,78 @@ metadata:
     apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
     apps.open-cluster-management.io/git-branch: branch1
 ```
+
+## Resource reconciliation rate settings
+
+The subscription operator compares currently deployed commit ID to the latest commit ID of the source repository every 3 munites and apply changes to target clusters when there is change. Every 15 minutes, it re-applies all resources from the source Git repository to the target clusters even if there is no change in the repository. The frequeny of resource reconciliation has impact on the performance of other application deployments and updates. For example, if there are hundreds of application subscriptions and you choose to reconcile all of these more frequently, the response time of reconcilication will be slower. Depending on the nature of kubernetes resources, it will help to select appropriate reconciliation frequency for better performance.
+
+### Reconcile frequency settings
+
+- `Off` : The deployed resources are not automatically reconciled. A change in the subscription CR triggers a reconciliation. You can add or update a label or annotation.
+- `Low` : The deployed resources are automatically reconciled every hour even if there is no change in the source Git repository.
+- `Medium`: This is the default setting. The subscription operator compares currently deployed commit ID to the latest commit ID of the source repository every 3 munites and apply changes to target clusters when there is change. Every 15 minutes, it re-applies all resources from the source Git repository to the target clusters even if there is no change in the repository.
+- `High`: The deployed resources are automatically reconciled every two minutes even if there is no change in the source Git repository.
+
+You can set this using `apps.open-cluster-management.io/reconcile-rate` annotation in the channel CR that is referenced by subscription. Here is an example.
+
+```yaml
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: git-channel
+  namespace: sample
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: low
+spec:
+  type: GitHub
+  pathname: <Git URL>
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: git-subscription
+  annotations:
+    apps.open-cluster-management.io/git-path: application1
+    apps.open-cluster-management.io/git-branch: branch1
+spec:
+  channel: sample/git-channel
+  placement:
+    local: true
+```
+
+In this example, all subscriptions that uses `sample/git-channel` get `low` reconciliation frequency. 
+
+Regardless of the reconcile-rate setting in the channel, a subscription can turn the auto-reconciliation `off` by specifying `apps.open-cluster-management.io/reconcile-rate: off` annotation in the subscription CR. For example, 
+
+```yaml
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: git-channel
+  namespace: sample
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
+spec:
+  type: GitHub
+  pathname: <Git URL>
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: git-subscription
+  annotations:
+    apps.open-cluster-management.io/git-path: application1
+    apps.open-cluster-management.io/git-branch: branch1
+    apps.open-cluster-management.io/reconcile-rate: "off"
+spec:
+  channel: sample/git-channel
+  placement:
+    local: true
+```
+
+In this example, the resources deployed by `git-subscription` will never be automatically reconciled even if the `reconcile-rate` is set to `high` in the channel.
 
 ## Enabling Git WebHook
 

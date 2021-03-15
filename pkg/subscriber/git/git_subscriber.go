@@ -121,13 +121,50 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.webhookEnabled = false
 	}
 
+	previousReconcileLevel := ghssubitem.reconcileRate
+
+	// If the channel does not have reconcile-level, default it to medium
+	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
+		klog.Info("Setting reconcile-level to default: medium")
+
+		ghssubitem.reconcileRate = "medium"
+	} else {
+		if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+			ghssubitem.reconcileRate = "off"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "low") {
+			ghssubitem.reconcileRate = "low"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "medium") {
+			ghssubitem.reconcileRate = "medium"
+		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "high") {
+			ghssubitem.reconcileRate = "high"
+		} else {
+			klog.Info("Channel's reconcile-level has unknown value: ", ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
+			klog.Info("Setting it to medium")
+
+			ghssubitem.reconcileRate = "medium"
+		}
+	}
+
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
 	}
 
-	ghssubitem.Start()
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", ghssubitem.reconcileRate)
+		ghssubitem.reconcileRate = "off"
+	}
+
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	ghssubitem.Start(restart)
 
 	return nil
 }
