@@ -210,7 +210,7 @@ func checkSubDeployables(found, dpl *dplv1alpha1.Deployable) bool {
 	fFnd := utils.FilterOutTimeRelatedFields(fnd)
 
 	if !reflect.DeepEqual(fOrg, fFnd) {
-		klog.Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
+		klog.V(5).Infof("different template: found:\n %v\n, dpl:\n %v\n", org, fnd)
 		return true
 	}
 
