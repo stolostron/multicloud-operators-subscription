@@ -121,27 +121,27 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.webhookEnabled = false
 	}
 
-	previousReconcileLevel := ghssubitem.reconcile_level
+	previousReconcileLevel := ghssubitem.reconcileLevel
 
 	klog.Info("ROKEROKE ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] = " + ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
 
 	// If the channel does not have reconcile-level, default it to medium
 	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
 		klog.Info("Setting reconcile-level to default: medium")
-		ghssubitem.reconcile_level = "medium"
+		ghssubitem.reconcileLevel = "medium"
 	} else {
 		if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
-			ghssubitem.reconcile_level = "off"
+			ghssubitem.reconcileLevel = "off"
 		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "low") {
-			ghssubitem.reconcile_level = "low"
+			ghssubitem.reconcileLevel = "low"
 		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "medium") {
-			ghssubitem.reconcile_level = "medium"
+			ghssubitem.reconcileLevel = "medium"
 		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "high") {
-			ghssubitem.reconcile_level = "high"
+			ghssubitem.reconcileLevel = "high"
 		} else {
 			klog.Info("Channel's reconcile-level has unknown value: ", ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
 			klog.Info("Setting it to medium")
-			ghssubitem.reconcile_level = "medium"
+			ghssubitem.reconcileLevel = "medium"
 		}
 	}
 
@@ -153,13 +153,13 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	// Reconcile level can be overridden to be
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
-		klog.Infof("Overriding channel's reconcile level %s to turn it off", ghssubitem.reconcile_level)
-		ghssubitem.reconcile_level = "off"
+		klog.Infof("Overriding channel's reconcile level %s to turn it off", ghssubitem.reconcileLevel)
+		ghssubitem.reconcileLevel = "off"
 	}
 
 	var restart bool = false
 
-	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcile_level) {
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileLevel) {
 		// reconcile frequency has changed. restart the go routine
 		restart = true
 	}
