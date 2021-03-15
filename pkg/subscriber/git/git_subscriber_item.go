@@ -219,7 +219,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe crd and ns resources")
-		return err
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -228,7 +227,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe rbac resources")
-		return err
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -237,7 +235,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe other resources")
-		return err
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -246,7 +243,6 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe kustomize resources")
-		return err
 	}
 
 	klog.V(4).Info("Applying helm charts..")
