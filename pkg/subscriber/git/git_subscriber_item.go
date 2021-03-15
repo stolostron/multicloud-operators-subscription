@@ -66,7 +66,7 @@ type SubscriberItem struct {
 	otherFiles            []string
 	repoRoot              string
 	commitID              string
-	reconcileLevel        string
+	reconcileRate         string
 	stopch                chan struct{}
 	syncinterval          int
 	count                 int
@@ -105,7 +105,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 
 	var loopPeriod time.Duration = 3 * time.Minute // every 3 minutes
 
-	if strings.EqualFold(ghsi.reconcileLevel, "off") {
+	if strings.EqualFold(ghsi.reconcileRate, "off") {
 		klog.Infof("auto-reconcile is OFF")
 
 		err := ghsi.doSubscription()
@@ -115,14 +115,14 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		}
 
 		return
-	} else if strings.EqualFold(ghsi.reconcileLevel, "low") {
-		klog.Infof("setting auto-reconcile to low")
+	} else if strings.EqualFold(ghsi.reconcileRate, "low") {
+		klog.Infof("setting auto-reconcile rate to low")
 		loopPeriod = 1 * time.Hour // every hour
-	} else if strings.EqualFold(ghsi.reconcileLevel, "medium") {
-		klog.Infof("setting auto-reconcile to medium")
+	} else if strings.EqualFold(ghsi.reconcileRate, "medium") {
+		klog.Infof("setting auto-reconcile rate to medium")
 		loopPeriod = 3 * time.Minute // every 3 minutes
-	} else if strings.EqualFold(ghsi.reconcileLevel, "high") {
-		klog.Infof("setting auto-reconcile to high")
+	} else if strings.EqualFold(ghsi.reconcileRate, "high") {
+		klog.Infof("setting auto-reconcile rate to high")
 		loopPeriod = 2 * time.Minute // every 2 minutes
 	}
 
@@ -189,7 +189,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	klog.Info("Git commit: ", commitID)
 
-	if strings.EqualFold(ghsi.reconcileLevel, "medium") {
+	if strings.EqualFold(ghsi.reconcileRate, "medium") {
 		// every 3 minutes, compare commit ID. If changed, reconcile resources.
 		// every 15 minutes, reconcile resources without commit ID comparison.
 		ghsi.count++
