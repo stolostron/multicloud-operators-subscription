@@ -95,7 +95,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
 	klog.V(2).Info("subscribeItem ", itemkey)
-	klog.Info("ROKEROKE subscribeItem ", itemkey)
 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
@@ -152,6 +151,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.clusterAdmin = true
 	}
 
+	// Reconcile level can be overridden to be
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
 		klog.Infof("Overriding channel's reconcile level %s to turn it off", ghssubitem.reconcile_level)
 		ghssubitem.reconcile_level = "off"

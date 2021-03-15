@@ -91,6 +91,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 	if ghsi.stopch != nil {
 		if restart {
 			// restart this goroutine
+			klog.Info("Stopping SubscriberItem: ", ghsi.Subscription.Name)
 			ghsi.Stop()
 		} else {
 			klog.Info("SubscriberItem already started: ", ghsi.Subscription.Name)
@@ -104,20 +105,20 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 
 	var loop_period time.Duration = 3 * time.Minute // every 3 minutes
 	if strings.EqualFold(ghsi.reconcile_level, "off") {
-		klog.Infof("OFF")
+		klog.Infof("auto-reconcile is OFF")
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
 		}
 		return
 	} else if strings.EqualFold(ghsi.reconcile_level, "low") {
-		klog.Infof("LOW")
+		klog.Infof("setting auto-reconcile to low")
 		loop_period = 1 * time.Hour // every hour
 	} else if strings.EqualFold(ghsi.reconcile_level, "medium") {
-		klog.Infof("MED")
+		klog.Infof("setting auto-reconcile to medium")
 		loop_period = 3 * time.Minute // every 3 minutes
 	} else if strings.EqualFold(ghsi.reconcile_level, "high") {
-		klog.Infof("HIGH")
+		klog.Infof("setting auto-reconcile to high")
 		loop_period = 2 * time.Minute // every 2 minutes
 	}
 
