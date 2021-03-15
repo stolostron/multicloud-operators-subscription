@@ -126,6 +126,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	// If the channel does not have reconcile-level, default it to medium
 	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
 		klog.Info("Setting reconcile-level to default: medium")
+
 		ghssubitem.reconcileLevel = "medium"
 	} else {
 		if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
@@ -139,6 +140,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		} else {
 			klog.Info("Channel's reconcile-level has unknown value: ", ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
 			klog.Info("Setting it to medium")
+
 			ghssubitem.reconcileLevel = "medium"
 		}
 	}
