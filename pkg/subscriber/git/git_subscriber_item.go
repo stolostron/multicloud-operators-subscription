@@ -66,7 +66,7 @@ type SubscriberItem struct {
 	otherFiles            []string
 	repoRoot              string
 	commitID              string
-	reconcile_level       string
+	reconcileLevel        string
 	stopch                chan struct{}
 	syncinterval          int
 	count                 int
@@ -104,20 +104,24 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 	ghsi.stopch = make(chan struct{})
 
 	var loop_period time.Duration = 3 * time.Minute // every 3 minutes
-	if strings.EqualFold(ghsi.reconcile_level, "off") {
+
+	if strings.EqualFold(ghsi.reconcileLevel, "off") {
 		klog.Infof("auto-reconcile is OFF")
+
 		err := ghsi.doSubscription()
+
 		if err != nil {
 			klog.Error(err, "Subscription error.")
 		}
+
 		return
-	} else if strings.EqualFold(ghsi.reconcile_level, "low") {
+	} else if strings.EqualFold(ghsi.reconcileLevel, "low") {
 		klog.Infof("setting auto-reconcile to low")
 		loop_period = 1 * time.Hour // every hour
-	} else if strings.EqualFold(ghsi.reconcile_level, "medium") {
+	} else if strings.EqualFold(ghsi.reconcileLevel, "medium") {
 		klog.Infof("setting auto-reconcile to medium")
 		loop_period = 3 * time.Minute // every 3 minutes
-	} else if strings.EqualFold(ghsi.reconcile_level, "high") {
+	} else if strings.EqualFold(ghsi.reconcileLevel, "high") {
 		klog.Infof("setting auto-reconcile to high")
 		loop_period = 2 * time.Minute // every 2 minutes
 	}
@@ -159,6 +163,7 @@ func (ghsi *SubscriberItem) Stop() {
 func (ghsi *SubscriberItem) doSubscription() error {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 	klog.Info("enter doSubscription: ", hostkey.String())
+
 	defer klog.Info("exit doSubscription: ", hostkey.String())
 
 	// If webhook is enabled, don't do anything until next reconcilitation.
@@ -184,16 +189,16 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	klog.Info("Git commit: ", commitID)
 
-	if strings.EqualFold(ghsi.reconcile_level, "medium") {
+	if strings.EqualFold(ghsi.reconcileLevel, "medium") {
 		// every 3 minutes, compare commit ID. If changed, reconcile resources.
 		// every 15 minutes, reconcile resources without commit ID comparison.
-		ghsi.count = ghsi.count + 1
+		ghsi.count++
 
 		if ghsi.commitID == "" {
 			klog.Infof("No previous commit. DEPLOY")
 		} else {
 			if ghsi.count < 6 {
-				if commitID == ghsi.commitID && ghsi.successful == true {
+				if commitID == ghsi.commitID && ghsi.successful {
 					klog.Infof("Appsub %s Git commit: %s hasn't changed. Skip reconcile.", hostkey.String(), commitID)
 					return nil
 				}
