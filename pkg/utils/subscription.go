@@ -293,6 +293,13 @@ var ChannelPredicateFunctions = predicate.Funcs{
 		newChn := e.ObjectNew.(*chnv1.Channel)
 		oldChn := e.ObjectOld.(*chnv1.Channel)
 
+		oldAnnotations := oldChn.GetAnnotations()
+		newAnnotations := newChn.GetAnnotations()
+
+		if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
+			return true
+		}
+
 		return !reflect.DeepEqual(newChn.Spec, oldChn.Spec)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {

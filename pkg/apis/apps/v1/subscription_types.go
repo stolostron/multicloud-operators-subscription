@@ -68,6 +68,8 @@ var (
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
 	// AnnotationResourceReconcileOption is for reconciling existing resource
 	AnnotationResourceReconcileOption = SchemeGroupVersion.Group + "/reconcile-option"
+	// AnnotationResourceReconcileLevel is for resource reconciliation frequency
+	AnnotationResourceReconcileLevel = SchemeGroupVersion.Group + "/reconcile-rate"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name
