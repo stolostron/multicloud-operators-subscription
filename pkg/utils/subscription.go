@@ -296,7 +296,6 @@ var ChannelPredicateFunctions = predicate.Funcs{
 		oldAnnotations := oldChn.GetAnnotations()
 		newAnnotations := newChn.GetAnnotations()
 
-		// we care annotation change. pass it down
 		if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
 			return true
 		}
