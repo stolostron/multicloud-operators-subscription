@@ -97,11 +97,6 @@ func GetDefaultSynchronizer() *KubeSynchronizer {
 	return defaultSynchronizer
 }
 
-/*func overrideQPS(cfg *rest.Config) {
-	cfg.QPS = 100.0
-	cfg.Burst = 200
-}*/
-
 // CreateSynchronizer createa an instance of synchrizer with give api-server config
 func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Scheme, syncid *types.NamespacedName,
 	interval int, ext Extension) (*KubeSynchronizer, error) {
@@ -113,9 +108,6 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 	}
 
 	var err error
-
-	//overrideQPS(config)
-	//overrideQPS(remoteConfig)
 
 	dynamicClient := dynamic.NewForConfigOrDie(config)
 
