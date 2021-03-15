@@ -103,7 +103,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 
 	ghsi.stopch = make(chan struct{})
 
-	var loop_period time.Duration = 3 * time.Minute // every 3 minutes
+	var loopPeriod time.Duration = 3 * time.Minute // every 3 minutes
 
 	if strings.EqualFold(ghsi.reconcileLevel, "off") {
 		klog.Infof("auto-reconcile is OFF")
@@ -117,13 +117,13 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		return
 	} else if strings.EqualFold(ghsi.reconcileLevel, "low") {
 		klog.Infof("setting auto-reconcile to low")
-		loop_period = 1 * time.Hour // every hour
+		loopPeriod = 1 * time.Hour // every hour
 	} else if strings.EqualFold(ghsi.reconcileLevel, "medium") {
 		klog.Infof("setting auto-reconcile to medium")
-		loop_period = 3 * time.Minute // every 3 minutes
+		loopPeriod = 3 * time.Minute // every 3 minutes
 	} else if strings.EqualFold(ghsi.reconcileLevel, "high") {
 		klog.Infof("setting auto-reconcile to high")
-		loop_period = 2 * time.Minute // every 2 minutes
+		loopPeriod = 2 * time.Minute // every 2 minutes
 	}
 
 	go wait.Until(func() {
@@ -151,7 +151,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		} else {
 			ghsi.successful = true
 		}
-	}, loop_period, ghsi.stopch)
+	}, loopPeriod, ghsi.stopch)
 }
 
 // Stop unsubscribes a subscriber item with namespace channel

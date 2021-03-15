@@ -123,8 +123,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	previousReconcileLevel := ghssubitem.reconcileLevel
 
-	klog.Info("ROKEROKE ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] = " + ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
-
 	// If the channel does not have reconcile-level, default it to medium
 	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
 		klog.Info("Setting reconcile-level to default: medium")
