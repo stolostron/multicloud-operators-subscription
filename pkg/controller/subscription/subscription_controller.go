@@ -90,14 +90,14 @@ type channelMapper struct {
 }
 
 func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
-	//if klog.V(utils.QuiteLogLel) {
-	fnName := utils.GetFnName()
-	klog.Infof("Entering: %v()", fnName)
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
 
-	defer klog.Infof("Exiting: %v()", fnName)
-	//}
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
 
-	// if channel is created/updated/deleted, its relative subscriptions should be reconciled.
+	// if channel is created/updated/deleted, its subscriptions should be reconciled.
 
 	chn := obj.Meta.GetNamespace() + "/" + obj.Meta.GetName()
 
@@ -122,7 +122,7 @@ func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
 		}
 	}
 
-	klog.Info("Out channel mapper with requests:", requests)
+	klog.V(5).Info("Out channel mapper with requests:", requests)
 
 	return requests
 }
@@ -328,13 +328,6 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		if err := r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret); err != nil {
 			return gerr.Wrap(err, "failed to get reference secret from channel")
 		}
-	}
-
-	annotations := subitem.Channel.GetAnnotations()
-
-	for key, ann := range annotations {
-		klog.Info("ROKEROKE annotation key = ", key)
-		klog.Info("ROKEROKE annotation value = ", ann)
 	}
 
 	if subitem.Channel.Spec.ConfigMapRef != nil {
