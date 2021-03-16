@@ -28,6 +28,7 @@ import (
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 type itemmap map[types.NamespacedName]*SubscriberItem
@@ -123,33 +124,11 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	previousReconcileLevel := ghssubitem.reconcileRate
 
-	// If the channel does not have reconcile-level, default it to medium
-	if ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel] == "" {
-		klog.Info("Setting reconcile-level to default: medium")
-
-		ghssubitem.reconcileRate = "medium"
-	} else {
-		if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
-			ghssubitem.reconcileRate = "off"
-		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "low") {
-			ghssubitem.reconcileRate = "low"
-		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "medium") {
-			ghssubitem.reconcileRate = "medium"
-		} else if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel], "high") {
-			ghssubitem.reconcileRate = "high"
-		} else {
-			klog.Info("Channel's reconcile-level has unknown value: ", ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationResourceReconcileLevel])
-			klog.Info("Setting it to medium")
-
-			ghssubitem.reconcileRate = "medium"
-		}
-	}
+	chnAnnotations := ghssubitem.Channel.GetAnnotations()
 
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
-	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
-		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.clusterAdmin = true
-	}
+
+	ghssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
 
 	// Reconcile level can be overridden to be
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
