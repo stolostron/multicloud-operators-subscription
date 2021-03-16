@@ -37,7 +37,6 @@ env:
 
 # define stages
 stages:
-  - lint
   - build
   - unit-test
   - test-e2e
@@ -45,11 +44,6 @@ stages:
 
 jobs:
   include:
-    - stage: lint
-      name: "Run code lint"
-      if: type = pull_request
-      script: bash ${TRAVIS_BUILD_DIR}/build/run-code-lint.sh
-
     - stage: build
       name: "Build the image and run unit tests"
       script:
