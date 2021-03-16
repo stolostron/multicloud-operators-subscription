@@ -93,6 +93,20 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 
 		hrsi.doSubscription()
 
+		// If the initial subscription fails, retry.
+		n := 0
+
+		for n < retries {
+			if !hrsi.success {
+				time.Sleep(retryInterval)
+				klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
+				hrsi.doSubscription()
+				n++
+			} else {
+				break
+			}
+		}
+
 		return
 	}
 

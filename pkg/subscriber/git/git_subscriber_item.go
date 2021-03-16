@@ -115,6 +115,25 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 			klog.Error(err, "Subscription error.")
 		}
 
+		// If the initial subscription fails, retry.
+		n := 0
+
+		for n < retries {
+			if !ghsi.successful {
+				time.Sleep(retryInterval)
+				klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
+
+				err = ghsi.doSubscription()
+				if err != nil {
+					klog.Error(err, "Subscription error.")
+				}
+
+				n++
+			} else {
+				break
+			}
+		}
+
 		return
 	}
 
