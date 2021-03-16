@@ -1061,7 +1061,7 @@ func GetReconcileRate(chnAnnotations, subAnnotations map[string]string) string {
 }
 
 // GetReconcileInterval determines reconcile loop interval based on reconcileRate setting
-func GetReconcileInterval(reconcileRate string) (time.Duration, time.Duration, int) {
+func GetReconcileInterval(reconcileRate, chType string) (time.Duration, time.Duration, int) {
 	interval := 3 * time.Minute       // reconcile interval
 	retryInterval := 90 * time.Second // re-try interval when reconcile fails
 	retryCount := 1                   // number of re-tries when reconcile fails
@@ -1076,6 +1076,9 @@ func GetReconcileInterval(reconcileRate string) (time.Duration, time.Duration, i
 		klog.Infof("setting auto-reconcile rate to medium")
 
 		interval = 3 * time.Minute // every 3 minutes
+		if strings.EqualFold(chType, chnv1.ChannelTypeHelmRepo) {
+			interval = 15 * time.Minute
+		}
 		retryInterval = 90 * time.Second
 		retryCount = 1
 	} else if strings.EqualFold(reconcileRate, "high") {

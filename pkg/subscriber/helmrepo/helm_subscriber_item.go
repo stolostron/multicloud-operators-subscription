@@ -86,7 +86,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 
 	hrsi.stopch = make(chan struct{})
 
-	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(hrsi.reconcileRate)
+	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(hrsi.reconcileRate, chnv1.ChannelTypeHelmRepo)
 
 	if strings.EqualFold(hrsi.reconcileRate, "off") {
 		klog.Infof("auto-reconcile is OFF")
