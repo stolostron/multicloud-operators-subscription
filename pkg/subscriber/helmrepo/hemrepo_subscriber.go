@@ -16,6 +16,7 @@ package helmrepo
 
 import (
 	"errors"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -27,6 +28,7 @@ import (
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 type SyncSource interface {
@@ -107,7 +109,28 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	hrs.itemmap[itemkey] = hrssubitem
 
-	hrssubitem.Start()
+	previousReconcileLevel := hrssubitem.reconcileRate
+
+	chnAnnotations := hrssubitem.Channel.GetAnnotations()
+
+	subAnnotations := hrssubitem.Subscription.GetAnnotations()
+
+	hrssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
+
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", hrssubitem.reconcileRate)
+		hrssubitem.reconcileRate = "off"
+	}
+
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, hrssubitem.reconcileRate) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	hrssubitem.Start(restart)
 
 	return nil
 }
