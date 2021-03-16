@@ -33,6 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -668,32 +669,38 @@ func TestGetReconcileInterval(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// these intervals are not used if off. Just default values
-	loopPeriod, retryInterval, retries := GetReconcileInterval("off")
+	loopPeriod, retryInterval, retries := GetReconcileInterval("off", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
 	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
 	g.Expect(retries).To(gomega.Equal(1))
 
 	// if reconcile rate is unknown, just default values
-	loopPeriod, retryInterval, retries = GetReconcileInterval("unknown")
+	loopPeriod, retryInterval, retries = GetReconcileInterval("unknown", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
 	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
 	g.Expect(retries).To(gomega.Equal(1))
 
-	loopPeriod, retryInterval, retries = GetReconcileInterval("low")
+	loopPeriod, retryInterval, retries = GetReconcileInterval("low", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(gomega.Equal(1 * time.Hour))
 	g.Expect(retryInterval).To(gomega.Equal(3 * time.Minute))
 	g.Expect(retries).To(gomega.Equal(3))
 
-	loopPeriod, retryInterval, retries = GetReconcileInterval("medium")
+	loopPeriod, retryInterval, retries = GetReconcileInterval("medium", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
 	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
 	g.Expect(retries).To(gomega.Equal(1))
 
-	loopPeriod, retryInterval, retries = GetReconcileInterval("high")
+	loopPeriod, retryInterval, retries = GetReconcileInterval("medium", chnv1.ChannelTypeHelmRepo)
+
+	g.Expect(loopPeriod).To(gomega.Equal(15 * time.Minute))
+	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
+	g.Expect(retries).To(gomega.Equal(1))
+
+	loopPeriod, retryInterval, retries = GetReconcileInterval("high", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(gomega.Equal(2 * time.Minute))
 	g.Expect(retryInterval).To(gomega.Equal(60 * time.Second))
