@@ -24,6 +24,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -1022,4 +1023,68 @@ func IsHub(config *rest.Config) bool {
 	klog.Infof("multiclusterHub resource count: %v", objCount)
 
 	return objCount > 0
+}
+
+// GetReconcileRate determines reconcile rate based on channel annotations
+func GetReconcileRate(chnAnnotations, subAnnotations map[string]string) string {
+	rate := "medium"
+
+	// If the channel does not have reconcile-level, default it to medium
+	if chnAnnotations[appv1.AnnotationResourceReconcileLevel] == "" {
+		klog.Info("Setting reconcile-level to default: medium")
+
+		rate = "medium"
+	} else {
+		if strings.EqualFold(chnAnnotations[appv1.AnnotationResourceReconcileLevel], "off") {
+			rate = "off"
+		} else if strings.EqualFold(chnAnnotations[appv1.AnnotationResourceReconcileLevel], "low") {
+			rate = "low"
+		} else if strings.EqualFold(chnAnnotations[appv1.AnnotationResourceReconcileLevel], "medium") {
+			rate = "medium"
+		} else if strings.EqualFold(chnAnnotations[appv1.AnnotationResourceReconcileLevel], "high") {
+			rate = "high"
+		} else {
+			klog.Info("Channel's reconcile-level has unknown value: ", chnAnnotations[appv1.AnnotationResourceReconcileLevel])
+			klog.Info("Setting it to medium")
+
+			rate = "medium"
+		}
+	}
+
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", rate)
+		rate = "off"
+	}
+
+	return rate
+}
+
+// GetReconcileInterval determines reconcile loop interval based on reconcileRate setting
+func GetReconcileInterval(reconcileRate string) (time.Duration, time.Duration, int) {
+	interval := 3 * time.Minute       // reconcile interval
+	retryInterval := 90 * time.Second // re-try interval when reconcile fails
+	retryCount := 1                   // number of re-tries when reconcile fails
+
+	if strings.EqualFold(reconcileRate, "low") {
+		klog.Infof("setting auto-reconcile rate to low")
+
+		interval = 1 * time.Hour // every hour
+		retryInterval = 3 * time.Minute
+		retryCount = 3
+	} else if strings.EqualFold(reconcileRate, "medium") {
+		klog.Infof("setting auto-reconcile rate to medium")
+
+		interval = 3 * time.Minute // every 3 minutes
+		retryInterval = 90 * time.Second
+		retryCount = 1
+	} else if strings.EqualFold(reconcileRate, "high") {
+		klog.Infof("setting auto-reconcile rate to high")
+
+		interval = 2 * time.Minute // every 2 minutes
+		retryInterval = 60 * time.Second
+		retryCount = 1
+	}
+
+	return interval, retryInterval, retryCount
 }

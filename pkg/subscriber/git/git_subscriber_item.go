@@ -103,7 +103,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 
 	ghsi.stopch = make(chan struct{})
 
-	var loopPeriod time.Duration = 3 * time.Minute // every 3 minutes
+	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(ghsi.reconcileRate)
 
 	if strings.EqualFold(ghsi.reconcileRate, "off") {
 		klog.Infof("auto-reconcile is OFF")
@@ -115,15 +115,6 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		}
 
 		return
-	} else if strings.EqualFold(ghsi.reconcileRate, "low") {
-		klog.Infof("setting auto-reconcile rate to low")
-		loopPeriod = 1 * time.Hour // every hour
-	} else if strings.EqualFold(ghsi.reconcileRate, "medium") {
-		klog.Infof("setting auto-reconcile rate to medium")
-		loopPeriod = 3 * time.Minute // every 3 minutes
-	} else if strings.EqualFold(ghsi.reconcileRate, "high") {
-		klog.Infof("setting auto-reconcile rate to high")
-		loopPeriod = 2 * time.Minute // every 2 minutes
 	}
 
 	go wait.Until(func() {
@@ -147,9 +138,25 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		err := ghsi.doSubscription()
 		if err != nil {
 			klog.Error(err, "Subscription error.")
-			ghsi.successful = false
-		} else {
-			ghsi.successful = true
+		}
+
+		// If the initial subscription fails, retry.
+		n := 0
+
+		for n < retries {
+			if !ghsi.successful {
+				time.Sleep(retryInterval)
+				klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
+
+				err = ghsi.doSubscription()
+				if err != nil {
+					klog.Error(err, "Subscription error.")
+				}
+
+				n++
+			} else {
+				break
+			}
 		}
 	}, loopPeriod, ghsi.stopch)
 }
@@ -184,6 +191,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	commitID, err := ghsi.cloneGitRepo()
 	if err != nil {
 		klog.Error(err, "Unable to clone the git repo ", ghsi.Channel.Spec.Pathname)
+		ghsi.successful = false
+
 		return err
 	}
 
@@ -214,6 +223,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	err = ghsi.sortClonedGitRepo()
 	if err != nil {
 		klog.Error(err, " Unable to sort helm charts and kubernetes resources from the cloned git repo.")
+
+		ghsi.successful = false
+
 		return err
 	}
 
@@ -225,6 +237,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, " Unable to subscribe crd and ns resources")
+
+		ghsi.successful = false
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -233,6 +247,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, " Unable to subscribe rbac resources")
+
+		ghsi.successful = false
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -241,6 +257,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, " Unable to subscribe other resources")
+
+		ghsi.successful = false
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -249,6 +267,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, " Unable to subscribe kustomize resources")
+
+		ghsi.successful = false
 	}
 
 	klog.V(4).Info("Applying helm charts..")
@@ -257,11 +277,17 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Error(err, "Unable to subscribe helm charts")
+
+		ghsi.successful = false
+
 		return err
 	}
 
 	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
 		klog.Error(err)
+
+		ghsi.successful = false
+
 		return err
 	}
 

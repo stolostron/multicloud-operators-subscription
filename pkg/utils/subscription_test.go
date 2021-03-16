@@ -629,3 +629,73 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 		})
 	}
 }
+
+func TestGetReconcileRate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	chnAnnotations := make(map[string]string)
+	subAnnotations := make(map[string]string)
+
+	// defaut medium
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+
+	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "off"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("off"))
+
+	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "low"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("low"))
+
+	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "medium"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+
+	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "high"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("high"))
+
+	// Subscription can override reconcile level to be off
+	subAnnotations[appv1.AnnotationResourceReconcileLevel] = "off"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("off"))
+
+	// Subscription can not override reconcile level to be something other than off
+	subAnnotations[appv1.AnnotationResourceReconcileLevel] = "low"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("high"))
+
+	// If annotation has unknown value, default to medium
+	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "mediumhigh"
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+}
+
+func TestGetReconcileInterval(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// these intervals are not used if off. Just default values
+	loopPeriod, retryInterval, retries := GetReconcileInterval("off")
+
+	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
+	g.Expect(retries).To(gomega.Equal(1))
+
+	// if reconcile rate is unknown, just default values
+	loopPeriod, retryInterval, retries = GetReconcileInterval("unknown")
+
+	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
+	g.Expect(retries).To(gomega.Equal(1))
+
+	loopPeriod, retryInterval, retries = GetReconcileInterval("low")
+
+	g.Expect(loopPeriod).To(gomega.Equal(1 * time.Hour))
+	g.Expect(retryInterval).To(gomega.Equal(3 * time.Minute))
+	g.Expect(retries).To(gomega.Equal(3))
+
+	loopPeriod, retryInterval, retries = GetReconcileInterval("medium")
+
+	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
+	g.Expect(retries).To(gomega.Equal(1))
+
+	loopPeriod, retryInterval, retries = GetReconcileInterval("high")
+
+	g.Expect(loopPeriod).To(gomega.Equal(2 * time.Minute))
+	g.Expect(retryInterval).To(gomega.Equal(60 * time.Second))
+	g.Expect(retries).To(gomega.Equal(1))
+}

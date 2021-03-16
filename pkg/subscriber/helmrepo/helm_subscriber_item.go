@@ -51,11 +51,13 @@ import (
 type SubscriberItem struct {
 	appv1.SubscriberItem
 
-	hash         string
-	stopch       chan struct{}
-	syncinterval int
-	success      bool
-	synchronizer SyncSource
+	hash          string
+	reconcileRate string
+	stopch        chan struct{}
+	count         int
+	syncinterval  int
+	success       bool
+	synchronizer  SyncSource
 }
 
 var (
@@ -67,13 +69,32 @@ var (
 )
 
 // SubscribeItem subscribes a subscriber item with namespace channel
-func (hrsi *SubscriberItem) Start() {
+func (hrsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if hrsi.stopch != nil {
-		return
+		if restart {
+			// restart this goroutine
+			klog.Info("Stopping SubscriberItem: ", hrsi.Subscription.Name)
+			hrsi.Stop()
+		} else {
+			klog.Info("SubscriberItem already started: ", hrsi.Subscription.Name)
+			return
+		}
 	}
 
+	hrsi.count = 0 // reset the counter
+
 	hrsi.stopch = make(chan struct{})
+
+	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(hrsi.reconcileRate)
+
+	if strings.EqualFold(hrsi.reconcileRate, "off") {
+		klog.Infof("auto-reconcile is OFF")
+
+		hrsi.doSubscription()
+
+		return
+	}
 
 	go wait.Until(func() {
 		tw := hrsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -94,7 +115,21 @@ func (hrsi *SubscriberItem) Start() {
 		}
 
 		hrsi.doSubscription()
-	}, time.Duration(hrsi.syncinterval)*time.Second, hrsi.stopch)
+
+		// If the initial subscription fails, retry.
+		n := 0
+
+		for n < retries {
+			if !hrsi.success {
+				time.Sleep(retryInterval)
+				klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
+				hrsi.doSubscription()
+				n++
+			} else {
+				break
+			}
+		}
+	}, loopPeriod, hrsi.stopch)
 }
 
 func (hrsi *SubscriberItem) Stop() {
