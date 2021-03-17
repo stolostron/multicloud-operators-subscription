@@ -79,7 +79,7 @@ jobs:
 
     - stage: publish
       name: "Publish the image to quay with an official version/sha tag and publish entry to integration pipeline stage"
-      if: type = push AND branch =~ /^release-[0-9]+\..*$/
+      if: type = push AND branch =~ /^release-[0-2]\.[0-2]*$/
       script:
         - |
           make
