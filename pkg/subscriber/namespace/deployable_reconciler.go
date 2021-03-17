@@ -90,6 +90,9 @@ func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Requ
 func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Infof("deployable reconciling: %v deployable for subitem %v", request.NamespacedName, r.itemkey.String())
 
+	if r.subscriber.itemmap[r.itemkey] == nil || r.subscriber.itemmap[r.itemkey].Subscription == nil {
+		return reconcile.Result{Requeue: true}, nil
+	}
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow
 	if !r.isUpdateLinkedSubscription(request) && tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())

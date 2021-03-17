@@ -16,8 +16,7 @@ package namespace
 
 import (
 	"context"
-	"reflect"
-
+	"fmt"
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -25,6 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"os"
+	"reflect"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -174,8 +175,21 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to create cache for namespace subscriber item")
 	}
 
-	hubclient, err := client.New(ns.config, client.Options{})
+	//	hubclient, err := client.New(ns.config, client.Options{})
+	//
+	//	if err != nil {
+	//		return errors.Wrap(err, "failed to create client for namespace subscriber item")
+	//	}
 
+	// since we already created cacahe, we don't do the middle man.
+	// also the cache is also used for detecting deployalbe changed over
+	// the hub side
+	//
+	// we are watch and changing(status) the hub side deployable at the
+	// same time, so we use a predictFunc
+	// to avoid the potential sync loop
+	klog.Info("middler-man using hub cached client for namespace: ", subitem.Channel.Namespace)
+	hubclient, err := manager.DefaultNewClient(nssubitem.cache, ns.config, client.Options{})
 	if err != nil {
 		return errors.Wrap(err, "failed to create client for namespace subscriber item")
 	}
@@ -228,9 +242,11 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 
 	go func() {
 		err := nssubitem.cache.Start(nssubitem.stopch)
+		fmt.Fprintf(os.Stdout, "middler-man using hub cached after: %s, err: %v ", subitem.Channel.Namespace, err)
 		if err != nil {
 			klog.Error("failed to start cache for Namespace subscriber item with error: ", err)
 		}
+		fmt.Fprintf(os.Stdout, "middler-man using hub cached started:  %s, err: %v ", subitem.Channel.Namespace, err)
 	}()
 
 	go func() {
@@ -247,6 +263,11 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		}
 	}()
 
+	if !nssubitem.cache.WaitForCacheSync(nssubitem.stopch)  {
+		return errors.New("failed to wait for the hub cache to sync")
+	}
+
+	klog.Info("middler-man ", subitem.Channel.Namespace)
 	nssubitem.dplreconciler = dplReconciler
 	nssubitem.srtreconciler = secretreconciler
 

@@ -70,6 +70,10 @@ func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Resul
 
 	curSubItem := s.NsSubscriber.itemmap[s.Itemkey]
 
+	if curSubItem == nil || curSubItem.Subscription == nil {
+		return reconcile.Result{Requeue: true}, nil
+	}
+
 	tw := curSubItem.Subscription.Spec.TimeWindow
 	if tw != nil {
 		nextRun := utils.NextStartPoint(tw, time.Now())
