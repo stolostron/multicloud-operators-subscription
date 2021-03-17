@@ -91,21 +91,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 	if strings.EqualFold(hrsi.reconcileRate, "off") {
 		klog.Infof("auto-reconcile is OFF")
 
-		hrsi.doSubscription()
-
-		// If the initial subscription fails, retry.
-		n := 0
-
-		for n < retries {
-			if !hrsi.success {
-				time.Sleep(retryInterval)
-				klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
-				hrsi.doSubscription()
-				n++
-			} else {
-				break
-			}
-		}
+		hrsi.doSubscriptionWithRetries(retryInterval, retries)
 
 		return
 	}
@@ -128,21 +114,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 			return
 		}
 
-		hrsi.doSubscription()
-
-		// If the initial subscription fails, retry.
-		n := 0
-
-		for n < retries {
-			if !hrsi.success {
-				time.Sleep(retryInterval)
-				klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
-				hrsi.doSubscription()
-				n++
-			} else {
-				break
-			}
-		}
+		hrsi.doSubscriptionWithRetries(retryInterval, retries)
 	}, loopPeriod, hrsi.stopch)
 }
 
@@ -150,6 +122,24 @@ func (hrsi *SubscriberItem) Stop() {
 	if hrsi.stopch != nil {
 		close(hrsi.stopch)
 		hrsi.stopch = nil
+	}
+}
+
+func (hrsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
+	hrsi.doSubscription()
+
+	// If the initial subscription fails, retry.
+	n := 0
+
+	for n < retries {
+		if !hrsi.success {
+			time.Sleep(retryInterval)
+			klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
+			hrsi.doSubscription()
+			n++
+		} else {
+			break
+		}
 	}
 }
 
