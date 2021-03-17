@@ -109,30 +109,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 	if strings.EqualFold(ghsi.reconcileRate, "off") {
 		klog.Infof("auto-reconcile is OFF")
 
-		err := ghsi.doSubscription()
-
-		if err != nil {
-			klog.Error(err, "Subscription error.")
-		}
-
-		// If the initial subscription fails, retry.
-		n := 0
-
-		for n < retries {
-			if !ghsi.successful {
-				time.Sleep(retryInterval)
-				klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
-
-				err = ghsi.doSubscription()
-				if err != nil {
-					klog.Error(err, "Subscription error.")
-				}
-
-				n++
-			} else {
-				break
-			}
-		}
+		ghsi.doSubscriptionWithRetries(retryInterval, retries)
 
 		return
 	}
@@ -155,29 +132,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 			return
 		}
 
-		err := ghsi.doSubscription()
-		if err != nil {
-			klog.Error(err, "Subscription error.")
-		}
-
-		// If the initial subscription fails, retry.
-		n := 0
-
-		for n < retries {
-			if !ghsi.successful {
-				time.Sleep(retryInterval)
-				klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
-
-				err = ghsi.doSubscription()
-				if err != nil {
-					klog.Error(err, "Subscription error.")
-				}
-
-				n++
-			} else {
-				break
-			}
-		}
+		ghsi.doSubscriptionWithRetries(retryInterval, retries)
 	}, loopPeriod, ghsi.stopch)
 }
 
@@ -185,6 +140,33 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 func (ghsi *SubscriberItem) Stop() {
 	klog.Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
+}
+
+func (ghsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
+	err := ghsi.doSubscription()
+
+	if err != nil {
+		klog.Error(err, "Subscription error.")
+	}
+
+	// If the initial subscription fails, retry.
+	n := 0
+
+	for n < retries {
+		if !ghsi.successful {
+			time.Sleep(retryInterval)
+			klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
+
+			err = ghsi.doSubscription()
+			if err != nil {
+				klog.Error(err, "Subscription error.")
+			}
+
+			n++
+		} else {
+			break
+		}
+	}
 }
 
 func (ghsi *SubscriberItem) doSubscription() error {
