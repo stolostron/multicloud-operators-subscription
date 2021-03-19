@@ -120,19 +120,19 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 
 	valid := make(map[schema.GroupVersionKind]bool)
 
+		sync.kmtx.Lock()
+		defer sync.kmtx.Unlock()
 	for _, rl := range filteredResources {
 		sync.validateAPIResourceList(rl, valid)
 	}
 
 	klog.V(5).Info("valid resources remain:", valid)
 
-	sync.kmtx.Lock()
 	for k := range sync.KubeResources {
 		if _, ok := valid[k]; !ok {
 			delete(sync.KubeResources, k)
 		}
 	}
-	sync.kmtx.Unlock()
 }
 
 func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList, valid map[schema.GroupVersionKind]bool) {
@@ -159,9 +159,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			continue
 		}
 
-		sync.kmtx.Lock()
 		resmap, ok := sync.KubeResources[gvk]
-		sync.kmtx.Unlock()
 
 		valid[gvk] = true
 
@@ -184,9 +182,7 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 			resmap.GroupVersionResource = gvr
 			resmap.Namespaced = res.Namespaced
 
-			sync.kmtx.Lock()
 			sync.KubeResources[gvk] = resmap
-			sync.kmtx.Unlock()
 
 			//telling cache that when action happens, call the handlerFuncs
 			sync.dynamicFactory.ForResource(gvr).Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -238,9 +234,6 @@ func kubeResourceAddVersionToGK(kubeResource map[schema.GroupVersionKind]*Resour
 }
 
 func (sync *KubeSynchronizer) markServerUpdated(gvk schema.GroupVersionKind) {
-	sync.kmtx.Lock()
-	defer sync.kmtx.Unlock()
-
 	if resmap, ok := sync.KubeResources[gvk]; ok {
 		resmap.ServerUpdated = true
 	}

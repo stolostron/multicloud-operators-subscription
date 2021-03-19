@@ -15,7 +15,6 @@
 package kubernetes
 
 import (
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -52,7 +52,9 @@ type ResourceMap struct {
 	Namespaced           bool
 	ServerUpdated        bool
 	TemplateMap          map[string]*TemplateUnit
+	Lister               informers.GenericInformer
 }
+
 
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {
@@ -125,6 +127,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		tplCh:          make(chan resourceOrder, syncWorkNum),
 		dmtx:           sync.Mutex{},
 		stopCh:         make(chan struct{}),
+		dynamicFactory: dynamicinformer.NewDynamicSharedInformerFactory(dynamicClient, informerFactoryPeriod),
 	}
 
 	s.lmiddle, err = newMiddleMan(config, &types.NamespacedName{Name: "local"})
@@ -179,13 +182,23 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	go sync.rmiddle.c.Start(s)
 	sync.rmiddle.Logger.Info("cache started")
 
-	if !sync.lmiddle.c.WaitForCacheSync(s){
-		return errors.New("failed to start up local cache")
+	if !sync.lmiddle.c.WaitForCacheSync(s) {
+		return fmt.Errorf("failed to start up local cache")
 	}
 
-	if !sync.rmiddle.c.WaitForCacheSync(s){
-		return errors.New("failed to start up local cache")
+	if !sync.rmiddle.c.WaitForCacheSync(s) {
+		return fmt.Errorf("failed to start up remote cache")
 	}
+
+	go sync.dynamicFactory.Start(s)
+
+	for gvr, ok := range sync.dynamicFactory.WaitForCacheSync(s) {
+		if !ok {
+			return fmt.Errorf("failed to start up dynamic cache for %s", gvr)
+		}
+	}
+
+	mlogger.WithName("cache-start-up").Info("dynamic cache started up")
 
 	return nil
 }
