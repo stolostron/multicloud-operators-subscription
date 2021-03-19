@@ -18,7 +18,7 @@ import (
 var mlogger logr.Logger
 
 func init() {
-	logger, _ := uzap.NewDevelopment(uzap.AddCaller())
+	logger, _ := uzap.NewDevelopment(uzap.AddCaller(), uzap.AddCallerSkip(1))
 
 	mlogger = zapr.NewLogger(logger)
 }
