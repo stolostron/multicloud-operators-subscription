@@ -15,6 +15,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+var mlogger logr.Logger
+
+func init() {
+	logger, _ := uzap.NewDevelopment(uzap.AddCaller())
+
+	mlogger = zapr.NewLogger(logger)
+}
+
 type middleManStatus struct {
 	clt    client.Client
 	Logger logr.Logger
@@ -46,14 +54,8 @@ func newMiddleMan(config *rest.Config, nsKey *types.NamespacedName) (*middleMan,
 	m.clt = clt
 	m.sclt = ms
 
-	logger, err := uzap.NewDevelopment()
-	if err != nil {
-		return nil, err
-	}
-
-	l := zapr.NewLogger(logger)
-	m.Logger = l.WithName(fmt.Sprintf("middleman-on-%s", mg.name))
-	ms.Logger = l.WithName(fmt.Sprintf("middleman-status-on-%s", m.name))
+	m.Logger = mlogger.WithName(fmt.Sprintf("middleman-on-%s", m.name))
+	ms.Logger = mlogger.WithName(fmt.Sprintf("middleman-status-on-%s", m.name))
 
 	return m, nil
 }
