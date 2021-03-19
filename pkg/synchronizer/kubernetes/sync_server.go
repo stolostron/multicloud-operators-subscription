@@ -25,8 +25,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -52,9 +52,29 @@ type ResourceMap struct {
 	Namespaced           bool
 	ServerUpdated        bool
 	TemplateMap          map[string]*TemplateUnit
-	Lister               informers.GenericInformer
+	Lister               cache.GenericLister
 }
 
+func (r *ResourceMap) Getter(key types.NamespacedName) (*unstructured.Unstructured, error) {
+	var obj runtime.Object
+	var err error
+	if r.Namespaced {
+		obj, err = r.Lister.ByNamespace(key.Namespace).Get(key.Name)
+	} else {
+		obj, err = r.Lister.Get(key.Name)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %s from dynamic informer, err: %w ", key, err)
+	}
+
+	u, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert object %s from dynamic informer, err: %w", key, err)
+	}
+
+	return &unstructured.Unstructured{Object: u}, nil
+}
 
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {

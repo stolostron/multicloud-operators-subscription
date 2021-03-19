@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/klog"
 )
@@ -93,20 +92,20 @@ func (sync *KubeSynchronizer) startDynamicClientCache() {
 }
 
 func (sync *KubeSynchronizer) rediscoverResource() {
-	sync.stopDynamicClientCaching()
+	//sync.stopDynamicClientCaching()
 	sync.discoverResourcesOnce()
-	sync.startDynamicClientCache()
+	//sync.startDynamicClientCache()
 }
 
 func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.V(1).Info("Discovering cluster resources")
 	defer klog.V(1).Info("Discovered cluster resources, done")
 
-	sync.dmtx.Lock()
-	if sync.dynamicFactory == nil {
-		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
-	}
-	sync.dmtx.Unlock()
+	//	sync.dmtx.Lock()
+	//	if sync.dynamicFactory == nil {
+	//		sync.dynamicFactory = dynamicinformer.NewDynamicSharedInformerFactory(sync.DynamicClient, informerFactoryPeriod)
+	//	}
+	//	sync.dmtx.Unlock()
 
 	resources, err := discovery.NewDiscoveryClientForConfigOrDie(sync.localConfig).ServerPreferredResources()
 	if err != nil {
@@ -120,8 +119,8 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 
 	valid := make(map[schema.GroupVersionKind]bool)
 
-		sync.kmtx.Lock()
-		defer sync.kmtx.Unlock()
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 	for _, rl := range filteredResources {
 		sync.validateAPIResourceList(rl, valid)
 	}
@@ -163,21 +162,23 @@ func (sync *KubeSynchronizer) validateAPIResourceList(rl *metav1.APIResourceList
 
 		valid[gvk] = true
 
+		// kind added by registration, complete it with informer
+		// create new dynamic factor if this is first new api found
+		gvr := schema.GroupVersionResource{
+			Group:    gv.Group,
+			Version:  gv.Version,
+			Resource: res.Name,
+		}
+
 		if !ok {
 			resmap = &ResourceMap{
 				GroupVersionResource: schema.GroupVersionResource{},
 				TemplateMap:          make(map[string]*TemplateUnit),
+				Lister:               sync.dynamicFactory.ForResource(gvr).Lister(),
 			}
 		}
 
 		if resmap.GroupVersionResource.Empty() {
-			// kind added by registration, complete it with informer
-			// create new dynamic factor if this is first new api found
-			gvr := schema.GroupVersionResource{
-				Group:    gv.Group,
-				Version:  gv.Version,
-				Resource: res.Name,
-			}
 
 			resmap.GroupVersionResource = gvr
 			resmap.Namespaced = res.Namespaced

@@ -543,6 +543,8 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	template.SetLabels(tpllbls)
 
 	tplgvk := template.GetObjectKind().GroupVersionKind()
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 	validgvk := sync.GetValidatedGVK(tplgvk)
 
 	if validgvk == nil {
