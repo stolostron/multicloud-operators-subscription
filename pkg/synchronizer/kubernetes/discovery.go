@@ -118,7 +118,6 @@ func (sync *KubeSynchronizer) discoverResourcesOnce() {
 	klog.V(5).Info("Discovered resources: ", filteredResources)
 
 	valid := make(map[schema.GroupVersionKind]bool)
-
 	sync.kmtx.Lock()
 	defer sync.kmtx.Unlock()
 	for _, rl := range filteredResources {

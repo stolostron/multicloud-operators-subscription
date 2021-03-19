@@ -83,6 +83,8 @@ func (sync *KubeSynchronizer) GetValidatedGVK(org schema.GroupVersionKind) *sche
 
 	var regGvk schema.GroupVersionKind
 
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 	// return the right version of gv
 	for gvk := range sync.KubeResources {
 		if valid.GroupKind() == gvk.GroupKind() {

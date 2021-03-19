@@ -377,7 +377,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
-		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
+		err := sync.applyTemplate(res, nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
 		if err != nil {
 			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
@@ -385,7 +385,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 	}
 }
 
-func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
+func (sync *KubeSynchronizer) applyTemplate(resmap *ResourceMap, nri dynamic.NamespaceableResourceInterface, namespaced bool,
 	k string, tplunit *TemplateUnit, specialResource bool) error {
 	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
@@ -401,8 +401,9 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		return nil
 	}
 
-	obj, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
+	//obj, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 
+	obj, err := resmap.Getter(types.NamespacedName{Name: tplunit.GetName(), Namespace: tplunit.GetNamespace()})
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = sync.createNewResourceByTemplateUnit(ri, tplunit)
@@ -460,8 +461,10 @@ func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName,
 				dl = sync.DynamicClient.Resource(resmap.GroupVersionResource)
 			}
 
-			// check resource ownership
-			tgtobj, err := dl.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
+			//			// check resource ownership
+			//			tgtobj, err := dl.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
+
+			tgtobj, err := resmap.Getter(types.NamespacedName{Name: tplunit.GetName(), Namespace: tplunit.GetNamespace()})
 			if err == nil {
 				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
 					klog.V(5).Info("Resource is owned by ", host, "Deleting ", tplunit.Unstructured)
@@ -543,8 +546,7 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 	template.SetLabels(tpllbls)
 
 	tplgvk := template.GetObjectKind().GroupVersionKind()
-	sync.kmtx.Lock()
-	defer sync.kmtx.Unlock()
+
 	validgvk := sync.GetValidatedGVK(tplgvk)
 
 	if validgvk == nil {
@@ -553,6 +555,8 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	template.SetGroupVersionKind(*validgvk)
 
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 	resmap, ok := sync.KubeResources[*validgvk]
 
 	if !ok {

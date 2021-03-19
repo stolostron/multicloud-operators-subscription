@@ -315,7 +315,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	}
 
 	// handle orphan resource
-	sync.kmtx.Lock()
+	//sync.kmtx.Lock()
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
@@ -343,7 +343,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 		sync.applyKindTemplates(resmap)
 	}
-	sync.kmtx.Unlock()
+	//sync.kmtx.Unlock()
 
 	if crdFlag {
 		sync.rediscoverResource()
