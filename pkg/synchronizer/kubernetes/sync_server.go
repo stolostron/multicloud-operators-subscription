@@ -58,6 +58,9 @@ type ResourceMap struct {
 func (r *ResourceMap) Getter(key types.NamespacedName) (*unstructured.Unstructured, error) {
 	var obj runtime.Object
 	var err error
+
+	defer mlogger.WithName("middle-man-resmap").Info(fmt.Sprintf("Getter on: %s", key.String()))
+
 	if r.Namespaced {
 		obj, err = r.Lister.ByNamespace(key.Namespace).Get(key.Name)
 	} else {
