@@ -555,13 +555,13 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 
 func cloneGitRepoBranch(
 	repoURL string,
-	branchName string,
+	branchName, commitHash, tag string,
 	user, pwd string,
 	sshkey, passphrase []byte,
 	repoBranchDir string,
 	skipCertVerify bool,
 	caCert string) (string, error) {
-	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName),
+	return utils.CloneGitRepo(repoURL, commitHash, tag, utils.GetSubscriptionBranchRef(branchName),
 		user, pwd, sshkey, passphrase, repoBranchDir, skipCertVerify, caCert)
 }
 

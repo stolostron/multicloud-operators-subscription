@@ -240,6 +240,40 @@ metadata:
     apps.open-cluster-management.io/git-branch: branch1
 ```
 
+## Subscribing to a specific commit
+
+The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the latest commit of specified branch of a Git repository by default. If you want to subscribe to a specific commit, you need to specify the desired commit annotation with the commit hash in the subscription.
+
+The following example Subscription YAML shows how to specify a different commit:
+
+```yaml
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: git-mongodb-subscription
+  annotations:
+    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
+    apps.open-cluster-management.io/git-desired-commit: 9374cda5cf3c7cd27d419562614898dc7d841eb7
+```
+
+## Subscribing to a specific tag
+
+The subscription operator that is include in this `multicloud-operators-subscription` repository subscribes to the latest commit of specified branch of a Git repository by default. If you want to subscribe to a specific tag, you need to specify the tag annotation in the subscription.
+
+The following example Subscription YAML shows how to specify a tag:
+
+```yaml
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: git-mongodb-subscription
+  annotations:
+    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
+    apps.open-cluster-management.io/git-tag: v1.0
+```
+
+Note: If both Git desired commit and tag annotations are specified, the tag will be ignored.
+
 ## Resource reconciliation rate settings
 
 The subscription operator compares currently deployed commit ID to the latest commit ID of the source repository every 3 munites and apply changes to target clusters when there is change. Every 15 minutes, it re-applies all resources from the source Git repository to the target clusters even if there is no change in the repository. The frequeny of resource reconciliation has impact on the performance of other application deployments and updates. For example, if there are hundreds of application subscriptions and you choose to reconcile all of these more frequently, the response time of reconcilication will be slower. Depending on the nature of kubernetes resources, it will help to select appropriate reconciliation frequency for better performance.
@@ -367,6 +401,3 @@ oc annotate channel.apps.open-cluster-management.io <channel name> apps.open-clu
 
 No webhook specific configuration is needed in subscriptions.
 
-## Limitations
-
-* You cannot subscribe to a specific commit of a branch.

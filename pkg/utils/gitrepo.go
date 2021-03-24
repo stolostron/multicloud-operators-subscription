@@ -139,7 +139,7 @@ func getCertChain(certs string) tls.Certificate {
 
 // CloneGitRepo clones a GitHub repository
 func CloneGitRepo(
-	repoURL string,
+	repoURL, revisionTag, commitHash string,
 	branch plumbing.ReferenceName,
 	user, password string,
 	sshKey, passphrase []byte,
@@ -186,28 +186,69 @@ func CloneGitRepo(
 
 		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
 		if err != nil {
-			klog.Error(err, "failed to prepare SSH clone options")
+			klog.Error(err, " failed to prepare SSH clone options")
 			return "", err
 		}
 	}
 
 	klog.V(2).Info("Cloning ", repoURL, " into ", destDir)
-	r, err := git.PlainClone(destDir, false, options)
+	repo, err := git.PlainClone(destDir, false, options)
 
 	if err != nil {
-		klog.Error(err, "Failed to git clone: ", err.Error())
+		klog.Error(err, " Failed to git clone: ", err.Error())
 		return "", err
 	}
 
-	ref, err := r.Head()
+	ref, err := repo.Head()
 	if err != nil {
-		klog.Error(err, "Failed to get git repo head")
+		klog.Error(err, " Failed to get git repo head")
 		return "", err
 	}
 
-	commit, err := r.CommitObject(ref.Hash())
+	// If both commitHash and revisionTag are provided, take commitHash.
+	targetCommit := commitHash
+
+	if revisionTag != "" && targetCommit == "" {
+		tag := "refs/tags/" + revisionTag
+		releasetag := plumbing.Revision(tag)
+
+		revisionHash, err := repo.ResolveRevision(releasetag)
+
+		if err != nil {
+			klog.Error(err, " failed to resolve revision")
+			return "", err
+		}
+
+		klog.Infof("Revision tag %s is resolved to %s", revisionTag, revisionHash)
+		targetCommit = revisionHash.String()
+	}
+
+	if targetCommit != "" {
+		workTree, err := repo.Worktree()
+
+		if err != nil {
+			klog.Error(err, " Failed to get work tree")
+			return "", err
+		}
+
+		err = workTree.Checkout(&git.CheckoutOptions{
+			Hash:   plumbing.NewHash(strings.TrimSpace(targetCommit)),
+			Create: false,
+		})
+
+		if err != nil {
+			klog.Error(err, " Failed to checkout commit")
+			return "", err
+		}
+
+		return targetCommit, nil
+	}
+
+	// Otherwise return the latest commit ID
+	commit, err := repo.CommitObject(ref.Hash())
+
 	if err != nil {
-		klog.Error(err, "Failed to get git repo commit")
+		klog.Error(err, " Failed to get git repo commit")
 		return "", err
 	}
 
