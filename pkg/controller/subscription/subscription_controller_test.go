@@ -121,7 +121,7 @@ func TestReconcileWithoutTimeWindowStatusFlow(t *testing.T) {
 	rec := newReconciler(mgr, mgr.GetClient(), nil, false)
 	recFn, requests := SetupTestReconcile(rec)
 
-	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+	g.Expect(add(mgr, recFn, false)).NotTo(gomega.HaveOccurred())
 
 	stopMgr, mgrStopped := StartTestManager(mgr, g)
 
@@ -361,7 +361,7 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 			rec := spyReconciler(mgr, mgr.GetClient(), nil, (&testClock{tt.curTime}).now, true)
 			recFn, reconciliation := ReconcilerSpy(rec)
 
-			g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+			g.Expect(add(mgr, recFn, false)).NotTo(gomega.HaveOccurred())
 
 			// Set the subscription placement to be local so that it is reconciled.
 			pl := &plv1.Placement{}
