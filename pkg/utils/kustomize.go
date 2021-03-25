@@ -55,7 +55,7 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 }
 
 func CheckPackageOverride(ov *appv1.Overrides) error {
-	if ov.PackageOverrides == nil {
+	if ov.PackageOverrides == nil || len(ov.PackageOverrides) < 1 {
 		return errors.New("no PackageOverride is specified. Skipping to override kustomization")
 	}
 
