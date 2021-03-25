@@ -33,10 +33,6 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 )
 
-const (
-	skipCRDupdate = true
-)
-
 var cfg *rest.Config
 
 func TestMain(m *testing.M) {
