@@ -44,7 +44,7 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
 
     echo -e "\nBUILD_IMAGE tag $BUILD_IMAGE\n"
     echo -e "Modify deployment to point to the PR image\n"
-    sed -i -e "s|image: .*:community-latest$|image: $BUILD_IMAGE|" deploy/standalone/operator.yaml
+    sed -i -e "s|image: .*:latest$|image: $BUILD_IMAGE|" deploy/standalone/operator.yaml
 
     echo -e "\nDownload and install KinD\n"
     GO111MODULE=on go get sigs.k8s.io/kind

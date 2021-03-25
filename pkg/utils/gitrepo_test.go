@@ -457,7 +457,7 @@ spec:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func TestWrongKustomizeOverride(t *testing.T) {
+func TestIncorrectKustomizeOverride(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
