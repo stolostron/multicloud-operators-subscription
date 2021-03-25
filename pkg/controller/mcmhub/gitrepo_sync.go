@@ -509,7 +509,7 @@ func (r *ReconcileSubscription) createDeployable(
 	filecontent []byte) error {
 	obj := &unstructured.Unstructured{}
 
-	if err := yaml.Unmarshal(filecontent, &obj); err != nil {
+	if err := yaml.Unmarshal(filecontent, obj); err != nil {
 		klog.Error("Failed to unmarshal resource YAML.")
 		return err
 	}

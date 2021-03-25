@@ -21,7 +21,6 @@ import (
 	"sync"
 	"testing"
 
-	tlog "github.com/go-logr/logr/testing"
 	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -32,7 +31,6 @@ import (
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -49,22 +47,6 @@ func TestMain(m *testing.M) {
 
 	apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
 	apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-
-	updateCRDs := func() error {
-		if skipCRDupdate {
-			return nil
-		}
-
-		storepath := "../../../hack/test"
-
-		tests := []string{"deployable", "channel", "ansiblejob", "managedcluster", "helmrelease", "placementrule"}
-
-		return utils.UpdateCRDs(storepath, tests, tlog.NullLogger{})
-	}
-
-	if err := updateCRDs(); err != nil {
-		stdlog.Fatal(err)
-	}
 
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
