@@ -34,17 +34,17 @@ spec:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
               of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#resources'
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
             type: string
           kind:
             description: 'Kind is a string value representing the REST resource this
               object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
             type: string
           metadata:
             type: object
           spec:
-            description: DeployableSpec defines the desired state of Deployable
+            description: DeployableSpec defines the desired state of Deployable.
             properties:
               channels:
                 items:
@@ -53,7 +53,7 @@ spec:
               dependencies:
                 items:
                   description: Dependency of Deployable Properties field is the flexiblity
-                    for different Kind
+                    for different Kind.
                   properties:
                     annotations:
                       additionalProperties:
@@ -76,7 +76,7 @@ spec:
                         subject to change in the future.'
                       type: string
                     kind:
-                      description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                      description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                       type: string
                     labels:
                       additionalProperties:
@@ -90,7 +90,7 @@ spec:
                       type: string
                     resourceVersion:
                       description: 'Specific resourceVersion to which this reference
-                        is made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                        is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                       type: string
                     uid:
                       description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -99,14 +99,14 @@ spec:
                 type: array
               overrides:
                 items:
-                  description: Overrides field in deployable
+                  description: Overrides field in deployable.
                   properties:
                     clusterName:
                       type: string
                     clusterOverrides:
                       items:
-                        description: ClusterOverride describes rules for override
                         type: object
+                        x-kubernetes-preserve-unknown-fields: true
                       minItems: 1
                       type: array
                   required:
@@ -178,8 +178,31 @@ spec:
                   local:
                     type: boolean
                   placementRef:
-                    description: ObjectReference contains enough information to let
-                      you inspect or modify the referred object.
+                    description: 'ObjectReference contains enough information to let
+                      you inspect or modify the referred object. --- New uses of this
+                      type are discouraged because of difficulty describing its usage
+                      when embedded in APIs.  1. Ignored fields.  It includes many
+                      fields which are not generally honored.  For instance, ResourceVersion
+                      and FieldPath are both very rarely valid in actual usage.  2.
+                      Invalid usage help.  It is impossible to add specific help for
+                      individual usage.  In most embedded usages, there are particular     restrictions
+                      like, "must refer only to types A and B" or "UID not honored"
+                      or "name must be restricted".     Those cannot be well described
+                      when embedded.  3. Inconsistent validation.  Because the usages
+                      are different, the validation rules are different by usage,
+                      which makes it hard for users to predict what will happen.  4.
+                      The fields are both imprecise and overly precise.  Kind is not
+                      a precise mapping to a URL. This can produce ambiguity     during
+                      interpretation and require a REST mapping.  In most cases, the
+                      dependency is on the group,resource tuple     and the version
+                      of the actual struct is irrelevant.  5. We cannot easily change
+                      it.  Because this type is embedded in many locations, updates
+                      to this type     will affect numerous schemas.  Don''t make
+                      new APIs embed an underspecified API type they do not control.
+                      Instead of using this type, create a locally provided and used
+                      type that is well-focused on your reference. For example, ServiceReferences
+                      for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
+                      .'
                     properties:
                       apiVersion:
                         description: API version of the referent.
@@ -198,7 +221,7 @@ spec:
                           is subject to change in the future.'
                         type: string
                       kind:
-                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#types-kinds'
+                        description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
                         type: string
                       name:
                         description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
@@ -208,7 +231,7 @@ spec:
                         type: string
                       resourceVersion:
                         description: 'Specific resourceVersion to which this reference
-                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#concurrency-control-and-consistency'
+                          is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
                         type: string
                       uid:
                         description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
@@ -222,7 +245,42 @@ spec:
             - template
             type: object
           status:
-            description: DeployableStatus defines the observed state of Deployable
+            description: DeployableStatus defines the observed state of Deployable.
+            properties:
+              lastUpdateTime:
+                format: date-time
+                type: string
+              message:
+                type: string
+              phase:
+                description: DeployablePhase indicate the phase of a deployable.
+                type: string
+              reason:
+                type: string
+              resourceStatus:
+                type: object
+              targetClusters:
+                additionalProperties:
+                  description: ResourceUnitStatus aggregates status from target clusters.
+                  properties:
+                    lastUpdateTime:
+                      format: date-time
+                      type: string
+                    message:
+                      type: string
+                    phase:
+                      description: DeployablePhase indicate the phase of a deployable.
+                      type: string
+                    reason:
+                      type: string
+                    resourceStatus:
+                      type: object
+                  required:
+                  - phase
+                  type: object
+                type: object
+            required:
+            - phase
             type: object
         type: object
     served: true
