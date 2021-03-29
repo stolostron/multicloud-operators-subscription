@@ -29,7 +29,7 @@ import (
 )
 
 var (
-	repourl   = "https://kubernetes-charts.storage.googleapis.com/"
+	repourl   = "https://charts.helm.sh/stable/"
 	sharedkey = types.NamespacedName{
 		Name:      "test",
 		Namespace: "default",

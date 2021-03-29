@@ -21,11 +21,11 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
+	"helm.sh/helm/v3/pkg/repo"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/helm/pkg/repo"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -154,7 +154,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
-	fullUrls = append(fullUrls, "https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.36.3.tgz")
+	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")
 
 	var fullChartVersions []*repo.ChartVersion
 	fullChartVersions = append(fullChartVersions, &repo.ChartVersion{URLs: fullUrls})
@@ -164,62 +164,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.36.3.tgz"))
-}
-
-func TestCheckTillerVersion(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Git clone with a secret
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
-	githubsub.SetAnnotations(subanno)
-
-	packageFilter := &appv1alpha1.PackageFilter{}
-	annotations := make(map[string]string)
-	annotations["tillerVersion"] = "2.10.0"
-
-	packageFilter.Annotations = annotations
-
-	githubsub.Spec.PackageFilter = packageFilter
-
-	githubsub.Spec.Package = "chart1"
-
-	chartDirs := make(map[string]string)
-	chartDirs["../../test/github/helmcharts/chart1/"] = "../../test/github/helmcharts/chart1/"
-
-	indexFile, err := GenerateHelmIndexFile(githubsub, "../..", chartDirs)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	chartVersion, err := indexFile.Get("chart1", "1.1.1")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(chartVersion).NotTo(gomega.BeNil())
-
-	ret := checkTillerVersion(githubsub, chartVersion)
-	g.Expect(ret).To(gomega.BeTrue())
-
-	packageFilter = &appv1alpha1.PackageFilter{}
-	annotations = make(map[string]string)
-	annotations["tillerVersion"] = "2.8.0"
-
-	packageFilter.Annotations = annotations
-
-	githubsub.Spec.PackageFilter = packageFilter
-
-	ret = checkTillerVersion(githubsub, chartVersion)
-	g.Expect(ret).To(gomega.BeFalse())
+			"https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz"))
 }
 
 func TestCheckVersion(t *testing.T) {
@@ -442,6 +387,6 @@ func TestDeleteHelmReleaseCRD(t *testing.T) {
 func TestIsURL(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	g.Expect(IsURL("https://kubernetes-charts.storage.googleapis.com/nginx-ingress-1.40.1.tgz")).To(gomega.BeTrue())
+	g.Expect(IsURL("https://charts.helm.sh/stable/packages/nginx-ingress-1.40.1.tgz")).To(gomega.BeTrue())
 	g.Expect(IsURL("nginx-ingress-1.40.1.tgz")).To(gomega.BeFalse())
 }

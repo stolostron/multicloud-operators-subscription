@@ -40,4 +40,4 @@ gem install awesome_bot
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)"/bin v1.28.3
 
 # Start lint task
-make lint
+make -f Makefile.prow lint-all

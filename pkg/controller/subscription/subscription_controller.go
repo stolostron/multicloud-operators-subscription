@@ -82,7 +82,49 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	subs[chnv1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
-	return add(mgr, newReconciler(mgr, hubclient, subs, standalone))
+	return add(mgr, newReconciler(mgr, hubclient, subs, standalone), standalone)
+}
+
+type channelMapper struct {
+	client.Client
+}
+
+func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
+	if klog.V(utils.QuiteLogLel) {
+		fnName := utils.GetFnName()
+		klog.Infof("Entering: %v()", fnName)
+
+		defer klog.Infof("Exiting: %v()", fnName)
+	}
+
+	// if channel is created/updated/deleted, its subscriptions should be reconciled.
+
+	chn := obj.Meta.GetNamespace() + "/" + obj.Meta.GetName()
+
+	var requests []reconcile.Request
+
+	subList := &appv1.SubscriptionList{}
+	listopts := &client.ListOptions{}
+	err := mapper.List(context.TODO(), subList, listopts)
+
+	if err != nil {
+		klog.Error("Listing all subscriptions in channelMapper and got error:", err)
+	}
+
+	for _, sub := range subList.Items {
+		if sub.Spec.Channel == chn {
+			objkey := types.NamespacedName{
+				Name:      sub.GetName(),
+				Namespace: sub.GetNamespace(),
+			}
+
+			requests = append(requests, reconcile.Request{NamespacedName: objkey})
+		}
+	}
+
+	klog.V(5).Info("Out channel mapper with requests:", requests)
+
+	return requests
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -103,7 +145,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
+func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	// Create a new controller
 	c, err := controller.New("subscription-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
@@ -114,6 +156,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(&source.Kind{Type: &appv1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
+	}
+
+	if standalone {
+		// There is no channel CRD on a managed cluster
+		err = c.Watch(
+			&source.Kind{Type: &chnv1.Channel{}},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}},
+			utils.ChannelPredicateFunctions)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

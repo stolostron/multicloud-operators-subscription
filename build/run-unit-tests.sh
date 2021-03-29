@@ -1,35 +1,31 @@
-#!/bin/bash
+#!/bin/bash -e
+###############################################################################
+# (c) Copyright IBM Corporation 2019, 2020. All Rights Reserved.
+# Note to U.S. Government Users Restricted Rights:
+# U.S. Government Users Restricted Rights - Use, duplication or disclosure restricted by GSA ADP Schedule
+# Contract with IBM Corp.
+# Copyright (c) Red Hat, Inc.
+# Copyright Contributors to the Open Cluster Management project
+###############################################################################
 
-#
-# Copyright 2019 The Kubernetes Authors.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+_script_dir=$(dirname "$0")
+if ! which patter > /dev/null; then      echo "Installing patter ..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/apg/patter && popd; fi
+if ! which gocovmerge > /dev/null; then  echo "Installing gocovmerge..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/wadey/gocovmerge && popd; fi
 
-echo "UNIT TESTS GO HERE!"
+export GOFLAGS=""
+mkdir -p test_tmp/unit/coverage
+echo 'mode: atomic' > test_tmp/unit/coverage/cover.out
+echo '' > test_tmp/unit/coverage/cover.tmp
+echo -e "${GOPACKAGES// /\\n}" | xargs -n1 -I{} $_script_dir/test-package.sh {} ${GOPACKAGES// /,}
 
-echo "Install Kubebuilder components for test framework usage!"
+if [ ! -f test_tmp/unit/coverage/cover.out ]; then
+    echo "Coverage file test_tmp/unit/coverage/cover.out does not exist"
+    exit 0
+fi
 
-_OS=$(go env GOOS)
-_ARCH=$(go env GOARCH)
-KubeBuilderVersion="2.3.1"
-# download kubebuilder and extract it to tmp
-curl -L https://go.kubebuilder.io/dl/"$KubeBuilderVersion"/"${_OS}"/"${_ARCH}" | tar -xz -C /tmp/
+COVERAGE=$(go tool cover -func=test_tmp/unit/coverage/cover.out | grep "total:" | awk '{ print $3 }' | sed 's/[][()><%]/ /g')
+echo "-------------------------------------------------------------------------"
+echo "TOTAL COVERAGE IS ${COVERAGE}%"
+echo "-------------------------------------------------------------------------"
 
-# move to a long-term location and put it on your path
-# (you'll need to set the KUBEBUILDER_ASSETS env var if you put it somewhere else)
-sudo mv /tmp/kubebuilder_"$KubeBuilderVersion"_"${_OS}"_"${_ARCH}" /usr/local/kubebuilder
-export PATH=$PATH:/usr/local/kubebuilder/bin
-
-# Run unit test
-export IMAGE_NAME_AND_VERSION=${1}
-make test
+go tool cover -html=test_tmp/unit/coverage/cover.out -o=test_tmp/unit/coverage/cover.html

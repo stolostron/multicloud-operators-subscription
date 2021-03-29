@@ -28,6 +28,7 @@ import (
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 type itemmap map[types.NamespacedName]*SubscriberItem
@@ -121,13 +122,28 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.webhookEnabled = false
 	}
 
+	previousReconcileLevel := ghssubitem.reconcileRate
+
+	chnAnnotations := ghssubitem.Channel.GetAnnotations()
+
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
-	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
-		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.clusterAdmin = true
+
+	ghssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
+
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", ghssubitem.reconcileRate)
+		ghssubitem.reconcileRate = "off"
 	}
 
-	ghssubitem.Start()
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	ghssubitem.Start(restart)
 
 	return nil
 }
