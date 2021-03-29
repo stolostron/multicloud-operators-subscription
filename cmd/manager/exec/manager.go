@@ -183,6 +183,7 @@ func RunManager() {
 
 	// Start the Cmd
 	if err := mgr.Start(sig); err != nil {
+		klog.Infof("izhang >>> option: %#v", Options)
 		klog.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
