@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	crdv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,7 +44,7 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 		return err
 	}
 
-	var crdobj crdv1beta1.CustomResourceDefinition
+	var crdobj crdv1.CustomResourceDefinition
 
 	var crddata []byte
 
@@ -64,11 +64,11 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 
 	klog.V(10).Info("Loaded Application CRD: ", crdobj, "\n - From - \n", string(crddata))
 
-	crd, err := crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crdobj.GetName(), metav1.GetOptions{})
+	crd, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdobj.GetName(), metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		klog.Info("Installing SIG Application CRD from File: ", pathname)
 		// Install sig app
-		_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), &crdobj, metav1.CreateOptions{})
+		_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &crdobj, metav1.CreateOptions{})
 		if err != nil {
 			klog.Fatal("Creating CRD", err.Error())
 			return err
@@ -77,7 +77,7 @@ func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 		if !reflect.DeepEqual(crd.Spec, crdobj.Spec) {
 			klog.Info("CRD ", crdobj.GetName(), " is being updated with ", pathname)
 			crdobj.Spec.DeepCopyInto(&crd.Spec)
-			_, err = crdClient.ApiextensionsV1beta1().CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
+			_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
 			if err != nil {
 				klog.Fatal("Updating CRD", err.Error())
 				return err
