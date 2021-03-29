@@ -766,6 +766,18 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationResourceReconcileOption] = origsubanno[appv1alpha1.AnnotationResourceReconcileOption]
 	}
 
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitTargetCommit], "") {
+		subepanno[appv1alpha1.AnnotationGitTargetCommit] = origsubanno[appv1alpha1.AnnotationGitTargetCommit]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitTag], "") {
+		subepanno[appv1alpha1.AnnotationGitTag] = origsubanno[appv1alpha1.AnnotationGitTag]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGitCloneDepth], "") {
+		subepanno[appv1alpha1.AnnotationGitCloneDepth] = origsubanno[appv1alpha1.AnnotationGitCloneDepth]
+	}
+
 	// Add annotation for git path and branch
 	// It is recommended to define Git path and branch in subscription annotations but
 	// this code is to support those that already use ConfigMap.
