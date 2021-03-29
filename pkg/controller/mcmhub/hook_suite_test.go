@@ -27,6 +27,7 @@ import (
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -79,7 +80,7 @@ var _ = BeforeSuite(func(done Done) {
 		return defaultCommit, nil
 	}
 
-	cloneFunc := func(string, string, string, string, []byte, []byte, string, bool, string) (string, error) {
+	cloneFunc := func(*utils.GitCloneOption) (string, error) {
 		return defaultCommit, nil
 	}
 

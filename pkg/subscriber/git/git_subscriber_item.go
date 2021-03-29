@@ -20,6 +20,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -646,16 +647,35 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelCertificateData]
 	}
 
-	return utils.CloneGitRepo(
-		ghsi.Channel.Spec.Pathname,
-		utils.GetSubscriptionBranch(ghsi.Subscription),
-		user,
-		token,
-		sshKey,
-		passphrase,
-		ghsi.repoRoot,
-		ghsi.Channel.Spec.InsecureSkipVerify,
-		caCert)
+	annotations := ghsi.Subscription.GetAnnotations()
+
+	cloneDepth := 1
+
+	if annotations[appv1.AnnotationGitCloneDepth] != "" {
+		cloneDepth, err = strconv.Atoi(annotations[appv1.AnnotationGitCloneDepth])
+
+		if err != nil {
+			cloneDepth = 1
+			klog.Error(err, " failed to convert git-clone-depth annotation to integer")
+		}
+	}
+
+	cloneOptions := &utils.GitCloneOption{
+		RepoURL:            ghsi.Channel.Spec.Pathname,
+		CommitHash:         annotations[appv1.AnnotationGitTargetCommit],
+		RevisionTag:        annotations[appv1.AnnotationGitTag],
+		CloneDepth:         cloneDepth,
+		Branch:             utils.GetSubscriptionBranch(ghsi.Subscription),
+		User:               user,
+		Password:           token,
+		SshKey:             sshKey,
+		Passphrase:         passphrase,
+		DestDir:            ghsi.repoRoot,
+		InsecureSkipVerify: ghsi.Channel.Spec.InsecureSkipVerify,
+		CaCerts:            caCert,
+	}
+
+	return utils.CloneGitRepo(cloneOptions)
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

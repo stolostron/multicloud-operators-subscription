@@ -58,6 +58,8 @@ var (
 	AnnotationGitBranch = SchemeGroupVersion.Group + "/git-branch"
 	// AnnotationGitCommit defines currently deployed Git repo commit ID
 	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-current-commit"
+	// AnnotationGitCloneDepth defines Git repo clone depth to be able to check out previous commits
+	AnnotationGitCloneDepth = SchemeGroupVersion.Group + "/git-clone-depth"
 	// AnnotationGitTag defines Git repo commit to be deployed
 	AnnotationGitTargetCommit = SchemeGroupVersion.Group + "/git-desired-commit"
 	// AnnotationGitTag defines Git repo revision tag
