@@ -656,6 +656,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 
 		if err != nil {
 			cloneDepth = 1
+
 			klog.Error(err, " failed to convert git-clone-depth annotation to integer")
 		}
 	}
@@ -668,7 +669,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		Branch:             utils.GetSubscriptionBranch(ghsi.Subscription),
 		User:               user,
 		Password:           token,
-		SshKey:             sshKey,
+		SSHKey:             sshKey,
 		Passphrase:         passphrase,
 		DestDir:            ghsi.repoRoot,
 		InsecureSkipVerify: ghsi.Channel.Spec.InsecureSkipVerify,

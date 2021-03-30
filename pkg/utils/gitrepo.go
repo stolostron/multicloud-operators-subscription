@@ -83,7 +83,7 @@ type GitCloneOption struct {
 	Branch             plumbing.ReferenceName
 	User               string
 	Password           string
-	SshKey             []byte
+	SSHKey             []byte
 	Passphrase         []byte
 	DestDir            string
 	InsecureSkipVerify bool
@@ -203,7 +203,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			return "", err
 		}
 
-		err = getSSHOptions(options, cloneOptions.SshKey, cloneOptions.Passphrase, knownhostsfile, cloneOptions.InsecureSkipVerify)
+		err = getSSHOptions(options, cloneOptions.SSHKey, cloneOptions.Passphrase, knownhostsfile, cloneOptions.InsecureSkipVerify)
 		if err != nil {
 			klog.Error(err, " failed to prepare SSH clone options")
 			return "", err

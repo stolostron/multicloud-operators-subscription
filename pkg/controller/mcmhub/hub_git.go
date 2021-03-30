@@ -208,6 +208,7 @@ func (h *HubGitOps) GitWatch() {
 					branchInfo.gitCloneOptions.Branch.Short(),
 					branchInfo.gitCloneOptions.CommitHash,
 					branchInfo.gitCloneOptions.RevisionTag))
+
 				continue
 			}
 
@@ -309,7 +310,7 @@ func genBranchString(subIns *subv1.Subscription) string {
 
 	branch, commit, tag, _ := getBranchCommitDepthAndTag(subIns)
 
-	// Honour commit first, then tag, then branch. These are mutually exclusive
+	// Honor commit first, then tag, then branch. These are mutually exclusive
 	if commit != "" {
 		return commit
 	}
@@ -413,6 +414,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 
 		if err != nil {
 			h.logger.Error(err, " failed to convert git-clone-depth to integer")
+
 			depthInt = 0
 		}
 	}
@@ -424,7 +426,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		DestDir:            repoBranchDir,
 		User:               user,
 		Password:           pwd,
-		SshKey:             sshKey,
+		SSHKey:             sshKey,
 		Passphrase:         passphrase,
 		InsecureSkipVerify: skipCertVerify,
 		RepoURL:            repoURL,
