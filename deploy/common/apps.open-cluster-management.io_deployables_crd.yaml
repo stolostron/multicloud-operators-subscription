@@ -259,6 +259,7 @@ spec:
                 type: string
               resourceStatus:
                 type: object
+                x-kubernetes-preserve-unknown-fields: true
               targetClusters:
                 additionalProperties:
                   description: ResourceUnitStatus aggregates status from target clusters.
@@ -275,6 +276,7 @@ spec:
                       type: string
                     resourceStatus:
                       type: object
+                      x-kubernetes-preserve-unknown-fields: true
                   required:
                   - phase
                   type: object
