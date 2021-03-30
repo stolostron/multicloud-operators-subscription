@@ -139,7 +139,6 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	klog.V(2).Info("helm UnsubscribeItem ", key)
 
-
 	subitem, ok := hrs.itemmap[key]
 
 	if ok {

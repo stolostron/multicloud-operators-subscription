@@ -16,6 +16,10 @@ package main
 
 import (
 	"flag"
+	"log"
+	"net/http"
+
+	_ "net/http/pprof"
 
 	"github.com/spf13/pflag"
 
@@ -35,6 +39,11 @@ func main() {
 	defer klog.Flush()
 
 	pflag.Parse()
+
+	// we need a webserver to get the pprof webserver
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	exec.RunManager()
 }
