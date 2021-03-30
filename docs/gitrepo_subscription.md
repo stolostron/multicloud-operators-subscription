@@ -254,7 +254,10 @@ metadata:
   annotations:
     apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
     apps.open-cluster-management.io/git-desired-commit: 9374cda5cf3c7cd27d419562614898dc7d841eb7
+    apps.open-cluster-management.io/git-clone-depth: 100
 ```
+
+The `git-clone-depth` annotation is optional and set to 20 by default which means the subscription controller retrieves the previous 20 commit history from the Git repository. If you specify much older `git-desired-commit`, you need to specify `git-clone-depth` accordingly for the desired commit.
 
 ## Subscribing to a specific tag
 
@@ -270,9 +273,12 @@ metadata:
   annotations:
     apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
     apps.open-cluster-management.io/git-tag: v1.0
+    apps.open-cluster-management.io/git-clone-depth: 100
 ```
 
 Note: If both Git desired commit and tag annotations are specified, the tag will be ignored.
+
+The `git-clone-depth` annotation is optional and set to 20 by default which means the subscription controller retrieves the previous 20 commit history from the Git repository. If you specify much older `git-tag`, you need to specify `git-clone-depth` accordingly for the desired commit of the tag.
 
 ## Resource reconciliation rate settings
 
