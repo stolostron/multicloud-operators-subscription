@@ -76,6 +76,21 @@ type KubeResource struct {
 	kubeResource
 }
 
+type GitCloneOption struct {
+	RepoURL            string
+	CommitHash         string
+	RevisionTag        string
+	Branch             plumbing.ReferenceName
+	User               string
+	Password           string
+	SSHKey             []byte
+	Passphrase         []byte
+	DestDir            string
+	InsecureSkipVerify bool
+	CaCerts            string
+	CloneDepth         int
+}
+
 // ParseKubeResoures parses a YAML content and returns kube resources in byte array from the file
 func ParseKubeResoures(file []byte) [][]byte {
 	cond := func(t KubeResource) bool {
@@ -138,36 +153,40 @@ func getCertChain(certs string) tls.Certificate {
 }
 
 // CloneGitRepo clones a GitHub repository
-func CloneGitRepo(
-	repoURL string,
-	branch plumbing.ReferenceName,
-	user, password string,
-	sshKey, passphrase []byte,
-	destDir string,
-	insecureSkipVerify bool,
-	caCerts string) (commitID string, err error) {
+func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 	options := &git.CloneOptions{
-		URL:               repoURL,
-		Depth:             1,
+		URL:               cloneOptions.RepoURL,
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		ReferenceName:     branch,
+		ReferenceName:     cloneOptions.Branch,
 	}
 
-	err = os.RemoveAll(destDir)
+	options.Depth = 1
+
+	if cloneOptions.CommitHash != "" || cloneOptions.RevisionTag != "" {
+		if cloneOptions.CloneDepth > 1 {
+			klog.Infof("Setting clone depth to %d", cloneOptions.CloneDepth)
+			options.Depth = cloneOptions.CloneDepth
+		} else {
+			klog.Info("Setting clone depth to 20")
+			options.Depth = 20
+		}
+	}
+
+	err = os.RemoveAll(cloneOptions.DestDir)
 	if err != nil {
-		klog.Warning(err, "Failed to remove directory ", destDir)
+		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
 	}
 
-	err = os.MkdirAll(destDir, os.ModePerm)
+	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
 	if err != nil {
 		return "", err
 	}
 
-	if strings.HasPrefix(repoURL, "http") {
+	if strings.HasPrefix(cloneOptions.RepoURL, "http") {
 		klog.Info("Connecting to Git server via HTTP")
 
-		err := getHTTPOptions(options, user, password, caCerts, insecureSkipVerify)
+		err := getHTTPOptions(options, cloneOptions.User, cloneOptions.Password, cloneOptions.CaCerts, cloneOptions.InsecureSkipVerify)
 
 		if err != nil {
 			klog.Error(err, "failed to prepare HTTP clone options")
@@ -176,38 +195,91 @@ func CloneGitRepo(
 	} else {
 		klog.Info("Connecting to Git server via SSH")
 
-		knownhostsfile := filepath.Join(destDir, "known_hosts")
+		knownhostsfile := filepath.Join(cloneOptions.DestDir, "known_hosts")
 
-		err := getKnownHostFromURL(repoURL, knownhostsfile)
+		err := getKnownHostFromURL(cloneOptions.RepoURL, knownhostsfile)
 
 		if err != nil {
 			return "", err
 		}
 
-		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
+		err = getSSHOptions(options, cloneOptions.SSHKey, cloneOptions.Passphrase, knownhostsfile, cloneOptions.InsecureSkipVerify)
 		if err != nil {
-			klog.Error(err, "failed to prepare SSH clone options")
+			klog.Error(err, " failed to prepare SSH clone options")
 			return "", err
 		}
 	}
 
-	klog.V(2).Info("Cloning ", repoURL, " into ", destDir)
-	r, err := git.PlainClone(destDir, false, options)
+	klog.Info("Cloning ", cloneOptions.RepoURL, " into ", cloneOptions.DestDir)
+
+	klog.Info("cloneOptions.DestDir = " + cloneOptions.DestDir)
+	klog.Info("cloneOptions.Branch = " + cloneOptions.Branch)
+	klog.Info("cloneOptions.CommitHash = " + cloneOptions.CommitHash)
+	klog.Info("cloneOptions.RevisionTag = " + cloneOptions.RevisionTag)
+	klog.Info("cloneOptions.RepoURL = " + cloneOptions.RepoURL)
+	klog.Infof("cloneOptions.CloneDepth = %d", cloneOptions.CloneDepth)
+
+	repo, err := git.PlainClone(cloneOptions.DestDir, false, options)
 
 	if err != nil {
-		klog.Error(err, "Failed to git clone: ", err.Error())
+		klog.Error(err, " Failed to git clone: ", err.Error())
 		return "", err
 	}
 
-	ref, err := r.Head()
+	ref, err := repo.Head()
 	if err != nil {
-		klog.Error(err, "Failed to get git repo head")
+		klog.Error(err, " Failed to get git repo head")
 		return "", err
 	}
 
-	commit, err := r.CommitObject(ref.Hash())
+	// If both commitHash and revisionTag are provided, take commitHash.
+	targetCommit := cloneOptions.CommitHash
+
+	if cloneOptions.RevisionTag != "" && targetCommit == "" {
+		tag := "refs/tags/" + cloneOptions.RevisionTag
+		releasetag := plumbing.Revision(tag)
+
+		revisionHash, err := repo.ResolveRevision(releasetag)
+
+		if err != nil {
+			klog.Error(err, " failed to resolve revision")
+			return "", err
+		}
+
+		klog.Infof("Revision tag %s is resolved to %s", cloneOptions.RevisionTag, revisionHash)
+		targetCommit = revisionHash.String()
+	}
+
+	if targetCommit != "" {
+		workTree, err := repo.Worktree()
+
+		if err != nil {
+			klog.Error(err, " Failed to get work tree")
+			return "", err
+		}
+
+		klog.Infof("Checking out commit %s ", targetCommit)
+
+		err = workTree.Checkout(&git.CheckoutOptions{
+			Hash:   plumbing.NewHash(strings.TrimSpace(targetCommit)),
+			Create: false,
+		})
+
+		if err != nil {
+			klog.Error(err, " Failed to checkout commit")
+			return "", err
+		}
+
+		klog.Infof("Successfully checked out commit %s ", targetCommit)
+
+		return targetCommit, nil
+	}
+
+	// Otherwise return the latest commit ID
+	commit, err := repo.CommitObject(ref.Hash())
+
 	if err != nil {
-		klog.Error(err, "Failed to get git repo commit")
+		klog.Error(err, " Failed to get git repo commit")
 		return "", err
 	}
 
@@ -798,13 +870,6 @@ func ParseYAML(fileContent []byte) []string {
 	return items
 }
 
-/*
-Valid URL format
-	url := "https://github.com/rokej/rokejtest.git"
-	url := "https://github.com/rokej/rokejtest"
-	url := "github.com/rokej/rokejtest.git"
-	url := "github.com/rokej/rokejtest"
-*/
 func getOwnerAndRepo(url string) ([]string, error) {
 	if len(url) == 0 {
 		return []string{}, nil

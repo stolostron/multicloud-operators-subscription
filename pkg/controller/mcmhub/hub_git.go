@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,7 @@ import (
 )
 
 const (
-	hookInterval   = time.Second * 90
+	hookInterval   = time.Second * 180
 	commitIDSuffix = "-new"
 )
 
@@ -77,15 +78,9 @@ type GitOps interface {
 }
 
 type branchInfo struct {
-	localDir           string
-	lastCommitID       string
-	username           string
-	secret             string
-	sshKey             []byte
-	passphrase         []byte
-	insecureSkipVerify bool
-	registeredSub      map[types.NamespacedName]struct{}
-	gitCACert          string
+	gitCloneOptions utils.GitCloneOption
+	lastCommitID    string
+	registeredSub   map[types.NamespacedName]struct{}
 }
 
 type RepoRegistery struct {
@@ -95,8 +90,7 @@ type RepoRegistery struct {
 
 type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
 
-type cloneFunc func(url, branchName, user, secret string, sshKey, passphrase []byte,
-	localDir string, insecureSkipVerify bool, caCert string) (string, error)
+type cloneFunc func(cloneOptions *utils.GitCloneOption) (string, error)
 
 type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
 
@@ -187,55 +181,60 @@ func (h *HubGitOps) GitWatch() {
 	for repoName, repoRegistery := range h.repoRecords {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
-		for bName, branchInfo := range repoRegistery.branchs {
-			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, bName))
-			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
+		for branchInfoName, branchInfo := range repoRegistery.branchs {
+			// If commitHash is provided, compare this to the currently deployed commit
+			// If tag is provided, resolve tag to commit SHA and compare it to the currently deployed commit
+			// Otherwise, compare the latest commit of the repo branch to the currently deployed commit
+			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, branchInfoName))
+			newCommit, err := h.getCommitFunc(url, branchInfo.gitCloneOptions.Branch.Short(), branchInfo.gitCloneOptions.User, branchInfo.gitCloneOptions.Password)
 
-			if err != nil {
-				h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
+			cloneDone := false
 
-				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret,
-					branchInfo.sshKey, branchInfo.passphrase, branchInfo.localDir,
-					branchInfo.insecureSkipVerify, branchInfo.gitCACert)
+			if err != nil || branchInfo.gitCloneOptions.RevisionTag != "" || branchInfo.gitCloneOptions.CommitHash != "" {
+				// The get commit GitHub API does not work for tag or commit
+				newCommit, err = h.cloneFunc(&branchInfo.gitCloneOptions)
+
 				if err != nil {
-					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
+					h.logger.Error(err, " failed to get the commit SHA")
+				} else {
+					cloneDone = true
 				}
 			}
 
 			// safe guard condition to filter out the edge case
-			if nCommit == "" {
-				h.logger.Info(fmt.Sprintf("repo %s, branch %s get empty commit ID from remote", url, bName))
+			if newCommit == "" {
+				h.logger.Info(fmt.Sprintf("repo %s, branch %s, commit%s, tag %s, get empty commit ID from remote",
+					url,
+					branchInfo.gitCloneOptions.Branch.Short(),
+					branchInfo.gitCloneOptions.CommitHash,
+					branchInfo.gitCloneOptions.RevisionTag))
+
 				continue
 			}
 
-			h.logger.V(InfoLog).Info(fmt.Sprintf("repo %s, branch %s commit update from (%s) to (%s)", url, bName, branchInfo.lastCommitID, nCommit))
+			h.logger.Info("Currently deployed commit: ", branchInfo.lastCommitID)
+			h.logger.Info("Commit to be deployed: ", newCommit)
 
-			if nCommit == branchInfo.lastCommitID {
+			if newCommit == branchInfo.lastCommitID {
 				h.logger.Info("The repo commit hasn't changed.")
 				continue
 			}
 
-			h.repoRecords[repoName].branchs[bName].lastCommitID = nCommit
-			h.logger.Info("The repo has new commit: " + nCommit)
+			h.repoRecords[repoName].branchs[branchInfoName].lastCommitID = newCommit
+			h.logger.Info("The repo has new commit: " + newCommit)
 
-			if _, err := h.cloneFunc(url,
-				bName,
-				branchInfo.username,
-				branchInfo.secret,
-				branchInfo.sshKey,
-				branchInfo.passphrase,
-				branchInfo.localDir,
-				branchInfo.insecureSkipVerify,
-				branchInfo.gitCACert); err != nil {
-				h.logger.Error(err, "failed to download repo for %s, at brnach @%s", repoName, bName)
+			if !cloneDone {
+				if _, err := h.cloneFunc(&branchInfo.gitCloneOptions); err != nil {
+					h.logger.Error(err, err.Error())
+				}
 			}
 
 			for subKey := range branchInfo.registeredSub {
 				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
 				// The hub subscription reconcile will compare this to the commit ID in the map h.repoRecords[repoName].branchs[bName].lastCommitID
 				// to determine it needs to regenerate deployables.
-				if err := updateCommitAnnotation(h.clt, subKey, fakeCommitID(nCommit)); err != nil {
-					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", nCommit, subKey.String()))
+				if err := updateCommitAnnotation(h.clt, subKey, fakeCommitID(newCommit)); err != nil {
+					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", newCommit, subKey.String()))
 					continue
 				}
 
@@ -284,18 +283,44 @@ func isGitChannel(ch *chnv1.Channel) bool {
 	return false
 }
 
+func getBranchCommitDepthAndTag(subIns *subv1.Subscription) (string, string, string, string) {
+	an := subIns.GetAnnotations()
+	if len(an) == 0 {
+		return "", "", "", ""
+	}
+
+	branch := ""
+
+	if an[subv1.AnnotationGitBranch] != "" {
+		branch = an[subv1.AnnotationGitBranch]
+	}
+
+	if an[subv1.AnnotationGithubBranch] != "" {
+		branch = an[subv1.AnnotationGithubBranch]
+	}
+
+	return branch, an[subv1.AnnotationGitTargetCommit], an[subv1.AnnotationGitTag], an[subv1.AnnotationGitCloneDepth]
+}
+
 func genBranchString(subIns *subv1.Subscription) string {
 	an := subIns.GetAnnotations()
 	if len(an) == 0 {
 		return ""
 	}
 
-	if an[subv1.AnnotationGitBranch] != "" {
-		return an[subv1.AnnotationGitBranch]
+	branch, commit, tag, _ := getBranchCommitDepthAndTag(subIns)
+
+	// Honor commit first, then tag, then branch. These are mutually exclusive
+	if commit != "" {
+		return commit
 	}
 
-	if an[subv1.AnnotationGithubBranch] != "" {
-		return an[subv1.AnnotationGithubBranch]
+	if tag != "" {
+		return tag
+	}
+
+	if branch != "" {
+		return branch
 	}
 
 	return "master"
@@ -371,16 +396,44 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	// It needs to be unique for each subscription because each subscription need to
 	// have its own copy of cloned repo to work on subscription specific overrides.
 	repoName := genRepoName(subIns.Name, subIns.Namespace)
-	branchName := genBranchString(subIns)
+	branchInfoName := genBranchString(subIns)
+	branchName, commit, tag, depth := getBranchCommitDepthAndTag(subIns)
 	repoBranchDir := h.downloadDirResolver(channel, subIns)
 
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
 	h.subRecords[subKey] = repoName
-	bInfo, ok := h.repoRecords[repoName]
+	subscriptionRepoInfo, ok := h.repoRecords[repoName]
 
-	commitID, err := h.cloneFunc(repoURL, branchName, user, pwd, sshKey, passphrase, repoBranchDir, skipCertVerify, caCert)
+	// Start with git clone depth 0.
+	depthInt := 0
+
+	if depth != "" {
+		depthInt, err = strconv.Atoi(depth)
+
+		if err != nil {
+			h.logger.Error(err, " failed to convert git-clone-depth to integer")
+
+			depthInt = 0
+		}
+	}
+
+	cloneOptions := &utils.GitCloneOption{
+		Branch:             utils.GetSubscriptionBranchRef(branchName),
+		CommitHash:         commit,
+		RevisionTag:        tag,
+		DestDir:            repoBranchDir,
+		User:               user,
+		Password:           pwd,
+		SSHKey:             sshKey,
+		Passphrase:         passphrase,
+		InsecureSkipVerify: skipCertVerify,
+		RepoURL:            repoURL,
+		CloneDepth:         depthInt,
+	}
+
+	commitID, err := h.cloneFunc(cloneOptions)
 	if err != nil {
 		h.logger.Error(err, "failed to get commitID from initialDownload")
 		return err
@@ -391,14 +444,9 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		h.repoRecords[repoName] = &RepoRegistery{
 			url: repoURL,
 			branchs: map[string]*branchInfo{
-				branchName: {
-					localDir:           repoBranchDir,
-					username:           user,
-					secret:             pwd,
-					sshKey:             sshKey,
-					passphrase:         passphrase,
-					insecureSkipVerify: skipCertVerify,
-					lastCommitID:       commitID,
+				branchInfoName: {
+					gitCloneOptions: *cloneOptions,
+					lastCommitID:    commitID,
 					registeredSub: map[types.NamespacedName]struct{}{
 						subKey: {},
 					},
@@ -409,33 +457,22 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		return nil
 	}
 
-	// Pick up new channel configurations
-	bInfo.branchs[branchName].username = user
-	bInfo.branchs[branchName].secret = pwd
-	bInfo.branchs[branchName].passphrase = passphrase
-	bInfo.branchs[branchName].sshKey = sshKey
-	bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
-	bInfo.branchs[branchName].gitCACert = caCert
-
-	if bInfo.branchs[branchName] == nil {
-		bInfo.branchs[branchName] = &branchInfo{
-			username:           user,
-			secret:             pwd,
-			sshKey:             sshKey,
-			passphrase:         passphrase,
-			insecureSkipVerify: skipCertVerify,
-			localDir:           repoBranchDir,
-			lastCommitID:       commitID,
+	if subscriptionRepoInfo.branchs[branchInfoName] == nil {
+		subscriptionRepoInfo.branchs[branchInfoName] = &branchInfo{
+			gitCloneOptions: *cloneOptions,
+			lastCommitID:    commitID,
 			registeredSub: map[types.NamespacedName]struct{}{
 				subKey: {},
 			},
-			gitCACert: caCert,
 		}
 
 		return nil
 	}
 
-	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
+	// Pick up new channel configurations
+	subscriptionRepoInfo.branchs[branchInfoName].gitCloneOptions = *cloneOptions
+
+	subscriptionRepoInfo.branchs[branchInfoName].registeredSub[subKey] = struct{}{}
 
 	return nil
 }
@@ -534,7 +571,7 @@ func (h *HubGitOps) GetRepoRootDirctory(subIns *subv1.Subscription) string {
 		return ""
 	}
 
-	return h.repoRecords[repoKey].branchs[genBranchString(subIns)].localDir
+	return h.repoRecords[repoKey].branchs[genBranchString(subIns)].gitCloneOptions.DestDir
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
@@ -553,16 +590,8 @@ func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) erro
 	return nil
 }
 
-func cloneGitRepoBranch(
-	repoURL string,
-	branchName string,
-	user, pwd string,
-	sshkey, passphrase []byte,
-	repoBranchDir string,
-	skipCertVerify bool,
-	caCert string) (string, error) {
-	return utils.CloneGitRepo(repoURL, utils.GetSubscriptionBranchRef(branchName),
-		user, pwd, sshkey, passphrase, repoBranchDir, skipCertVerify, caCert)
+func cloneGitRepoBranch(cloneOptions *utils.GitCloneOption) (string, error) {
+	return utils.CloneGitRepo(cloneOptions)
 }
 
 type gitSortResult struct {

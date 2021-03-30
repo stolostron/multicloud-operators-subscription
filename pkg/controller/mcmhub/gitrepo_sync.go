@@ -164,7 +164,7 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 	newGitCommit, newok := newanno[appv1.AnnotationGitCommit]
 
 	if (!origok && newok) || (origok && !newok) || (origGitCommit != newGitCommit) {
-		klog.V(1).Infof("different Git Subscription git-commit annotations. origGitCommit: %v, newGitCommit: %v",
+		klog.V(1).Infof("different Git Subscription git-current-commit annotations. origGitCommit: %v, newGitCommit: %v",
 			origGitCommit, newGitCommit)
 		return true
 	}

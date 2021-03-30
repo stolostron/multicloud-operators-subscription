@@ -169,7 +169,9 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	}
 
 	//annotation that contains time
-	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+	//also remove annotations that are added and updated by the subscription controller
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration",
+		appv1.AnnotationGitCommit}
 
 	for _, f := range timeFields {
 		delete(anno, f)

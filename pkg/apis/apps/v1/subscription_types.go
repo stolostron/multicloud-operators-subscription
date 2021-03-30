@@ -56,8 +56,14 @@ var (
 	AnnotationGitPath = SchemeGroupVersion.Group + "/git-path"
 	// AnnotationGitBranch defines webhook secret
 	AnnotationGitBranch = SchemeGroupVersion.Group + "/git-branch"
-	// AnnotationGitCommit defines Git repo commit ID
-	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-commit"
+	// AnnotationGitCommit defines currently deployed Git repo commit ID
+	AnnotationGitCommit = SchemeGroupVersion.Group + "/git-current-commit"
+	// AnnotationGitCloneDepth defines Git repo clone depth to be able to check out previous commits
+	AnnotationGitCloneDepth = SchemeGroupVersion.Group + "/git-clone-depth"
+	// AnnotationGitTargetCommit defines Git repo commit to be deployed
+	AnnotationGitTargetCommit = SchemeGroupVersion.Group + "/git-desired-commit"
+	// AnnotationGitTag defines Git repo revision tag
+	AnnotationGitTag = SchemeGroupVersion.Group + "/git-tag"
 	// AnnotationClusterAdmin indicates the subscription has cluster admin access
 	AnnotationClusterAdmin = SchemeGroupVersion.Group + "/cluster-admin"
 	// AnnotationChannelType indicates the channel type for subscription
