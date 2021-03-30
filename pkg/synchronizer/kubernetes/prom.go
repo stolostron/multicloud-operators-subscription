@@ -15,7 +15,7 @@ var (
 		Subsystem: Synchronizer,
 		Name:      Update_Error,
 		Help:      "Count the update failure",
-	}, []string{"deployable", "subscription"})
+	}, []string{"caller", "status"})
 )
 
 func init() {
