@@ -124,6 +124,10 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	previousReconcileLevel := ghssubitem.reconcileRate
 
+	previousDesiredCommit := ghssubitem.desiredCommit
+
+	previousDesiredTag := ghssubitem.desiredTag
+
 	chnAnnotations := ghssubitem.Channel.GetAnnotations()
 
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
@@ -141,10 +145,18 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.clusterAdmin = true
 	}
 
+	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
+	ghssubitem.desiredTag = subAnnotations[appv1alpha1.AnnotationGitTag]
+
 	var restart bool = false
 
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) {
 		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	// If desired commit or tag has changed, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousDesiredCommit, ghssubitem.desiredCommit) || !strings.EqualFold(previousDesiredTag, ghssubitem.desiredTag) {
 		restart = true
 	}
 

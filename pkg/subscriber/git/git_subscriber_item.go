@@ -69,6 +69,8 @@ type SubscriberItem struct {
 	repoRoot              string
 	commitID              string
 	reconcileRate         string
+	desiredCommit         string
+	desiredTag            string
 	stopch                chan struct{}
 	syncinterval          int
 	count                 int
@@ -663,8 +665,8 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 
 	cloneOptions := &utils.GitCloneOption{
 		RepoURL:            ghsi.Channel.Spec.Pathname,
-		CommitHash:         annotations[appv1.AnnotationGitTargetCommit],
-		RevisionTag:        annotations[appv1.AnnotationGitTag],
+		CommitHash:         ghsi.desiredCommit,
+		RevisionTag:        ghsi.desiredTag,
 		CloneDepth:         cloneDepth,
 		Branch:             utils.GetSubscriptionBranch(ghsi.Subscription),
 		User:               user,
