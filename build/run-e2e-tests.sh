@@ -30,9 +30,17 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
     echo -e "Build is on Travis"
 
 
-    echo -e "\nGet kubectl binary\n"
     # Download and install kubectl
-    curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl && chmod +x kubectl && sudo mv kubectl /usr/local/bin/
+    echo -e "\nGet kubectl binary\n"
+    PLATFORM=`uname -s | awk '{print tolower($0)}'`
+    if [ "`which kubectl`" ]; then
+        echo "kubectl PATH is `which kubectl`"
+    else
+        mkdir -p $(pwd)/bin
+        curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/$PLATFORM/amd64/kubectl && mv kubectl $(pwd)/bin/ && chmod +x $(pwd)/bin/kubectl
+        export PATH=$PATH:$(pwd)/bin
+        echo "kubectl PATH is `which kubectl`"
+    fi
 
     COMPONENT_VERSION=$(cat COMPONENT_VERSION 2> /dev/null)
 
@@ -60,7 +68,7 @@ if [ $? != 0 ]; then
         exit $?;
 fi
 
-kind create cluster
+kind create cluster --image=kindest/node:v1.19.1
 if [ $? != 0 ]; then
         exit $?;
 fi
@@ -91,6 +99,8 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
     sleep 35
 fi
 
+sleep 35
+
 echo -e "\nCheck if subscription operator is created\n"
 kubectl rollout status deployment/multicluster-operators-subscription -n multicluster-operators
 if [ $? != 0 ]; then
@@ -112,10 +122,14 @@ echo -e "\nGet the applifecycle-backend-e2e server"
 go get github.com/open-cluster-management/applifecycle-backend-e2e@v0.2.1
 
 
+export PATH=$PATH:~/go/bin
 E2E_BINARY_NAME="applifecycle-backend-e2e"
 
 echo -e "\nTerminate the running test server\n"
-ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}' | xargs kill -9
+E2E_PS=$(ps aux | grep ${E2E_BINARY_NAME} | grep -v 'grep' | awk '{print $2}')
+if [ "$E2E_PS" != "" ]; then
+    kill -9 $E2E_PS
+fi
 
 ${E2E_BINARY_NAME} -cfg cluster_config &
 

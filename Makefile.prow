@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+-include /opt/build-harness/Makefile.prow
+
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
     TARGET_OS ?= linux
@@ -28,15 +30,22 @@ XARGS = xargs -0 ${XARGS_FLAGS}
 CLEANXARGS = xargs ${XARGS_FLAGS}
 
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
+REGISTRY = quay.io/open-cluster-management
+VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
+IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG):$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
 
 .PHONY: build
 
--include /opt/build-harness/Makefile.prow
-
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+
+.PHONY: build-images
+
+build-images: build
+	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
+	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 .PHONY: lint
 
@@ -62,3 +71,9 @@ lint-go:
 test:
 	@build/setup-tests.sh
 	@build/run-unit-tests.sh
+
+.PHONY: e2e
+
+export CONTAINER_NAME=e2e
+e2e: build build-images
+	build/run-e2e-tests.sh

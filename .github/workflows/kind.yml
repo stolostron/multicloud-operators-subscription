@@ -1,0 +1,44 @@
+# This is a basic workflow to help you get started with Actions
+
+name: KinD tests
+
+# Controls when the action will run.
+on:
+  # Triggers the workflow on push or pull request events but only for the main branch
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+defaults:
+  run:
+    shell: bash
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  main:
+    runs-on: ubuntu-18.04
+    env:
+      REGISTRY: localhost:5000
+      RUN_ON: github
+    strategy:
+      matrix:
+        go: [ '1.15' ]
+    name: KinD tests
+    steps:
+    # Checks out a copy of your repository on the ubuntu-latest machine
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Run e2e test on KinD cluster
+      working-directory: ${{env.GITHUB_WORKSPACE}}
+      run: |
+        echo "------> run on platform: $RUN_ON"
+        make -f Makefile.prow e2e
+
+    - name: Debug
+      if: ${{ failure() }}
+      run: |
+        kubectl get pod -A
