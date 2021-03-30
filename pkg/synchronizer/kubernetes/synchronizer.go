@@ -258,8 +258,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil, false)
 
 			if err != nil {
+				updateTracker.WithLabelValues("local-client", "fail").Add(1)
 				klog.Error("Failed to update host status for existing resource with error:", err)
 			}
+
+			updateTracker.WithLabelValues("local-client", "succeed").Add(1)
 
 			return err
 		}
@@ -325,7 +328,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		klog.Info("Apply object. newobj: " + newobj.GroupVersionKind().String())
 		klog.V(5).Infof("Apply object. newobj: %#v", newobj)
 		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
+		if err != nil {
+			updateTracker.WithLabelValues("local-client", "fail").Add(1)
+		}
 
+		updateTracker.WithLabelValues("local-client", "succeed").Add(1)
 		// Some kubernetes resources are immutable after creation. Log and ignore update errors.
 		if errors.IsForbidden(err) {
 			klog.Info(err.Error())

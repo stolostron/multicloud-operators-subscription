@@ -67,12 +67,16 @@ func (se *SubscriptionExtension) UpdateHostStatus(actionerr error, tplunit *unst
 
 	//update managed cluster subscription status
 	if err := utils.UpdateSubscriptionStatus(se.localClient, actionerr, tplunit, status, deletePkg); err != nil {
+		updateTracker.WithLabelValues("appsub", "fail").Add(1)
 		return fmt.Errorf("failed to update managed cluster status, err: %v", err)
 	}
 
 	if err := se.updateHostDeployable(se.localClient, se.remoteClient, actionerr, tplunit); err != nil {
+		updateTracker.WithLabelValues("deployable", "fail").Add(1)
 		return fmt.Errorf("failed to update the host deployable status, err %v", err)
 	}
+
+	updateTracker.WithLabelValues("host", "succeed").Add(1)
 
 	return nil
 }
