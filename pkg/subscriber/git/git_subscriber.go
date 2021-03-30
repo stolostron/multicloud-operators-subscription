@@ -136,6 +136,11 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.reconcileRate = "off"
 	}
 
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.clusterAdmin = true
+	}
+
 	var restart bool = false
 
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) {
