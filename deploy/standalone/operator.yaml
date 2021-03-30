@@ -25,7 +25,7 @@ spec:
           - /usr/local/bin/multicluster-operators-subscription
           - --sync-interval=10
           - --standalone
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
             - name: POD_NAME
