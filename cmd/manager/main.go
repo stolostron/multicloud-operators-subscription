@@ -42,7 +42,7 @@ func main() {
 
 	// we need a webserver to get the pprof webserver
 	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
+		log.Println(http.ListenAndServe("localhost:8080", nil))
 	}()
 
 	exec.RunManager()
