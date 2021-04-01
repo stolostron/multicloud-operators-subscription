@@ -170,5 +170,4 @@ func TestValidateK8sLabel(t *testing.T) {
 	ServerLabel := ValidateK8sLabel(APIServer)
 
 	g.Expect(ServerLabel).Should(gomega.Equal(expectedServerLabel))
-
 }
