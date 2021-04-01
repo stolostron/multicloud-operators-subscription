@@ -17,6 +17,7 @@ package spoketoken
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"time"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
@@ -202,8 +203,6 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 	labels["argocd.argoproj.io/secret-type"] = "cluster"
 	labels["apps.open-cluster-management.io/secret-type"] = "acm-cluster"
 
-	mcSecret.SetLabels(labels)
-
 	configData := &Config{}
 	configData.BearerToken = token
 	tlsClientConfig := make(map[string]bool)
@@ -228,6 +227,24 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 	data["config"] = string(jsonConfigData)
 
 	mcSecret.StringData = data
+
+	labels["apps.open-cluster-management.io/cluster-name"] = data["name"]
+
+	u, err := url.Parse(data["server"])
+	if err != nil {
+		klog.Error(err)
+	}
+
+	truncatedServerURL := utils.ValidateK8sLabel(u.Hostname())
+
+	if truncatedServerURL == "" {
+		klog.Error("Invalid hostname in the API URL:", u)
+	} else {
+		labels["apps.open-cluster-management.io/cluster-server"] = truncatedServerURL
+	}
+
+	klog.Infof("managed cluster secret label: %v", labels)
+	mcSecret.SetLabels(labels)
 
 	return mcSecret
 }
