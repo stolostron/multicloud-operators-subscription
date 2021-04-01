@@ -187,6 +187,7 @@ func TestReconcile(t *testing.T) {
 	secretLabels := theSecret.GetLabels()
 	g.Expect(secretLabels["argocd.argoproj.io/secret-type"]).To(gomega.Equal("cluster"))
 	g.Expect(secretLabels["apps.open-cluster-management.io/secret-type"]).To(gomega.Equal("acm-cluster"))
+	g.Expect(secretLabels["apps.open-cluster-management.io/cluster-name"]).To(gomega.Equal("cluster1"))
 
 	// Update the source service account token secret and reconcile.
 	g.Expect(c.Create(context.TODO(), secret2)).NotTo(gomega.HaveOccurred())

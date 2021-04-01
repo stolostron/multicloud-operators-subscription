@@ -160,3 +160,14 @@ func TestAnnotations(t *testing.T) {
 		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostsubkey, *subkey)
 	}
 }
+
+func TestValidateK8sLabel(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	APIServer := "_-.api.xili-aws-cluster-pool-tg2g4.dev06.red-chesterfield.com_-."
+	expectedServerLabel := "api.xili-aws-cluster-pool-tg2g4.dev06.red-chesterfield.com"
+
+	ServerLabel := ValidateK8sLabel(APIServer)
+
+	g.Expect(ServerLabel).Should(gomega.Equal(expectedServerLabel))
+}
