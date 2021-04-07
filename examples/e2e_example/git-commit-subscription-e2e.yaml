@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sub004
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  namespace: sub004
+  name: ggithubcom-rokej-myapplication
+spec:
+  pathname: https://github.com/rokej/myapplication.git
+  type: Git
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: sub004
+---
+apiVersion: app.k8s.io/v1beta1
+kind: Application
+metadata:
+  namespace: sub004
+  name: sub004-test
+spec:
+  componentKinds:
+    - group: apps.open-cluster-management.io
+      kind: Subscription
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - sub004-test
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  namespace: sub004
+  name: sub004-test-subscription-1
+  annotations:
+    apps.open-cluster-management.io/git-desired-commit: 4a17b3b2b29b6dc7187fd473acc4f7479b6eb6b4
+    apps.open-cluster-management.io/reconcile-option: merge
+  labels:
+    app: sub004-test
+spec:
+  channel: sub004/ggithubcom-rokej-myapplication
+  placement:
+    placementRef:
+      name: sub004-test-placement-1
+      kind: PlacementRule
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  namespace: sub004
+  name: sub004-test-placement-1
+  labels:
+    app: sub004-test
+spec:
+  clusterSelector:
+    matchLabels:
+      local-cluster: "true"
