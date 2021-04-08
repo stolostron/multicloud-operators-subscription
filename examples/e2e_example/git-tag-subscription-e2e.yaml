@@ -46,18 +46,4 @@ metadata:
 spec:
   channel: sub003/ggithubcom-rokej-myapplication
   placement:
-    placementRef:
-      kind: PlacementRule
-      name: sub003-test-placement-1
----
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
-metadata:
-  labels:
-    app: sub003-test
-  name: sub003-test-placement-1
-  namespace: sub003
-spec:
-  clusterSelector:
-    matchLabels:
-      local-cluster: "true"
+    local: "true"
