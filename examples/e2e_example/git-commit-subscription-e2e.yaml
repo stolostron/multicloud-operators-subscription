@@ -46,4 +46,4 @@ metadata:
 spec:
   channel: sub004/ggithubcom-rokej-myapplication
   placement:
-    local: "true"
+    local: true
