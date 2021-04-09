@@ -17,22 +17,6 @@ kind: Namespace
 metadata:
   name: sub004
 ---
-apiVersion: app.k8s.io/v1beta1
-kind: Application
-metadata:
-  namespace: sub004
-  name: sub004-test
-spec:
-  componentKinds:
-    - group: apps.open-cluster-management.io
-      kind: Subscription
-  selector:
-    matchExpressions:
-      - key: app
-        operator: In
-        values:
-          - sub004-test
----
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -41,8 +25,6 @@ metadata:
   annotations:
     apps.open-cluster-management.io/git-desired-commit: 4a17b3b2b29b6dc7187fd473acc4f7479b6eb6b4
     apps.open-cluster-management.io/reconcile-option: merge
-  labels:
-    app: sub004-test
 spec:
   channel: sub004/ggithubcom-rokej-myapplication
   placement:
