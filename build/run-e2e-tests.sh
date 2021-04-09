@@ -119,7 +119,7 @@ kind get kubeconfig > cluster_config/hub
 # over here, we are build the test server on the fly since, the `go get` will
 # mess up the go.mod file when doing the local test
 echo -e "\nGet the applifecycle-backend-e2e server"
-go get github.com/open-cluster-management/applifecycle-backend-e2e@v0.2.5
+go get github.com/open-cluster-management/applifecycle-backend-e2e
 
 
 export PATH=$PATH:~/go/bin
