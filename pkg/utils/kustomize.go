@@ -32,15 +32,17 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 )
 
+// RunKustomizeBuild runs kustomize build and returns the build output
 func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 	fSys := filesys.MakeFsOnDisk()
 
 	options := &krusty.Options{
 		DoLegacyResourceSort: true,
+		UseKyaml:             true,
 	}
 
-	k := krusty.MakeKustomizer(fSys, options)
-	mapOut, err := k.Run(kustomizeDir)
+	k := krusty.MakeKustomizer(options)
+	mapOut, err := k.Run(fSys, kustomizeDir)
 
 	if err != nil {
 		return nil, err
