@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/kustomize/api/krusty"
 )
 
+// RunKustomizeBuild runs kustomize build and returns the build output
 func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 	fSys := filesys.MakeFsOnDisk()
 
