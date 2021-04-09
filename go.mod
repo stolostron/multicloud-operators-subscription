@@ -1,6 +1,6 @@
 module github.com/open-cluster-management/multicloud-operators-subscription
 
-go 1.15
+go 1.16
 
 require (
 	github.com/aws/aws-sdk-go-v2 v0.18.0
@@ -9,7 +9,6 @@ require (
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v0.3.0
 	github.com/go-openapi/spec v0.19.5
-	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/google/go-cmp v0.5.2
 	github.com/google/go-github/v32 v32.1.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
@@ -23,10 +22,8 @@ require (
 	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210225-ce05ec7
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
-	github.com/qri-io/starlib v0.4.2-0.20200213133954-ff2e8cd5ef8d // indirect
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	github.com/yujunz/go-getter v1.4.1-lite // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	gopkg.in/src-d/go-git.v4 v4.13.1
