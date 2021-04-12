@@ -782,6 +782,10 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationResourceReconcileLevel] = origsubanno[appv1alpha1.AnnotationResourceReconcileLevel]
 	}
 
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationManualReconcileTime], "") {
+		subepanno[appv1alpha1.AnnotationManualReconcileTime] = origsubanno[appv1alpha1.AnnotationManualReconcileTime]
+	}
+
 	// Add annotation for git path and branch
 	// It is recommended to define Git path and branch in subscription annotations but
 	// this code is to support those that already use ConfigMap.
