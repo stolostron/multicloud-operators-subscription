@@ -11,19 +11,19 @@ import (
 )
 
 type cachedClient struct {
-	clt    client.Client
-	cCache cache.Cache
+	clt         client.Client
+	clientCache cache.Cache
 }
 
 func newCachedClient(config *rest.Config, nsKey *types.NamespacedName) (*cachedClient, error) {
-	m := &cachedClient{clt: nil, cCache: nil}
+	m := &cachedClient{clt: nil, clientCache: nil}
 	c, err := cache.New(config, cache.Options{Namespace: nsKey.Namespace})
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cached client, err: %w", err)
 	}
 
-	m.cCache = c
+	m.clientCache = c
 
 	clt, err := manager.DefaultNewClient(c, config, client.Options{})
 	if err != nil {
