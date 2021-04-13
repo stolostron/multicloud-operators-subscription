@@ -39,8 +39,8 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 		DoLegacyResourceSort: true,
 	}
 
-	k := krusty.MakeKustomizer(fSys, options)
-	mapOut, err := k.Run(kustomizeDir)
+	k := krusty.MakeKustomizer(options)
+	mapOut, err := k.Run(fSys, kustomizeDir)
 
 	if err != nil {
 		return nil, err
