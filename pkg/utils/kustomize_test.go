@@ -53,5 +53,4 @@ func Test_RunKustomize_085_Build(t *testing.T) {
 
 	_, err := RunKustomizeBuild("../../test/github/kustomize/overlays/patchjson2")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-
 }
