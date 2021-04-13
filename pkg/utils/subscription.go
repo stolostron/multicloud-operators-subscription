@@ -1021,6 +1021,7 @@ func IsHub(config *rest.Config) bool {
 		os.Exit(1)
 	}
 
+	//nolint:staticcheck // SA5011 ignore this!
 	objCount := len(objlist.Items)
 	klog.Infof("multiclusterHub resource count: %v", objCount)
 

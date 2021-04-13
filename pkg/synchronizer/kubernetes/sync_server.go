@@ -56,8 +56,8 @@ type ResourceMap struct {
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {
 	Interval      int
-	lmiddle       *middleMan
-	rmiddle       *middleMan
+	lCachedClt    *cachedClient
+	rCachedClt    *cachedClient
 	LocalClient   client.Client
 	RemoteClient  client.Client
 	localConfig   *rest.Config
@@ -126,23 +126,23 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		stopCh:         make(chan struct{}),
 	}
 
-	s.lmiddle, err = newMiddleMan(config, &types.NamespacedName{Name: "local"})
+	s.lCachedClt, err = newCachedClient(config, &types.NamespacedName{Name: "local"})
 	if err != nil {
 		klog.Error("Failed to initialize client to update local status. err: ", err)
 		return nil, err
 	}
 
-	s.LocalClient = s.lmiddle
+	s.LocalClient = s.lCachedClt.clt
 
 	s.RemoteClient = s.LocalClient
 	if remoteConfig != nil {
-		s.rmiddle, err = newMiddleMan(remoteConfig, syncid)
+		s.rCachedClt, err = newCachedClient(remoteConfig, syncid)
 		if err != nil {
 			klog.Error("Failed to initialize client to update remote status. err: ", err)
 			return nil, err
 		}
 
-		s.RemoteClient = s.rmiddle
+		s.RemoteClient = s.rCachedClt.clt
 	}
 
 	defaultExtension.localClient = s.LocalClient
@@ -174,28 +174,28 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	go sync.processTplChan(s)
 
 	go func() {
-		if err := sync.lmiddle.c.Start(s); err != nil {
-			sync.lmiddle.Logger.Error(err, "failed to start up cache")
+		if err := sync.lCachedClt.cCache.Start(s); err != nil {
+			klog.Error(err, "failed to start up cache")
 		}
 	}()
 
 	go func() {
-		if err := sync.rmiddle.c.Start(s); err != nil {
-			sync.rmiddle.Logger.Error(err, "failed to start up cache")
+		if err := sync.rCachedClt.cCache.Start(s); err != nil {
+			klog.Error(err, "failed to start up cache")
 		}
 	}()
 
-	if !sync.lmiddle.c.WaitForCacheSync(s) {
+	if !sync.lCachedClt.cCache.WaitForCacheSync(s) {
 		return fmt.Errorf("failed to start up local cache")
 	}
 
-	sync.lmiddle.Logger.Info("cache started")
+	klog.Info("local config cache started")
 
-	if !sync.rmiddle.c.WaitForCacheSync(s) {
+	if !sync.rCachedClt.cCache.WaitForCacheSync(s) {
 		return fmt.Errorf("failed to start up remote cache")
 	}
 
-	sync.rmiddle.Logger.Info("cache started")
+	klog.Info("remote config cache started")
 
 	return nil
 }
