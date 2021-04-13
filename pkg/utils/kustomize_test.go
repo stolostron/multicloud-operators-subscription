@@ -51,6 +51,7 @@ func Test_RunKustomizeBuild(t *testing.T) {
 func Test_RunKustomize_085_Build(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
+	// This fails with kustomize module v0.6.0
 	_, err := RunKustomizeBuild("../../test/github/kustomize/overlays/patchjson2")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
