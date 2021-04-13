@@ -1,0 +1,3 @@
+- op: replace
+  path: /spec/policy-templates/0/objectDefinition/spec/object-templates/0/objectDefinition/metadata/annotations/cluster
+  value: cluster01

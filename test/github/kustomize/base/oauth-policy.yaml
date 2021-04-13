@@ -1,0 +1,26 @@
+apiVersion: policy.open-cluster-management.io/v1
+kind: Policy
+metadata:
+  name: policy-auth-provider
+  namespace: oauth-policies
+spec:
+  complianceType: mustonlyhave
+  remediationAction: enforce
+  disabled: false
+  policy-templates:
+  - objectDefinition:
+      apiVersion: policy.open-cluster-management.io/v1
+      kind: ConfigurationPolicy
+      metadata:
+        name: policy-auth-provider
+      spec:
+        object-templates:
+        - complianceType: mustonlyhave
+          objectDefinition:
+            apiVersion: v1
+            kind: Namespace
+            metadata:
+              name: test
+              annotations:
+                  cluster: placeholder
+                  kustomize: yes

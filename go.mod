@@ -37,7 +37,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20200805222855-6aeccd4b50c6
 	sigs.k8s.io/controller-runtime v0.6.3
-	sigs.k8s.io/kustomize/api v0.6.0
+	sigs.k8s.io/kustomize/api v0.8.5
 )
 
 replace (
