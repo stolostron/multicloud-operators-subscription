@@ -201,6 +201,10 @@ var _ = Describe("test apply", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
 		Expect(err).NotTo(HaveOccurred())
 
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(sch)
+
 		dpl := dplinstance.DeepCopy()
 		hostnn := sharedkey
 		dplnn := sharedkey
@@ -906,6 +910,13 @@ var _ = Describe("test resource overwrite", func() {
 	})
 
 	It("resource owned by others can not be updated by subscription without the annotations", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(sch)
+
 		// Create a config map that is not owned by any subscription
 		cm := configMap.DeepCopy()
 		source := sourceprefix + configMapSharedkey.String()
@@ -921,9 +932,6 @@ var _ = Describe("test resource overwrite", func() {
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		Expect(cm.Data["name"]).To(Equal("bob"))
-
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
-		Expect(err).NotTo(HaveOccurred())
 
 		resgvk := schema.GroupVersionKind{
 			Version: "v1",
@@ -1000,6 +1008,10 @@ var _ = Describe("test resource overwrite", func() {
 
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
 		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(sch)
 
 		resgvk := schema.GroupVersionKind{
 			Version: "v1",
