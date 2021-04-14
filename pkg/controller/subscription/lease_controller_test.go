@@ -100,5 +100,4 @@ func TestLeaseReconcile(t *testing.T) {
 	renewTime2 := lease.Spec.RenewTime.DeepCopy()
 
 	g.Expect(renewTime1.Before(renewTime2)).Should(gomega.BeTrue())
-
 }

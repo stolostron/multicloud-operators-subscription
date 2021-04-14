@@ -44,6 +44,7 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 		if err != nil {
 			klog.Errorf("failed to get pod namespace use. error:%v", err)
 		}
+
 		r.componentNamespace = componentNamespace
 	}
 
@@ -51,7 +52,7 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 
 	switch {
 	case errors.IsNotFound(err):
-		//create lease
+		// create lease
 		lease := &coordinationv1.Lease{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      r.LeaseName,
@@ -73,9 +74,10 @@ func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 		return
 	case err != nil:
 		klog.Errorf("unable to get addon lease %q/%q on local managed cluster. error:%v", r.componentNamespace, r.LeaseName, err)
+
 		return
 	default:
-		//update lease
+		// update lease
 		lease.Spec.RenewTime = &metav1.MicroTime{Time: time.Now()}
 		if _, err = r.KubeClient.CoordinationV1().Leases(r.componentNamespace).Update(context.TODO(), lease, metav1.UpdateOptions{}); err != nil {
 			klog.Errorf("unable to update cluster lease %q/%q on local managed cluster. error:%v", r.componentNamespace, r.LeaseName, err)
