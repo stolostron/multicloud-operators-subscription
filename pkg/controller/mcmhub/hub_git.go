@@ -431,6 +431,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		InsecureSkipVerify: skipCertVerify,
 		RepoURL:            repoURL,
 		CloneDepth:         depthInt,
+		CaCerts: 			caCert,
 	}
 
 	commitID, err := h.cloneFunc(cloneOptions)
