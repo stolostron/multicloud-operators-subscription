@@ -147,7 +147,7 @@ func (obsi *SubscriberItem) initObjectStore() error {
 		}
 	}
 
-	klog.V(2).Info("Trying to connect to aws ", endpoint, "|", obsi.bucket)
+	klog.V(1).Info("Trying to connect to aws ", endpoint, "|", obsi.bucket)
 
 	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey); err != nil {
 		klog.Error(err, "unable initialize object store settings")
@@ -162,6 +162,14 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	obsi.objectStore = awshandler
 
 	return nil
+}
+
+func generateDplNameFromKey(key string) string {
+	// In aws s3 bucket, key could contain folder name. e.g. subfolder1/configmap3.yaml
+	// As a result, the hosting deployable annotation (NamespacedName) will be <namespace>/subfolder1/configmap3.yaml
+	// The invalid hosting deployable annotation will break the synchronizer
+
+	return strings.ReplaceAll(key, "/", "-")
 }
 
 func (obsi *SubscriberItem) doSubscription() error {
@@ -181,8 +189,13 @@ func (obsi *SubscriberItem) doSubscription() error {
 			return err
 		}
 
+		// skip empty body object store
+		if len(tplb.Content) == 0 {
+			continue
+		}
+
 		dpl := &dplv1.Deployable{}
-		dpl.Name = key
+		dpl.Name = generateDplNameFromKey(key)
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
 		dpl.GenerateName = tplb.GenerateName

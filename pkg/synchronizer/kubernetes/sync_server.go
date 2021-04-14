@@ -280,7 +280,14 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 				tplhost := sync.Extension.GetHostFromObject(tplunit)
 				tpldpl := utils.GetHostDeployableFromObject(tplunit)
 
-				klog.V(10).Infof("Start DeRegister, with resgvk: %v, reskey: %s", resgvk, reskey)
+				klog.V(1).Infof("Start DeRegister, with resgvk: %v, reskey: %s, tplhost: %v, tpldpl: %v",
+					resgvk, reskey, tplhost, tpldpl)
+
+				if tpldpl == nil {
+					klog.Errorf("Invalid hosting deployable, tpldpl: %v", tpldpl)
+
+					continue
+				}
 
 				err = sync.DeRegisterTemplate(*tplhost, *tpldpl, order.subType)
 
