@@ -16,14 +16,10 @@ package subscription
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
-	"path"
 	"testing"
 	"time"
 
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/labels"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
@@ -33,15 +29,15 @@ import (
 )
 
 const (
-	leaseName      = "application-manager"
-	leaseNamespace = "cluster1"
-	appmgrPodName  = "klusterlet-addon-appmgr"
+	leaseName     = "application-manager"
+	agentNs       = "open-cluster-management-agent"
+	appmgrPodName = "klusterlet-addon-appmgr"
 )
 
 var (
 	ns = &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: leaseNamespace,
+			Name: agentNs,
 		},
 	}
 
@@ -76,33 +72,19 @@ func TestLeaseReconcile(t *testing.T) {
 	pod.SetNamespace(addontNs)
 
 	kubeClient := kubefake.NewSimpleClientset(ns, pod)
-	kubeconfigData := []byte("my kubeconfig 1")
-
-	//init kubeconfig
-	tempdir, err := ioutil.TempDir("", "kube")
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
-
-	defer os.RemoveAll(tempdir)
-
-	err = ioutil.WriteFile(path.Join(tempdir, "kubeconfig"), kubeconfigData, 0600)
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	leaseReconciler := &LeaseReconciler{
 		KubeClient:           kubeClient,
 		LeaseName:            leaseName,
-		LeaseNamespace:       leaseNamespace,
 		LeaseDurationSeconds: 1,
-		cachedKubeConfig:     []byte{},
-		HubKubeConfigPath:    path.Join(tempdir, "kubeconfig"),
-		hubClient:            kubeClient,
-		KubeFake:             true,
+		componentNamespace:   agentNs,
 	}
 
 	// test1: create lease
 	leaseReconciler.Reconcile(context.TODO())
 	time.Sleep(1 * time.Second)
 
-	lease, err := kubeClient.CoordinationV1().Leases(leaseNamespace).Get(context.TODO(), leaseName, metav1.GetOptions{})
+	lease, err := kubeClient.CoordinationV1().Leases(agentNs).Get(context.TODO(), leaseName, metav1.GetOptions{})
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	renewTime1 := lease.Spec.RenewTime.DeepCopy()
@@ -112,37 +94,11 @@ func TestLeaseReconcile(t *testing.T) {
 	leaseReconciler.Reconcile(context.TODO())
 	time.Sleep(1 * time.Second)
 
-	lease, err = kubeClient.CoordinationV1().Leases(leaseNamespace).Get(context.TODO(), leaseName, metav1.GetOptions{})
+	lease, err = kubeClient.CoordinationV1().Leases(agentNs).Get(context.TODO(), leaseName, metav1.GetOptions{})
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	renewTime2 := lease.Spec.RenewTime.DeepCopy()
 
 	g.Expect(renewTime1.Before(renewTime2)).Should(gomega.BeTrue())
 
-	// test 3: if kubeconfig changes, the appmgr Pod should be deleted for restart
-	labelSelector := labels.FormatLabels(agentLabel)
-	appmgrPods, err := kubeClient.CoreV1().Pods(addontNs).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
-	g.Expect(len(appmgrPods.Items)).To(gomega.Equal(1))
-
-	leaseReconciler = &LeaseReconciler{
-		KubeClient:           kubeClient,
-		LeaseName:            leaseName,
-		LeaseNamespace:       leaseNamespace,
-		LeaseDurationSeconds: 1,
-		cachedKubeConfig:     kubeconfigData,
-		HubKubeConfigPath:    path.Join(tempdir, "kubeconfig"),
-		hubClient:            kubeClient,
-		KubeFake:             true,
-	}
-
-	newKubeconfigData := []byte("my kubeconfig 2")
-	err = ioutil.WriteFile(path.Join(tempdir, "kubeconfig"), newKubeconfigData, 0600)
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
-
-	leaseReconciler.Reconcile(context.TODO())
-
-	appmgrPods, err = kubeClient.CoreV1().Pods(addontNs).List(context.TODO(), metav1.ListOptions{LabelSelector: labelSelector})
-	g.Expect(err).ShouldNot(gomega.HaveOccurred())
-	g.Expect(len(appmgrPods.Items)).To(gomega.Equal(0))
 }
