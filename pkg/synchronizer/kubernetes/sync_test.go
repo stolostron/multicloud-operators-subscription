@@ -986,6 +986,14 @@ var _ = Describe("test resource overwrite", func() {
 	})
 
 	It("resource owned by subscription can be merged", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(sch)
+		time.Sleep(k8swait)
+
 		// Create a config map that is not owned by any subscription
 		cm := configMap.DeepCopy()
 		source := sourceprefix + configMapSharedkey.String()
@@ -1013,13 +1021,6 @@ var _ = Describe("test resource overwrite", func() {
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		Expect(cm.Data["name"]).To(Equal("bob"))
-
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
-		Expect(err).NotTo(HaveOccurred())
-
-		sch := make(chan struct{})
-		defer close(sch)
-		go sync.Start(sch)
 
 		resgvk := schema.GroupVersionKind{
 			Version: "v1",
