@@ -165,7 +165,6 @@ func RunManager() {
 			KubeClient:           managedClusterKubeClient,
 			LeaseName:            AddonName,
 			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
-			KubeFake:             false,
 		}
 
 		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,

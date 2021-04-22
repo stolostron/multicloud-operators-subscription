@@ -76,6 +76,8 @@ var (
 	AnnotationResourceReconcileOption = SchemeGroupVersion.Group + "/reconcile-option"
 	// AnnotationResourceReconcileLevel is for resource reconciliation frequency
 	AnnotationResourceReconcileLevel = SchemeGroupVersion.Group + "/reconcile-rate"
+	// AnnotationManualReconcileTime is the time user triggers a manual resource reconcile
+	AnnotationManualReconcileTime = SchemeGroupVersion.Group + "/manual-refresh-time"
 	//LabelSubscriptionPause sits in subscription label to identify if the subscription is paused or not
 	LabelSubscriptionPause = "subscription-pause"
 	//LabelSubscriptionName is the subscription name

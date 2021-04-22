@@ -55,11 +55,13 @@ type ResourceMap struct {
 
 // KubeSynchronizer handles resources to a kube endpoint
 type KubeSynchronizer struct {
-	Interval      int
-	LocalClient   client.Client
-	RemoteClient  client.Client
-	localConfig   *rest.Config
-	DynamicClient dynamic.Interface
+	Interval           int
+	localCachedClient  *cachedClient
+	remoteCachedClient *cachedClient
+	LocalClient        client.Client
+	RemoteClient       client.Client
+	localConfig        *rest.Config
+	DynamicClient      dynamic.Interface
 
 	kmtx           sync.Mutex // lock the kubeResource
 	KubeResources  map[schema.GroupVersionKind]*ResourceMap
@@ -124,21 +126,23 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		stopCh:         make(chan struct{}),
 	}
 
-	s.LocalClient, err = client.New(config, client.Options{})
-
+	s.localCachedClient, err = newCachedClient(config, &types.NamespacedName{Name: "local"})
 	if err != nil {
 		klog.Error("Failed to initialize client to update local status. err: ", err)
 		return nil, err
 	}
 
+	s.LocalClient = s.localCachedClient.clt
+
 	s.RemoteClient = s.LocalClient
 	if remoteConfig != nil {
-		s.RemoteClient, err = client.New(remoteConfig, client.Options{})
-
+		s.remoteCachedClient, err = newCachedClient(remoteConfig, syncid)
 		if err != nil {
 			klog.Error("Failed to initialize client to update remote status. err: ", err)
 			return nil, err
 		}
+
+		s.RemoteClient = s.remoteCachedClient.clt
 	}
 
 	defaultExtension.localClient = s.LocalClient
@@ -168,6 +172,30 @@ func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
 	sync.rediscoverResource()
 
 	go sync.processTplChan(s)
+
+	go func() {
+		if err := sync.localCachedClient.clientCache.Start(s); err != nil {
+			klog.Error(err, "failed to start up cache")
+		}
+	}()
+
+	go func() {
+		if err := sync.remoteCachedClient.clientCache.Start(s); err != nil {
+			klog.Error(err, "failed to start up cache")
+		}
+	}()
+
+	if !sync.localCachedClient.clientCache.WaitForCacheSync(s) {
+		return fmt.Errorf("failed to start up local cache")
+	}
+
+	klog.Info("local config cache started")
+
+	if !sync.remoteCachedClient.clientCache.WaitForCacheSync(s) {
+		return fmt.Errorf("failed to start up remote cache")
+	}
+
+	klog.Info("remote config cache started")
 
 	return nil
 }
