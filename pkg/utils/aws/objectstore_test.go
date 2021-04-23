@@ -35,7 +35,7 @@ func TestObjectstore(t *testing.T) {
 
 	awshandler := &Handler{}
 
-	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey")
+	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Invalid bucket name

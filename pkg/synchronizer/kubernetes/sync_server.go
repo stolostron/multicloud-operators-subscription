@@ -145,8 +145,29 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		s.RemoteClient = s.remoteCachedClient.clt
 	}
 
-	defaultExtension.localClient = s.LocalClient
-	defaultExtension.remoteClient = s.RemoteClient
+	// create non cached local/hub client only for local/hub subscription status update
+	// the latest updated local subscription status won't be fetched by cached cline,
+	// As a result, subscription status update could easily fail
+	// subscription status update does not usually happen. applying non cached client to it won't impact performace too much.
+	nonCachedLocalClient, err := client.New(config, client.Options{})
+	if err != nil {
+		klog.Error("Failed to initialize non cached local client. err: ", err)
+
+		return nil, err
+	}
+
+	nonCachedRemoteClient := nonCachedLocalClient
+	if remoteConfig != nil {
+		nonCachedRemoteClient, err = client.New(remoteConfig, client.Options{})
+		if err != nil {
+			klog.Error("Failed to initialize non cached remote client. err: ", err)
+
+			return nil, err
+		}
+	}
+
+	defaultExtension.localClient = nonCachedLocalClient
+	defaultExtension.remoteClient = nonCachedRemoteClient
 
 	if ext == nil {
 		s.Extension = defaultExtension

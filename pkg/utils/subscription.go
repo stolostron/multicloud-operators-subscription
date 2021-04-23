@@ -458,7 +458,7 @@ func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname stri
 		pkgstatus.ResourceStatus = nil
 	}
 
-	klog.V(5).Info("Set package status: ", pkgstatus)
+	klog.V(1).Infof("Set package status, pkg: %v, pkgstatus: %#v", pkgname, pkgstatus)
 
 	clst.SubscriptionPackageStatus[pkgname] = pkgstatus
 	newStatus.Statuses["/"] = clst
@@ -599,6 +599,8 @@ func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname s
 }
 
 // UpdateSubscriptionStatus based on error message, and propagate resource status
+// status - current object status
+// tplunit - new content of the current object
 // - nil:  success
 // - others: failed, with error message in reason
 func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}, deletePkg bool) error {
@@ -650,7 +652,7 @@ func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tpl
 
 		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
 			// want to print out the error log before leave
-			klog.Error("Failed to update status of deployable ", err)
+			klog.Errorf("Failed to update subscription status. sub: %v/%v, err: %v", sub.GetNamespace(), sub.GetName(), err)
 			return err
 		}
 	}

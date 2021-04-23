@@ -28,7 +28,7 @@ import (
 
 // ObjectStore interface.
 type ObjectStore interface {
-	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey string) error
+	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error
 	Exists(bucket string) error
 	Create(bucket string) error
 	List(bucket string) ([]string, error)
@@ -44,6 +44,8 @@ const (
 	SecretMapKeyAccessKeyID = "AccessKeyID"
 	// SecretMapKeySecretAccessKey is key of secretaccesskey in secret.
 	SecretMapKeySecretAccessKey = "SecretAccessKey"
+	// SecretMapKeyRegion is key of region in secret.
+	SecretMapKeyRegion = "Region"
 	// metadata key for stroing the deployable generatename name.
 	DeployableGenerateNameMeta = "x-amz-meta-generatename"
 	// Deployable generate name key within the meta map.
@@ -103,14 +105,14 @@ func isAwsS3ObjectBucket(endpoint string) bool {
 }
 
 // InitObjectStoreConnection connect to object store.
-func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey string) error {
+func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error {
 	klog.Infof("Preparing S3 settings endpoint: %v", endpoint)
 
+	// set the default object store region  as minio
 	objectRegion := "minio"
 
-	// TODO: need to get the aws s3 region from the channel secret.
 	if isAwsS3ObjectBucket(endpoint) {
-		objectRegion = "us-east-1"
+		objectRegion = region
 	}
 
 	// aws s3 object store doesn't need to specify URL.
