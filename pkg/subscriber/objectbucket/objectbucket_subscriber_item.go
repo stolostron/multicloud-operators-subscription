@@ -58,7 +58,7 @@ func (obsi *SubscriberItem) Start() error {
 	err := obsi.initObjectStore()
 
 	if err != nil {
-		klog.Error("Unable to initialize object store connection for subscription ", obsi.Subscription.Name, " channel ", obsi.Channel.Name)
+		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
 
 		return err
 	}
