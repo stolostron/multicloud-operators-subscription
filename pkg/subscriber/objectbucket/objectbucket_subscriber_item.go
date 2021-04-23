@@ -185,11 +185,11 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	return nil
 }
 
-func generateDplNameFromKey(key string) string {
-	// In aws s3 bucket, key could contain folder name. e.g. subfolder1/configmap3.yaml
-	// As a result, the hosting deployable annotation (NamespacedName) will be <namespace>/subfolder1/configmap3.yaml
-	// The invalid hosting deployable annotation will break the synchronizer
+// In aws s3 bucket, key could contain folder name. e.g. subfolder1/configmap3.yaml
+// As a result, the hosting deployable annotation (NamespacedName) will be <namespace>/subfolder1/configmap3.yaml
+// The invalid hosting deployable annotation will break the synchronizer
 
+func generateDplNameFromKey(key string) string {
 	return strings.ReplaceAll(key, "/", "-")
 }
 
