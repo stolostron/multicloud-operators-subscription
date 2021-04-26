@@ -1,6 +1,6 @@
 module github.com/open-cluster-management/multicloud-operators-subscription
 
-go 1.15
+go 1.16
 
 require (
 	github.com/aws/aws-sdk-go-v2 v0.18.0
@@ -8,7 +8,6 @@ require (
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
 	github.com/go-git/go-git/v5 v5.2.0
 	github.com/go-logr/logr v0.3.0
-	github.com/go-logr/zapr v0.3.0
 	github.com/go-openapi/spec v0.19.5
 	github.com/google/go-cmp v0.5.2
 	github.com/google/go-github/v32 v32.1.0
@@ -17,7 +16,6 @@ require (
 	github.com/onsi/gomega v1.10.1
 	github.com/open-cluster-management/ansiblejob-go-lib v0.1.12
 	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
-	github.com/open-cluster-management/applifecycle-backend-e2e v0.2.5 // indirect
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
@@ -27,7 +25,6 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	go.uber.org/zap v1.14.1
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	gopkg.in/src-d/go-git.v4 v4.13.1
