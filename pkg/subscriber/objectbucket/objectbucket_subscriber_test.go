@@ -16,7 +16,6 @@ package objectbucket
 
 import (
 	"testing"
-	"time"
 
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,7 +46,9 @@ var (
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 		},
-		Spec: chnv1alpha1.ChannelSpec{},
+		Spec: chnv1alpha1.ChannelSpec{
+			Pathname: "http://minio-minio.apps.hivemind-b.aws.red-chesterfield.com/fake-bucket",
+		},
 	}
 	helmsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
@@ -82,11 +83,10 @@ func TestObjectSubscriber(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	g.Expect(defaultSubscriber.SubscribeItem(subitem)).NotTo(gomega.HaveOccurred())
+	// connect to a fake object store, should expect connection failure now.
+	err = defaultSubscriber.SubscribeItem(subitem)
 
-	time.Sleep(1 * time.Second)
-
-	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
+	g.Expect(err).Should(gomega.HaveOccurred())
 }
 
 func TestDoSubscribeDeployable(t *testing.T) {

@@ -92,7 +92,7 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	klog.V(2).Info("subscribeItem ", itemkey)
+	klog.V(1).Info("subscribeItem ", itemkey)
 
 	obssubitem, ok := obs.itemmap[itemkey]
 
@@ -107,9 +107,10 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	obs.itemmap[itemkey] = obssubitem
 
 	obssubitem.successful = false
-	obssubitem.Start()
 
-	return nil
+	err := obssubitem.Start()
+
+	return err
 }
 
 // UnsubscribeItem uobsubscribes a namespace subscriber item

@@ -251,12 +251,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			if reconcileErr != nil {
 				instance.Status.Phase = appv1.SubscriptionFailed
 				instance.Status.Reason = reconcileErr.Error()
+				instance.Status.Statuses = nil
+
 				klog.Errorf("doReconcile got error %v", reconcileErr)
 			}
 
 			// if the subscription pause lable is true, stop updating subscription status.
 			if subutil.GetPauseLabel(instance) {
 				klog.Info("updating subscription status: ", request.NamespacedName, " is paused")
+
 				return reconcile.Result{}, nil
 			}
 
@@ -433,6 +436,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	if sub, ok := r.subscribers[subtype]; ok {
 		if err := sub.SubscribeItem(subitem); err != nil {
 			klog.Errorf("failed to subscribe with subscriber %v, error %+v", subtype, err)
+			return err
 		}
 	}
 

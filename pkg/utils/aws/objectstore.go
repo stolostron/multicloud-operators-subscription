@@ -18,17 +18,17 @@ import (
 	"bytes"
 	"context"
 	"io/ioutil"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/aws/endpoints"
-	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"k8s.io/klog"
 )
 
-// ObjectStore interface
+// ObjectStore interface.
 type ObjectStore interface {
-	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey string) error
+	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error
 	Exists(bucket string) error
 	Create(bucket string) error
 	List(bucket string) ([]string, error)
@@ -40,36 +40,37 @@ type ObjectStore interface {
 var _ ObjectStore = &Handler{}
 
 const (
-	// SecretMapKeyAccessKeyID is key of accesskeyid in secret
+	// SecretMapKeyAccessKeyID is key of accesskeyid in secret.
 	SecretMapKeyAccessKeyID = "AccessKeyID"
-	// SecretMapKeySecretAccessKey is key of secretaccesskey in secret
+	// SecretMapKeySecretAccessKey is key of secretaccesskey in secret.
 	SecretMapKeySecretAccessKey = "SecretAccessKey"
-	//metadata key for stroing the deployable generatename name
+	// SecretMapKeyRegion is key of region in secret.
+	SecretMapKeyRegion = "Region"
+	// metadata key for stroing the deployable generatename name.
 	DeployableGenerateNameMeta = "x-amz-meta-generatename"
-	//Deployable generate name key within the meta map
+	// Deployable generate name key within the meta map.
 	DployableMateGenerateNameKey = "Generatename"
-	//metadata key for stroing the deployable generatename name
+	// metadata key for stroing the deployable generatename name.
 	DeployableVersionMeta = "x-amz-meta-deployableversion"
-	//Deployable generate name key within the meta map
+	// Deployable generate name key within the meta map.
 	DeployableMetaVersionKey = "Deployableversion"
 )
 
-// Handler handles connections to aws
+// Handler handles connections to aws.
 type Handler struct {
 	*s3.Client
 }
 
-// credentialProvider provides credetials for mcm hub deployable
+// credentialProvider provides credetials for mcm hub deployable.
 type credentialProvider struct {
-	AccessKeyID     string
-	SecretAccessKey string
+	Value aws.Credentials
 }
 
-// Retrieve follow the Provider interface
-func (p *credentialProvider) Retrieve() (aws.Credentials, error) {
+// Retrieve follow the Provider interface.
+func (p credentialProvider) Retrieve(ctx context.Context) (aws.Credentials, error) {
 	awscred := aws.Credentials{
-		SecretAccessKey: p.SecretAccessKey,
-		AccessKeyID:     p.AccessKeyID,
+		SecretAccessKey: p.Value.SecretAccessKey,
+		AccessKeyID:     p.Value.AccessKeyID,
 	}
 
 	return awscred, nil
@@ -90,127 +91,155 @@ func (d DeployableObject) isEmpty() bool {
 	return false
 }
 
-// InitObjectStoreConnection connect to object store
-func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey string) error {
-	klog.Info("Preparing S3 settings")
-
-	cfg, err := external.LoadDefaultAWSConfig()
-
-	if err != nil {
-		klog.Error("Failed to load aws config. error: ", err)
-		return err
+func isAwsS3ObjectBucket(endpoint string) bool {
+	if strings.Contains(strings.ToLower(endpoint), strings.ToLower("s3://")) {
+		return true
 	}
-	// aws client report error without minio
-	cfg.Region = "minio"
 
-	defaultResolver := endpoints.NewDefaultResolver()
-	s3CustResolverFn := func(service, region string) (aws.Endpoint, error) {
-		if service == "s3" {
+	if strings.Contains(strings.ToLower(endpoint), strings.ToLower("s3")) &&
+		strings.Contains(strings.ToLower(endpoint), strings.ToLower("aws")) {
+		return true
+	}
+
+	return false
+}
+
+// InitObjectStoreConnection connect to object store.
+func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error {
+	klog.Infof("Preparing S3 settings endpoint: %v", endpoint)
+
+	// set the default object store region  as minio
+	objectRegion := "minio"
+
+	if isAwsS3ObjectBucket(endpoint) {
+		objectRegion = region
+	}
+
+	// aws s3 object store doesn't need to specify URL.
+	// minio object store needs immutable URL. The aws sdk is not allowed to modify the host name of the minio URL
+	customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+		klog.V(1).Infof("service: %v, region: %v", service, region)
+		if region == "minio" {
 			return aws.Endpoint{
-				URL: endpoint,
+				URL:               endpoint,
+				HostnameImmutable: true,
 			}, nil
 		}
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
 
-		return defaultResolver.ResolveEndpoint(service, region)
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolver(customResolver))
+	if err != nil {
+		klog.Error("Failed to load aws config. error: ", err)
+
+		return err
 	}
 
-	cfg.EndpointResolver = aws.EndpointResolverFunc(s3CustResolverFn)
-	cfg.Credentials = &credentialProvider{
-		AccessKeyID:     accessKeyID,
-		SecretAccessKey: secretAccessKey,
+	objCredential := credentialProvider{
+		Value: aws.Credentials{
+			AccessKeyID:     accessKeyID,
+			SecretAccessKey: secretAccessKey,
+		},
 	}
 
-	h.Client = s3.New(cfg)
+	h.Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.Region = objectRegion
+		o.Credentials = objCredential
+	})
+
 	if h.Client == nil {
 		klog.Error("Failed to connect to s3 service")
+
 		return err
 	}
 
-	h.Client.ForcePathStyle = true
-
-	klog.V(2).Info("S3 configured ")
+	klog.V(1).Info("S3 configured ")
 
 	return nil
 }
 
-// Create a bucket
+// Create a bucket.
 func (h *Handler) Create(bucket string) error {
-	req := h.Client.CreateBucketRequest(&s3.CreateBucketInput{
+	resp, err := h.Client.CreateBucket(context.TODO(), &s3.CreateBucketInput{
 		Bucket: &bucket,
 	})
-
-	_, err := req.Send(context.TODO())
 	if err != nil {
 		klog.Error("Failed to create bucket ", bucket, ". error: ", err)
+
 		return err
 	}
+
+	klog.Infof("resp: %#v", resp)
 
 	return nil
 }
 
-// Exists Checks whether a bucket exists and is accessible
+// Exists Checks whether a bucket exists and is accessible.
 func (h *Handler) Exists(bucket string) error {
-	req := h.Client.HeadBucketRequest(&s3.HeadBucketInput{
+	_, err := h.Client.HeadBucket(context.TODO(), &s3.HeadBucketInput{
 		Bucket: &bucket,
 	})
 
-	_, err := req.Send(context.TODO())
 	if err != nil {
 		klog.Error("Failed to access bucket ", bucket, ". error: ", err)
+
 		return err
 	}
 
 	return nil
 }
 
-// List all objects in bucket
+// List all objects in bucket.
 func (h *Handler) List(bucket string) ([]string, error) {
-	klog.V(10).Info("List S3 Objects ", bucket)
+	klog.V(1).Info("List S3 Objects ", bucket)
 
-	req := h.Client.ListObjectsRequest(&s3.ListObjectsInput{Bucket: &bucket})
-	p := s3.NewListObjectsPaginator(req)
+	resp, err := h.Client.ListObjects(context.TODO(), &s3.ListObjectsInput{
+		Bucket: &bucket,
+	})
 
-	var keys []string
+	if err != nil {
+		klog.Infof("Got error retrieving list of objects. err: %v", err)
 
-	for p.Next(context.TODO()) {
-		page := p.CurrentPage()
-		for _, obj := range page.Contents {
-			keys = append(keys, *obj.Key)
-		}
-	}
-
-	if err := p.Err(); err != nil {
-		klog.Error("failed to list objects. error: ", err)
 		return nil, err
 	}
 
-	klog.V(10).Info("List S3 Objects result ", keys)
+	var keys []string
+
+	for _, item := range resp.Contents {
+		keys = append(keys, *item.Key)
+	}
+
+	klog.V(1).Info("List S3 Objects result: ", keys)
 
 	return keys, nil
 }
 
-// Get get existing object
+// Get get existing object.
 func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 	dplObj := DeployableObject{}
 
-	req := h.Client.GetObjectRequest(&s3.GetObjectInput{
+	resp, err := h.Client.GetObject(context.TODO(), &s3.GetObjectInput{
 		Bucket: &bucket,
 		Key:    &name,
 	})
-
-	resp, err := req.Send(context.Background())
 	if err != nil {
 		klog.Error("Failed to send Get request. error: ", err)
+
 		return dplObj, err
 	}
 
-	generateName := resp.GetObjectOutput.Metadata[DployableMateGenerateNameKey]
-	version := resp.GetObjectOutput.Metadata[DeployableMetaVersionKey]
+	generateName := resp.Metadata[DployableMateGenerateNameKey]
+	version := resp.Metadata[DeployableMetaVersionKey]
 	body, err := ioutil.ReadAll(resp.Body)
 
 	if err != nil {
 		klog.Error("Failed to parse Get request. error: ", err)
+
 		return dplObj, err
+	}
+
+	if len(body) == 0 {
+		return DeployableObject{}, nil
 	}
 
 	dplObj.Name = name
@@ -218,30 +247,27 @@ func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 	dplObj.Content = body
 	dplObj.Version = version
 
-	klog.V(10).Info("Get Success: \n", string(body))
+	klog.V(1).Info("Get Success: \n", string(body))
 
 	return dplObj, nil
 }
 
-// Put create new object
+// Put create new object.
 func (h *Handler) Put(bucket string, dplObj DeployableObject) error {
 	if dplObj.isEmpty() {
-		klog.V(5).Infof("got an empty deployableObject to put to object store")
+		klog.V(1).Infof("got an empty deployableObject to put to object store")
+
 		return nil
 	}
 
-	req := h.Client.PutObjectRequest(&s3.PutObjectInput{
+	resp, err := h.Client.PutObject(context.TODO(), &s3.PutObjectInput{
 		Bucket: &bucket,
 		Key:    &dplObj.Name,
 		Body:   bytes.NewReader(dplObj.Content),
 	})
-
-	req.HTTPRequest.Header.Set(DeployableGenerateNameMeta, dplObj.GenerateName)
-	req.HTTPRequest.Header.Set(DeployableVersionMeta, dplObj.Version)
-
-	resp, err := req.Send(context.Background())
 	if err != nil {
 		klog.Error("Failed to send Put request. error: ", err)
+
 		return err
 	}
 
@@ -250,20 +276,19 @@ func (h *Handler) Put(bucket string, dplObj DeployableObject) error {
 	return nil
 }
 
-// Delete delete existing object
+// Delete delete existing object.
 func (h *Handler) Delete(bucket, name string) error {
-	req := h.Client.DeleteObjectRequest(&s3.DeleteObjectInput{
+	resp, err := h.Client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
 		Bucket: &bucket,
 		Key:    &name,
 	})
-
-	resp, err := req.Send(context.Background())
 	if err != nil {
 		klog.Error("Failed to send Delete request. error: ", err)
+
 		return err
 	}
 
-	klog.V(10).Info("Delete Success", resp)
+	klog.V(1).Info("Delete Success", resp)
 
 	return nil
 }

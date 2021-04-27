@@ -41,7 +41,7 @@ import (
 
 var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Kind: "Subscription", Version: "v1"}
 
-// SubscriberItem - defines the unit of namespace subscription
+// SubscriberItem - defines the unit of namespace subscription.
 type SubscriberItem struct {
 	appv1.SubscriberItem
 
@@ -53,16 +53,19 @@ type SubscriberItem struct {
 	synchronizer SyncSource
 }
 
-// SubscribeItem subscribes a subscriber item with namespace channel
-func (obsi *SubscriberItem) Start() {
-	if err := obsi.initObjectStore(); err != nil {
-		klog.Error("Unable to initialize object store connection for subscription ", obsi.Subscription.Name, " channel ", obsi.Channel.Name)
-		return
+// SubscribeItem subscribes a subscriber item with namespace channel.
+func (obsi *SubscriberItem) Start() error {
+	err := obsi.initObjectStore()
+
+	if err != nil {
+		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
+
+		return err
 	}
 
 	// do nothing if already started
 	if obsi.stopch != nil {
-		return
+		return nil
 	}
 
 	obsi.stopch = make(chan struct{})
@@ -75,6 +78,7 @@ func (obsi *SubscriberItem) Start() {
 				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
 					obsi.SubscriberItem.Subscription.GetNamespace(),
 					obsi.SubscriberItem.Subscription.GetName(), nextRun)
+
 				return
 			}
 		}
@@ -82,6 +86,7 @@ func (obsi *SubscriberItem) Start() {
 		// if the subscription pause lable is true, stop subscription here.
 		if utils.GetPauseLabel(obsi.SubscriberItem.Subscription) {
 			klog.Infof("Object bucket Subscription %v/%v is paused.", obsi.SubscriberItem.Subscription.GetNamespace(), obsi.SubscriberItem.Subscription.GetName())
+
 			return
 		}
 
@@ -95,9 +100,11 @@ func (obsi *SubscriberItem) Start() {
 			}
 		}
 	}, time.Duration(obsi.syncinterval)*time.Second, obsi.stopch)
+
+	return nil
 }
 
-// Stop the subscriber
+// Stop the subscriber.
 func (obsi *SubscriberItem) Stop() {
 	if obsi.stopch != nil {
 		close(obsi.stopch)
@@ -130,6 +137,7 @@ func (obsi *SubscriberItem) initObjectStore() error {
 
 	accessKeyID := ""
 	secretAccessKey := ""
+	region := ""
 
 	if obsi.ChannelSecret != nil {
 		err = yaml.Unmarshal(obsi.ChannelSecret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
@@ -145,23 +153,44 @@ func (obsi *SubscriberItem) initObjectStore() error {
 
 			return err
 		}
+
+		regionData := obsi.ChannelSecret.Data[awsutils.SecretMapKeyRegion]
+
+		if len(regionData) > 0 {
+			err = yaml.Unmarshal(regionData, &region)
+			if err != nil {
+				klog.Error("Failed to unmashall region from secret with error:", err)
+
+				return err
+			}
+		}
 	}
 
-	klog.V(2).Info("Trying to connect to aws ", endpoint, "|", obsi.bucket)
+	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
 
-	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey); err != nil {
+	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
 		klog.Error(err, "unable initialize object store settings")
+
 		return err
 	}
 	// Check whether the connection is setup successfully
 	if err := awshandler.Exists(obsi.bucket); err != nil {
 		klog.Error(err, "Unable to access object store bucket ", obsi.bucket, " for channel ", obsi.Channel.Name)
+
 		return err
 	}
 
 	obsi.objectStore = awshandler
 
 	return nil
+}
+
+// In aws s3 bucket, key could contain folder name. e.g. subfolder1/configmap3.yaml
+// As a result, the hosting deployable annotation (NamespacedName) will be <namespace>/subfolder1/configmap3.yaml
+// The invalid hosting deployable annotation will break the synchronizer
+
+func generateDplNameFromKey(key string) string {
+	return strings.ReplaceAll(key, "/", "-")
 }
 
 func (obsi *SubscriberItem) doSubscription() error {
@@ -172,8 +201,11 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 	if err != nil {
 		klog.Info("Failed to list objects in bucket ", obsi.bucket)
+
+		return err
 	}
-	//converting template from obeject store to DPL
+
+	// converting template from obeject store to DPL
 	for _, key := range keys {
 		tplb, err := obsi.objectStore.Get(obsi.bucket, key)
 		if err != nil {
@@ -181,8 +213,13 @@ func (obsi *SubscriberItem) doSubscription() error {
 			return err
 		}
 
+		// skip empty body object store
+		if len(tplb.Content) == 0 {
+			continue
+		}
+
 		dpl := &dplv1.Deployable{}
-		dpl.Name = key
+		dpl.Name = generateDplNameFromKey(key)
 		dpl.Namespace = obsi.bucket
 		dpl.Spec.Template = &runtime.RawExtension{}
 		dpl.GenerateName = tplb.GenerateName

@@ -35,7 +35,7 @@ func TestObjectstore(t *testing.T) {
 
 	awshandler := &Handler{}
 
-	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey")
+	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Invalid bucket name
@@ -69,12 +69,17 @@ func TestObjectstore(t *testing.T) {
 	// Put items into the bucket
 	testObj := &DeployableObject{}
 
-	err = awshandler.Put("test", *testObj)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
 	testObj.Name = "testObj"
 	testObj.Version = "1.1.1"
 	testObj.GenerateName = "generateTestObj"
+	testObj.Content = []byte(`
+  apiVersion: v1
+  data:
+    database: mongodb
+  kind: ConfigMap
+  metadata:
+    name: cfg-from-ch-qa
+	`)
 
 	err = awshandler.Put("test", *testObj)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
