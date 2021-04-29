@@ -53,7 +53,7 @@ else
     $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-.PHONY: fmt lint test coverage build build-images
+.PHONY: fmt lint test build build-images
 
 
 # GITHUB_USER containing '@' char must be escaped with '%40'
@@ -116,8 +116,6 @@ test:
 # coverage section
 ############################################################
  
-coverage:
-	@common/scripts/codecov.sh
 
 ############################################################
 # build section
