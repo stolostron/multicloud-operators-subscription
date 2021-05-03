@@ -233,16 +233,17 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 
 		// Current day is blocked and no active slots today - calculate time to active slot in future day
 		nextActiveTime := timeLeftTillNextMidNight(uniCurTime)
+
 		if len(slots) != 0 {
 			// only need to check next day - it will either be an active day or have an active time slot
 			nextDay := uniCurTime.Add(time.Hour * 24)
 			if !rdays.isCurDayInDaysOfWeek(nextDay.Weekday()) {
 				nextActiveTime += tillNextSlotFromMidnight(slots, uniCurTime)
 			}
-			// else - next day is active day which starts at midnight - no time need to be added
 		} else {
 			nextActiveTime += rdays.durationToNextRunableWeekday(slots, uniCurTime)
 		}
+
 		return nextActiveTime
 	}
 
@@ -335,7 +336,7 @@ func tillNextSlotInCurrentDay(slots []hourRangesInTime, cur time.Time) time.Dura
 
 func isMidnight(t time.Time) bool {
 	b := t.Format(time.Kitchen) == MIDNIGHT
-	klog.Infof("isMidnight: %v", b)
+
 	return b
 }
 
@@ -398,10 +399,12 @@ func reverseRange(in []hourRangesInTime, loc *time.Location) []hourRangesInTime 
 		sp = slot.end
 	}
 
-	nextMidngith := lastMidnight.Add(time.Hour * 24)
 	if isMidnight(sp) { // Handle end time being midnight
 		sp = sp.Add(time.Hour * 24)
 	}
+
+	nextMidngith := lastMidnight.Add(time.Hour * 24)
+
 	if isThereGap(sp, nextMidngith) {
 		out = append(out, hourRangesInTime{start: sp, end: nextMidngith})
 	}
@@ -418,6 +421,7 @@ func (r runDays) durationToNextRunableWeekday(in []hourRangesInTime, cur time.Ti
 	// the daysofweek is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
 	curWeekday := cur.Weekday()
+
 	if len(r) == 0 {
 		// this mean you will wait for less than a day.
 		return time.Duration(0)
