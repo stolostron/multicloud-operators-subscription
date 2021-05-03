@@ -138,7 +138,11 @@ func validateHourRange(rg []appv1alpha1.HourRange, loc *time.Location) []hourRan
 		s, e := parseTimeWithKitchenFormat(r.Start, loc), parseTimeWithKitchenFormat(r.End, loc)
 		klog.V(debuglevel).Infof("start time paresed as %v, end time %v", s.Format(time.Kitchen), e.Format(time.Kitchen))
 
-		if s.Before(e) {
+		// Support for specifying range in backwards order makes it difficult to determine is 12:00AM
+		// is the start time or the end time. For example, time slot: [12:00PM, 12:00AM] is currently restructured as
+		// slot for the morning half of the day, instead of the intention, which is the afternoon to midnight.
+		// Need special consideration for 12:00AM - if specified as the end time, it is the end of the day
+		if s.Before(e) || isMidnight(e) {
 			h = append(h, hourRangesInTime{start: s, end: e})
 		} else {
 			h = append(h, hourRangesInTime{start: e, end: s})
@@ -218,26 +222,54 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 				return time.Duration(0)
 			}
 		}
+
+		// current day is blocked, check with current day time slots
+		if len(slots) != 0 {
+			cdTime := tillNextSlotInCurrentDay(slots, uniCurTime)
+			if cdTime >= 0 {
+				return cdTime
+			}
+		}
+
+		// Current day is blocked and no active slots today - calculate time to active slot in future day
+		nextActiveTime := timeLeftTillNextMidNight(uniCurTime)
+
+		if len(slots) != 0 {
+			// only need to check next day - it will either be an active day or have an active time slot
+			nextDay := uniCurTime.Add(time.Hour * 24)
+			if !rdays.isCurDayInDaysOfWeek(nextDay.Weekday()) {
+				nextActiveTime += tillNextSlotFromMidnight(slots, uniCurTime)
+			}
+		} else {
+			nextActiveTime += rdays.durationToNextRunableWeekday(slots, uniCurTime)
+		}
+
+		return nextActiveTime
 	}
 
+	// handle active scheduled time
 	if len(slots) == 0 && len(rdays) != 0 {
 		if rdays.isCurDayInDaysOfWeek(uniCurTime.Weekday()) {
 			klog.Infof("Today is in valid Daysofweek time window. Today: %v, valid Daysofweek: %v\n", uniCurTime.Weekday(), rdays)
 			return time.Duration(0)
 		}
 
-		return timeLeftTillNextMidNight(uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+		return timeLeftTillNextMidNight(uniCurTime) + rdays.durationToNextRunableWeekday(slots, uniCurTime)
 	}
 
 	if len(slots) != 0 && len(rdays) == 0 {
 		return tillNextSlot(slots, uniCurTime)
 	}
 
-	if rdays.durationToNextRunableWeekday(uniCurTime.Weekday()) == 0 {
-		return tillNextSlot(slots, uniCurTime)
+	if rdays.durationToNextRunableWeekday(slots, uniCurTime) == 0 {
+		// There is another active window today
+		ns := tillNextSlotInCurrentDay(slots, uniCurTime)
+		if ns >= 0 {
+			return ns
+		}
 	}
 
-	return timeLeftTillNextMidNight(uniCurTime) + tillNextSlot(slots, uniCurTime) + rdays.durationToNextRunableWeekday(uniCurTime.Weekday())
+	return timeLeftTillNextMidNight(uniCurTime) + tillNextSlotFromMidnight(slots, uniCurTime) + rdays.durationToNextRunableWeekday(slots, uniCurTime)
 }
 
 func timeLeftTillNextMidNight(cur time.Time) time.Duration {
@@ -247,6 +279,11 @@ func timeLeftTillNextMidNight(cur time.Time) time.Duration {
 	gt := time.Date(originYear, originMonth, originDay, cur.Hour(), cur.Minute(), 0, 0, cur.Location())
 
 	return nextMidngiht.Sub(gt)
+}
+
+func tillNextSlotFromMidnight(slots []hourRangesInTime, cur time.Time) time.Duration {
+	lastMidnight := parseTimeWithKitchenFormat(MIDNIGHT, cur.Location())
+	return tillNextSlot(slots, lastMidnight)
 }
 
 func tillNextSlot(slots []hourRangesInTime, cur time.Time) time.Duration {
@@ -275,6 +312,32 @@ func tillNextSlot(slots []hourRangesInTime, cur time.Time) time.Duration {
 	}
 
 	return time.Duration(0)
+}
+
+func tillNextSlotInCurrentDay(slots []hourRangesInTime, cur time.Time) time.Duration {
+	gt := time.Date(originYear, originMonth, originDay, cur.Hour(), cur.Minute(), 0, 0, cur.Location())
+
+	for _, slot := range slots {
+		klog.Infof("Time slot %v:%v - %v:%v", slot.start.Hour(), slot.start.Minute(), slot.end.Hour(), slot.end.Minute())
+
+		// overlapping time slots are merged and sorted
+		if gt.Sub(slot.start) > 0 && (gt.Sub(slot.end) <= 0 || isMidnight(slot.end)) {
+			// not blocked now
+			return time.Duration(0)
+		} else if gt.Sub(slot.start) < 0 {
+			// there is available time slot later in current day
+			return slot.start.Sub(gt)
+		}
+	}
+
+	// blocked now and no time slots available later in current day
+	return time.Duration(-1)
+}
+
+func isMidnight(t time.Time) bool {
+	b := t.Format(time.Kitchen) == MIDNIGHT
+
+	return b
 }
 
 func maxHour(a, b time.Time) time.Time {
@@ -336,7 +399,12 @@ func reverseRange(in []hourRangesInTime, loc *time.Location) []hourRangesInTime 
 		sp = slot.end
 	}
 
+	if isMidnight(sp) { // Handle end time being midnight
+		sp = sp.Add(time.Hour * 24)
+	}
+
 	nextMidngith := lastMidnight.Add(time.Hour * 24)
+
 	if isThereGap(sp, nextMidngith) {
 		out = append(out, hourRangesInTime{start: sp, end: nextMidngith})
 	}
@@ -348,10 +416,12 @@ func reverseRange(in []hourRangesInTime, loc *time.Location) []hourRangesInTime 
 type runDays []time.Weekday
 
 // type runDays []time.Weekday
-func (r runDays) durationToNextRunableWeekday(curWeekday time.Weekday) time.Duration {
+func (r runDays) durationToNextRunableWeekday(in []hourRangesInTime, cur time.Time) time.Duration {
 	// if daysofweek is sorted, we want the next day with is greater than the t.Weekday
 	// the daysofweek is loop such as [3, 4, 5], if t==6, we should return 3 aka 4 days
 	// if t == 2 then we should return 1
+	curWeekday := cur.Weekday()
+
 	if len(r) == 0 {
 		// this mean you will wait for less than a day.
 		return time.Duration(0)
@@ -369,7 +439,9 @@ func (r runDays) durationToNextRunableWeekday(curWeekday time.Weekday) time.Dura
 		days = daysLeftOfThisWeek + mostRecentWeekday
 	} else {
 		for _, d := range r {
-			if curWeekday == d {
+			// need to take active time slots into consideration
+			// if past all active time slots today then use the next runnable day
+			if curWeekday == d && tillNextSlotInCurrentDay(in, cur) >= 0 {
 				return time.Duration(0)
 			}
 
