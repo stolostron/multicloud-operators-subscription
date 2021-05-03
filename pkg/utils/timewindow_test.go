@@ -87,7 +87,61 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			want: time.Minute*50 + time.Hour*5,
 		},
 		{
-			desc: "block certain time return next active time",
+			desc:    "run on active slot next day",
+			curTime: "Sun Nov  3 21:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "8:30PM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			want: time.Hour*13 + time.Minute*30,
+		},
+		{
+			desc:    "run on active slot 4 days later",
+			curTime: "Mon Nov  4 21:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "8:30PM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			want: time.Hour*13 + time.Minute*30 + time.Hour*24*3,
+		},
+		{
+			desc:    "run on active slot till midnight",
+			curTime: "Mon Nov  4 11:30:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "12:30PM", End: "12:00AM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			want: time.Hour * 1,
+		},
+		{
+			desc:    "currently in active slot",
+			curTime: "Mon Nov  4 19:30:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "12:30PM", End: "12:00AM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "America/Toronto",
+			},
+			want: 0,
+		},
+		{
+			desc: "current not blocked with time outside blocked time slot",
 			//this is sunday
 			curTime: "Sun Nov  3 09:30:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
@@ -99,8 +153,55 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 				Daysofweek: []string{"Sunday", "monday", "friday"},
 				Location:   "",
 			},
-			//next most recent time will be next tuesday 12:00AM, 24-9.40 + 24 = 14.20+24 = 38.30
-			want: time.Minute*30 + time.Hour*14 + time.Hour*24,
+			want: 0,
+		},
+		{
+			desc: "block until time slot on the next day",
+			//this is sunday
+			curTime: "Sun Nov  3 14:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "12:00AM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			//next most recent time will be Monday midnight
+			want: time.Hour * 10,
+		},
+		{
+			desc: "block until time slot on the next day 2",
+			//this is sunday
+			curTime: "Sun Nov  3 14:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "12:00AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "12:00AM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			//next most recent time will be Monday midnight
+			want: time.Hour*21 + time.Minute*30,
+		},
+		{
+			desc: "block until next active day",
+			//this is sunday
+			curTime: "Mon Nov  4 14:00:00 UTC 2019",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+					{Start: "12:30PM", End: "12:00AM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "friday"},
+				Location:   "",
+			},
+			//next most recent time will be Monday midnight
+			want: time.Hour * 10,
 		},
 		{
 			desc: "run only on Monday",
@@ -328,7 +429,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.t)
-			got := tC.rd.durationToNextRunableWeekday(tt.Weekday())
+			got := tC.rd.durationToNextRunableWeekday(nil, tt)
 			if got != tC.wanted {
 				t.Errorf("wanted %v, however got %v", tC.wanted, got)
 			}
