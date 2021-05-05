@@ -53,11 +53,6 @@ var (
 		Kind:  "ReplicaSet",
 	}
 
-	rsappgk = schema.GroupKind{
-		Group: "apps",
-		Kind:  "ReplicaSet",
-	}
-
 	deployextgk = schema.GroupKind{
 		Group: "extensions",
 		Kind:  "Deployment",
@@ -69,7 +64,6 @@ var (
 	}
 	internalIgnoredGroupKind = map[schema.GroupKind]bool{
 		rsextgk:     true,
-		rsappgk:     true,
 		deployextgk: true,
 		dplgk:       true,
 	}
