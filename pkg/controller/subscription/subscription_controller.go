@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
 	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
@@ -238,6 +239,28 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		// If standalone = false, reconcile subscriptions that are propagated from ACM hub. These subscriptions have this annotation.
 		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
 			(!strings.EqualFold(annotations[appv1.AnnotationHosting], "") && !r.standalone) {
+			// Check if the subscription deployable still exists on the hub.
+			hostDeployableName := utils.GetHostDeployable(annotations[dplv1.AnnotationHosting])
+
+			if hostDeployableName != nil {
+				hostDeployable := &dplv1.Deployable{}
+
+				err := r.hubclient.Get(context.TODO(), *hostDeployableName, hostDeployable)
+
+				if err != nil && errors.IsNotFound(err) {
+					klog.Infof("Host deployable %s is not found on the hub cluster. Remove subscription %s.", hostDeployableName, request.NamespacedName)
+
+					// Delete the subscription and let the next reconcile unsubscribe/delete resources.
+					err = r.Delete(context.TODO(), instance)
+
+					if err == nil {
+						klog.Infof("Removed subscription %s.", request.NamespacedName)
+					}
+
+					return reconcile.Result{}, err
+				}
+			}
+
 			reconcileErr := r.doReconcile(instance)
 
 			// doReconcile updates the subscription. Later this function fails to update the subscription status

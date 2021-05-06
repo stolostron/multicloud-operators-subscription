@@ -117,11 +117,15 @@ func GetHostDeployableFromObject(obj metav1.Object) *types.NamespacedName {
 
 	hosttr := annotations[dplv1.AnnotationHosting]
 
-	if hosttr == "" {
+	return GetHostDeployable(hosttr)
+}
+
+func GetHostDeployable(hostAnnotation string) *types.NamespacedName {
+	if hostAnnotation == "" {
 		return nil
 	}
 
-	parsedstr := strings.Split(hosttr, "/")
+	parsedstr := strings.Split(hostAnnotation, "/")
 	if len(parsedstr) != 2 {
 		return nil
 	}
