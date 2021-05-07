@@ -58,6 +58,11 @@ var (
 		Version: appv1.SchemeGroupVersion.Version,
 		Kind:    "HelmRelease",
 	}
+
+	subscriptionGVK = schema.GroupVersionKind{
+		Group:   appv1.SchemeGroupVersion.Group,
+		Kind:    "Subscription",
+		Version: appv1.SchemeGroupVersion.Version}
 )
 
 // SubscriberItem - defines the unit of namespace subscription
@@ -537,6 +542,13 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 
 		rsc.SetAnnotations(rscAnnotations)
 	}
+
+	rsc.SetOwnerReferences([]metav1.OwnerReference{{
+		APIVersion: subscriptionGVK.Version,
+		Kind:       subscriptionGVK.Kind,
+		Name:       ghsi.Subscription.Name,
+		UID:        ghsi.Subscription.UID,
+	}})
 
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
