@@ -1095,3 +1095,25 @@ func GetReconcileInterval(reconcileRate, chType string) (time.Duration, time.Dur
 
 	return interval, retryInterval, retryCount
 }
+
+func SetAppLabel(s *appv1.Subscription, rsc *unstructured.Unstructured) {
+	rscLbls := AddAppLabel(s, rsc.GetLabels())
+	if rscLbls != nil {
+		rsc.SetLabels(rscLbls)
+	}
+}
+
+func AddAppLabel(s *appv1.Subscription, m map[string]string) map[string]string {
+	var rscLbls map[string]string
+
+	appLbl := s.Labels["app"]
+	if appLbl != "" {
+		if rscLbls == nil {
+			rscLbls = make(map[string]string)
+		}
+
+		rscLbls["app"] = appLbl
+	}
+
+	return rscLbls
+}

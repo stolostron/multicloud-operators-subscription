@@ -538,6 +538,9 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		rsc.SetAnnotations(rscAnnotations)
 	}
 
+	// Set app label
+	utils.SetAppLabel(ghsi.SubscriberItem.Subscription, rsc)
+
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
 

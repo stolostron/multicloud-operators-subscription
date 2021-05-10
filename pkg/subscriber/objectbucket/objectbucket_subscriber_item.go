@@ -300,6 +300,9 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
 		return nil, nil, errors.New(errmsg)
 	}
 
+	// Set app label
+	utils.SetAppLabel(obsi.SubscriberItem.Subscription, template)
+
 	if obsi.Subscription.Spec.PackageFilter != nil {
 		if obsi.Subscription.Spec.Package != "" && obsi.Subscription.Spec.Package != dpl.Name {
 			errmsg := "Name does not match, skiping:" + obsi.Subscription.Spec.Package + "|" + dpl.Name
