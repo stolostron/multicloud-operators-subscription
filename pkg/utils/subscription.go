@@ -1104,16 +1104,14 @@ func SetAppLabel(s *appv1.Subscription, rsc *unstructured.Unstructured) {
 }
 
 func AddAppLabel(s *appv1.Subscription, m map[string]string) map[string]string {
-	var rscLbls map[string]string
-
 	appLbl := s.Labels["app"]
 	if appLbl != "" {
-		if rscLbls == nil {
-			rscLbls = make(map[string]string)
+		if m == nil {
+			m = make(map[string]string)
 		}
 
-		rscLbls["app"] = appLbl
+		m["app"] = appLbl
 	}
 
-	return rscLbls
+	return m
 }
