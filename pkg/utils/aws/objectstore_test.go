@@ -59,11 +59,11 @@ func TestObjectstore(t *testing.T) {
 	g.Expect(err).To(gomega.HaveOccurred())
 
 	// List items in the bucket
-	buckets, err := awshandler.List("test")
+	buckets, err := awshandler.List("test", nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(buckets)).To(gomega.Equal(0))
 
-	_, err = awshandler.List("notest")
+	_, err = awshandler.List("notest", nil)
 	g.Expect(err).To(gomega.HaveOccurred())
 
 	// Put items into the bucket

@@ -84,6 +84,8 @@ var (
 	LabelSubscriptionName = SchemeGroupVersion.Group + "/subscription"
 	// AnnotationHookType defines ansible hook job type - prehook/posthook
 	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
+	// AnnotationBucketPath defines s3 object bucket subfolder path
+	AnnotationBucketPath = SchemeGroupVersion.Group + "/bucket-path"
 )
 
 const (

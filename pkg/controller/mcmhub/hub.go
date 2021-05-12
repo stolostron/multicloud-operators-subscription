@@ -17,14 +17,16 @@ package mcmhub
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,8 +36,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
+	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
@@ -44,6 +48,7 @@ import (
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via deployable
@@ -88,8 +93,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
 		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
+	case chnv1alpha1.ChannelTypeObjectBucket:
+		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, channel, objectBucketParent)
 	default:
-		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub)
+		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub, deployableParent)
 	}
 
 	if err != nil {
@@ -120,7 +127,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	dplkey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}
 	err = r.Get(context.TODO(), dplkey, found)
 
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		klog.V(1).Info("Creating Deployable - ", "namespace: ", dpl.Namespace, ", name: ", dpl.Name)
 		err = r.Create(context.TODO(), dpl)
 
@@ -239,7 +246,7 @@ func (r *ReconcileSubscription) updateSubscriptionToTarget(sub *appv1alpha1.Subs
 	err := r.Get(context.TODO(), targetSubKey, targetSub)
 
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			klog.Infof("target Subscription is gone: %#v.", targetSubKey)
 
 			return nil, false, nil
@@ -465,7 +472,7 @@ func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1
 	err := clt.Get(context.TODO(), chkey, chobj)
 
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			err1 := fmt.Errorf("channel %s/%s not found for subscription %s/%s", chNameSpace, chName, s.GetNamespace(), s.GetName())
 			err = err1
 		}
@@ -505,7 +512,7 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 }
 
 // UpdateDeployablesAnnotation set all deployables subscribed by the subscription to the apps.open-cluster-management.io/deployables annotation
-func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Subscription) bool {
+func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Subscription, parentType string) bool {
 	orgdplmap := make(map[string]bool)
 	organno := sub.GetAnnotations()
 
@@ -563,7 +570,7 @@ func (r *ReconcileSubscription) UpdateDeployablesAnnotation(sub *appv1alpha1.Sub
 	// Check and add cluster-admin annotation for multi-namepsace application
 	updated = r.AddClusterAdminAnnotation(sub)
 
-	topoFlag := extracResourceListFromDeployables(sub, allDpls)
+	topoFlag := extracResourceListFromDeployables(sub, allDpls, parentType)
 
 	return updated || topoFlag
 }
@@ -756,6 +763,10 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGitPath]
 	} else if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationGithubPath], "") {
 		subepanno[appv1alpha1.AnnotationGitPath] = origsubanno[appv1alpha1.AnnotationGithubPath]
+	}
+
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationBucketPath], "") {
+		subepanno[appv1alpha1.AnnotationBucketPath] = origsubanno[appv1alpha1.AnnotationBucketPath]
 	}
 
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") {
@@ -1141,7 +1152,7 @@ func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alp
 	found := &dplv1alpha1.Deployable{}
 	err := r.Get(context.TODO(), targetKey, found)
 
-	if err != nil && errors.IsNotFound(err) {
+	if err != nil && apierrors.IsNotFound(err) {
 		klog.Info("Creating target Deployable - ", "namespace: ", targetSubDpl.Namespace, ", name: ", targetSubDpl.Name)
 		err = r.Create(context.TODO(), targetSubDpl)
 
@@ -1198,4 +1209,155 @@ func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alp
 	}
 
 	return nil
+}
+
+func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*awsutils.Handler, string, error) {
+	var err error
+
+	awshandler := &awsutils.Handler{}
+
+	pathName := channel.Spec.Pathname
+
+	if pathName == "" {
+		errmsg := "Empty Pathname in channel " + channel.Spec.Pathname
+		klog.Error(errmsg)
+
+		return nil, "", errors.New(errmsg)
+	}
+
+	if strings.HasSuffix(pathName, "/") {
+		last := len(pathName) - 1
+		pathName = pathName[:last]
+	}
+
+	loc := strings.LastIndex(pathName, "/")
+	endpoint := pathName[:loc]
+	bucket := pathName[loc+1:]
+
+	accessKeyID := ""
+	secretAccessKey := ""
+	region := ""
+
+	if channel.Spec.SecretRef != nil {
+		channelSecret := &corev1.Secret{}
+		chnseckey := types.NamespacedName{
+			Name:      channel.Spec.SecretRef.Name,
+			Namespace: channel.Namespace,
+		}
+
+		if err := r.Get(context.TODO(), chnseckey, channelSecret); err != nil {
+			return nil, "", gerr.Wrap(err, "failed to get reference secret from channel")
+		}
+
+		err = yaml.Unmarshal(channelSecret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
+		if err != nil {
+			klog.Error("Failed to unmashall accessKey from secret with error:", err)
+
+			return nil, "", err
+		}
+
+		err = yaml.Unmarshal(channelSecret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
+		if err != nil {
+			klog.Error("Failed to unmashall secretaccessKey from secret with error:", err)
+
+			return nil, "", err
+		}
+
+		regionData := channelSecret.Data[awsutils.SecretMapKeyRegion]
+
+		if len(regionData) > 0 {
+			err = yaml.Unmarshal(regionData, &region)
+			if err != nil {
+				klog.Error("Failed to unmashall region from secret with error:", err)
+
+				return nil, "", err
+			}
+		}
+	}
+
+	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", bucket)
+
+	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
+		klog.Error(err, "unable initialize object store settings")
+
+		return nil, "", err
+	}
+	// Check whether the connection is setup successfully
+	if err := awshandler.Exists(bucket); err != nil {
+		klog.Error(err, "Unable to access object store bucket ", bucket, " for channel ", channel.Name)
+
+		return nil, "", err
+	}
+
+	return awshandler, bucket, nil
+}
+
+func (r *ReconcileSubscription) updateObjectBucketAnnotation(
+	sub *appv1alpha1.Subscription, channel *chnv1alpha1.Channel, parentType string) (bool, error) {
+	awsHandler, bucket, err := r.initObjectStore(channel)
+	if err != nil {
+		return false, err
+	}
+
+	var folderName *string
+
+	annotations := sub.GetAnnotations()
+	bucketPath := annotations[appv1.AnnotationBucketPath]
+
+	if bucketPath != "" {
+		folderName = &bucketPath
+	}
+
+	keys, err := awsHandler.List(bucket, folderName)
+	klog.V(5).Infof("object keys: %v", keys)
+
+	if err != nil {
+		klog.Error("Failed to list objects in bucket ", bucket)
+
+		return false, err
+	}
+
+	allDpls := make(map[string]*dplv1alpha1.Deployable)
+
+	// converting template from obeject store to DPL
+	for _, key := range keys {
+		tplb, err := awsHandler.Get(bucket, key)
+		if err != nil {
+			klog.Error("Failed to get object ", key, " in bucket ", bucket)
+
+			return false, err
+		}
+
+		// skip empty body object store
+		if len(tplb.Content) == 0 {
+			continue
+		}
+
+		dpl := &dplv1.Deployable{}
+		dpl.Name = generateDplNameFromKey(key)
+		dpl.Namespace = bucket
+		dpl.Spec.Template = &runtime.RawExtension{}
+		dpl.GenerateName = tplb.GenerateName
+		verionAnno := map[string]string{dplv1.AnnotationDeployableVersion: tplb.Version}
+		dpl.SetAnnotations(verionAnno)
+		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
+
+		if err != nil {
+			klog.Error("Failed to unmashall ", bucket, "/", key, " err:", err)
+			continue
+		}
+
+		klog.V(5).Infof("Retived Dpl: %v", dpl)
+
+		dplkey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
+		allDpls[dplkey] = dpl
+	}
+
+	topoFlag := extracResourceListFromDeployables(sub, allDpls, parentType)
+
+	return topoFlag, nil
+}
+
+func generateDplNameFromKey(key string) string {
+	return strings.ReplaceAll(key, "/", "-")
 }
