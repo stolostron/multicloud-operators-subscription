@@ -150,13 +150,27 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	var restart bool = false
 
+	if strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) && strings.EqualFold(ghssubitem.reconcileRate, "off") {
+		// auto reconcile off but something changed in subscription. restart to reconcile resources
+		klog.Info("auto reconcile off but something changed in subscription. restart to reconcile resources")
+		restart = true
+	}
+
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) {
 		// reconcile frequency has changed. restart the go routine
+		klog.Infof("reconcile rate has changed from %s to %s. restart to reconcile resources", previousReconcileLevel, ghssubitem.reconcileRate)
 		restart = true
 	}
 
 	// If desired commit or tag has changed, we want to restart the reconcile cycle and deploy the new commit immediately
-	if !strings.EqualFold(previousDesiredCommit, ghssubitem.desiredCommit) || !strings.EqualFold(previousDesiredTag, ghssubitem.desiredTag) {
+	if !strings.EqualFold(previousDesiredCommit, ghssubitem.desiredCommit) {
+		klog.Infof("desired commit hash has changed from %s to %s. restart to reconcile resources", previousDesiredCommit, ghssubitem.desiredCommit)
+		restart = true
+	}
+
+	// If desired commit or tag has changed, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousDesiredTag, ghssubitem.desiredTag) {
+		klog.Infof("desired tag has changed from %s to %s. restart to reconcile resources", previousDesiredTag, ghssubitem.desiredTag)
 		restart = true
 	}
 
