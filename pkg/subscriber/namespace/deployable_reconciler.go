@@ -245,6 +245,9 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, 
 		return nil, nil, errors.Wrapf(err, "processing local deployable %v", dpl.Name)
 	}
 
+	// Set app label
+	utils.SetAppLabel(subitem.Subscription, template)
+
 	//if the deployable namespace is not defined, set it to the subscription namespace
 	if template.GetNamespace() == "" {
 		template.SetNamespace(subitem.Subscription.GetNamespace())

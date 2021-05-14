@@ -343,6 +343,11 @@ func CreateHelmCRDeployable(
 		helmRelease.Spec = spec
 	}
 
+	hrLbls := AddAppLabel(sub, helmRelease.Labels)
+	if hrLbls != nil {
+		helmRelease.Labels = hrLbls
+	}
+
 	dpl := &dplv1.Deployable{}
 	dpl.Name = sub.Name + "-" + getShortSubUID(string(sub.UID)) + "-" + packageName
 	dpl.Namespace = sub.Namespace
