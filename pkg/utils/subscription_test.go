@@ -28,6 +28,7 @@ import (
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -705,4 +706,24 @@ func TestGetReconcileInterval(t *testing.T) {
 	g.Expect(loopPeriod).To(gomega.Equal(2 * time.Minute))
 	g.Expect(retryInterval).To(gomega.Equal(60 * time.Second))
 	g.Expect(retries).To(gomega.Equal(1))
+}
+
+func TestSetAppLabel(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// No app label in subscription
+	sub := &appv1.Subscription{}
+	obj := &unstructured.Unstructured{}
+	SetAppLabel(sub, obj)
+	labels := obj.GetLabels()
+	g.Expect(labels).To(gomega.BeNil())
+
+	// Has app label in subscription
+	subLabels := make(map[string]string)
+	subLabels["app"] = "testApp"
+	sub.Labels = subLabels
+	SetAppLabel(sub, obj)
+	labels = obj.GetLabels()
+	g.Expect(labels).NotTo(gomega.BeNil())
+	gomega.Expect(labels["app"]).To(gomega.Equal("testApp"))
 }
