@@ -196,11 +196,20 @@ func generateDplNameFromKey(key string) string {
 func (obsi *SubscriberItem) doSubscription() error {
 	var dpls []*dplv1.Deployable
 
-	keys, err := obsi.objectStore.List(obsi.bucket)
+	var folderName *string
+
+	annotations := obsi.Subscription.GetAnnotations()
+	bucketPath := annotations[appv1.AnnotationBucketPath]
+
+	if bucketPath != "" {
+		folderName = &bucketPath
+	}
+
+	keys, err := obsi.objectStore.List(obsi.bucket, folderName)
 	klog.V(5).Infof("object keys: %v", keys)
 
 	if err != nil {
-		klog.Info("Failed to list objects in bucket ", obsi.bucket)
+		klog.Error("Failed to list objects in bucket ", obsi.bucket)
 
 		return err
 	}
@@ -209,7 +218,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 	for _, key := range keys {
 		tplb, err := obsi.objectStore.Get(obsi.bucket, key)
 		if err != nil {
-			klog.Info("Failed to get object ", key, " in bucket ", obsi.bucket)
+			klog.Error("Failed to get object ", key, " in bucket ", obsi.bucket)
+
 			return err
 		}
 

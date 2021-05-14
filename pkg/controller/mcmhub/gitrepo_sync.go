@@ -334,7 +334,7 @@ func (r *ReconcileSubscription) updateGitSubDeployablesAnnotation(sub *appv1.Sub
 }
 
 func (r *ReconcileSubscription) updateAnnotationTopo(sub *subv1.Subscription, allDpls map[string]*dplv1alpha1.Deployable) error {
-	dplStr, err := updateResourceListViaDeployableMap(allDpls)
+	dplStr, err := updateResourceListViaDeployableMap(allDpls, deployableParent)
 	if err != nil {
 		return gerr.Wrap(err, "failed to parse deployable template")
 	}

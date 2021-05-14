@@ -31,7 +31,7 @@ type ObjectStore interface {
 	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error
 	Exists(bucket string) error
 	Create(bucket string) error
-	List(bucket string) ([]string, error)
+	List(bucket string, folderName *string) ([]string, error)
 	Put(bucket string, dplObj DeployableObject) error
 	Delete(bucket, name string) error
 	Get(bucket, name string) (DeployableObject, error)
@@ -190,11 +190,21 @@ func (h *Handler) Exists(bucket string) error {
 }
 
 // List all objects in bucket.
-func (h *Handler) List(bucket string) ([]string, error) {
+func (h *Handler) List(bucket string, folderName *string) ([]string, error) {
 	klog.V(1).Info("List S3 Objects ", bucket)
+
+	if folderName != nil {
+		tmpFolderName := *folderName
+		if len(tmpFolderName) > 0 && tmpFolderName[len(tmpFolderName)-1:] != "/" {
+			tmpFolderName += "/"
+		}
+
+		folderName = &tmpFolderName
+	}
 
 	resp, err := h.Client.ListObjects(context.TODO(), &s3.ListObjectsInput{
 		Bucket: &bucket,
+		Prefix: folderName,
 	})
 
 	if err != nil {
@@ -206,7 +216,12 @@ func (h *Handler) List(bucket string) ([]string, error) {
 	var keys []string
 
 	for _, item := range resp.Contents {
-		keys = append(keys, *item.Key)
+		key := *item.Key
+		if len(key) > 0 && key[len(key)-1:] != "/" {
+			keys = append(keys, *item.Key)
+		} else {
+			klog.V(1).Info("Skipping S3 Object: ", key)
+		}
 	}
 
 	klog.V(1).Info("List S3 Objects result: ", keys)

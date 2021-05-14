@@ -56,11 +56,12 @@ import (
 )
 
 const (
-	sep              = ","
-	sepRes           = "/"
-	deployableParent = "deployable"
-	helmChartParent  = "helmchart"
-	hookParent       = "hook"
+	sep                = ","
+	sepRes             = "/"
+	deployableParent   = "deployable"
+	helmChartParent    = "helmchart"
+	objectBucketParent = "object"
+	hookParent         = "hook"
 )
 
 var _ genericclioptions.RESTClientGetter = &restClientGetter{}
@@ -239,7 +240,7 @@ func getAdditionValue(obj runtime.Object) int {
 }
 
 // generate resource string from a deployable map
-func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (string, error) {
+func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable, parentType string) (string, error) {
 	res := []string{}
 
 	for _, dpl := range allDpls {
@@ -249,7 +250,7 @@ func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (s
 		}
 
 		rUnit := resourceUnit{
-			parentType: deployableParent,
+			parentType: parentType,
 			namePrefix: "",
 			name:       tpl.GetName(),
 			namespace:  tpl.GetNamespace(),
@@ -263,13 +264,13 @@ func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable) (s
 	return strings.Join(res, sep), nil
 }
 
-func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable) bool {
+func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable, parentType string) bool {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
 	}
 
-	expectTopo, err := updateResourceListViaDeployableMap(allDpls)
+	expectTopo, err := updateResourceListViaDeployableMap(allDpls, parentType)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for subscription %v, err: %v", ObjectString(sub), err)
 		return false
