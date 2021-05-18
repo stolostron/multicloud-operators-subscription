@@ -223,13 +223,13 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	if err != nil {
 		klog.Error(err, " Failed to git clone: ", err.Error())
-		return "", err
+		return "", errors.New("Failed to clone git: " + cloneOptions.RepoURL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
 	}
 
 	ref, err := repo.Head()
 	if err != nil {
 		klog.Error(err, " Failed to get git repo head")
-		return "", err
+		return "", errors.New("failed to get git repo head, err: " + err.Error())
 	}
 
 	// If both commitHash and revisionTag are provided, take commitHash.
@@ -243,7 +243,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 		if err != nil {
 			klog.Error(err, " failed to resolve revision")
-			return "", err
+			return "", errors.New("failed to resolve revision tag " + cloneOptions.RevisionTag + " err: " + err.Error())
 		}
 
 		klog.Infof("Revision tag %s is resolved to %s", cloneOptions.RevisionTag, revisionHash)
@@ -267,7 +267,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 		if err != nil {
 			klog.Error(err, " Failed to checkout commit")
-			return "", err
+			return "", errors.New("failed to checkout commit " + targetCommit + " err: " + err.Error())
 		}
 
 		klog.Infof("Successfully checked out commit %s ", targetCommit)
@@ -280,7 +280,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	if err != nil {
 		klog.Error(err, " Failed to get git repo commit")
-		return "", err
+		return "", errors.New("failed to get the repo's latest commit hash, err: " + err.Error())
 	}
 
 	return commit.ID().String(), nil
