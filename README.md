@@ -16,6 +16,7 @@
 - [Quick start](#quick-start)
     - [Subscribe a Helm chart](#subscribe-a-helm-chart)
     - [Troubleshooting](#troubleshooting)
+- [Multicluster application subscription deployment](#multicluster-application-subscription-deployment)
 - [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
 - [Getting started](#getting-started)
     - [Prerequisites](#prerequisites)
@@ -133,6 +134,46 @@ Status:
             Last Update:  2019-11-21T04:02:24Z
             Phase:        Success
 Events:                   <none>
+```
+
+### Multicluster application subscription deployment
+
+- Setup a _hub_ cluster and a _managed_ cluster. See [open-cluster-management registration-operator](https://github.com/open-cluster-management/registration-operator#how-to-deploy) for more details.
+
+- Deploy the subscription operator on the _hub_ cluster.
+
+```shell
+kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
+git clone https://github.com/open-cluster-management/multicloud-operators-subscription
+cd multicloud-operators-subscription
+TRAVIS_BUILD=0
+make deploy-community-hub # make deploy-community-hub GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
+```
+
+- Deploy the subscription agent on the _managed_ cluster.
+
+```shell
+kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
+export HUB_KUBECONFIG=_path_to_hub_kubeconfig_ # replace _path_to_hub_kubeconfig_ with the full path to the hub cluster kubeconfig
+export MANAGED_CLUSTER_NAME=cluster1
+make deploy-community-managed # make deploy-community-managed GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
+```
+
+- Deploy an application subscription on the _hub_ cluster and it will propagate down to the _managed_ cluster
+
+```shell
+$ kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
+$ kubectl apply -f examples/helmrepo-hub-channel
+$ kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
+$ sleep 60
+$ kubectl get subscriptions.apps 
+NAME        STATUS       AGE   LOCAL PLACEMENT   TIME WINDOW
+nginx-sub   Subscribed   77s   true       
+$ kubectl get pod
+NAME                                                   READY   STATUS    RESTARTS   AGE
+nginx-ingress-65f8e-controller-76fdf7f8bb-srfjp        1/1     Running   0          84s
+nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0          84s
+
 ```
 
 ## Community, discussion, contribution, and support
