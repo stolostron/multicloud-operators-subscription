@@ -720,10 +720,10 @@ func TestSetPartOfLabel(t *testing.T) {
 
 	// Has app label in subscription
 	subLabels := make(map[string]string)
-	subLabels["app"] = "testApp"
+	subLabels["app.kubernetes.io/part-of"] = "testApp"
 	sub.Labels = subLabels
 	SetPartOfLabel(sub, obj)
 	labels = obj.GetLabels()
 	g.Expect(labels).NotTo(gomega.BeNil())
-	gomega.Expect(labels["app"]).To(gomega.Equal("testApp"))
+	g.Expect(labels["app.kubernetes.io/part-of"]).To(gomega.Equal("testApp"))
 }
