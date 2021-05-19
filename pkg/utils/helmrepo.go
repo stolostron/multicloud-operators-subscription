@@ -343,7 +343,7 @@ func CreateHelmCRDeployable(
 		helmRelease.Spec = spec
 	}
 
-	hrLbls := AddAppLabel(sub, helmRelease.Labels)
+	hrLbls := AddPartOfLabel(sub, helmRelease.Labels)
 	if hrLbls != nil {
 		helmRelease.Labels = hrLbls
 	}

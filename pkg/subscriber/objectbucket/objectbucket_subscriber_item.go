@@ -311,7 +311,7 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
 	}
 
 	// Set app label
-	utils.SetAppLabel(obsi.SubscriberItem.Subscription, template)
+	utils.SetPartOfLabel(obsi.SubscriberItem.Subscription, template)
 
 	if obsi.Subscription.Spec.PackageFilter != nil {
 		if obsi.Subscription.Spec.Package != "" && obsi.Subscription.Spec.Package != dpl.Name {

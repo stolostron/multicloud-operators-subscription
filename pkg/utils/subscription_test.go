@@ -708,13 +708,13 @@ func TestGetReconcileInterval(t *testing.T) {
 	g.Expect(retries).To(gomega.Equal(1))
 }
 
-func TestSetAppLabel(t *testing.T) {
+func TestSetPartOfLabel(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// No app label in subscription
 	sub := &appv1.Subscription{}
 	obj := &unstructured.Unstructured{}
-	SetAppLabel(sub, obj)
+	SetPartOfLabel(sub, obj)
 	labels := obj.GetLabels()
 	g.Expect(labels).To(gomega.BeNil())
 
@@ -722,7 +722,7 @@ func TestSetAppLabel(t *testing.T) {
 	subLabels := make(map[string]string)
 	subLabels["app"] = "testApp"
 	sub.Labels = subLabels
-	SetAppLabel(sub, obj)
+	SetPartOfLabel(sub, obj)
 	labels = obj.GetLabels()
 	g.Expect(labels).NotTo(gomega.BeNil())
 	gomega.Expect(labels["app"]).To(gomega.Equal("testApp"))
