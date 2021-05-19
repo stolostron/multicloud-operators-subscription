@@ -246,7 +246,7 @@ func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, 
 	}
 
 	// Set app label
-	utils.SetAppLabel(subitem.Subscription, template)
+	utils.SetPartOfLabel(subitem.Subscription, template)
 
 	//if the deployable namespace is not defined, set it to the subscription namespace
 	if template.GetNamespace() == "" {

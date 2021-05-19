@@ -544,7 +544,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	}
 
 	// Set app label
-	utils.SetAppLabel(ghsi.SubscriberItem.Subscription, rsc)
+	utils.SetPartOfLabel(ghsi.SubscriberItem.Subscription, rsc)
 
 	rsc.SetOwnerReferences([]metav1.OwnerReference{{
 		APIVersion: subscriptionGVK.Version,
