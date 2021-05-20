@@ -263,7 +263,7 @@ type Subscription struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   SubscriptionSpec   `json:"spec,omitempty"`
+	Spec   SubscriptionSpec   `json:"spec"`
 	Status SubscriptionStatus `json:"status,omitempty"`
 }
 
