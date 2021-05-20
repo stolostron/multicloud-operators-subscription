@@ -216,6 +216,8 @@ spec:
           status:
             description: The most recent observed status of the Channel.
             type: object
+        required:
+        - spec
         type: object
     served: true
     storage: true
