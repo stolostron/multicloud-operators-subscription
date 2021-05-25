@@ -593,6 +593,7 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
 	logger.V(1).Info(fmt.Sprintf("job %s status: %v", PrintHelper(job), curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
@@ -600,6 +601,7 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 
 func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
 	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
 
 	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||
