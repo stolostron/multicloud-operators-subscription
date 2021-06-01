@@ -31,7 +31,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
-type itemmap map[types.NamespacedName]*GitSubscriber
+type itemmap map[types.NamespacedName]*GitSubscriberItem
 
 type SyncSource interface {
 	GetInterval() int
@@ -42,7 +42,7 @@ type SyncSource interface {
 	CleanupByHost(types.NamespacedName, string) error
 }
 
-// Subscriber - information to run namespace subscription
+// Subscriber - information to run git subscriber subscription
 type Subscriber struct {
 	itemmap
 	manager      manager.Manager
@@ -91,7 +91,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 // SubscribeItem subscribes a subscriber item with namespace channel
 func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	if ghs.itemmap == nil {
-		ghs.itemmap = make(map[types.NamespacedName]*GitSubscriber)
+		ghs.itemmap = make(map[types.NamespacedName]*GitSubscriberItem)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
@@ -100,9 +100,11 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
 	if !ok {
-		ghssubitem = &GitSubscriber{}
+		ghssubitem = &GitSubscriberItem{}
 		ghssubitem.syncinterval = ghs.syncinterval
 		ghssubitem.synchronizer = ghs.synchronizer
+		ghssubitem.client = ghs.manager.GetClient()
+		ghssubitem.scheme = ghs.manager.GetScheme()
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
@@ -225,7 +227,7 @@ func CreateGitHubSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr man
 		synchronizer: kubesync,
 	}
 
-	githubsubscriber.itemmap = make(map[types.NamespacedName]*GitSubscriber)
+	githubsubscriber.itemmap = make(map[types.NamespacedName]*GitSubscriberItem)
 	githubsubscriber.syncinterval = syncinterval
 
 	return githubsubscriber
