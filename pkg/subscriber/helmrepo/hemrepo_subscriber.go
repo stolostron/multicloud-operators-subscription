@@ -110,12 +110,14 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	hrs.itemmap[itemkey] = hrssubitem
 
 	previousReconcileLevel := hrssubitem.reconcileRate
+	previousSyncTime := hrssubitem.syncTime
 
 	chnAnnotations := hrssubitem.Channel.GetAnnotations()
 
 	subAnnotations := hrssubitem.Subscription.GetAnnotations()
 
 	hrssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
+	hrssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 
 	// Reconcile level can be overridden to be
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
@@ -127,6 +129,13 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, hrssubitem.reconcileRate) {
 		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	// If manual sync time is updated, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousSyncTime, hrssubitem.syncTime) {
+		klog.Infof("Manual reconcile time has changed from %s to %s. restart to reconcile resources", previousSyncTime, hrssubitem.syncTime)
+
 		restart = true
 	}
 

@@ -128,6 +128,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	previousDesiredTag := ghssubitem.desiredTag
 
+	previousSyncTime := ghssubitem.syncTime
+
 	chnAnnotations := ghssubitem.Channel.GetAnnotations()
 
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
@@ -147,6 +149,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
 	ghssubitem.desiredTag = subAnnotations[appv1alpha1.AnnotationGitTag]
+	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 
 	var restart bool = false
 
@@ -174,6 +177,13 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	// If desired commit or tag has changed, we want to restart the reconcile cycle and deploy the new commit immediately
 	if !strings.EqualFold(previousDesiredTag, ghssubitem.desiredTag) {
 		klog.Infof("desired tag has changed from %s to %s. restart to reconcile resources", previousDesiredTag, ghssubitem.desiredTag)
+
+		restart = true
+	}
+
+	// If manual sync time is updated, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousSyncTime, ghssubitem.syncTime) {
+		klog.Infof("Manual reconcile time has changed from %s to %s. restart to reconcile resources", previousSyncTime, ghssubitem.syncTime)
 
 		restart = true
 	}
