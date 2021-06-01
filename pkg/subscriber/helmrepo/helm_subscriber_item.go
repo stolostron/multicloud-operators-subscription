@@ -53,6 +53,7 @@ type SubscriberItem struct {
 
 	hash          string
 	reconcileRate string
+	syncTime      string
 	stopch        chan struct{}
 	count         int
 	syncinterval  int
