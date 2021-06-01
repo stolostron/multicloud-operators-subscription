@@ -65,8 +65,8 @@ var (
 		Version: appv1.SchemeGroupVersion.Version}
 )
 
-// SubscriberItem - defines the unit of namespace subscription
-type SubscriberItem struct {
+// GitSubscriber - defines the subscribe of git subscription
+type GitSubscriber struct {
 	appv1.SubscriberItem
 	crdsAndNamespaceFiles []string
 	rbacFiles             []string
@@ -95,7 +95,7 @@ type kubeResource struct {
 }
 
 // Start subscribes a subscriber item with github channel
-func (ghsi *SubscriberItem) Start(restart bool) {
+func (ghsi *GitSubscriber) Start(restart bool) {
 	// do nothing if already started
 	if ghsi.stopch != nil {
 		if restart {
@@ -145,12 +145,12 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 }
 
 // Stop unsubscribes a subscriber item with namespace channel
-func (ghsi *SubscriberItem) Stop() {
+func (ghsi *GitSubscriber) Stop() {
 	klog.Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
 	close(ghsi.stopch)
 }
 
-func (ghsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
+func (ghsi *GitSubscriber) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
 	err := ghsi.doSubscription()
 
 	if err != nil {
@@ -177,7 +177,7 @@ func (ghsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duratio
 	}
 }
 
-func (ghsi *SubscriberItem) doSubscription() error {
+func (ghsi *GitSubscriber) doSubscription() error {
 	hostkey := types.NamespacedName{Name: ghsi.Subscription.Name, Namespace: ghsi.Subscription.Namespace}
 	klog.Info("enter doSubscription: ", hostkey.String())
 
@@ -315,7 +315,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	return nil
 }
 
-func (ghsi *SubscriberItem) subscribeKustomizations() error {
+func (ghsi *GitSubscriber) subscribeKustomizations() error {
 	for _, kustomizeDir := range ghsi.kustomizeDirs {
 		klog.Info("Applying kustomization ", kustomizeDir)
 
@@ -375,7 +375,7 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 	return nil
 }
 
-func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
+func (ghsi *GitSubscriber) subscribeResources(rscFiles []string) error {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
@@ -407,7 +407,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 	return nil
 }
 
-func (ghsi *SubscriberItem) subscribeResourceFile(file []byte) {
+func (ghsi *GitSubscriber) subscribeResourceFile(file []byte) {
 	dpltosync, validgvk, err := ghsi.subscribeResource(file)
 	if err != nil {
 		klog.Error(err)
@@ -421,7 +421,7 @@ func (ghsi *SubscriberItem) subscribeResourceFile(file []byte) {
 	ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk})
 }
 
-func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
+func (ghsi *GitSubscriber) subscribeResource(file []byte) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
 	rsc := &unstructured.Unstructured{}
 	err := yaml.Unmarshal(file, &rsc)
 
@@ -572,7 +572,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	return dpl, validgvk, nil
 }
 
-func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg string) {
+func (ghsi *GitSubscriber) checkFilters(rsc *unstructured.Unstructured) (errMsg string) {
 	if ghsi.Subscription.Spec.Package != "" && ghsi.Subscription.Spec.Package != rsc.GetName() {
 		errMsg = "Name does not match, skiping:" + ghsi.Subscription.Spec.Package + "|" + rsc.GetName()
 
@@ -624,7 +624,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 	return ""
 }
 
-func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
+func (ghsi *GitSubscriber) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
@@ -642,7 +642,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	return err
 }
 
-func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
+func (ghsi *GitSubscriber) cloneGitRepo() (commitID string, err error) {
 	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
 
 	user := ""
@@ -696,7 +696,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	return utils.CloneGitRepo(cloneOptions)
 }
 
-func (ghsi *SubscriberItem) sortClonedGitRepo() error {
+func (ghsi *GitSubscriber) sortClonedGitRepo() error {
 	if ghsi.Subscription.Spec.PackageFilter != nil && ghsi.Subscription.Spec.PackageFilter.FilterRef != nil {
 		ghsi.SubscriberItem.SubscriptionConfigMap = &corev1.ConfigMap{}
 		subcfgkey := types.NamespacedName{

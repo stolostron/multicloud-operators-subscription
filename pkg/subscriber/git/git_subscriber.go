@@ -16,6 +16,7 @@ package git
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -31,7 +32,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
-type itemmap map[types.NamespacedName]*SubscriberItem
+type itemmap map[types.NamespacedName]*GitSubscriber
 
 type SyncSource interface {
 	GetInterval() int
@@ -91,7 +92,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 // SubscribeItem subscribes a subscriber item with namespace channel
 func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	if ghs.itemmap == nil {
-		ghs.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+		ghs.itemmap = make(map[types.NamespacedName]*GitSubscriber)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
@@ -100,12 +101,16 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
 	if !ok {
-		ghssubitem = &SubscriberItem{}
+		ghssubitem = &GitSubscriber{}
 		ghssubitem.syncinterval = ghs.syncinterval
 		ghssubitem.synchronizer = ghs.synchronizer
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
+
+	if err := utils.CreateAppsubConfigMap(ghs.manager.GetClient(), itemkey); err != nil {
+		return fmt.Errorf("failed to create configmap for appsub %s, err: %w", itemkey, err)
+	}
 
 	ghs.itemmap[itemkey] = ghssubitem
 
@@ -204,6 +209,10 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 		}
 	}
 
+	if err := utils.DeleteAppsubConfigMap(ghs.manager.GetClient(), key); err != nil {
+		return fmt.Errorf("failed to delete configmap for appsub %s, err: %w", key, err)
+	}
+
 	return nil
 }
 
@@ -225,7 +234,7 @@ func CreateGitHubSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr man
 		synchronizer: kubesync,
 	}
 
-	githubsubscriber.itemmap = make(map[types.NamespacedName]*SubscriberItem)
+	githubsubscriber.itemmap = make(map[types.NamespacedName]*GitSubscriber)
 	githubsubscriber.syncinterval = syncinterval
 
 	return githubsubscriber
