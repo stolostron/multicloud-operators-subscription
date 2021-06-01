@@ -57,6 +57,14 @@ type SubscriberItem struct {
 func (obsi *SubscriberItem) Start() error {
 	err := obsi.initObjectStore()
 
+	// If the new object store connection status (successful or failed) is different, return for updating the appsub status
+	// This will trigger another reconcile.
+	if !obsi.CompareOjbectStoreStatus(err) {
+		return err
+	}
+
+	// If the object bucket connection fails, stop the object bucket subscription
+	// At this stage, there is no app status phase change, no new reconcile will happen.
 	if err != nil {
 		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
 
@@ -110,6 +118,21 @@ func (obsi *SubscriberItem) Stop() {
 		close(obsi.stopch)
 		obsi.stopch = nil
 	}
+}
+
+// Compare current object store subscription error  with the new object store initialization error.
+func (obsi *SubscriberItem) CompareOjbectStoreStatus(initObjectStoreErr error) bool {
+	if initObjectStoreErr == nil {
+		if obsi.Subscription.Status.Reason == "" {
+			return true
+		}
+	} else {
+		if strings.EqualFold(obsi.Subscription.Status.Reason, initObjectStoreErr.Error()) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (obsi *SubscriberItem) initObjectStore() error {
