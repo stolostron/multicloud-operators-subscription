@@ -16,7 +16,6 @@ package git
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -107,10 +106,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
-
-	if err := utils.CreateAppsubConfigMap(ghs.manager.GetClient(), itemkey); err != nil {
-		return fmt.Errorf("failed to create configmap for appsub %s, err: %w", itemkey, err)
-	}
 
 	ghs.itemmap[itemkey] = ghssubitem
 
@@ -207,10 +202,6 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
 			return err
 		}
-	}
-
-	if err := utils.DeleteAppsubConfigMap(ghs.manager.GetClient(), key); err != nil {
-		return fmt.Errorf("failed to delete configmap for appsub %s, err: %w", key, err)
 	}
 
 	return nil
