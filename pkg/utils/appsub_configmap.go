@@ -25,34 +25,36 @@ type ResourceInfo struct {
 
 type ResourceSet map[ResourceInfo]struct{}
 
+func (r ResourceSet) DeleateAllResource(clt client.Client) error {
+	ctx := context.TODO()
+	for info := range r {
+		ins := &unstructured.Unstructured{}
+		ins.SetName(info.NamespacedName.Name)
+		ins.SetNamespace(info.NamespacedName.Namespace)
+		ins.SetGroupVersionKind(info.GVK)
+
+		if err := clt.Delete(ctx, ins); err != nil {
+			return fmt.Errorf("failed to delete DeleateAllResource(), err: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // ConfigMapData contains all the resouces deployed by an appsub
 type SubResources struct {
 	Key types.NamespacedName
-	Set ResourceSet
+	// format store at configmap
+	data []ResourceInfo
+	Set  ResourceSet
 }
 
 func NewSubResources(subKey types.NamespacedName) *SubResources {
-	return &SubResources{Key: subKey, Set: ResourceSet{}}
+	return &SubResources{Key: subKey, Set: ResourceSet{}, data: []ResourceInfo{}}
 }
 
-func marshal(in ResourceSet) ([]byte, error) {
-	return json.Marshal(in)
-}
-
-func unmarshal(d []byte) (ResourceSet, error) {
-	out := &ResourceSet{}
-	if err := json.Unmarshal(d, out); err != nil {
-		return nil, err
-	}
-	return *out, nil
-}
-
-func (s *SubResources) Marshal() ([]byte, error) {
-	return marshal(s.Set)
-}
-
-func (s *SubResources) Unmarshal(cmBinary []byte) (ResourceSet, error) {
-	return unmarshal(cmBinary)
+func (s *SubResources) String() string {
+	return fmt.Sprintf("%#v", s.Set)
 }
 
 // DeleteAppsubConfigMap
@@ -63,32 +65,28 @@ func (s *SubResources) GetSubResources(clt client.Client) error {
 		return err
 	}
 
-	set, err := s.Unmarshal(cm.BinaryData[SUB_RESOURCES_SET])
-	if err != nil {
-		return err
+	if len(cm.BinaryData) == 0 || len(cm.BinaryData[SUB_RESOURCES_SET]) == 0 {
+		s.Set = ResourceSet{}
+		s.data = []ResourceInfo{}
+		return nil
 	}
 
-	s.Set = set
+	d := &[]ResourceInfo{}
+	if err := json.Unmarshal(cm.BinaryData[SUB_RESOURCES_SET], d); err != nil {
+		return fmt.Errorf("failed to Unmarshal when GetSubResources(), err: %w", err)
+	}
+
+	s.data = *d
+
+	s.toSet()
 
 	return nil
 }
 
-func calResourceInfo(in *unstructured.Unstructured) ResourceInfo {
-	return ResourceInfo{
-		GVK:            in.GetObjectKind().GroupVersionKind(),
-		NamespacedName: types.NamespacedName{Namespace: in.GetNamespace(), Name: in.GetName()}}
-}
-
-func CalResourceSet(in []*unstructured.Unstructured) map[ResourceInfo]*unstructured.Unstructured {
-	out := map[ResourceInfo]*unstructured.Unstructured{}
-
-	for _, item := range in {
-		p := calResourceInfo(item)
-
-		out[p] = item
+func (s *SubResources) toSet() {
+	for _, val := range s.data {
+		s.Set[val] = struct{}{}
 	}
-
-	return out
 }
 
 // GetToBeDeletedResources output the resource is in the incoming slice but not in SubResources
@@ -118,7 +116,7 @@ func (s *SubResources) GetToBeCreatedResources(in map[ResourceInfo]*unstructured
 }
 
 // GetToBeUpdateResources output the resource is in the incoming slice and in SubResources
-func (s *SubResources) GetToBeUpdateResources(in map[ResourceInfo]*unstructured.Unstructured) []*unstructured.Unstructured {
+func (s *SubResources) GetToBeUpdatedResources(in map[ResourceInfo]*unstructured.Unstructured) []*unstructured.Unstructured {
 	out := []*unstructured.Unstructured{}
 
 	for key, val := range in {
@@ -133,15 +131,15 @@ func (s *SubResources) GetToBeUpdateResources(in map[ResourceInfo]*unstructured.
 //CommitResources update the SubResources set when 1. the incoming data is marshalled correctly
 // 2. the configmap is update correctly
 func (s *SubResources) CommitResources(clt client.Client, in map[ResourceInfo]*unstructured.Unstructured) error {
-	t := ResourceSet{}
+	d := &[]ResourceInfo{}
 
 	for key := range in {
-		t[key] = struct{}{}
+		*d = append(*d, key)
 	}
 
-	d, err := marshal(t)
+	out, err := json.Marshal(d)
 	if err != nil {
-		return fmt.Errorf("failed to marshal when CommitResources(), err %w", err)
+		return fmt.Errorf("failed to marshal when CommitResources(), err %w\n", err)
 	}
 
 	cm := &corev1.ConfigMap{
@@ -149,16 +147,36 @@ func (s *SubResources) CommitResources(clt client.Client, in map[ResourceInfo]*u
 			Name:      s.Key.Name,
 			Namespace: s.Key.Namespace,
 		},
-		BinaryData: map[string][]byte{SUB_RESOURCES_SET: d},
+		BinaryData: map[string][]byte{SUB_RESOURCES_SET: out},
 	}
 
 	if err := clt.Update(context.TODO(), cm); err != nil {
 		return fmt.Errorf("failed to Update configmap when CommitResources(), err %w", err)
 	}
 
-	s.Set = t
+	s.data = *d
+
+	s.toSet()
 
 	return nil
+}
+
+func calResourceInfo(in *unstructured.Unstructured) ResourceInfo {
+	return ResourceInfo{
+		GVK:            in.GetObjectKind().GroupVersionKind(),
+		NamespacedName: types.NamespacedName{Namespace: in.GetNamespace(), Name: in.GetName()}}
+}
+
+func CalResourceSet(in []*unstructured.Unstructured) map[ResourceInfo]*unstructured.Unstructured {
+	out := map[ResourceInfo]*unstructured.Unstructured{}
+
+	for _, item := range in {
+		p := calResourceInfo(item)
+
+		out[p] = item
+	}
+
+	return out
 }
 
 func CreateAppsubConfigMap(clt client.Client, appsubKey types.NamespacedName) error {

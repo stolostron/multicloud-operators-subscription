@@ -27,6 +27,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/repo"
+	k8serr "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -259,7 +260,7 @@ func (ghsi *GitSubscriberItem) doSubscription() error {
 		return err
 	}
 
-	syncsource := githubk8ssyncsource + hostkey.String()
+	// syncsource := githubk8ssyncsource + hostkey.String()
 
 	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
 
@@ -313,13 +314,34 @@ func (ghsi *GitSubscriberItem) doSubscription() error {
 		return err
 	}
 
-	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
-		klog.Error(err)
+	reqSet := utils.CalResourceSet(ghsi.allresources)
 
-		ghsi.successful = false
-
+	deleteRes := subResourceCm.GetToBeDeletedResources(reqSet)
+	if err := operateOnUnstructured(ghsi.client, DELETE_OP, deleteRes); err != nil {
 		return err
 	}
+
+	createRes := subResourceCm.GetToBeCreatedResources(reqSet)
+	if err := operateOnUnstructured(ghsi.client, CREATE_OP, createRes); err != nil {
+		return err
+	}
+
+	updateRes := subResourceCm.GetToBeUpdatedResources(reqSet)
+	if err := operateOnUnstructured(ghsi.client, UPDATE_OP, updateRes); err != nil {
+		return err
+	}
+
+	if err := subResourceCm.CommitResources(ghsi.client, reqSet); err != nil {
+		return err
+	}
+
+	//	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
+	//		klog.Error(err)
+	//
+	//		ghsi.successful = false
+	//
+	//		return err
+	//	}
 
 	ghsi.commitID = commitID
 
@@ -332,6 +354,40 @@ func (ghsi *GitSubscriberItem) doSubscription() error {
 	ghsi.indexFile = nil
 	ghsi.successful = true
 
+	return nil
+}
+
+const (
+	CREATE_OP = "create"
+	UPDATE_OP = "update"
+	DELETE_OP = "delete"
+)
+
+func operateOnUnstructured(clt client.Client, op string, in []*unstructured.Unstructured) error {
+	ctx := context.TODO()
+	switch op {
+	case CREATE_OP:
+		for _, item := range in {
+			if err := clt.Create(ctx, item); err != nil {
+				if !k8serr.IsAlreadyExists(err) {
+					return err
+				}
+			}
+		}
+	case DELETE_OP:
+		for _, item := range in {
+			if err := clt.Delete(ctx, item); err != nil {
+				return err
+			}
+		}
+
+	case UPDATE_OP:
+		for _, item := range in {
+			if err := clt.Update(ctx, item); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 

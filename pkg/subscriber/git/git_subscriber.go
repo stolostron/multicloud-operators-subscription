@@ -105,6 +105,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		ghssubitem.synchronizer = ghs.synchronizer
 		ghssubitem.client = ghs.manager.GetClient()
 		ghssubitem.scheme = ghs.manager.GetScheme()
+		ghssubitem.subResourcesReg = map[types.NamespacedName]*utils.SubResources{}
 	}
 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
@@ -192,6 +193,12 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	subitem, ok := ghs.itemmap[key]
 
 	if ok {
+		if childRes, ok := subitem.subResourcesReg[key]; ok {
+			if err := childRes.Set.DeleateAllResource(subitem.client); err != nil {
+				return err
+			}
+		}
+
 		subitem.Stop()
 		delete(ghs.itemmap, key)
 
