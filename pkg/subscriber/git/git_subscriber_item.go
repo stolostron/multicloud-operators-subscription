@@ -81,6 +81,7 @@ type GitSubscriberItem struct {
 	reconcileRate         string
 	desiredCommit         string
 	desiredTag            string
+	syncTime              string
 	stopch                chan struct{}
 	syncinterval          int
 	count                 int

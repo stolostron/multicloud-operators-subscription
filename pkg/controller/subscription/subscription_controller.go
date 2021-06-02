@@ -279,7 +279,9 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 			if reconcileErr != nil {
 				instance.Status.Phase = appv1.SubscriptionFailed
 				instance.Status.Reason = reconcileErr.Error()
-				instance.Status.Statuses = nil
+
+				var emptyStatuses appv1.SubscriptionClusterStatusMap = make(appv1.SubscriptionClusterStatusMap)
+				instance.Status.Statuses = emptyStatuses
 
 				klog.Errorf("doReconcile got error %v", reconcileErr)
 			}
