@@ -427,6 +427,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 
 			if err != nil {
 				klog.Error(err.Error())
+				return err
 			}
 
 			transportConfig.Proxy = http.ProxyURL(proxyUrl)
