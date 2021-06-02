@@ -418,7 +418,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 
 		if os.Getenv("HTTPS_PROXY") != "" {
 			proxyUrlEnv = os.Getenv("HTTPS_PROXY")
-		} else if os.Getenv("HTTPS_PROXY") != "" {
+		} else if os.Getenv("HTTP_PROXY") != "" {
 			proxyUrlEnv = os.Getenv("HTTP_PROXY")
 		}
 
