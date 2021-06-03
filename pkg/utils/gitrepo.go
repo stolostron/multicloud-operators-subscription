@@ -414,25 +414,25 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 			TLSClientConfig: clientConfig,
 		}
 
-		proxyUrlEnv := ""
+		proxyURLEnv := ""
 
 		if os.Getenv("HTTPS_PROXY") != "" {
-			proxyUrlEnv = os.Getenv("HTTPS_PROXY")
+			proxyURLEnv = os.Getenv("HTTPS_PROXY")
 		} else if os.Getenv("HTTP_PROXY") != "" {
-			proxyUrlEnv = os.Getenv("HTTP_PROXY")
+			proxyURLEnv = os.Getenv("HTTP_PROXY")
 		}
 
-		if proxyUrlEnv != "" {
-			proxyUrl, err := url.Parse(proxyUrlEnv)
+		if proxyURLEnv != "" {
+			proxyURL, err := url.Parse(proxyURLEnv)
 
 			if err != nil {
 				klog.Error(err.Error())
 				return err
 			}
 
-			transportConfig.Proxy = http.ProxyURL(proxyUrl)
+			transportConfig.Proxy = http.ProxyURL(proxyURL)
 
-			klog.Info("setting HTTP transport proxy to " + proxyUrlEnv)
+			klog.Info("setting HTTP transport proxy to " + proxyURLEnv)
 		}
 
 		customClient := &http.Client{
