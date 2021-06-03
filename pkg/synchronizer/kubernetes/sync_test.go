@@ -682,6 +682,8 @@ var _ = Describe("test service resource", func() {
 		Expect(k8sClient.Get(context.TODO(), svcSharedkey, svc)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), svc)
 
+		time.Sleep(k8swait)
+
 		Expect(svc.Spec.Ports[0]).Should(Equal(serviceport2))
 	})
 })
