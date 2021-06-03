@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -405,11 +406,38 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 	}
 
 	if installProtocol {
+		klog.Info("HTTP_PROXY = " + os.Getenv("HTTP_PROXY"))
+		klog.Info("HTTPS_PROXY = " + os.Getenv("HTTPS_PROXY"))
+
+		transportConfig := &http.Transport{
+			/* #nosec G402 */
+			TLSClientConfig: clientConfig,
+		}
+
+		proxyURLEnv := ""
+
+		if os.Getenv("HTTPS_PROXY") != "" {
+			proxyURLEnv = os.Getenv("HTTPS_PROXY")
+		} else if os.Getenv("HTTP_PROXY") != "" {
+			proxyURLEnv = os.Getenv("HTTP_PROXY")
+		}
+
+		if proxyURLEnv != "" {
+			proxyURL, err := url.Parse(proxyURLEnv)
+
+			if err != nil {
+				klog.Error(err.Error())
+				return err
+			}
+
+			transportConfig.Proxy = http.ProxyURL(proxyURL)
+
+			klog.Info("setting HTTP transport proxy to " + proxyURLEnv)
+		}
+
 		customClient := &http.Client{
 			/* #nosec G402 */
-			Transport: &http.Transport{
-				TLSClientConfig: clientConfig,
-			},
+			Transport: transportConfig,
 
 			// 15 second timeout
 			Timeout: 15 * time.Second,
