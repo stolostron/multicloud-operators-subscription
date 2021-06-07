@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -178,10 +179,12 @@ func CloneGitRepo(
 
 		knownhostsfile := filepath.Join(destDir, "known_hosts")
 
-		err := getKnownHostFromURL(repoURL, knownhostsfile)
+		if !insecureSkipVerify {
+			err := getKnownHostFromURL(repoURL, knownhostsfile)
 
-		if err != nil {
-			return "", err
+			if err != nil {
+				return "", err
+			}
 		}
 
 		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
@@ -215,7 +218,20 @@ func CloneGitRepo(
 }
 
 func getKnownHostFromURL(sshURL string, filepath string) error {
-	sshhostname := strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
+	sshhostname := ""
+
+	if strings.HasPrefix(sshURL, "ssh:") {
+		u, err := url.Parse(sshURL)
+
+		if err != nil {
+			klog.Error("failed toparse SSH URL: ", err)
+			return err
+		}
+
+		sshhostname = strings.Split(u.Host, ":")[0]
+	} else if strings.HasPrefix(sshURL, "git@") {
+		sshhostname = strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
+	}
 
 	klog.Info("Getting public SSH host key for " + sshhostname)
 
