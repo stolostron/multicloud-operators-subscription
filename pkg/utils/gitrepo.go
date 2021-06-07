@@ -196,11 +196,9 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 	} else {
 		klog.Info("Connecting to Git server via SSH")
 
-		knownhostsfile := ""
+		knownhostsfile := filepath.Join(cloneOptions.DestDir, "known_hosts")
 
 		if !cloneOptions.InsecureSkipVerify {
-			knownhostsfile := filepath.Join(cloneOptions.DestDir, "known_hosts")
-
 			err := getKnownHostFromURL(cloneOptions.RepoURL, knownhostsfile)
 
 			if err != nil {
@@ -292,7 +290,20 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 }
 
 func getKnownHostFromURL(sshURL string, filepath string) error {
-	sshhostname := strings.Split(strings.SplitAfter(sshURL, "@")[1], "/")[0]
+	sshhostname := ""
+
+	if strings.HasPrefix(sshURL, "ssh:") {
+		u, err := url.Parse(sshURL)
+
+		if err != nil {
+			klog.Error("failed toparse SSH URL: ", err)
+			return err
+		}
+
+		sshhostname = strings.Split(u.Host, ":")[0]
+	} else if strings.HasPrefix(sshURL, "git@") {
+		sshhostname = strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
+	}
 
 	klog.Info("Getting public SSH host key for " + sshhostname)
 
