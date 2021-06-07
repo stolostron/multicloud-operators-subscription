@@ -178,10 +178,12 @@ func CloneGitRepo(
 
 		knownhostsfile := filepath.Join(destDir, "known_hosts")
 
-		err := getKnownHostFromURL(repoURL, knownhostsfile)
+		if !insecureSkipVerify {
+			err := getKnownHostFromURL(repoURL, knownhostsfile)
 
-		if err != nil {
-			return "", err
+			if err != nil {
+				return "", err
+			}
 		}
 
 		err = getSSHOptions(options, sshKey, passphrase, knownhostsfile, insecureSkipVerify)
