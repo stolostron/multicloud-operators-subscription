@@ -115,7 +115,7 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) bool {
+func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) (bool, error) {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
@@ -124,23 +124,23 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, sub, insecureSkipVeriy)
 	if err != nil {
 		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
-		return false
+		return false, err
 	}
 
 	expectTopo, err := generateResrouceList(hubCfg, helmRls)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
-		return false
+		return false, err
 	}
 
 	if subanno[subv1.AnnotationTopo] != expectTopo {
 		subanno[subv1.AnnotationTopo] = expectTopo
 		sub.SetAnnotations(subanno)
 
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
 func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {
