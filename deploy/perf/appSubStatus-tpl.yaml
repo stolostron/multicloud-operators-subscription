@@ -1,0 +1,41 @@
+---
+apiVersion: apps.open-cluster-management.io/v1alpha1
+kind: SubscriptionStatus
+metadata:
+  labels:
+    apps.open-cluster-management.io/cluster: test-cluster-<CLUSTER-NUM>
+    apps.open-cluster-management.io/hosting-subscription: appsub-ns-<APPSUB-NUM>.appsub-<APPSUB-NUM>
+  name: appsub-ns-<APPSUB-NUM>.appsub-<APPSUB-NUM>.status
+  namespace: test-cluster-<CLUSTER-NUM>
+statuses:
+  packages:
+    serviceaccount-<PACKAGE-NUM>:
+      pkgkind: ServiceAccount
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "service account deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    clusterrole-<PACKAGE-NUM>:
+      pkgkind: ClusterRole
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "cluster role deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    clusterrolebinding-<PACKAGE-NUM>:
+      pkgkind: ClusterRoleBinding
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "cluster role binding deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    service-1:
+      pkgkind: Service
+      pkgnamespace: ns-sub-<UPDATE-NUM>
+      phase: Deployed
+      message: "service deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    deployment-1:
+      pkgkind: Deployment
+      pkgnamespace: ns-sub-<UPDATE-NUM>
+      phase: Deployed
+      message: "deployment deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"

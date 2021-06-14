@@ -4,6 +4,8 @@ build/_output
 build/_test
 build-harness
 build-harness-extensions
+deploy/perf/_output
+deploy/perf/tests
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
 # -*- mode: gitignore; -*-
