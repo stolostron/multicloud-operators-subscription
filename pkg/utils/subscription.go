@@ -83,7 +83,7 @@ var AppSubStatusPredicateFunc = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		_, oldOK := e.MetaOld.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
 		_, newOK := e.MetaNew.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !oldOK || !newOK {
+		if !oldOK && !newOK {
 			klog.V(1).Infof("Not a managed cluster appSubStatus updated, old: %v/%v, new: %v/%v",
 				e.MetaOld.GetNamespace(), e.MetaOld.GetName(), e.MetaNew.GetNamespace(), e.MetaNew.GetName())
 			return false
