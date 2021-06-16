@@ -31,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
 	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"

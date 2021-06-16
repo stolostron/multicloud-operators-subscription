@@ -25,8 +25,8 @@ import (
 	"sync"
 
 	"github.com/go-logr/logr"
-	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
