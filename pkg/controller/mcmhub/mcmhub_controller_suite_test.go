@@ -28,9 +28,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 )
 
 var cfg *rest.Config

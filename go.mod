@@ -16,7 +16,6 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
@@ -37,6 +36,7 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
+	open-cluster-management.io/api v0.0.0-20210519100007-dd8ab35c4e00
 	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/kustomize/api v0.8.5
 )
