@@ -19,7 +19,6 @@ import (
 	"k8s.io/klog"
 
 	chnapis "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis"
-	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
 )
 
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
@@ -30,12 +29,6 @@ func AddToScheme(s *runtime.Scheme) error {
 	err := chnapis.AddToSchemes.AddToScheme(s)
 	if err != nil {
 		klog.Error("Failed to add channel to scheme ")
-		return err
-	}
-
-	err = releaseapis.AddToSchemes.AddToScheme(s)
-	if err != nil {
-		klog.Error("Failed to add helmrelease to scheme ")
 		return err
 	}
 
