@@ -25,7 +25,7 @@ import (
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
 	"github.com/pkg/errors"

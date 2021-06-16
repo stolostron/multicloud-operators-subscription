@@ -16,6 +16,7 @@ package apis
 
 import (
 	deployable "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	placementrule "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
 )
@@ -24,5 +25,6 @@ func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes, v1.SchemeBuilder.AddToScheme,
 		ansiblejob.SchemeBuilder.AddToScheme,
+		placementrule.SchemeBuilder.AddToScheme,
 		deployable.SchemeBuilder.AddToScheme)
 }

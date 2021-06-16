@@ -19,7 +19,7 @@
 package v1
 
 import (
-	appsv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	appsv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 

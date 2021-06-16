@@ -18,7 +18,6 @@ require (
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
-	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
 	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210512-114e1b8
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1

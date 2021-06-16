@@ -19,7 +19,6 @@ import (
 	"k8s.io/klog"
 
 	chnapis "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis"
-	plrapis "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis"
 	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
 )
 
@@ -37,12 +36,6 @@ func AddToScheme(s *runtime.Scheme) error {
 	err = releaseapis.AddToSchemes.AddToScheme(s)
 	if err != nil {
 		klog.Error("Failed to add helmrelease to scheme ")
-		return err
-	}
-
-	err = plrapis.AddToSchemes.AddToScheme(s)
-	if err != nil {
-		klog.Error("Failed to add placementrule to scheme ")
 		return err
 	}
 
