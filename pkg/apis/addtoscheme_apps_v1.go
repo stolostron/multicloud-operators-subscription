@@ -15,10 +15,10 @@
 package apis
 
 import (
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	deployable "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	placementrule "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
 )
 
 func init() {

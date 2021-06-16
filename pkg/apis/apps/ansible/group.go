@@ -17,4 +17,4 @@
 // This file ensures Go source parsers acknowledge the apps package
 // and any child packages. It can be removed if any other Go source files are
 // added to this package.
-package placementrule
+package ansible

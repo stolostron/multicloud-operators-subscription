@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/v1alpha1"
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 )
 
