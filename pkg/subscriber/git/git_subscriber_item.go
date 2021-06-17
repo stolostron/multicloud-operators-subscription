@@ -99,6 +99,10 @@ type kubeResource struct {
 
 // Start subscribes a subscriber item with github channel
 func (ghsi *SubscriberItem) Start(restart bool) {
+	klog.V(4).Info("SubscriberItem:userID - ", ghsi.userID)
+	klog.V(4).Info("SubscriberItem:userGroup - ", ghsi.userGroup)
+	klog.V(4).Info("SubscriberItem:clusterAdmin - ", ghsi.clusterAdmin)
+
 	// do nothing if already started
 	if ghsi.stopch != nil {
 		if restart {
@@ -381,6 +385,8 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
+		klog.V(4).Info("subscribeResources:rscFile - ", rscFile)
+
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
@@ -392,6 +398,8 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 		if len(resources) > 0 {
 			for _, resource := range resources {
+				klog.V(4).Info("Applying Kubernetes resource: ", resource)
+
 				t := kubeResource{}
 				err := yaml.Unmarshal(resource, &t)
 
@@ -403,6 +411,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
 
 				if t.Kind == "subscription" {
+					klog.V(4).Info("Injecting userID and UserGroup")
 					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 					resource, err = yaml.Marshal(&t)
