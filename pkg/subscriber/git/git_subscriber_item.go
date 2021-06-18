@@ -88,6 +88,8 @@ type SubscriberItem struct {
 	webhookEnabled        bool
 	successful            bool
 	clusterAdmin          bool
+	userID                string
+	userGroup             string
 }
 
 type kubeResource struct {
@@ -399,6 +401,18 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 
 				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+
+				if t.Kind == "subscription" {
+					klog.V(4).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
+					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+
+					resource, err = yaml.Marshal(&t)
+					if err != nil {
+						klog.Error(err)
+						continue
+					}
+				}
 
 				ghsi.subscribeResourceFile(resource)
 			}
