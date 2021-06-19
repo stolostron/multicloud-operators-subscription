@@ -379,6 +379,8 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 }
 
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
+	klog.Infof("\n\n\n\nsubscribeResources: %+v ", rscFiles)
+
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
@@ -400,10 +402,10 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					continue
 				}
 
-				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+				klog.V(0).Info("Applying Kubernetes resource of kind ", t.Kind)
 
-				if t.Kind == "subscription" {
-					klog.V(4).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
+				if t.Kind == "Subscription" {
+					klog.V(0).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
 					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 					resource, err = yaml.Marshal(&t)
