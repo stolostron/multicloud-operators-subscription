@@ -745,6 +745,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 }
 
 func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscription) map[string]string {
+	klog.Info("\n\n\n\nupdateSubAnnotations")
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()

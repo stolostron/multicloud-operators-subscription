@@ -403,6 +403,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 
 				klog.V(0).Info("Applying Kubernetes resource of kind ", t.Kind)
+				klog.V(0).Info("Resource before: ", resource)
 
 				if t.Kind == "Subscription" {
 					klog.V(0).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
@@ -415,8 +416,10 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 						continue
 					}
 				}
-        
- 				ghsi.subscribeResourceFile(resource)
+
+				klog.V(0).Info("Resource after: ", resource)
+
+				ghsi.subscribeResourceFile(resource)
 			}
 		}
 	}
