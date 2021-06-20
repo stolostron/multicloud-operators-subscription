@@ -403,12 +403,12 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 
 				klog.V(0).Info("Applying Kubernetes resource of kind ", t.Kind)
-				klog.V(0).Info("Resource before: ", resource)
+				klog.V(0).Infof("Resource before: %+v", resource)
 
 				if t.Kind == "Subscription" {
 					klog.V(0).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
-					//					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
-					//					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+/*					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 
 					resource, err = yaml.Marshal(&t)
 					if err != nil {
@@ -416,6 +416,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 						continue
 					}
 				}
+				*/
 
 				klog.V(0).Info("Resource after: ", resource)
 
