@@ -6,8 +6,8 @@ spec:
   channel: dev/dev-helmrepo
   name: nginx-ingress
   placement:
-    clusterSelector:
-      matchLabels:
-        env: dev
+    placementRef:
+      kind: PlacementRule
+      name: nginx-pr
   packageFilter:
     version: "1.36.3"

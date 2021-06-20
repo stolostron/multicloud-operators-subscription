@@ -31,6 +31,9 @@ var AddToManagerFuncs []func(manager.Manager) error
 // AddHelmToManagerFuncs is a list of functions to add helmrelease Controller to the Manager
 var AddHelmToManagerFuncs []func(manager.Manager) error
 
+// AddPlacementruleToManagerFuncs is a list of functions to add deployable Controller to the Manager
+var AddPlacementruleToManagerFuncs []func(manager.Manager) error
+
 // AddDeployableToManagerFuncs is a list of functions to add deployable Controller to the Manager
 var AddDeployableToManagerFuncs []func(manager.Manager) error
 
@@ -81,6 +84,12 @@ func AddHubToManager(m manager.Manager) error {
 	}
 
 	for _, f := range AddDeployableToManagerFuncs {
+		if err := f(m); err != nil {
+			return err
+		}
+	}
+
+	for _, f := range AddPlacementruleToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
 		}
