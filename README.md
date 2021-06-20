@@ -1,18 +1,9 @@
 # multicloud-operators-subscription
 
-[![Build](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)
-[![GoDoc](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription)
-[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/open-cluster-management/multicloud-operators-subscription)
-[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-------
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
 - [Overview](#overview)
+- [Architecutre](#architecutre)
 - [Quick start](#quick-start)
     - [Subscribe a Helm chart](#subscribe-a-helm-chart)
     - [Troubleshooting](#troubleshooting)
@@ -24,17 +15,16 @@
 - [References](#references)
     - [multicloud-operators repositories](#multicloud-operators-repositories)
 
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 ## Overview
 
-------
+Subscribes resources from channels and apply them to Kubernetes clusters.
 
-Subscribes resources from channels and applies them to Kubernetes 
+
+## Architecutre
+
+![architecture](images/architecture.png)
 
 ## Quick start
-
-------
 
 ### Subscribe a Helm chart
 
@@ -180,8 +170,6 @@ nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0      
 
 Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repository.
 
-------
-
 ## Getting started
 
 ### Prerequisites
@@ -194,11 +182,4 @@ Check the [Security Doc](SECURITY.md) if you find a security issue.
 
 ## References
 
-### Multicloud-operators repositories 
-
-- [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
-- [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
-- [multicloud-operators-deployable](https://github.com/open-cluster-management/multicloud-operators-deployable)
-- [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
-- [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
-- [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
+- The `multicloud-operators-subscription` is part of the `open-cluster-management` community. For more information, visit: [open-cluster-management.io](https://open-cluster-management.io).
