@@ -411,13 +411,13 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 
 					/*
-					resource, err = yaml.Marshal(&t)
-					if err != nil {
-						klog.Error(err)
-						continue
-					}
+						resource, err = yaml.Marshal(&t)
+						if err != nil {
+							klog.Error(err)
+							continue
+						}
+					*/
 				}
-				*/
 
 				nr, _ := yaml.Marshal(&t)
 				klog.V(0).Info("Resource after: ", nr)
