@@ -420,7 +420,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 
 				nr, _ := yaml.Marshal(&t)
-				klog.V(0).Info("Resource after: ", nr)
+				klog.V(0).Infof("Resource after: %+v", nr)
 
 				ghsi.subscribeResourceFile(resource)
 			}
