@@ -133,6 +133,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	chnAnnotations := ghssubitem.Channel.GetAnnotations()
 
 	subAnnotations := ghssubitem.Subscription.GetAnnotations()
+	klog.Infof("subAnnotations:%+v", subAnnotations)
 
 	ghssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
 
@@ -145,8 +146,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
-		ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
-		ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
 	}
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
@@ -154,6 +153,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 	ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
 	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
+	klog.Infof("userID:%s, userGroup:%s", ghssubitem.userID, ghssubitem.userGroup)
 
 	var restart bool = false
 
