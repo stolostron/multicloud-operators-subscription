@@ -407,9 +407,10 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 				if t.Kind == "Subscription" {
 					klog.V(0).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
-/*					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 
+					/*
 					resource, err = yaml.Marshal(&t)
 					if err != nil {
 						klog.Error(err)
@@ -418,7 +419,8 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 				*/
 
-				klog.V(0).Info("Resource after: ", resource)
+				nr, _ := yaml.Marshal(&t)
+				klog.V(0).Info("Resource after: ", nr)
 
 				ghsi.subscribeResourceFile(resource)
 			}
