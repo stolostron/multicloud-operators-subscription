@@ -16,6 +16,8 @@ package mcmhub
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -53,13 +55,15 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client,
 	logger logr.Logger, placementDecisionUpdated bool, placementRuleRv string, hookType string,
 	commitIDChanged bool) error {
-	logger.Info(fmt.Sprintf("In registryJobs, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
+	logger.Info(fmt.Sprintf("IN REGISTRYJOBS, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
 
 	for _, job := range jobs {
+		logger.Info("REGISTERING " + job.GetNamespace() + "/" + job.GetName())
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
 
 		if err != nil {
+			logger.Info("ERROR: " + err.Error())
 			return err
 		}
 
@@ -73,11 +77,15 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		nx := ins.DeepCopy()
 		suffix := suffixFunc(gClt, subIns)
 
+		logger.Info("SUFFIX = " + suffix)
+
 		if suffix == "" {
+			logger.Info("EMPTY SUFFIX")
 			continue
 		}
 
 		if nx.Spec.ExtraVars == nil {
+			logger.Info("EMPTY ExtraVars")
 			// No ExtraVars, skip
 			continue
 		}
@@ -93,8 +101,13 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 			suffix = plrSuffixFunc()
 
-			logger.V(DebugLog).Info("placementDecisionUpdated suffix is: " + suffix)
+			logger.Info("placementDecisionUpdated suffix is: " + suffix)
 		}
+
+		// OK, I might get a new suffix or the same suffix. How the hell do I figure out
+		// if I should use this suffix or timestamp?
+		//   - suffix
+		//   - timestamp
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
 
@@ -104,9 +117,30 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		// Why multiple jobRecords.InstanceSet?
 		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
 
+		logger.Info("nxKeyWithCommitHash = " + nxKey.String())
+
+		_, jobWithCommitHashAlreadyExists := jobRecords.InstanceSet[nxKey]
+
+		jobWithSyncTimeHashAlreadyExists := false
+
+		syncTimeSuffix := getSyncTimeHash(subIns.GetAnnotations()[subv1.AnnotationManualReconcileTime])
+
+		if syncTimeSuffix != "" && jobWithCommitHashAlreadyExists {
+
+			nxKeyWithSyncTime := types.NamespacedName{Name: fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix)), Namespace: nx.GetNamespace()}
+
+			logger.Info("nxKeyWithSyncTime = " + nxKeyWithSyncTime.String())
+
+			_, jobWithSyncTimeHashAlreadyExists = jobRecords.InstanceSet[nxKeyWithSyncTime]
+
+			nxKey = nxKeyWithSyncTime
+
+			nx.SetName(fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix)))
+		}
+
 		// jobRecords.InstanceSet[nxKey] is to prevent creating the same ansibleJob CR with the same name.
 		// jobRecords.Instance is an array of ansibleJob CRs that have been created so far.
-		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
+		if !jobWithCommitHashAlreadyExists || !jobWithSyncTimeHashAlreadyExists {
 			// If there is no instance set,
 			logger.Info("there is no jobRecords.InstanceSet for " + nxKey.String())
 
@@ -169,12 +203,29 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 			logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 			jobRecords.Instance = append(jobRecords.Instance, *nx)
+		} else {
+			logger.Info("THERE IS jobRecords.InstanceSet for " + nxKey.String())
+
+			// Here check the timestamp
+
 		}
 
 		jobRecords.mux.Unlock()
 	}
 
 	return nil
+}
+
+func getSyncTimeHash(syncTimeAnnotation string) string {
+	if syncTimeAnnotation == "" {
+		return ""
+	} else {
+		h := sha1.New()
+		h.Write([]byte(syncTimeAnnotation))
+		sha1_hash := hex.EncodeToString(h.Sum(nil))
+
+		return sha1_hash[:6]
+	}
 }
 
 // applyjobs will get the original job and create a instance, the applied
@@ -185,8 +236,13 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 		return nil
 	}
 
+	logger.Info("I AM IN APPLY JOBS")
+
 	for k, j := range *jIns {
+		logger.Info("I AM IN APPLY JOBS LOOP LOOP")
+
 		if len(j.Instance) == 0 {
+			logger.Info("NO INSTANCE")
 			continue
 		}
 

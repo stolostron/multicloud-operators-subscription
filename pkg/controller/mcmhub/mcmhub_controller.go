@@ -558,6 +558,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 		}
 
 		if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+			logger.Info("GONNA APPLY PRE HOOKS")
 			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
 			//if it's registered
@@ -568,6 +569,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 				return reconcile.Result{}, nil
 			}
+
+			logger.Info("APPLIED PRE HOOKS")
 
 			//if it's registered
 			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
@@ -587,6 +590,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 
 				return result, nil
 			}
+
+			logger.Info("PRE HOOKS COMPLETED")
 		}
 
 		//changes will be added to instance
