@@ -406,21 +406,28 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				klog.V(0).Infof("Resource before: %+v", resource)
 
 				if t.Kind == "Subscription" {
-					klog.V(0).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
-					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
-					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+					klog.V(0).Infof("\n\n\n\n\n\nInjecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
 
-					/*
-						resource, err = yaml.Marshal(&t)
-						if err != nil {
-							klog.Error(err)
-							continue
-						}
-					*/
+					o := &unstructured.Unstructured{}
+					if err := yaml.Unmarshal(resource, o); err != nil {
+						klog.Error("Failed to unmarshal resource YAML.")
+						return err
+					}
+
+					annotations := o.GetAnnotations()
+					annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+
+					klog.V(0).Infof("Annotations: %+v", annotations)
+
+					resource, err = yaml.Marshal(o)
+					if err != nil {
+						klog.Error(err)
+						continue
+					}
 				}
 
-				nr, _ := yaml.Marshal(&t)
-				klog.V(0).Infof("Resource after: %+v", nr)
+				klog.V(0).Infof("Resource after: %+v", resource)
 
 				ghsi.subscribeResourceFile(resource)
 			}
