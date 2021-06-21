@@ -679,12 +679,15 @@ var _ = Describe("test service resource", func() {
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
 		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, true)).NotTo(HaveOccurred())
 
-		Expect(k8sClient.Get(context.TODO(), svcSharedkey, svc)).NotTo(HaveOccurred())
-		defer k8sClient.Delete(context.TODO(), svc)
+		time.Sleep(k8swait)
+
+		svcNew := &corev1.Service{}
+		Expect(k8sClient.Get(context.TODO(), svcSharedkey, svcNew)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), svcNew)
 
 		time.Sleep(k8swait)
 
-		Expect(svc.Spec.Ports[0]).Should(Equal(serviceport2))
+		Expect(svcNew.Spec.Ports[0]).Should(Equal(serviceport2))
 	})
 })
 
