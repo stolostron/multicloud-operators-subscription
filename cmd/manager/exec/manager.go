@@ -153,7 +153,7 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		// set up lease controller for updating the application-manager lease in each managed cluster namespace on hub
+		// set up lease controller for updating the application-manager lease in agent addon namespace on managed cluster
 		// The application-manager lease resource is jitter updated every 60 seconds by default.
 		managedClusterKubeClient, err := kubernetes.NewForConfig(mgr.GetConfig())
 		if err != nil {
@@ -161,8 +161,16 @@ func RunManager() {
 			os.Exit(1)
 		}
 
+		hubKubeClient, err := kubernetes.NewForConfig(hubconfig)
+		if err != nil {
+			klog.Error("Failed to create hub cluster kube client.", err)
+			os.Exit(1)
+		}
+
 		leaseReconciler := leasectrl.LeaseReconciler{
+			HubKubeClient:        hubKubeClient,
 			KubeClient:           managedClusterKubeClient,
+			ClusterName:          Options.ClusterName,
 			LeaseName:            AddonName,
 			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
 		}
