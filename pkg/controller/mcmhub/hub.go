@@ -748,6 +748,11 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()
+
+	// User and Group annotations
+	subepanno[appv1alpha1.AnnotationUserIdentity] = strings.Trim(origsubanno[appv1alpha1.AnnotationUserIdentity], "")
+	subepanno[appv1alpha1.AnnotationUserGroup] = strings.Trim(origsubanno[appv1alpha1.AnnotationUserGroup], "")
+
 	// Keep Git related annotations from the source subscription.
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
 		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]
