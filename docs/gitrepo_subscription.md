@@ -16,7 +16,7 @@ Ensure that you have a Kubernetes cluster that include a running instance of thi
 
 ## Subscribing to a Helm chart from a public Git repository
 
-Use the following example to create a channel that connects to a public IBM Git repository and subscribes to a MongoDB Helm chart.
+Use the following example to create a channel that connects to a public Git repository and subscribes to a MongoDB Helm chart.
 
 1. Clone this `multicloud-operators-subscription` GitHub repository.
 1. In the root for your cloned repository, run the following command to create a namespace:
@@ -363,10 +363,10 @@ In order to configure webhook in a Git repository, you need a target webhook pay
 Create a route (ingress) to expose the subscription operator's webhook event listener service where `<operator namespace>` is the namespace where the subscription operator runs in.
 
   ```shell
-  oc create route passthrough --service=multicluster-operators-subscription -n <operator namespace>
+  oc create route passthrough --service=multicloud-operators-subscription -n <operator namespace>
   ```
 
-Then, use `oc get route multicluster-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
+Then, use `oc get route multicloud-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
 
 ### WebHook secret
 

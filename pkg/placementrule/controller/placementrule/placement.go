@@ -155,7 +155,7 @@ func (r *ReconcilePlacementRule) sortClustersByResourceHint(instance *appv1alpha
 		}
 
 		if instance.Spec.ResourceHint.Type != "" && cl.Status.Allocatable != nil {
-			switch instance.Spec.ResourceHint.Type {
+			switch instance.Spec.ResourceHint.Type { //nolint
 			case appv1alpha1.ResourceTypeCPU:
 				newcli.Metrics = cl.Status.Allocatable[spokeClusterV1.ResourceCPU]
 			case appv1alpha1.ResourceTypeMemory:

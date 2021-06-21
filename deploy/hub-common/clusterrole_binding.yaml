@@ -1,12 +1,12 @@
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: multicluster-operators
+  name: multicloud-operators
 subjects:
 - kind: ServiceAccount
-  name: multicluster-operators
-  namespace: multicluster-operators
+  name: multicloud-operators
+  namespace: open-cluster-management
 roleRef:
   kind: ClusterRole
-  name: multicluster-operators
+  name: multicloud-operators
   apiGroup: rbac.authorization.k8s.io

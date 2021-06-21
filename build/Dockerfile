@@ -7,13 +7,13 @@ RUN  microdnf update -y \
         && microdnf install openssh-clients \
         && microdnf clean all
 
-ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
+ENV OPERATOR=/usr/local/bin/multicloud-operators-subscription \
     USER_UID=1001 \
-    USER_NAME=multicluster-operators-subscription \
+    USER_NAME=multicloud-operators-subscription \
     ZONEINFO=/usr/share/timezone
 
 # install operator binary
-COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY build/_output/bin/multicloud-operators-subscription ${OPERATOR}
 COPY build/_output/bin/uninstall-crd /usr/local/bin
 
 COPY build/bin /usr/local/bin

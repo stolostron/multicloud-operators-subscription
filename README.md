@@ -4,13 +4,8 @@
 
 - [Overview](#overview)
 - [Architecutre](#architecutre)
-- [Quick start](#quick-start)
-    - [Subscribe a Helm chart](#subscribe-a-helm-chart)
-    - [Troubleshooting](#troubleshooting)
-- [Multicluster application subscription deployment](#multicluster-application-subscription-deployment)
-- [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
-- [Getting started](#getting-started)
-    - [Prerequisites](#prerequisites)
+- [Stand-alone deployment](#stand-alone-deployment)
+- [Multi-cluster deployment](#multi-cluster-deployment)
 - [Security response](#security-response)
 - [References](#references)
     - [multicloud-operators repositories](#multicloud-operators-repositories)
@@ -19,137 +14,61 @@
 
 Subscribes resources from channels and apply them to Kubernetes clusters.
 
-
 ## Architecutre
 
 ![architecture](images/architecture.png)
 
-## Quick start
+## Stand-alone deployment
 
-### Subscribe a Helm chart
-
-- Clone the [multicloud-operators-subscription GitHub repository](https://github.com/open-cluster-management/multicloud-operators-subscription).
+Deploy the subscription operator.
 
 ```shell
-mkdir -p "$GOPATH"/src/github.com/open-cluster-management
-cd "$GOPATH"/src/github.com/open-cluster-management
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription.git
-cd "$GOPATH"/src/github.com/open-cluster-management/multicloud-operators-subscription
+$ make deploy-standalone
+$ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicloud-operators-subscription   1/1     1            1           21m
 ```
 
-- Set up the environment, and deploy the subscription operator.
-
-```shell
-kubectl apply -f ./deploy/standalone
-```
-
-- Create a Channel and a Subscription.
+Create a Helm channel and subscribe to it.
 
 ```shell
 kubectl apply -f ./examples/helmrepo-channel
 ```
 
-- Subscribe!
-
-```shell
-kubectl patch subscriptions.apps.open-cluster-management.io simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
-```
-
 Find the nginx pods that are deployed to the current namespace. You should have 3 backend pods with the controller.
 
 ```shell
-% kubectl get pods -l app=nginx-ingress
-NAME                                             READY   STATUS    RESTARTS   AGE
-nginx-ingress-controller-857f44797-7fx7c         1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-97pxz   1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-drt7c   1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-n26ls   1/1     Running   0          96s
+$ kubectl get pods -l app=nginx-ingress
+NAME                                                    READY   STATUS    RESTARTS   AGE
+nginx-ingress-simple-controller-6b57886cf8-pmqs5        1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-cgfwn   1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-q8gdg   1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0          21m
 ```
 
-Check the [Getting started](docs/getting_started.md) doc for more details.
+### Multi-cluster deployment
 
-### Troubleshooting
+Setup a _hub_ cluster and a _managed_ cluster using [clusteradm](https://github.com/open-cluster-management-io/clusteradm#quick-start).
 
-- Check operator availability
+Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
-% kubectl get deploy,pods
-NAME                                                READY     UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/multicloud-operators-subscription   1/1       1            1           99m
-
-NAME                                                     READY     STATUS    RESTARTS   AGE
-pod/multicloud-operators-subscription-557c676479-dh2fg   1/1       Running   0          24s
+$ make deploy-hub
+$ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicloud-operators-subscription   1/1     1            1           25s
 ```
 
-- Check the Subscription and its status.
+Deploy the subscription agent on the _managed_ cluster.
 
 ```shell
-% kubectl describe appsub simple
-Name:         simple
-Namespace:    default
-Labels:       <none>
-Annotations:  kubectl.kubernetes.io/last-applied-configuration:
-                {"apiVersion":"apps.open-cluster-management.io/v1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"ch...
-API Version:  apps.open-cluster-management.io/v1
-Kind:         Subscription
-Metadata:
-  Creation Timestamp:  2019-11-21T04:01:47Z
-  Generation:          2
-  Resource Version:    24045
-  Self Link:           /apis/apps/v1/namespaces/default/subscriptions/simple
-  UID:                 a35b6ef5-0c13-11ea-b4e7-00000a100ef8
-Spec:
-  Channel:  dev/dev-helmrepo
-  Name:     nginx-ingress
-  Package Overrides:
-    Package Alias:  nginx-ingress-alias
-    Package Name:  nginx-ingress
-    Package Overrides:
-      Path:   spec
-      Value:  defaultBackend:
-  replicaCount: 3
-
-  Placement:
-    Local:  true
-Status:
-  Last Update Time:  2019-11-21T04:02:38Z
-  Phase:             Subscribed
-  Statuses:
-    /:
-      Packages:
-        dev-helmrepo-nginx-ingress-1.25.0:
-          Last Update Time:  2019-11-21T04:02:38Z
-          Phase:             Subscribed
-          Resource Status:
-            Last Update:  2019-11-21T04:02:24Z
-            Phase:        Success
-Events:                   <none>
+$ make deploy-managed 
+$ kubectl -n open-cluster-management-agent-addon get deploy  multicloud-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicloud-operators-subscription   1/1     1            1           103s
 ```
 
-### Multicluster application subscription deployment
-
-- Setup a _hub_ cluster and a _managed_ cluster. See [open-cluster-management registration-operator](https://github.com/open-cluster-management/registration-operator#how-to-deploy) for more details.
-
-- Deploy the subscription operator on the _hub_ cluster.
-
-```shell
-kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription
-cd multicloud-operators-subscription
-TRAVIS_BUILD=0
-make deploy-community-hub # make deploy-community-hub GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
-```
-
-- Deploy the subscription agent on the _managed_ cluster.
-
-```shell
-kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
-export HUB_KUBECONFIG=_path_to_hub_kubeconfig_ # replace _path_to_hub_kubeconfig_ with the full path to the hub cluster kubeconfig
-export MANAGED_CLUSTER_NAME=cluster1
-make deploy-community-managed # make deploy-community-managed GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
-```
-
-- Deploy an application subscription on the _hub_ cluster and it will propagate down to the _managed_ cluster
+Deploy an application subscription on the _hub_ cluster and it will propagate down to the _managed_ cluster
 
 ```shell
 $ kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
@@ -165,16 +84,6 @@ nginx-ingress-65f8e-controller-76fdf7f8bb-srfjp        1/1     Running   0      
 nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0          84s
 
 ```
-
-## Community, discussion, contribution, and support
-
-Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repository.
-
-## Getting started
-
-### Prerequisites
-
-Check the [Development Doc](docs/development.md) for information about how to contribute to the repository.
 
 ## Security response
 

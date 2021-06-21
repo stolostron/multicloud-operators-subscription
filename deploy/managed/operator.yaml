@@ -1,38 +1,38 @@
 # before applying, filled in the <managed cluster name> and <managed cluster namespace> and run the following command:
-# kubectl -n multicluster-operators create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=</path/to/hub_cluster/kubeconfig> # note: the file name must be 'kubeconfig'
+# kubectl -n multicloud-operators create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=</path/to/hub_cluster/kubeconfig> # note: the file name must be 'kubeconfig'
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicluster-operators-subscription
-  namespace: multicluster-operators
+  name: multicloud-operators-subscription
+  namespace: open-cluster-management-agent-addon
   labels:
-    name: multicluster-operators-subscription
+    name: multicloud-operators-subscription
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicluster-operators-subscription
+      name: multicloud-operators-subscription
   template:
     metadata:
       labels:
-        name: multicluster-operators-subscription
+        name: multicloud-operators-subscription
     spec:
-      serviceAccountName: multicluster-operators
+      serviceAccountName: multicloud-operators
       volumes:
       - name: klusterlet-config
         secret:
           defaultMode: 420
           secretName: appmgr-hub-kubeconfig
       containers:
-        - name: multicluster-operators-subscription
-          image: quay.io/open-cluster-management/multicluster-operators-subscription:latest
+        - name: multicloud-operators-subscription
+          image: quay.io/open-cluster-management/multicloud-operators-subscription:latest
           ports:
           - containerPort: 8443
           command:
-          - /usr/local/bin/multicluster-operators-subscription
+          - /usr/local/bin/multicloud-operators-subscription
           - --alsologtostderr
-          - --cluster-name=<managed cluster name> # cluster1
-          - --cluster-namespace=<managed cluster namespace> # cluster1
+          - --cluster-name=managed_cluster_name # cluster1
+          - --cluster-namespace=managed_cluster_name # cluster1
           - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
           imagePullPolicy: Always
           env:
@@ -42,7 +42,7 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "multicluster-operators-subscription"
+              value: "multicloud-operators-subscription"
           resources:
               requests:
                 cpu: 100m

@@ -24,7 +24,6 @@ require (
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.7.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	gopkg.in/src-d/go-git.v4 v4.13.1
