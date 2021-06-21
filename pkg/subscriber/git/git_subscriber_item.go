@@ -417,6 +417,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					annotations := o.GetAnnotations()
 					annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+					o.SetAnnotations(annotations)
 
 					klog.V(0).Infof("Annotations: %+v", annotations)
 
