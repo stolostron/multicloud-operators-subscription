@@ -402,7 +402,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					continue
 				}
 
-				klog.V(0).Info("Applying Kubernetes resource of kind ", t.Kind)
+				klog.V(2).Info("Applying Kubernetes resource of kind ", t.Kind)
 				klog.V(0).Infof("Resource before: %+v", resource)
 
 				if t.Kind == "Subscription" {
