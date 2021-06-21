@@ -402,12 +402,21 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
 
-				if t.Kind == "subscription" {
+				if t.Kind == "Subscription" {
 					klog.V(4).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
-					t.Annotations[appv1.AnnotationUserIdentity] = ghsi.userID
-					t.Annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 
-					resource, err = yaml.Marshal(&t)
+					o := &unstructured.Unstructured{}
+					if err := yaml.Unmarshal(resource, o); err != nil {
+						klog.Error("Failed to unmarshal resource YAML.")
+						return err
+					}
+
+					annotations := o.GetAnnotations()
+					annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+					o.SetAnnotations(annotations)
+
+					resource, err = yaml.Marshal(o)
 					if err != nil {
 						klog.Error(err)
 						continue
