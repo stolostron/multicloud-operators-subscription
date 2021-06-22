@@ -576,8 +576,8 @@ func (h *HubGitOps) GetRepoRootDirctory(subIns *subv1.Subscription) string {
 }
 
 func (h *HubGitOps) DownloadAnsibleHookResource(subIns *subv1.Subscription) error {
-	h.logger.Info("entry DownloadAnsibleHookResource")
-	defer h.logger.Info("exit DownloadAnsibleHookResource")
+	h.logger.V(DebugLog).Info("entry DownloadAnsibleHookResource")
+	defer h.logger.V(DebugLog).Info("exit DownloadAnsibleHookResource")
 
 	// meaning the branch is already downloaded
 	if h.GetRepoRootDirctory(subIns) != "" {

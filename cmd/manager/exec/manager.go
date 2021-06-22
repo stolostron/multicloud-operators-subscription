@@ -137,10 +137,10 @@ func RunManager() {
 		}
 
 		// Setup Webhook listner
-		/*if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
+		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
-		}*/
+		}
 	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {

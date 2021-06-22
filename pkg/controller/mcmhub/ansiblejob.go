@@ -55,15 +55,16 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	suffixFunc SuffixFunc, jobs []ansiblejob.AnsibleJob, kubeclient client.Client,
 	logger logr.Logger, placementDecisionUpdated bool, placementRuleRv string, hookType string,
 	commitIDChanged bool) error {
-	logger.Info(fmt.Sprintf("IN REGISTRYJOBS, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
+	logger.Info(fmt.Sprintf("In registryJobs, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
 
 	for _, job := range jobs {
-		logger.Info("REGISTERING " + job.GetNamespace() + "/" + job.GetName())
+		logger.Info("registering " + job.GetNamespace() + "/" + job.GetName())
+
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
+
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
 
 		if err != nil {
-			logger.Info("ERROR: " + err.Error())
 			return err
 		}
 
@@ -77,15 +78,11 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		nx := ins.DeepCopy()
 		suffix := suffixFunc(gClt, subIns)
 
-		logger.Info("SUFFIX = " + suffix)
-
 		if suffix == "" {
-			logger.Info("EMPTY SUFFIX")
 			continue
 		}
 
 		if nx.Spec.ExtraVars == nil {
-			logger.Info("EMPTY ExtraVars")
 			// No ExtraVars, skip
 			continue
 		}
@@ -104,11 +101,6 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 			logger.Info("placementDecisionUpdated suffix is: " + suffix)
 		}
 
-		// OK, I might get a new suffix or the same suffix. How the hell do I figure out
-		// if I should use this suffix or timestamp?
-		//   - suffix
-		//   - timestamp
-
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
 
 		// The key name is the job name + suffix.
@@ -125,9 +117,11 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 		syncTimeSuffix := getSyncTimeHash(subIns.GetAnnotations()[subv1.AnnotationManualReconcileTime])
 
+		// If ansible job with commit prefix already exists AND manual application sync was triggered
 		if syncTimeSuffix != "" && jobWithCommitHashAlreadyExists {
+			jobName := fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix))
 
-			nxKeyWithSyncTime := types.NamespacedName{Name: fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix)), Namespace: nx.GetNamespace()}
+			nxKeyWithSyncTime := types.NamespacedName{Name: jobName, Namespace: nx.GetNamespace()}
 
 			logger.Info("nxKeyWithSyncTime = " + nxKeyWithSyncTime.String())
 
@@ -191,6 +185,8 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 				} else {
 					// Commit ID hasn't changed and placement decision hasn't been updated. Don't create ansible job.
 					logger.Info("Commit ID and placement decision are the same.")
+					jobRecords.mux.Unlock()
+
 					continue
 				}
 			} else {
@@ -203,11 +199,6 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 			logger.Info(fmt.Sprintf("registered ansiblejob %s", nxKey))
 
 			jobRecords.Instance = append(jobRecords.Instance, *nx)
-		} else {
-			logger.Info("THERE IS jobRecords.InstanceSet for " + nxKey.String())
-
-			// Here check the timestamp
-
 		}
 
 		jobRecords.mux.Unlock()
@@ -216,16 +207,22 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	return nil
 }
 
+// Convert manual sync time string to a hash and use the first 6 chars
 func getSyncTimeHash(syncTimeAnnotation string) string {
 	if syncTimeAnnotation == "" {
 		return ""
-	} else {
-		h := sha1.New()
-		h.Write([]byte(syncTimeAnnotation))
-		sha1_hash := hex.EncodeToString(h.Sum(nil))
-
-		return sha1_hash[:6]
 	}
+
+	h := sha1.New()
+	_, err := h.Write([]byte(syncTimeAnnotation))
+
+	if err != nil {
+		return ""
+	}
+
+	sha1Hash := hex.EncodeToString(h.Sum(nil))
+
+	return sha1Hash[:6]
 }
 
 // applyjobs will get the original job and create a instance, the applied
@@ -236,23 +233,21 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 		return nil
 	}
 
-	logger.Info("I AM IN APPLY JOBS")
-
 	for k, j := range *jIns {
-		logger.Info("I AM IN APPLY JOBS LOOP LOOP")
-
 		if len(j.Instance) == 0 {
-			logger.Info("NO INSTANCE")
 			continue
 		}
 
+		logger.Info("waiting for lock")
 		j.mux.Lock()
+		logger.Info("locked")
 
 		n := len(j.Instance)
 
 		nx := j.Instance[n-1]
 
 		j.mux.Unlock()
+		logger.Info("released lock")
 
 		//add the created job to the ansiblejob Set if not exist
 

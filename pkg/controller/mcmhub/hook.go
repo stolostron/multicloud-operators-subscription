@@ -277,8 +277,6 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placemen
 		return nil
 	}
 
-	a.logger.Info(fmt.Sprintf("commitIDChanged = %v", commitIDChanged))
-
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if _, ok := a.registry[subKey]; !ok {
@@ -308,25 +306,13 @@ type SuffixFunc func(GitOps, *subv1.Subscription) string
 func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) string {
 	prefixLen := 6
 
-	commitID := ""
-
-	annotations := subIns.GetAnnotations()
-
-	if annotations[subv1.AnnotationGitTargetCommit] != "" {
-		// If the subscription has desired Git commit, use the specified commit.
-		commitID = annotations[subv1.AnnotationGitTargetCommit][:prefixLen]
-	} else if annotations[subv1.AnnotationGitTag] != "" {
-		// If the subscription has desired Git tag, use the specified tag.
-		commitID = annotations[subv1.AnnotationGitTag][:prefixLen]
-	} else {
-		//get actual latest commitID
-		latestCommitID, err := gClt.GetLatestCommitID(subIns)
-		if err != nil {
-			return ""
-		}
-
-		commitID = latestCommitID[:prefixLen]
+	//get actual commitID
+	commitID, err := gClt.GetLatestCommitID(subIns)
+	if err != nil {
+		return ""
 	}
+
+	commitID = commitID[:prefixLen]
 
 	return fmt.Sprintf("-%v-%v", subIns.GetGeneration(), commitID)
 }
@@ -334,7 +320,6 @@ func suffixBasedOnSpecAndCommitID(gClt GitOps, subIns *subv1.Subscription) strin
 func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 	jobs []ansiblejob.AnsibleJob, placementDecisionUpdated bool, placementRuleRv string,
 	commitIDChanged bool) error {
-	a.logger.Info("RESTERING HOOKS")
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	if hookFlag == PreHookType {
@@ -375,8 +360,8 @@ func getHookPath(subIns *subv1.Subscription) (string, string) {
 
 func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string,
 	commitIDChanged bool) error {
-	a.logger.Info("entry addNewHook subscription")
-	defer a.logger.Info("exit addNewHook subscription")
+	a.logger.V(2).Info("entry addNewHook subscription")
+	defer a.logger.V(2).Info("exit addNewHook subscription")
 
 	preHookPath, postHookPath := getHookPath(subIns)
 
@@ -524,33 +509,41 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	return false
 }
 
-func (a *AnsibleHooks) isDesiredStateChanged(old, new *subv1.Subscription) bool {
+func (a *AnsibleHooks) isDesiredStateChanged(oldSub, newSub *subv1.Subscription) bool {
 	a.logger.Info("Comparing if subscription's desired state has changed")
 
-	oldAnnotations := old.GetAnnotations()
+	oldAnnotations := oldSub.GetAnnotations()
 
-	newAnnotations := new.GetAnnotations()
+	newAnnotations := newSub.GetAnnotations()
 
-	// If the desired commit or tag is set, compare it.
-	if newAnnotations[subv1.AnnotationGitTargetCommit] != "" && (oldAnnotations[subv1.AnnotationGitTargetCommit] != newAnnotations[subv1.AnnotationGitTargetCommit]) {
-		a.logger.Info(fmt.Sprintf("Desired commit has changed from %s to %s", oldAnnotations[subv1.AnnotationGitTargetCommit], newAnnotations[subv1.AnnotationGitTargetCommit]))
+	// If the desired commit or tag is set, compare and re-register hooks if necessary
+	if newAnnotations[subv1.AnnotationGitTargetCommit] != "" &&
+		(oldAnnotations[subv1.AnnotationGitTargetCommit] != newAnnotations[subv1.AnnotationGitTargetCommit]) {
+		a.logger.Info(fmt.Sprintf("Desired commit has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationGitTargetCommit],
+			newAnnotations[subv1.AnnotationGitTargetCommit]))
 
 		return true
-	} else if newAnnotations[subv1.AnnotationGitTag] != "" && (oldAnnotations[subv1.AnnotationGitTag] != newAnnotations[subv1.AnnotationGitTag]) {
-		a.logger.Info(fmt.Sprintf("Desired tag has changed from %s to %s", oldAnnotations[subv1.AnnotationGitTag], newAnnotations[subv1.AnnotationGitTag]))
+	} else if newAnnotations[subv1.AnnotationGitTag] != "" &&
+		(oldAnnotations[subv1.AnnotationGitTag] != newAnnotations[subv1.AnnotationGitTag]) {
+		a.logger.Info(fmt.Sprintf("Desired tag has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationGitTag],
+			newAnnotations[subv1.AnnotationGitTag]))
 
 		return true
 	}
 
-	// If manual eync is triggered, re-register hooks
+	// If manual eync is triggered, re-register hooks if necessary
 	if oldAnnotations[subv1.AnnotationManualReconcileTime] != newAnnotations[subv1.AnnotationManualReconcileTime] {
-		a.logger.Info(fmt.Sprintf("Manual sync time has changed from %s to %s", oldAnnotations[subv1.AnnotationManualReconcileTime], newAnnotations[subv1.AnnotationManualReconcileTime]))
+		a.logger.Info(fmt.Sprintf("Manual sync time has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationManualReconcileTime],
+			newAnnotations[subv1.AnnotationManualReconcileTime]))
 
 		return true
 	}
 
-	aCommit := unmaskFakeCommitID(getCommitID(old))
-	bCommit := unmaskFakeCommitID(getCommitID(new))
+	aCommit := unmaskFakeCommitID(getCommitID(oldSub))
+	bCommit := unmaskFakeCommitID(getCommitID(newSub))
 
 	if aCommit != bCommit {
 		a.logger.Info(fmt.Sprintf("The latest commit has changed from %s to %s", aCommit, bCommit))
