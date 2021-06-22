@@ -336,6 +336,8 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 }
 
 func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error {
+	klog.Info("\n\n\n\n\ndoReconcile")
+
 	var err error
 
 	subitem := &appv1.SubscriberItem{}
@@ -346,7 +348,14 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 
 	if err != nil {
-		return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
+		time.Sleep(1 * time.Second)
+
+		klog.Info("\n\n\n\n\n\n\n\n\nPWU Retry to get channel")
+		err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
+		if err != nil {
+			klog.Info("\n\n\n\n\n\n\n\n\nPWU Failed to get channel")
+			return gerr.Wrapf(err, "Failed to get channel of subscription %v", instance)
+		}
 	}
 
 	if subitem.Channel.Spec.SecretRef != nil {
