@@ -346,7 +346,12 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 	err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 
 	if err != nil {
-		return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
+		time.Sleep(1 * time.Second)
+
+		err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
+		if err != nil {
+			return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
+		}
 	}
 
 	if subitem.Channel.Spec.SecretRef != nil {
