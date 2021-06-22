@@ -278,7 +278,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 				var emptyStatuses appv1.SubscriptionClusterStatusMap = make(appv1.SubscriptionClusterStatusMap)
 				instance.Status.Statuses = emptyStatuses
 
-				klog.Errorf("doReconcile got error %v", reconcileErr)
+				klog.Errorf("doReconcile got ERROR %v", reconcileErr)
 			}
 
 			// if the subscription pause lable is true, stop updating subscription status.
@@ -351,6 +351,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		time.Sleep(1 * time.Second)
 
 		klog.Info("\n\n\n\n\n\n\n\n\nPWU Retry to get channel")
+
 		err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 		if err != nil {
 			klog.Info("\n\n\n\n\n\n\n\n\nPWU Failed to get channel")
