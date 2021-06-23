@@ -412,6 +412,10 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					}
 
 					annotations := o.GetAnnotations()
+					if len(annotations) == 0 {
+						annotations = map[string]string{}
+					}
+
 					annotations[appv1.AnnotationUserIdentity] = ghsi.userID
 					annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
 					o.SetAnnotations(annotations)
