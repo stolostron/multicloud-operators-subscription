@@ -248,8 +248,8 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 }
 
 func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string) error {
-	a.logger.V(DebugLog).Info("entry register subscription")
-	defer a.logger.V(DebugLog).Info("exit register subscription")
+	a.logger.Info("entry register subscription")
+	defer a.logger.Info("exit register subscription")
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
@@ -272,7 +272,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placemen
 	}
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
-	commitIDChanged := a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, isCommitIDNotEqual)
+	commitIDChanged := a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, a.isDesiredStateChanged)
 	if getCommitID(subIns) != "" && !placementDecisionUpdated && !commitIDChanged {
 		return nil
 	}
@@ -296,7 +296,7 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placemen
 }
 
 func (a *AnsibleHooks) isSubscriptionSpecChange(o, n *subv1.Subscription) bool {
-	a.logger.Info(fmt.Sprintf("isSubscriptionUpdate old: %d, new: %d", o.GetGeneration(), n.GetGeneration()))
+	a.logger.Info(fmt.Sprintf("isSubscriptionSpecChange old: %d, new: %d", o.GetGeneration(), n.GetGeneration()))
 
 	return o.GetGeneration() != n.GetGeneration()
 }
@@ -509,9 +509,45 @@ func (a *AnsibleHooks) isSubscriptionUpdate(subIns *subv1.Subscription, isNotEqu
 	return false
 }
 
-func isCommitIDNotEqual(old, nnew *subv1.Subscription) bool {
-	aCommit := unmaskFakeCommitID(getCommitID(old))
-	bCommit := unmaskFakeCommitID(getCommitID(nnew))
+func (a *AnsibleHooks) isDesiredStateChanged(oldSub, newSub *subv1.Subscription) bool {
+	a.logger.Info("Comparing if subscription's desired state has changed")
+
+	oldAnnotations := oldSub.GetAnnotations()
+
+	newAnnotations := newSub.GetAnnotations()
+
+	// If the desired commit or tag is set, compare and re-register hooks if necessary
+	if newAnnotations[subv1.AnnotationGitTargetCommit] != "" &&
+		(oldAnnotations[subv1.AnnotationGitTargetCommit] != newAnnotations[subv1.AnnotationGitTargetCommit]) {
+		a.logger.Info(fmt.Sprintf("Desired commit has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationGitTargetCommit],
+			newAnnotations[subv1.AnnotationGitTargetCommit]))
+
+		return true
+	} else if newAnnotations[subv1.AnnotationGitTag] != "" &&
+		(oldAnnotations[subv1.AnnotationGitTag] != newAnnotations[subv1.AnnotationGitTag]) {
+		a.logger.Info(fmt.Sprintf("Desired tag has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationGitTag],
+			newAnnotations[subv1.AnnotationGitTag]))
+
+		return true
+	}
+
+	// If manual eync is triggered, re-register hooks if necessary
+	if oldAnnotations[subv1.AnnotationManualReconcileTime] != newAnnotations[subv1.AnnotationManualReconcileTime] {
+		a.logger.Info(fmt.Sprintf("Manual sync time has changed from %s to %s",
+			oldAnnotations[subv1.AnnotationManualReconcileTime],
+			newAnnotations[subv1.AnnotationManualReconcileTime]))
+
+		return true
+	}
+
+	aCommit := unmaskFakeCommitID(getCommitID(oldSub))
+	bCommit := unmaskFakeCommitID(getCommitID(newSub))
+
+	if aCommit != bCommit {
+		a.logger.Info(fmt.Sprintf("The latest commit has changed from %s to %s", aCommit, bCommit))
+	}
 
 	return aCommit != bCommit
 }

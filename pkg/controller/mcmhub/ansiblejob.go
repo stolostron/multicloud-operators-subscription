@@ -16,6 +16,8 @@ package mcmhub
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -56,7 +58,10 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	logger.Info(fmt.Sprintf("In registryJobs, placementDecisionUpdated = %v, commitIDChanged = %v", placementDecisionUpdated, commitIDChanged))
 
 	for _, job := range jobs {
+		logger.Info("registering " + job.GetNamespace() + "/" + job.GetName())
+
 		jobKey := types.NamespacedName{Name: job.GetName(), Namespace: job.GetNamespace()}
+
 		ins, err := overrideAnsibleInstance(subIns, job, kubeclient, logger, hookType)
 
 		if err != nil {
@@ -93,7 +98,7 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 
 			suffix = plrSuffixFunc()
 
-			logger.V(DebugLog).Info("placementDecisionUpdated suffix is: " + suffix)
+			logger.Info("placementDecisionUpdated suffix is: " + suffix)
 		}
 
 		nx.SetName(fmt.Sprintf("%s%s", nx.GetName(), suffix))
@@ -104,9 +109,32 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 		// Why multiple jobRecords.InstanceSet?
 		nxKey := types.NamespacedName{Name: nx.GetName(), Namespace: nx.GetNamespace()}
 
+		logger.Info("nxKeyWithCommitHash = " + nxKey.String())
+
+		_, jobWithCommitHashAlreadyExists := jobRecords.InstanceSet[nxKey]
+
+		jobWithSyncTimeHashAlreadyExists := false
+
+		syncTimeSuffix := getSyncTimeHash(subIns.GetAnnotations()[subv1.AnnotationManualReconcileTime])
+
+		// If ansible job with commit prefix already exists AND manual application sync was triggered
+		if syncTimeSuffix != "" && jobWithCommitHashAlreadyExists {
+			jobName := fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix))
+
+			nxKeyWithSyncTime := types.NamespacedName{Name: jobName, Namespace: nx.GetNamespace()}
+
+			logger.Info("nxKeyWithSyncTime = " + nxKeyWithSyncTime.String())
+
+			_, jobWithSyncTimeHashAlreadyExists = jobRecords.InstanceSet[nxKeyWithSyncTime]
+
+			nxKey = nxKeyWithSyncTime
+
+			nx.SetName(fmt.Sprintf("%s%s", ins.GetName(), fmt.Sprintf("-%v-%v", subIns.GetGeneration(), syncTimeSuffix)))
+		}
+
 		// jobRecords.InstanceSet[nxKey] is to prevent creating the same ansibleJob CR with the same name.
 		// jobRecords.Instance is an array of ansibleJob CRs that have been created so far.
-		if _, ok := jobRecords.InstanceSet[nxKey]; !ok {
+		if !jobWithCommitHashAlreadyExists || !jobWithSyncTimeHashAlreadyExists {
 			// If there is no instance set,
 			logger.Info("there is no jobRecords.InstanceSet for " + nxKey.String())
 
@@ -157,6 +185,8 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 				} else {
 					// Commit ID hasn't changed and placement decision hasn't been updated. Don't create ansible job.
 					logger.Info("Commit ID and placement decision are the same.")
+					jobRecords.mux.Unlock()
+
 					continue
 				}
 			} else {
@@ -177,6 +207,24 @@ func (jIns *JobInstances) registryJobs(gClt GitOps, subIns *subv1.Subscription,
 	return nil
 }
 
+// Convert manual sync time string to a hash and use the first 6 chars
+func getSyncTimeHash(syncTimeAnnotation string) string {
+	if syncTimeAnnotation == "" {
+		return ""
+	}
+
+	h := sha1.New()
+	_, err := h.Write([]byte(syncTimeAnnotation))
+
+	if err != nil {
+		return ""
+	}
+
+	sha1Hash := hex.EncodeToString(h.Sum(nil))
+
+	return sha1Hash[:6]
+}
+
 // applyjobs will get the original job and create a instance, the applied
 // instance will is put into the job.Instance array upon the success of the
 // creation
@@ -190,13 +238,16 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 			continue
 		}
 
+		logger.Info("waiting for lock")
 		j.mux.Lock()
+		logger.Info("locked")
 
 		n := len(j.Instance)
 
 		nx := j.Instance[n-1]
 
 		j.mux.Unlock()
+		logger.Info("released lock")
 
 		//add the created job to the ansiblejob Set if not exist
 
