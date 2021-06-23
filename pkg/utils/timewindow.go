@@ -448,6 +448,9 @@ func (r runDays) durationToNextRunableWeekday(in []hourRangesInTime, cur time.Ti
 			if curWeekday < d {
 				days = int(d - curWeekday)
 				break
+			} else {
+				// Same day - past last available time slot, handle wrapping of weekdays
+				days = int(d-curWeekday) + 7
 			}
 		}
 	}

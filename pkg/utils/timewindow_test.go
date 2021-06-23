@@ -73,6 +73,45 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 			want: time.Hour * 15,
 		},
 		{
+			desc:    "run on last minute of active window",
+			curTime: "Mon Jun 14 11:30:00 UTC 2021",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Daysofweek: []string{"monday"},
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+				},
+				Location: "",
+			},
+			want: 0,
+		},
+		{
+			desc:    "minute past last active time slot of the week",
+			curTime: "Mon Jun 14 11:31:00 UTC 2021",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Daysofweek: []string{"monday"},
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+				},
+				Location: "",
+			},
+			want: time.Hour*166 + time.Minute*59,
+		},
+		{
+			desc:    "days past last active time slot of the week",
+			curTime: "Tue Jun 15 11:31:00 UTC 2021",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Daysofweek: []string{"monday"},
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:30AM", End: "11:30AM"},
+				},
+				Location: "",
+			},
+			want: time.Hour*142 + time.Minute*59,
+		},
+		{
 			desc:    "run on certain days with location offset",
 			curTime: "Sun Nov  3 09:40:00 UTC 2019",
 			windows: &appv1alpha1.TimeWindow{
