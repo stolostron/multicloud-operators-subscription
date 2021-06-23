@@ -219,6 +219,7 @@ func CloneGitRepo(
 
 func getKnownHostFromURL(sshURL string, filepath string) error {
 	sshhostname := ""
+	sshhostport := ""
 
 	if strings.HasPrefix(sshURL, "ssh:") {
 		u, err := url.Parse(sshURL)
@@ -229,6 +230,8 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 		}
 
 		sshhostname = strings.Split(u.Host, ":")[0]
+
+		sshhostport = u.Host
 	} else if strings.HasPrefix(sshURL, "git@") {
 		sshhostname = strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
 	}
@@ -240,7 +243,22 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 
 	if err != nil {
 		klog.Error("failed to get public SSH host key: ", err)
-		return err
+
+		if sshhostport != "" && (sshhostport != sshhostname) {
+			klog.Info("Getting public SSH host key for " + sshhostport)
+
+			cmd2 := exec.Command("ssh-keyscan", sshhostport) // #nosec G204 the variable is generated within this function.
+			stdout2, err2 := cmd2.Output()
+
+			if err2 != nil {
+				klog.Error("failed to get public SSH host key: ", err2)
+				return err2
+			}
+
+			stdout = stdout2
+		} else {
+			return err
+		}
 	}
 
 	klog.Info("SSH host key: " + string(stdout))
