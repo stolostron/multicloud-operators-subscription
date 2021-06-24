@@ -324,7 +324,7 @@ func tillNextSlotInCurrentDay(slots []hourRangesInTime, cur time.Time) time.Dura
 		if gt.Sub(slot.start) > 0 && (gt.Sub(slot.end) <= 0 || isMidnight(slot.end)) {
 			// not blocked now
 			return time.Duration(0)
-		} else if gt.Sub(slot.start) < 0 {
+		} else if gt.Sub(slot.start) <= 0 {
 			// there is available time slot later in current day
 			return slot.start.Sub(gt)
 		}
@@ -448,6 +448,9 @@ func (r runDays) durationToNextRunableWeekday(in []hourRangesInTime, cur time.Ti
 			if curWeekday < d {
 				days = int(d - curWeekday)
 				break
+			} else {
+				// Same day - past last available time slot, handle wrapping of weekdays
+				days = int(d-curWeekday) + 7
 			}
 		}
 	}
