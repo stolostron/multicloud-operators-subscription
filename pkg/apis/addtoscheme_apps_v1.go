@@ -14,9 +14,21 @@
 
 package apis
 
-import v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+import (
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	deployable "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	helmrelease "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	placementrule "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+)
 
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-	AddToSchemes = append(AddToSchemes, v1.SchemeBuilder.AddToScheme)
+	AddToSchemes = append(AddToSchemes, v1.SchemeBuilder.AddToScheme,
+		spokeClusterV1.Install,
+		ansiblejob.SchemeBuilder.AddToScheme,
+		placementrule.SchemeBuilder.AddToScheme,
+		helmrelease.SchemeBuilder.AddToScheme,
+		deployable.SchemeBuilder.AddToScheme)
 }

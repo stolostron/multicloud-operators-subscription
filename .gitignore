@@ -93,3 +93,8 @@ OPENSOURCE.check
 applifecycle-backend-e2e
 cluster_config
 e2e/results
+
+uninstall-crd
+multicluster-operators-subscription
+multicloud-operators-subscription
+test/unit
