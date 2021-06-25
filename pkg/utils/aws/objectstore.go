@@ -202,31 +202,43 @@ func (h *Handler) List(bucket string, folderName *string) ([]string, error) {
 		folderName = &tmpFolderName
 	}
 
-	resp, err := h.Client.ListObjects(context.TODO(), &s3.ListObjectsInput{
-		Bucket: &bucket,
+	params := &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
 		Prefix: folderName,
-	})
-
-	if err != nil {
-		klog.Infof("Got error retrieving list of objects. err: %v", err)
-
-		return nil, err
 	}
+
+	paginator := s3.NewListObjectsV2Paginator(h.Client, params, func(o *s3.ListObjectsV2PaginatorOptions) {
+		o.Limit = 1000
+	})
 
 	var keys []string
 
-	for _, item := range resp.Contents {
-		key := *item.Key
-		if len(key) > 0 && key[len(key)-1:] != "/" {
-			keys = append(keys, *item.Key)
-		} else {
-			klog.V(1).Info("Skipping S3 Object: ", key)
+	var err error
+
+	pageNum := 0
+
+	for paginator.HasMorePages() {
+		output, err := paginator.NextPage(context.TODO())
+		if err != nil {
+			klog.Infof("Got error retrieving list of objects. err: %v", err)
+
+			break
 		}
+
+		for _, value := range output.Contents {
+			key := *value.Key
+			if len(key) > 0 && key[len(key)-1:] != "/" {
+				keys = append(keys, *value.Key)
+			} else {
+				klog.V(1).Info("Skipping S3 Object: ", key)
+			}
+		}
+		pageNum++
 	}
 
-	klog.V(1).Info("List S3 Objects result: ", keys)
+	klog.V(1).Infof("List S3 Objects result, page Num: %v, keys: %v, err: %v ", pageNum, keys, err)
 
-	return keys, nil
+	return keys, err
 }
 
 // Get get existing object.
