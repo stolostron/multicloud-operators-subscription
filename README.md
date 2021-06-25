@@ -6,9 +6,9 @@
 - [Architecutre](#architecutre)
 - [Stand-alone deployment](#stand-alone-deployment)
 - [Multi-cluster deployment](#multi-cluster-deployment)
+- [GitOps](docs/gitrepo_subscription.md)
 - [Security response](#security-response)
 - [References](#references)
-    - [multicloud-operators repositories](#multicloud-operators-repositories)
 
 ## Overview
 
