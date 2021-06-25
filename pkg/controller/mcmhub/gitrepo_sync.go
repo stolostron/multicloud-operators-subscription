@@ -663,7 +663,7 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to marshal helmrelease spec")
-			continue
+			return err
 		}
 
 		klog.Info("generating deployable")
@@ -672,7 +672,7 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to create deployable for helmrelease: " + packageName + "-" + chartVersions[0].Version)
-			continue
+			return err
 		}
 	}
 
