@@ -37,7 +37,7 @@ import (
 
 const (
 	k8swait      = time.Second * 3
-	StartTimeout = 30 // seconds
+	StartTimeout = 60 // seconds
 )
 
 var testEnv *envtest.Environment
@@ -54,6 +54,8 @@ func TestSynchorizerOnSub(t *testing.T) {
 
 var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping test environment")
+
+	time.Sleep(30 * time.Second)
 
 	t := true
 	if os.Getenv("TEST_USE_EXISTING_CLUSTER") == "true" {
