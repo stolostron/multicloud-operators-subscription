@@ -296,6 +296,14 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
+	// If it failed to add applicable resources to the list, do not apply the empty list.
+	// It will cause already deployed resourced to be removed.
+	if len(ghsi.resources) == 0 && !ghsi.successful {
+		klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
+
+		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + err.Error())
+	}
+
 	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
 		klog.Error(err)
 
