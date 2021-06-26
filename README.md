@@ -6,13 +6,14 @@
 - [Architecutre](#architecutre)
 - [Stand-alone deployment](#stand-alone-deployment)
 - [Multi-cluster deployment](#multi-cluster-deployment)
-- [GitOps](docs/gitrepo_subscription.md)
-- [Security response](#security-response)
-- [References](#references)
+- [GitOps](#gitops)
+- [Community, discussion, contribution, and support](#community,-discussion,-contribution,-and-support)
 
 ## Overview
 
-Subscribes resources from channels and apply them to Kubernetes clusters.
+Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to subscribe to a source repository [channel](https://github.com/open-cluster-management-io/multicloud-operators-channel) that can be the following types: Git repository, Helm release registry, or Object storage repository.
+
+Subscriptions can point to a channel for identifying new or updated resource templates. The subscription operator can then download directly from the storage location and deploy to targeted managed clusters without checking the hub cluster first. With a subscription, the subscription operator can monitor the channel for new or updated resources instead of the hub cluster.
 
 ## Architecutre
 
@@ -46,7 +47,7 @@ nginx-ingress-simple-default-backend-666d7d77fc-q8gdg   1/1     Running   0     
 nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0          21m
 ```
 
-### Multi-cluster deployment
+## Multi-cluster deployment
 
 Setup a _hub_ cluster and a _managed_ cluster using [clusteradm](https://github.com/open-cluster-management-io/clusteradm#quick-start).
 
@@ -85,10 +86,18 @@ nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0      
 
 ```
 
-## Security response
+## GitOps
 
-Check the [Security Doc](SECURITY.md) if you find a security issue.
+You can subscribe to public or enterprise Git repositories that contain Kubernetes resource YAML files or Helm charts, or both. See [Git repository channel subscription](docs/gitrepo_subscription.md) for more details.
 
-## References
+## Community, discussion, contribution, and support
 
-- The `multicloud-operators-subscription` is part of the `open-cluster-management` community. For more information, visit: [open-cluster-management.io](https://open-cluster-management.io).
+Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
+
+### Communication channels
+
+Slack channel: [#open-cluster-mgmt](http://slack.k8s.io/#open-cluster-mgmt)
+
+## License
+
+This code is released under the Apache 2.0 license. See the file LICENSE for more information.
