@@ -213,7 +213,7 @@ func (h *Handler) List(bucket string, folderName *string) ([]string, error) {
 
 	var keys []string
 
-	var err error
+	var objErr error
 
 	pageNum := 0
 
@@ -221,6 +221,7 @@ func (h *Handler) List(bucket string, folderName *string) ([]string, error) {
 		output, err := paginator.NextPage(context.TODO())
 		if err != nil {
 			klog.Infof("Got error retrieving list of objects. err: %v", err)
+			objErr = err
 
 			break
 		}
@@ -236,9 +237,9 @@ func (h *Handler) List(bucket string, folderName *string) ([]string, error) {
 		pageNum++
 	}
 
-	klog.V(1).Infof("List S3 Objects result, page Num: %v, keys: %v, err: %v ", pageNum, keys, err)
+	klog.Infof("List S3 Objects result, page Num: %v, keys: %v, err: %v ", pageNum, keys, objErr)
 
-	return keys, err
+	return keys, objErr
 }
 
 // Get get existing object.
