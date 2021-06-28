@@ -51,6 +51,7 @@ linters:
     - gofumpt
     - nestif
     - ineffassign
+    - unused
   fast: false
 
 linters-settings:
