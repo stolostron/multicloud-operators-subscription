@@ -632,6 +632,8 @@ type sourceURLs struct {
 }
 
 func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *appv1.Subscription, indexFile *repo.IndexFile) (err error) {
+	errMsg := ""
+
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
@@ -663,6 +665,9 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to marshal helmrelease spec")
+
+			errMsg += "failed to marshal helmrelease spec for helm chart " + packageName + "-" + chartVersions[0].Version
+
 			continue
 		}
 
@@ -672,8 +677,15 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to create deployable for helmrelease: " + packageName + "-" + chartVersions[0].Version)
+
+			errMsg += "failed to create deployable for helmrelease: " + packageName + "-" + chartVersions[0].Version
+
 			continue
 		}
+	}
+
+	if errMsg != "" {
+		return errors.New(errMsg)
 	}
 
 	return nil
