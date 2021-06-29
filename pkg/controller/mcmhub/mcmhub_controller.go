@@ -41,12 +41,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
-	plrv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const clusterRole = `apiVersion: rbac.authorization.k8s.io/v1

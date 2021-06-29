@@ -19,7 +19,6 @@ import (
 	"encoding/base64"
 	"strings"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	rbacv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
 var (

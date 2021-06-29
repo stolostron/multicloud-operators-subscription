@@ -1,4 +1,4 @@
-module github.com/open-cluster-management/multicloud-operators-subscription
+module open-cluster-management.io/multicloud-operators-subscription
 
 go 1.16
 
@@ -17,7 +17,6 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/operator-framework/operator-lib v0.2.0
 	github.com/pkg/errors v0.9.1
@@ -36,6 +35,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
 	open-cluster-management.io/api v0.0.0-20210519100007-dd8ab35c4e00
+	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210629185506-adc9b0b5e7f2
 	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/kustomize/api v0.8.5
 )

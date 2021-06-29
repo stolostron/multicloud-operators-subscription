@@ -15,10 +15,10 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 

@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	subapis "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 var (

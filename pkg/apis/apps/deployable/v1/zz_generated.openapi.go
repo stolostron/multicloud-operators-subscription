@@ -25,7 +25,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.Deployable": schema_pkg_apis_apps_v1_Deployable(ref),
+		"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.Deployable": schema_pkg_apis_apps_v1_Deployable(ref),
 	}
 }
 
@@ -57,18 +57,18 @@ func schema_pkg_apis_apps_v1_Deployable(ref common.ReferenceCallback) common.Ope
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableSpec"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableStatus"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableSpec", "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableSpec", "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1.DeployableStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
