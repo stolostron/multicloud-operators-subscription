@@ -12,14 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
-
-import (
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-)
-
-func init() {
-	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
-	AddToSchemes = append(AddToSchemes, v1.SchemeBuilder.AddToScheme, ansiblejob.SchemeBuilder.AddToScheme)
-}
+// Package apps contains apps API versions.
+//
+// This file ensures Go source parsers acknowledge the apps package
+// and any child packages. It can be removed if any other Go source files are
+// added to this package.
+package ansible
