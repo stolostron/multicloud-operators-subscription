@@ -390,16 +390,41 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 	b, _ := yaml.Marshal(indexFile)
 	klog.Info("New index file ", string(b))
 
+	errMessage := ""
+
 	// Create deployables for kube resources and helm charts from the git repo
-	r.subscribeResources(chn, sub, crdsAndNamespaceFiles, baseDir)
-	r.subscribeResources(chn, sub, rbacFiles, baseDir)
-	r.subscribeResources(chn, sub, otherFiles, baseDir)
-	r.subscribeKustomizations(chn, sub, kustomizeDirs, baseDir)
+	err = r.subscribeResources(chn, sub, crdsAndNamespaceFiles, baseDir)
+
+	if err != nil {
+		errMessage += err.Error() + "/n"
+	}
+
+	err = r.subscribeResources(chn, sub, rbacFiles, baseDir)
+
+	if err != nil {
+		errMessage += err.Error() + "/n"
+	}
+
+	err = r.subscribeResources(chn, sub, otherFiles, baseDir)
+
+	if err != nil {
+		errMessage += err.Error() + "/n"
+	}
+
+	err = r.subscribeKustomizations(chn, sub, kustomizeDirs, baseDir)
+
+	if err != nil {
+		errMessage += err.Error() + "/n"
+	}
+
 	err = r.subscribeHelmCharts(chn, sub, indexFile)
 
 	if err != nil {
-		klog.Error(err)
-		return err
+		errMessage += err.Error() + "/n"
+	}
+
+	if errMessage != "" {
+		return errors.New(errMessage)
 	}
 
 	return nil
@@ -424,7 +449,7 @@ func (r *ReconcileSubscription) deleteSubscriptionDeployables(sub *appv1.Subscri
 	}
 }
 
-func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv1.Subscription, rscFiles []string, baseDir string) {
+func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv1.Subscription, rscFiles []string, baseDir string) error {
 	// sync kube resource deployables
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
@@ -453,13 +478,16 @@ func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv
 				err = r.createDeployable(chn, sub, resourceDir, resource)
 				if err != nil {
 					klog.Error(err.Error())
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
-func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub *appv1.Subscription, kustomizeDirs map[string]string, baseDir string) {
+func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub *appv1.Subscription, kustomizeDirs map[string]string, baseDir string) error {
 	for _, kustomizeDir := range kustomizeDirs {
 		klog.Info("Applying kustomization ", kustomizeDir)
 
@@ -475,6 +503,7 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 
 		if err != nil {
 			klog.Error("Failed to applying kustomization, error: ", err.Error())
+			return err
 		}
 
 		// Split the output of kustomize build output into individual kube resource YAML files
@@ -496,10 +525,13 @@ func (r *ReconcileSubscription) subscribeKustomizations(chn *chnv1.Channel, sub 
 				err := r.createDeployable(chn, sub, strings.Trim(relativePath, "/"), resourceFile)
 				if err != nil {
 					klog.Error("Failed to apply a resource, error: ", err)
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func (r *ReconcileSubscription) createDeployable(
@@ -600,6 +632,8 @@ type sourceURLs struct {
 }
 
 func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *appv1.Subscription, indexFile *repo.IndexFile) (err error) {
+	errMsg := ""
+
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
@@ -631,6 +665,9 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to marshal helmrelease spec")
+
+			errMsg += "failed to marshal helmrelease spec for helm chart " + packageName + "-" + chartVersions[0].Version
+
 			continue
 		}
 
@@ -640,8 +677,15 @@ func (r *ReconcileSubscription) subscribeHelmCharts(chn *chnv1.Channel, sub *app
 
 		if err != nil {
 			klog.Error("failed to create deployable for helmrelease: " + packageName + "-" + chartVersions[0].Version)
+
+			errMsg += "failed to create deployable for helmrelease: " + packageName + "-" + chartVersions[0].Version
+
 			continue
 		}
+	}
+
+	if errMsg != "" {
+		return errors.New(errMsg)
 	}
 
 	return nil
