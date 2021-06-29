@@ -17,8 +17,8 @@ package deployable
 import (
 	"context"
 
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/deployable/utils"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/deployable/utils"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"

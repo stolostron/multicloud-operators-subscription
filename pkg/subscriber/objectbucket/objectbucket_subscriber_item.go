@@ -29,14 +29,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
-	dplv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
-	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
+	dplpro "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	awsutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/aws"
 )
 
 var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Kind: "Subscription", Version: "v1"}

@@ -31,14 +31,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
-	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
+	leasectrl "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/subscription"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.

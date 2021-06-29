@@ -34,10 +34,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
-	placementv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/deployable/utils"
-	placementutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/placementrule/utils"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	placementv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/deployable/utils"
+	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 )
 
 /**

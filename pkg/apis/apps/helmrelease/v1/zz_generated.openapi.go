@@ -25,8 +25,8 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmRelease":     schema_pkg_apis_apps_v1_HelmRelease(ref),
-		"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo": schema_pkg_apis_apps_v1_HelmReleaseRepo(ref),
+		"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmRelease":     schema_pkg_apis_apps_v1_HelmRelease(ref),
+		"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo": schema_pkg_apis_apps_v1_HelmReleaseRepo(ref),
 	}
 }
 
@@ -58,24 +58,24 @@ func schema_pkg_apis_apps_v1_HelmRelease(ref common.ReferenceCallback) common.Op
 					},
 					"repo": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo"),
 						},
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppSpec"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppStatus"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppSpec", "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppStatus", "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppSpec", "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmAppStatus", "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.HelmReleaseRepo", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -89,7 +89,7 @@ func schema_pkg_apis_apps_v1_HelmReleaseRepo(ref common.ReferenceCallback) commo
 					"source": {
 						SchemaProps: spec.SchemaProps{
 							Description: "INSERT ADDITIONAL SPEC FIELDS - desired state of cluster Important: Run \"operator-sdk generate k8s\" to regenerate code after modifying this file Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html Source holds the url toward the helm-chart",
-							Ref:         ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.Source"),
+							Ref:         ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.Source"),
 						},
 					},
 					"chartName": {
@@ -136,6 +136,6 @@ func schema_pkg_apis_apps_v1_HelmReleaseRepo(ref common.ReferenceCallback) commo
 			},
 		},
 		Dependencies: []string{
-			"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.Source", "k8s.io/api/core/v1.ObjectReference"},
+			"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1.Source", "k8s.io/api/core/v1.ObjectReference"},
 	}
 }

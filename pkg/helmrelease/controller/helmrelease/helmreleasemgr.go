@@ -29,20 +29,20 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/storage"
 
-	helmclient "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/client"
-	helmoperator "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/release"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog"
+	helmclient "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/client"
+	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/utils"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/utils"
 )
 
 //newHelmOperatorManagerFactory create a new manager returns a helmManagerFactory
