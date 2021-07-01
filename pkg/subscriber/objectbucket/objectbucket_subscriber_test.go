@@ -15,7 +15,9 @@
 package objectbucket
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,11 +32,6 @@ import (
 )
 
 var c client.Client
-
-var id = types.NamespacedName{
-	Name:      "endpoint",
-	Namespace: "default",
-}
 
 var (
 	sharedkey = types.NamespacedName{
@@ -75,13 +72,15 @@ func TestObjectSubscriber(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
+
+	Add(mgr, cfg, &sharedkey, 60)
 
 	// connect to a fake object store, should expect connection failure now.
 	err = defaultSubscriber.SubscribeItem(subitem)

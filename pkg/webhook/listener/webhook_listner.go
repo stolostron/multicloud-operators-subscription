@@ -98,7 +98,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile str
 }
 
 // Start the GutHub WebHook event listener
-func (listener *WebhookListener) Start(l <-chan struct{}) error {
+func (listener *WebhookListener) Start(ctx context.Context) error {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -117,8 +117,6 @@ func (listener *WebhookListener) Start(l <-chan struct{}) error {
 	}
 
 	klog.Info("the WebHook listener started on port 8443.")
-
-	<-l
 
 	return nil
 }

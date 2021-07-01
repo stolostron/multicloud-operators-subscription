@@ -122,10 +122,11 @@ func TestMcMHubReconcile(t *testing.T) {
 
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.TODO())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -157,10 +158,11 @@ func TestDoMCMReconcile(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.TODO())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

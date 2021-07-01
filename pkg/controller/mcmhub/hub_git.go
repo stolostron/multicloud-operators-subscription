@@ -74,7 +74,7 @@ type GitOps interface {
 	GetRepoRootDirctory(*subv1.Subscription) string
 
 	//Runnable
-	Start(<-chan struct{}) error
+	Start(context.Context) error
 }
 
 type branchInfo struct {
@@ -162,16 +162,16 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 // the git watch will go to each subscription download the repo and compare the
 // commit id, it's the commit id is different, then update the commit id to
 // subscription
-func (h *HubGitOps) Start(stop <-chan struct{}) error {
+func (h *HubGitOps) Start(ctx context.Context) error {
 	h.logger.Info("entry StartGitWatch")
 	defer h.logger.Info("exit StartGitWatch")
 
-	go wait.Until(h.GitWatch, h.watcherInterval, stop)
+	go wait.UntilWithContext(ctx, h.GitWatch, h.watcherInterval)
 
 	return nil
 }
 
-func (h *HubGitOps) GitWatch() {
+func (h *HubGitOps) GitWatch(ctx context.Context) {
 	h.logger.V(DebugLog).Info("entry GitWatch")
 	defer h.logger.V(DebugLog).Info("exit GitWatch")
 

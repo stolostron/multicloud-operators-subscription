@@ -60,7 +60,7 @@ func newSecretReconciler(subscriber *NsSubscriber, mgr manager.Manager, subItemK
 }
 
 //Reconcile handle the main logic to deploy the secret coming from the channel namespace
-func (s *SecretReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (s *SecretReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	if klog.V(1) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v() request %v, secret for subitem %v", fnName, request.NamespacedName, s.Itemkey)

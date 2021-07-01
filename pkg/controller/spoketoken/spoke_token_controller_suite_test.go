@@ -15,6 +15,7 @@
 package spoketoken
 
 import (
+	"context"
 	stdlog "log"
 	"os"
 	"sync"
@@ -38,20 +39,11 @@ var c client.Client
 
 // TestMain is the main test suite method
 func TestMain(m *testing.M) {
-	customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
-		"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
-		"PersistentVolumeClaimResize,ResourceQuota",
-	}
-
-	apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
-	apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "..", "hack", "test"),
 		},
-		KubeAPIServerFlags: apiServerFlags,
 	}
 
 	apis.AddToScheme(scheme.Scheme)
@@ -72,25 +64,24 @@ func TestMain(m *testing.M) {
 }
 
 // StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
+func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		mgr.Start(ctx)
 	}()
 
-	return stop, wg
+	return wg
 }
 
 // SetupTestReconcile returns a reconcile.Reconcile implementation that delegates to inner and
 // writes the request to requests after Reconcile is finished.
 func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
 	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		res, err := inner.Reconcile(req)
+	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+		res, err := inner.Reconcile(ctx, req)
 		requests <- req
 		return res, err
 	})

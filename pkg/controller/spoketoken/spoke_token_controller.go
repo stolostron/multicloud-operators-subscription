@@ -112,18 +112,18 @@ type Config struct {
 // Reconciles <clusterName>-cluster-secret secret in the managed cluster's namespace
 // on the hub cluster to the klusterlet-addon-appmgr service account's token secret.
 // If it is running on the hub, don't do anything.
-func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.Infof("Reconciling %s", request.NamespacedName)
 
 	appmgrsa := &corev1.ServiceAccount{}
 
-	err := r.Client.Get(context.TODO(), request.NamespacedName, appmgrsa)
+	err := r.Client.Get(ctx, request.NamespacedName, appmgrsa)
 
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			klog.Infof("%s is not found. Deleting the secret from the hub.", request.NamespacedName)
 
-			err := r.hubclient.Delete(context.TODO(), r.prepareAgentTokenSecret(""))
+			err := r.hubclient.Delete(ctx, r.prepareAgentTokenSecret(""))
 
 			if err != nil {
 				klog.Error("Failed to delete the secret from the hub.")

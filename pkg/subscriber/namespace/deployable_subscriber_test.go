@@ -31,13 +31,13 @@ import (
 
 var id = types.NamespacedName{
 	Name:      "tend",
-	Namespace: "tch",
+	Namespace: "testch",
 }
 
 var (
 	workloadkey = types.NamespacedName{
 		Name:      "testworkload",
-		Namespace: "tch",
+		Namespace: "testch",
 	}
 
 	workloadconfigmap = corev1.ConfigMap{

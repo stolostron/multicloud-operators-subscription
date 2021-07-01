@@ -33,7 +33,7 @@ import (
 )
 
 var (
-	nssubTest  = "ns-sub"
+	nssubTest  = "test-sub-namespace"
 	chKey      = types.NamespacedName{Name: "target-ch", Namespace: "ns-ch"}
 	refSrtName = "target-referred-sercet"
 	srtGVK     = schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
@@ -78,10 +78,11 @@ func TestListAndDeployReferredObject(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -162,10 +163,11 @@ func TestDeleteReferredObjects(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

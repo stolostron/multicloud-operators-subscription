@@ -68,7 +68,7 @@ type placementruleMapper struct {
 	client.Client
 }
 
-func (mapper *placementruleMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *placementruleMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -76,7 +76,7 @@ func (mapper *placementruleMapper) Map(obj handler.MapObject) []reconcile.Reques
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	cname := obj.Meta.GetName()
+	cname := obj.GetName()
 	klog.V(5).Info("In placement Mapper:", cname)
 
 	var requests []reconcile.Request
@@ -91,7 +91,7 @@ func (mapper *placementruleMapper) Map(obj handler.MapObject) []reconcile.Reques
 	}
 
 	for _, dpl := range dplList.Items {
-		if dpl.Spec.Placement == nil || dpl.Spec.Placement.PlacementRef == nil || dpl.Spec.Placement.PlacementRef.Name != obj.Meta.GetName() {
+		if dpl.Spec.Placement == nil || dpl.Spec.Placement.PlacementRef == nil || dpl.Spec.Placement.PlacementRef.Name != obj.GetName() {
 			continue
 		}
 
@@ -111,7 +111,7 @@ type clusterMapper struct {
 	client.Client
 }
 
-func (mapper *clusterMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *clusterMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -119,7 +119,7 @@ func (mapper *clusterMapper) Map(obj handler.MapObject) []reconcile.Request {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	cname := obj.Meta.GetName()
+	cname := obj.GetName()
 	klog.V(5).Info("In cluster Mapper for ", cname)
 
 	var requests []reconcile.Request
@@ -174,15 +174,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Deployable
+	dmapper := &deployableMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &appv1alpha1.Deployable{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: &deployableMapper{mgr.GetClient()}}, utils.DeployablePredicateFunc)
+		handler.EnqueueRequestsFromMapFunc(dmapper.Map), utils.DeployablePredicateFunc)
+
 	if err != nil {
 		return err
 	}
 
 	// watch for placementrule changes
-	err = c.Watch(&source.Kind{Type: &placementv1alpha1.PlacementRule{}}, &handler.EnqueueRequestsFromMapFunc{ToRequests: &placementruleMapper{mgr.GetClient()}},
+	pmapper := &placementruleMapper{mgr.GetClient()}
+	err = c.Watch(&source.Kind{Type: &placementv1alpha1.PlacementRule{}}, handler.EnqueueRequestsFromMapFunc(pmapper.Map),
 		predicate.Funcs{
 			UpdateFunc: func(e event.UpdateEvent) bool {
 				newpr := e.ObjectNew.(*placementv1alpha1.PlacementRule)
@@ -191,15 +194,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return !reflect.DeepEqual(newpr.Status, oldpr.Status)
 			},
 		})
+
 	if err != nil {
 		return err
 	}
 
 	// watch for cluster change excluding heartbeat
+	cmapper := &clusterMapper{mgr.GetClient()}
+
 	if placementutils.IsReadyACMClusterRegistry(mgr.GetAPIReader()) {
 		err = c.Watch(
 			&source.Kind{Type: &spokeClusterV1.ManagedCluster{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: &clusterMapper{mgr.GetClient()}},
+			handler.EnqueueRequestsFromMapFunc(cmapper.Map),
 			placementutils.ClusterPredicateFunc,
 		)
 		if err != nil {
@@ -214,7 +220,7 @@ type deployableMapper struct {
 	client.Client
 }
 
-func (mapper *deployableMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *deployableMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -229,15 +235,15 @@ func (mapper *deployableMapper) Map(obj handler.MapObject) []reconcile.Request {
 	requests = append(requests,
 		reconcile.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      obj.Meta.GetName(),
-				Namespace: obj.Meta.GetNamespace(),
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
 			},
 		},
 	)
 
 	// list thing for rolling update check
 	dplList := &appv1alpha1.DeployableList{}
-	listopts := &client.ListOptions{Namespace: obj.Meta.GetNamespace()}
+	listopts := &client.ListOptions{Namespace: obj.GetNamespace()}
 	err := mapper.List(context.TODO(), dplList, listopts)
 
 	if err != nil {
@@ -251,7 +257,7 @@ func (mapper *deployableMapper) Map(obj handler.MapObject) []reconcile.Request {
 			continue
 		}
 
-		if annotations[appv1alpha1.AnnotationRollingUpdateTarget] != obj.Meta.GetName() {
+		if annotations[appv1alpha1.AnnotationRollingUpdateTarget] != obj.GetName() {
 			// rolling to annother one, skipping
 			continue
 		}
@@ -267,7 +273,7 @@ func (mapper *deployableMapper) Map(obj handler.MapObject) []reconcile.Request {
 	// end of rolling update check
 
 	// reconcile hosting one, if there is change in cluster, assuming no 2-hop hosting
-	hdplkey := utils.GetHostDeployableFromObject(obj.Meta)
+	hdplkey := utils.GetHostDeployableFromObject(obj)
 	if hdplkey != nil && hdplkey.Name != "" {
 		requests = append(requests, reconcile.Request{NamespacedName: *hdplkey})
 	}
@@ -293,10 +299,10 @@ type ReconcileDeployable struct {
 
 // Reconcile reads that state of the cluster for a Deployable object and makes changes based on the state read
 // and what is in the Deployable.Spec
-func (r *ReconcileDeployable) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileDeployable) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the Deployable instance
 	instance := &appv1alpha1.Deployable{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Get(ctx, request.NamespacedName, instance)
 	klog.Info("Reconciling:", request.NamespacedName, " with Get err:", err)
 
 	if err != nil {

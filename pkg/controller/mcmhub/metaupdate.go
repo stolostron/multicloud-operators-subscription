@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -41,7 +42,6 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -388,33 +388,29 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 //test case.
 //generates the resource list for given HelmRelease
 func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
-	dryRunEventRecorder := record.NewBroadcaster()
-
 	mgr, err := manager.New(cfg, manager.Options{
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 		DryRunClient:       true,
-		EventBroadcaster:   dryRunEventRecorder,
 	})
 
 	if err != nil {
 		return nil, err
 	}
 
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		if err := mgr.Start(stop); err != nil {
+		if err := mgr.Start(ctx); err != nil {
 			klog.Error(err)
 		}
 	}()
 
 	defer func() {
-		close(stop)
-		dryRunEventRecorder.Shutdown()
+		cancel()
 	}()
 
-	if mgr.GetCache().WaitForCacheSync(stop) {
+	if mgr.GetCache().WaitForCacheSync(ctx) {
 		return generateResourceList(mgr, s)
 	}
 
