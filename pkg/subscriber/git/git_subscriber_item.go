@@ -317,20 +317,22 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
 	// Update the host deployable status accordingly and quit.
-	if len(ghsi.resources) == 0 && !ghsi.successful && (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
-		klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
+	if len(ghsi.resources) == 0 && !ghsi.successful {
+		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
+			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
 
-		statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+			statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
 
-		if statusErr != nil {
-			klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
+			if statusErr != nil {
+				klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
 
-			time.Sleep(2 * time.Second)
+				time.Sleep(2 * time.Second)
 
-			statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+				statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
 
-			if statusErr2 != nil {
-				klog.Error("Failed to update subscription status with the error. again")
+				if statusErr2 != nil {
+					klog.Error("Failed to update subscription status with the error. again")
+				}
 			}
 		}
 
