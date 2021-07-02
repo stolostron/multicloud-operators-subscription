@@ -325,6 +325,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 				klog.Error("Failed to update subscription status with the error. again")
 			}
 		}
+
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
