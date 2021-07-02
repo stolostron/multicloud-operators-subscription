@@ -306,10 +306,18 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		errMsg += err.Error()
 	}
 
+	standaloneSubscription := false
+
+	annotations := ghsi.Subscription.GetAnnotations()
+
+	if annotations == nil || annotations[dplv1.AnnotationHosting] == "" {
+		standaloneSubscription = true
+	}
+
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
 	// Update the host deployable status accordingly and quit.
-	if len(ghsi.resources) == 0 && !ghsi.successful {
+	if len(ghsi.resources) == 0 && !ghsi.successful && (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 		klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
 
 		statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
