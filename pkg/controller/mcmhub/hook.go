@@ -23,10 +23,10 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	placementutils "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/utils"
+	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -629,7 +629,7 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
 	logger.V(1).Info(fmt.Sprintf("job %s status: %v", PrintHelper(job), curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
@@ -637,7 +637,7 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 
 func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
 	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
 
 	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||
