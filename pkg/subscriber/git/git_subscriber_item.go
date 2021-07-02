@@ -304,15 +304,27 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		ghsi.successful = false
 
 		errMsg += err.Error()
-
-		return err
 	}
 
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
+	// Update the host deployable status accordingly and quit.
 	if len(ghsi.resources) == 0 && !ghsi.successful {
 		klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
 
+		statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+		if statusErr != nil {
+			klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
+
+			time.Sleep(2 * time.Second)
+
+			statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+			if statusErr2 != nil {
+				klog.Error("Failed to update subscription status with the error. again")
+			}
+		}
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
