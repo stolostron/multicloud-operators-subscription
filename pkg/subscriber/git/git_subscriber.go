@@ -36,6 +36,7 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
+	GetRemoteClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
 	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
@@ -150,6 +151,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
 	ghssubitem.desiredTag = subAnnotations[appv1alpha1.AnnotationGitTag]
 	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
+	ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
+	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
 
 	var restart bool = false
 

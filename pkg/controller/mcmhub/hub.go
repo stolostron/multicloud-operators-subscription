@@ -92,7 +92,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		updateSubDplAnno = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
+		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
 	case chnv1alpha1.ChannelTypeObjectBucket:
 		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, channel, objectBucketParent)
 	default:
@@ -748,6 +748,11 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()
+
+	// User and Group annotations
+	subepanno[appv1alpha1.AnnotationUserIdentity] = strings.Trim(origsubanno[appv1alpha1.AnnotationUserIdentity], "")
+	subepanno[appv1alpha1.AnnotationUserGroup] = strings.Trim(origsubanno[appv1alpha1.AnnotationUserGroup], "")
+
 	// Keep Git related annotations from the source subscription.
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationWebhookEventCount], "") {
 		subepanno[appv1alpha1.AnnotationWebhookEventCount] = origsubanno[appv1alpha1.AnnotationWebhookEventCount]

@@ -88,6 +88,8 @@ type SubscriberItem struct {
 	webhookEnabled        bool
 	successful            bool
 	clusterAdmin          bool
+	userID                string
+	userGroup             string
 }
 
 type kubeResource struct {
@@ -240,6 +242,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
+	errMsg := ""
+
 	syncsource := githubk8ssyncsource + hostkey.String()
 
 	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
@@ -250,6 +254,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe crd and ns resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -260,6 +266,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe rbac resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -270,6 +278,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe other resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -280,6 +290,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe kustomize resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying helm charts..")
@@ -291,7 +303,40 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		ghsi.successful = false
 
-		return err
+		errMsg += err.Error()
+	}
+
+	standaloneSubscription := false
+
+	annotations := ghsi.Subscription.GetAnnotations()
+
+	if annotations == nil || annotations[dplv1.AnnotationHosting] == "" {
+		standaloneSubscription = true
+	}
+
+	// If it failed to add applicable resources to the list, do not apply the empty list.
+	// It will cause already deployed resourced to be removed.
+	// Update the host deployable status accordingly and quit.
+	if len(ghsi.resources) == 0 && !ghsi.successful {
+		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
+			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
+
+			statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+			if statusErr != nil {
+				klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
+
+				time.Sleep(2 * time.Second)
+
+				statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+				if statusErr2 != nil {
+					klog.Error("Failed to update subscription status with the error. again")
+				}
+			}
+		}
+
+		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
 	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
@@ -399,6 +444,31 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 				}
 
 				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+
+				if t.Kind == "Subscription" {
+					klog.V(4).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
+
+					o := &unstructured.Unstructured{}
+					if err := yaml.Unmarshal(resource, o); err != nil {
+						klog.Error("Failed to unmarshal resource YAML.")
+						return err
+					}
+
+					annotations := o.GetAnnotations()
+					if len(annotations) == 0 {
+						annotations = map[string]string{}
+					}
+
+					annotations[appv1.AnnotationUserIdentity] = ghsi.userID
+					annotations[appv1.AnnotationUserGroup] = ghsi.userGroup
+					o.SetAnnotations(annotations)
+
+					resource, err = yaml.Marshal(o)
+					if err != nil {
+						klog.Error(err)
+						continue
+					}
+				}
 
 				ghsi.subscribeResourceFile(resource)
 			}

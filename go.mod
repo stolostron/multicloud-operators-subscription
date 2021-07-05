@@ -13,17 +13,15 @@ require (
 	github.com/go-openapi/spec v0.19.5
 	github.com/google/go-cmp v0.5.4
 	github.com/google/go-github/v32 v32.1.0
-	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
-	github.com/open-cluster-management/ansiblejob-go-lib v0.1.12
-	github.com/open-cluster-management/api v0.0.0-20210409125704-06f2aec1a73f
+	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
 	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210512-114e1b8
-	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
@@ -32,14 +30,14 @@ require (
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	helm.sh/helm/v3 v3.5.2
-	k8s.io/api v0.20.5
+	k8s.io/api v0.20.2
 	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.5
+	k8s.io/apimachinery v0.20.2
 	k8s.io/cli-runtime v0.20.2
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
-	sigs.k8s.io/controller-runtime v0.8.0
+	sigs.k8s.io/controller-runtime v0.6.3
 	sigs.k8s.io/kustomize/api v0.8.5
 )
 
