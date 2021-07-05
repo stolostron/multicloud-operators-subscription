@@ -15,6 +15,7 @@
 package listener
 
 import (
+	"context"
 	stdlog "log"
 	"os"
 	"sync"
@@ -23,6 +24,8 @@ import (
 	"path/filepath"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,20 +40,11 @@ var c client.Client
 
 // TestMain is the main test suite method
 func TestMain(m *testing.M) {
-	customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
-		"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
-		"PersistentVolumeClaimResize,ResourceQuota",
-	}
-
-	apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
-	apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "..", "hack", "test"),
 		},
-		KubeAPIServerFlags: apiServerFlags,
 	}
 
 	apis.AddToScheme(scheme.Scheme)
@@ -64,6 +58,13 @@ func TestMain(m *testing.M) {
 		stdlog.Fatal(err)
 	}
 
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test"},
+	})
+	if err != nil {
+		stdlog.Fatal(err)
+	}
+
 	code := m.Run()
 
 	t.Stop()
@@ -71,15 +72,14 @@ func TestMain(m *testing.M) {
 }
 
 // StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
+func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		g.Expect(mgr.Start(ctx)).NotTo(gomega.HaveOccurred())
 	}()
 
-	return stop, wg
+	return wg
 }

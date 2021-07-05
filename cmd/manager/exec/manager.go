@@ -71,7 +71,7 @@ func RunManager() {
 		// for standalone subcription pod
 		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
@@ -101,7 +101,7 @@ func RunManager() {
 	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
 		Name:      Options.ClusterName,
-		Namespace: Options.ClusterNamespace,
+		Namespace: Options.ClusterName,
 	}
 
 	// generate config to hub cluster
@@ -129,7 +129,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+	if !Options.Standalone && Options.ClusterName == "" {
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")
@@ -141,7 +141,7 @@ func RunManager() {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
 			klog.Error(err, "")

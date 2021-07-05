@@ -49,7 +49,7 @@ type NsSubscriberItem struct {
 	deployablecontroller controller.Controller
 	secretcontroller     controller.Controller
 	clusterscoped        bool
-	stopch               chan struct{}
+	stopFunc             context.CancelFunc
 	dplreconciler        *DeployableReconciler
 	srtreconciler        *SecretReconciler
 }
@@ -224,24 +224,25 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		return errors.Wrap(err, "failed to watch secret")
 	}
 
-	nssubitem.stopch = make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	nssubitem.stopFunc = cancel
 
 	go func() {
-		err := nssubitem.cache.Start(nssubitem.stopch)
+		err := nssubitem.cache.Start(ctx)
 		if err != nil {
 			klog.Error("failed to start cache for Namespace subscriber item with error: ", err)
 		}
 	}()
 
 	go func() {
-		err := nssubitem.deployablecontroller.Start(nssubitem.stopch)
+		err := nssubitem.deployablecontroller.Start(ctx)
 		if err != nil {
 			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
 		}
 	}()
 
 	go func() {
-		err := nssubitem.secretcontroller.Start(nssubitem.stopch)
+		err := nssubitem.secretcontroller.Start(ctx)
 		if err != nil {
 			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
 		}
@@ -260,7 +261,7 @@ func syncUpWithChannel(nssubitem *NsSubscriberItem) error {
 	fakeKey := types.NamespacedName{Namespace: nssubitem.Subscription.GetNamespace()}
 	rq := reconcile.Request{NamespacedName: fakeKey}
 
-	_, err := nssubitem.dplreconciler.Reconcile(rq)
+	_, err := nssubitem.dplreconciler.Reconcile(context.TODO(), rq)
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to do reconcile on deployable on subscription %v", nssubitem.Subscription.GetName())
@@ -269,7 +270,7 @@ func syncUpWithChannel(nssubitem *NsSubscriberItem) error {
 	fakeKey = types.NamespacedName{Namespace: nssubitem.Channel.GetNamespace()}
 	rq = reconcile.Request{NamespacedName: fakeKey}
 
-	_, err = nssubitem.srtreconciler.Reconcile(rq)
+	_, err = nssubitem.srtreconciler.Reconcile(context.TODO(), rq)
 
 	return errors.Wrapf(err, "failed to do subscription %v", nssubitem.Subscription.GetName())
 }
@@ -286,7 +287,7 @@ func (ns *NsSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 	nssubitem, ok := ns.itemmap[key]
 
 	if ok {
-		close(nssubitem.stopch)
+		nssubitem.stopFunc()
 		delete(ns.itemmap, key)
 
 		if err := ns.synchronizer.CleanupByHost(key, deployablesyncsource+key.String()); err != nil {
@@ -346,17 +347,17 @@ func isDeployableSecret() predicate.Funcs {
 				return false
 			}
 
-			_, ok = e.MetaOld.GetAnnotations()[appv1alpha1.AnnotationDeployables]
-			_, nok = e.MetaNew.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			_, ok = e.ObjectOld.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			_, nok = e.ObjectNew.GetAnnotations()[appv1alpha1.AnnotationDeployables]
 			// otherwise we trigger if the annotation has changed
 			return ok || nok
 		},
 		CreateFunc: func(e event.CreateEvent) bool {
-			_, ok := e.Meta.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			_, ok := e.Object.GetAnnotations()[appv1alpha1.AnnotationDeployables]
 			return ok
 		},
 		DeleteFunc: func(e event.DeleteEvent) bool {
-			_, ok := e.Meta.GetAnnotations()[appv1alpha1.AnnotationDeployables]
+			_, ok := e.Object.GetAnnotations()[appv1alpha1.AnnotationDeployables]
 			return ok
 		},
 	}

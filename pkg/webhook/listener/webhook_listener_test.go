@@ -62,10 +62,11 @@ func TestWebhookHandler(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -122,10 +123,11 @@ func TestWebhookHandler2(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -180,10 +182,11 @@ func TestWebhookHandler3(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -246,10 +249,11 @@ func TestUpdateSubscription(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -350,10 +354,11 @@ func TestValidateSecret(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -378,10 +383,11 @@ func TestValidateChannel(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -420,10 +426,11 @@ func TestServiceCreation(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithCancel(context.Background())
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

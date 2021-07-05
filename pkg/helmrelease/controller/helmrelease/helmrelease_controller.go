@@ -111,13 +111,13 @@ type ReconcileHelmRelease struct {
 // Note:
 // The Controller will requeue the Request to be processed again if the returned error is non-nil or
 // Result.Requeue is true, otherwise upon completion it will remove the work from the queue.
-func (r *ReconcileHelmRelease) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Info("Reconciling HelmRelease: ", request.Namespace, "/", request.Name)
 
 	// Fetch the HelmRelease instance
 	instance := &appv1.HelmRelease{}
 
-	err := r.GetClient().Get(context.TODO(), request.NamespacedName, instance)
+	err := r.GetClient().Get(ctx, request.NamespacedName, instance)
 	if apierrors.IsNotFound(err) {
 		klog.Info("Ignorable error. Failed to find HelmRelease, most likely it has been uninstalled: ",
 			helmreleaseNsn(instance), " ", err)
@@ -150,7 +150,7 @@ func (r *ReconcileHelmRelease) Reconcile(request reconcile.Request) (reconcile.R
 
 		instance.Spec = spec
 
-		err = r.GetClient().Update(context.TODO(), instance)
+		err = r.GetClient().Update(ctx, instance)
 		if err != nil {
 			klog.Error("Failed to update HelmRelease with default spec: ",
 				helmreleaseNsn(instance), " ", err)

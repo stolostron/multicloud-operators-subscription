@@ -14,6 +14,13 @@
 
 HUB_KUBECONFIG ?= $(HOME)/hub-kubeconfig
 MANAGED_CLUSTER_NAME ?= cluster1
+TEST_TMP :=/tmp
+export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
+K8S_VERSION ?=1.19.2
+GOHOSTOS ?=$(shell go env GOHOSTOS)
+GOHOSTARCH ?= $(shell go env GOHOSTARCH)
+KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
+KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
@@ -70,8 +77,20 @@ lint-go:
 
 .PHONY: test
 
-test:
-	@build/run-tests.sh
+# download the kubebuilder-tools to get kube-apiserver binaries from it
+ensure-kubebuilder-tools:
+ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
+	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
+	mkdir -p '$(KUBEBUILDER_ASSETS)'
+	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
+	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
+else
+	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
+endif
+.PHONY: ensure-kubebuilder-tools
+
+test: ensure-kubebuilder-tools
+	go test -timeout 300s -v ./pkg/... 
 
 .PHONY: deploy-standalone
 

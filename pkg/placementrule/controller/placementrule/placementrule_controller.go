@@ -74,11 +74,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	if utils.IsReadyACMClusterRegistry(mgr.GetAPIReader()) {
+		pmapper := &ClusterPlacementRuleMapper{mgr.GetClient()}
 		err = c.Watch(
 			&source.Kind{Type: &spokeClusterV1.ManagedCluster{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: &ClusterPlacementRuleMapper{mgr.GetClient()}},
+			handler.EnqueueRequestsFromMapFunc(pmapper.Map),
 			utils.ClusterPredicateFunc,
 		)
+
 		if err != nil {
 			return err
 		}
@@ -102,7 +104,7 @@ type ClusterPlacementRuleMapper struct {
 }
 
 // Map triggers all placements.
-func (mapper *ClusterPlacementRuleMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *ClusterPlacementRuleMapper) Map(obj client.Object) []reconcile.Request {
 	plList := &appv1alpha1.PlacementRuleList{}
 
 	listopts := &client.ListOptions{}
@@ -134,8 +136,8 @@ type PolicyPlacementRuleMapper struct {
 }
 
 // Map triggers all placements
-func (mapper *PolicyPlacementRuleMapper) Map(obj handler.MapObject) []reconcile.Request {
-	cname := obj.Meta.GetName()
+func (mapper *PolicyPlacementRuleMapper) Map(obj client.Object) []reconcile.Request {
+	cname := obj.GetName()
 
 	klog.Info("In policy Mapper for ", cname)
 
@@ -168,10 +170,10 @@ func (mapper *PolicyPlacementRuleMapper) Map(obj handler.MapObject) []reconcile.
 // Automatically generate RBAC rules to allow the Controller to read and write Deployments
 // +kubebuilder:rbac:groups=multicloud-apps.io,resources=placementrules,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=multicloud.io,resources=placementrules/status,verbs=get;update;patch
-func (r *ReconcilePlacementRule) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	// Fetch the PlacementRule instance
 	instance := &appv1alpha1.PlacementRule{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+	err := r.Get(ctx, request.NamespacedName, instance)
 
 	klog.Info("Reconciling:", request.NamespacedName, " with Get err:", err)
 
@@ -224,7 +226,7 @@ func (r *ReconcilePlacementRule) Reconcile(request reconcile.Request) (reconcile
 	// reconcile finished check if need to upadte the resource
 	if updated {
 		klog.Info("Update placementrule ", instance.Name, " with decisions: ", instance.Status.Decisions)
-		err = r.Status().Update(context.TODO(), instance)
+		err = r.Status().Update(ctx, instance)
 	}
 
 	klog.V(1).Info("Reconciling - finished.", request.NamespacedName, " with Get err:", err)

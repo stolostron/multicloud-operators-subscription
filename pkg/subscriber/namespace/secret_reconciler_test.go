@@ -129,7 +129,7 @@ var _ = Describe("base secret reconcile", func() {
 		dplSrtRq := reconcile.Request{NamespacedName: types.NamespacedName{Name: dplSrt.GetName(), Namespace: dplSrt.GetNamespace()}}
 		// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
 		//checking if the reconcile has any error
-		Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(BeNil())
+		Expect(srtRec.Reconcile(context.TODO(), dplSrtRq)).ShouldNot(BeNil())
 
 		expectSrt := &corev1.Secret{}
 		Expect(k8sClient.Get(context.TODO(),
@@ -284,7 +284,7 @@ var _ = Describe("fakeSynchronizer reconcile test", func() {
 
 		// Do secret reconcile which should pick up the dplSrt and deploy it to the subscription namespace (check point)
 		//checking if the reconcile has any error
-		Expect(srtRec.Reconcile(dplSrtRq)).ShouldNot(BeNil())
+		Expect(srtRec.Reconcile(context.TODO(), dplSrtRq)).ShouldNot(BeNil())
 
 		spySync.assertTemplateRegistry(dplSrtKey, dplSrt.GroupVersionKind())
 
