@@ -124,11 +124,11 @@ func IsReadyACMClusterRegistry(clReader client.Reader) bool {
 	err := clReader.List(context.TODO(), cllist, listopts)
 
 	if err == nil {
-		klog.Error("ACM Cluster API service ready")
+		klog.Info("Cluster API service ready")
 		return true
 	}
 
-	klog.Error("ACM Cluster API service NOT ready: ", err)
+	klog.Error("Cluster API service NOT ready: ", err)
 
 	return false
 }

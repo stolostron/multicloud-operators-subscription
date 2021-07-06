@@ -22,7 +22,7 @@ spec:
       - name: klusterlet-config
         secret:
           defaultMode: 420
-          secretName: appmgr-hub-kubeconfig
+          secretName: application-manager-hub-kubeconfig
       containers:
         - name: multicloud-operators-subscription
           image: quay.io/open-cluster-management/multicloud-operators-subscription:latest
@@ -32,9 +32,8 @@ spec:
           - /usr/local/bin/multicloud-operators-subscription
           - --alsologtostderr
           - --cluster-name=managed_cluster_name # cluster1
-          - --cluster-namespace=managed_cluster_name # cluster1
           - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
             - name: POD_NAME
@@ -46,10 +45,7 @@ spec:
           resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+                memory: 128Mi
           volumeMounts:
           - mountPath: /var/run/klusterlet
             name: klusterlet-config

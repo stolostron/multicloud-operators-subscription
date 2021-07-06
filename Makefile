@@ -89,6 +89,12 @@ else
 endif
 .PHONY: ensure-kubebuilder-tools
 
+update: go-bindata
+	go-bindata -o pkg/addonmanager/bindata/bindata.go -pkg bindata deploy/managed-common deploy/managed
+
+go-bindata:
+	go install github.com/go-bindata/go-bindata/go-bindata
+
 test: ensure-kubebuilder-tools
 	go test -timeout 300s -v ./pkg/... 
 
@@ -100,6 +106,9 @@ deploy-standalone:
 	kubectl apply -f deploy/standalone
 
 .PHONY: deploy-hub
+
+deploy-ocm:
+	deploy/ocm/install.sh
 
 deploy-hub:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
@@ -115,3 +124,11 @@ deploy-managed:
 	kubectl -n open-cluster-management-agent-addon create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=/tmp/kubeconfig
 	kubectl apply -f deploy/managed-common
 	$(SED_CMD) -e "s,managed_cluster_name,$(MANAGED_CLUSTER_NAME)," deploy/managed/operator.yaml | kubectl apply -f -
+
+
+build-e2e:
+	go test -c ./test/e2e
+
+test-e2e: build-e2e deploy-ocm deploy-hub
+	kubectl get ns open-cluster-management-agent-addon ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management-agent-addon ; fi
+	./e2e.test -test.v -ginkgo.v

@@ -24,7 +24,8 @@ spec:
           command:
           - /usr/local/bin/multicloud-operators-subscription
           - --sync-interval=60
-          imagePullPolicy: Always
+          - --deploy-agent
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
             - name: POD_NAME
@@ -36,7 +37,4 @@ spec:
           resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+                memory: 128Mi
