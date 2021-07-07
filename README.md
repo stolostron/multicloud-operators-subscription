@@ -54,35 +54,58 @@ Setup a _hub_ cluster and a _managed_ cluster using [clusteradm](https://github.
 Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
+$ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
 $ make deploy-hub
 $ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           25s
 ```
 
-Deploy the subscription agent on the _managed_ cluster.
+Create the `open-cluster-management-agent-addon` namespace on the _managed_ cluster (if not already created).
 
 ```shell
-$ make deploy-managed 
+$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
+$ kubectl create ns open-cluster-management-agent-addon
+namespace/open-cluster-management-agent-addon created
+```
+
+Deploy the subscription add-on on the _hub_ cluster's _managed_ cluster namespace. For example, `cluster1`.
+
+```shell
+$ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+$ export MANAGED_CLUSTER_NAME=<managed cluster name>  # export MANAGED_CLUSTER_NAME=cluster1
+$ make deploy-addon
+$ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
+NAME                  AVAILABLE   DEGRADED   PROGRESSING
+application-manager   True
+```
+
+Check the the subscription add-on deployment on the _managed_ cluster.
+
+```shell
 $ kubectl -n open-cluster-management-agent-addon get deploy  multicloud-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           103s
 ```
 
-Deploy an application subscription on the _hub_ cluster and it will propagate down to the _managed_ cluster
+After a successful deployment, test the subscription operator with a `helm` subscription. Run the following command:
 
-```shell
-$ kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
-$ kubectl apply -f examples/helmrepo-hub-channel
-$ kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
-$ sleep 60
+```Shell
+kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+kubectl apply -f examples/helmrepo-hub-channel
+```
+
+After a while, you should see the subscription propagated to the managed cluster and the Helm app installed. By default, when a subscription deploys subscribed applications to target clusters, the applications are deployed to that subscription namespace. To confirm, run the following command:
+
+```Shell
+$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
 $ kubectl get subscriptions.apps 
-NAME        STATUS       AGE   LOCAL PLACEMENT   TIME WINDOW
-nginx-sub   Subscribed   77s   true       
+NAME        STATUS       AGE    LOCAL PLACEMENT   TIME WINDOW
+nginx-sub   Subscribed   107m   true  
 $ kubectl get pod
-NAME                                                   READY   STATUS    RESTARTS   AGE
-nginx-ingress-65f8e-controller-76fdf7f8bb-srfjp        1/1     Running   0          84s
-nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0          84s
+NAME                                                   READY   STATUS      RESTARTS   AGE
+nginx-ingress-47f79-controller-6f495bb5f9-lpv7z        1/1     Running     0          108m
+nginx-ingress-47f79-default-backend-7559599b64-rhwgm   1/1     Running     0          108m
 
 ```
 

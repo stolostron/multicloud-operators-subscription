@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-HUB_KUBECONFIG ?= $(HOME)/hub-kubeconfig
 MANAGED_CLUSTER_NAME ?= cluster1
 TEST_TMP :=/tmp
 export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
@@ -115,15 +114,10 @@ deploy-hub:
 	kubectl apply -f deploy/hub-common
 	kubectl apply -f deploy/hub
 
-.PHONY: deploy-managed
+.PHONY: deploy-addon
 
-deploy-managed:
-	cp -f $(HUB_KUBECONFIG) /tmp/kubeconfig
-	kubectl get ns open-cluster-management-agent-addon ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management-agent-addon ; fi
-	kubectl -n open-cluster-management-agent-addon delete secret appmgr-hub-kubeconfig --ignore-not-found
-	kubectl -n open-cluster-management-agent-addon create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=/tmp/kubeconfig
-	kubectl apply -f deploy/managed-common
-	$(SED_CMD) -e "s,managed_cluster_name,$(MANAGED_CLUSTER_NAME)," deploy/managed/operator.yaml | kubectl apply -f -
+deploy-addon:
+	$(SED_CMD) -e "s,managed_cluster_name,$(MANAGED_CLUSTER_NAME)," deploy/addon/addon.yaml | kubectl apply -f -
 
 
 build-e2e:

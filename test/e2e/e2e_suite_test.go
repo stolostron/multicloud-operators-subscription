@@ -197,12 +197,6 @@ var _ = ginkgo.BeforeSuite(func() {
 			return false, err
 		}
 
-		pods, _ := hubKubeClient.CoreV1().Pods("open-cluster-management").List(
-			context.TODO(), metav1.ListOptions{},
-		)
-
-		fmt.Printf("pods: %v\n", pods.Items)
-
 		if !meta.IsStatusConditionTrue(addon.Status.Conditions, "Available") {
 			return false, nil
 		}

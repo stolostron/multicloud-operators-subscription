@@ -32,6 +32,7 @@ var (
 		"deploy/managed-common/apps.open-cluster-management.io_deployables_crd.yaml",
 		"deploy/managed-common/apps.open-cluster-management.io_helmreleases_crd.yaml",
 		"deploy/managed-common/apps.open-cluster-management.io_subscriptions.yaml",
+		"deploy/managed-common/apps.open-cluster-management.io_placementrules_crd.yaml",
 		"deploy/managed-common/clusterrole_binding.yaml",
 		"deploy/managed-common/clusterrole.yaml",
 		"deploy/managed-common/service_account.yaml",

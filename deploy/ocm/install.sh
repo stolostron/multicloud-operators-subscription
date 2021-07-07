@@ -79,7 +79,7 @@ for i in {1..7}; do
   sleep 30
 done
 
-$KUBECTL get ns open-cluster-management-agent-addon ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management-agent-addon ; fi
+$KUBECTL get ns open-cluster-management-agent-addon ; if [ $? -ne 0 ] ; then kubectl create ns open-cluster-management-agent-addon ; fi
 
 echo "############  env is installed successfully!!"
 

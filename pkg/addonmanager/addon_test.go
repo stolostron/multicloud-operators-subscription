@@ -45,7 +45,7 @@ func TestManifests(t *testing.T) {
 		t.Errorf("Expect no error but got %v", err)
 	}
 
-	if len(objects) != 8 {
+	if len(objects) != 9 {
 		t.Errorf("Expect 8 objects bug got %d", len(objects))
 	}
 
