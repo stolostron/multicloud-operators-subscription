@@ -130,5 +130,4 @@ build-e2e:
 	go test -c ./test/e2e
 
 test-e2e: build-e2e deploy-ocm deploy-hub
-	kubectl get ns open-cluster-management-agent-addon ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management-agent-addon ; fi
 	./e2e.test -test.v -ginkgo.v

@@ -8,5 +8,5 @@ subjects:
   namespace: open-cluster-management-agent-addon
 roleRef:
   kind: ClusterRole
-  name: multicloud-operators
+  name: multicloud-operators-agent
   apiGroup: rbac.authorization.k8s.io
