@@ -81,3 +81,40 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
       - name: test
         run: make test
+  
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 1
+          path: go/src/github.com/open-cluster-management/multicloud-operators-subscription
+      - name: install Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: install imagebuilder
+        run: go install github.com/openshift/imagebuilder/cmd/imagebuilder@v1.2.1
+      - name: build-images
+        run: make build-images
+      - name: setup kind
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: v0.11.1
+          name: cluster1
+      - name: setup kind
+        uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: v0.11.1
+          name: hub
+      - name: Load image on the nodes of the cluster
+        run: |
+          kind load docker-image --name=cluster1 quay.io/open-cluster-management/multicloud-operators-subscription:latest
+          kind load docker-image --name=hub quay.io/open-cluster-management/multicloud-operators-subscription:latest
+      - name: Run e2e test
+        run: |
+          make test-e2e
+        env:
+          KUBECONFIG: /home/runner/.kube/config

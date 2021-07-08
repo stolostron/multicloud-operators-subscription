@@ -35,9 +35,9 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
-	open-cluster-management.io/api v0.0.0-20210607023841-cd164385e2bb
-	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210629185506-adc9b0b5e7f2
-	sigs.k8s.io/controller-runtime v0.6.3
+	open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d
+	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210706131628-9125c762b9f9
+	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
 )
 

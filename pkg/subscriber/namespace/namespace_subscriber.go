@@ -182,7 +182,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 
 	dplReconciler := NewNsDeployableReconciler(hubclient, ns, itemkey)
 
-	nssubitem.deployablecontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: dplReconciler})
+	nssubitem.deployablecontroller, err = controller.New("sub-deployable-"+itemkey.String(), ns.manager, controller.Options{Reconciler: dplReconciler})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to create deployable controller for namespace subscriber item")
@@ -204,7 +204,7 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 
 	secretreconciler := newSecretReconciler(ns, ns.manager, itemkey)
 
-	nssubitem.secretcontroller, err = controller.New("sub"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
+	nssubitem.secretcontroller, err = controller.New("sub-secret-"+itemkey.String(), ns.manager, controller.Options{Reconciler: secretreconciler})
 
 	if err != nil {
 		return errors.Wrap(err, "failed to create secret controller for namespace subscriber item")
@@ -231,20 +231,6 @@ func (ns *NsSubscriber) initializeSubscriber(nssubitem *NsSubscriberItem,
 		err := nssubitem.cache.Start(ctx)
 		if err != nil {
 			klog.Error("failed to start cache for Namespace subscriber item with error: ", err)
-		}
-	}()
-
-	go func() {
-		err := nssubitem.deployablecontroller.Start(ctx)
-		if err != nil {
-			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
-		}
-	}()
-
-	go func() {
-		err := nssubitem.secretcontroller.Start(ctx)
-		if err != nil {
-			klog.Error("failed to start controller for Namespace subscriber item with error: ", err)
 		}
 	}()
 

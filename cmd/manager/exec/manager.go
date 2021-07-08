@@ -32,6 +32,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	addonframeworkmgr "open-cluster-management.io/addon-framework/pkg/addonmanager"
+	agentaddon "open-cluster-management.io/multicloud-operators-subscription/pkg/addonmanager"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
@@ -86,11 +88,10 @@ func RunManager() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:                    operatorMetricsPort,
-		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        leaderElectionID,
-		LeaderElectionNamespace: "kube-system",
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:               operatorMetricsPort,
+		LeaderElection:     enableLeaderElection,
+		LeaderElectionID:   leaderElectionID,
 	})
 
 	if err != nil {
@@ -185,6 +186,38 @@ func RunManager() {
 	sig := signals.SetupSignalHandler()
 
 	klog.Info("Starting the Cmd.")
+
+	// Start addon manager
+	if !Options.Standalone && Options.ClusterName == "" && Options.DeployAgent {
+		kubeClient, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			klog.Error("Failed to setup kube client, error:", err)
+			os.Exit(1)
+		}
+
+		adddonmgr, err := addonframeworkmgr.New(cfg)
+
+		if err != nil {
+			klog.Error("Failed to setup addon manager, error:", err)
+			os.Exit(1)
+		}
+
+		addon := agentaddon.NewAgent(Options.AgentImage, kubeClient)
+
+		if err := adddonmgr.AddAgent(addon); err != nil {
+			klog.Error("Failed to add addon to addon manager, error:", err)
+			os.Exit(1)
+		}
+
+		go func() {
+			<-mgr.Elected()
+
+			if err := adddonmgr.Start(sig); err != nil {
+				klog.Error("Failed to start addon manager, error:", err)
+				os.Exit(1)
+			}
+		}()
+	}
 
 	// Start the Cmd
 	if err := mgr.Start(sig); err != nil {
