@@ -3,9 +3,13 @@
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
 - [Overview](#overview)
-- [Architecutre](#architecutre)
+- [Architecture](#architecture)
 - [Stand-alone deployment](#stand-alone-deployment)
 - [Multi-cluster deployment](#multi-cluster-deployment)
+    - [Prerequisite](#prerequisite)
+    - [Operator Deployment](#operator-deployment)
+    - [Add-on Deployment](#add-on-deployment)
+    - [What is next](#what-is-next)
 - [GitOps](#gitops)
 - [Community, discussion, contribution, and support](#community,-discussion,-contribution,-and-support)
 
@@ -15,7 +19,7 @@ Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to s
 
 Subscriptions can point to a channel for identifying new or updated resource templates. The subscription operator can then download directly from the storage location and deploy to targeted managed clusters without checking the hub cluster first. With a subscription, the subscription operator can monitor the channel for new or updated resources instead of the hub cluster.
 
-## Architecutre
+## Architecture
 
 ![architecture](images/architecture.png)
 
@@ -49,7 +53,11 @@ nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0     
 
 ## Multi-cluster deployment
 
-Setup a _hub_ cluster and a _managed_ cluster using [clusteradm](https://github.com/open-cluster-management-io/clusteradm#quick-start).
+### Prerequisite
+
+Deploy a cluster manager on your _hub_ cluster and deploy a klusterlet agent on your _managed_ cluster using any methods described [here](https://open-cluster-management.io/getting-started/quick-start).
+
+### Operator Deployment
 
 Deploy the subscription operator on the _hub_ cluster.
 
@@ -61,6 +69,8 @@ NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           25s
 ```
 
+### Add-on Deployment
+
 Create the `open-cluster-management-agent-addon` namespace on the _managed_ cluster (if not already created).
 
 ```shell
@@ -69,10 +79,13 @@ $ kubectl create ns open-cluster-management-agent-addon
 namespace/open-cluster-management-agent-addon created
 ```
 
-Deploy the subscription add-on on the _hub_ cluster's _managed_ cluster namespace. For example, `cluster1`.
+Deploy the subscription add-on on the _hub_ cluster. For the value of `MANAGED_CLUSTER_NAME`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+$ kubectl get managedclusters
+NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
+<managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
 $ export MANAGED_CLUSTER_NAME=<managed cluster name>  # export MANAGED_CLUSTER_NAME=cluster1
 $ make deploy-addon
 $ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
@@ -87,6 +100,8 @@ $ kubectl -n open-cluster-management-agent-addon get deploy  multicloud-operator
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           103s
 ```
+
+### What is next
 
 After a successful deployment, test the subscription operator with a `helm` subscription. Run the following command:
 
