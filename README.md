@@ -10,7 +10,8 @@
     - [Operator Deployment](#operator-deployment)
     - [Add-on Deployment](#add-on-deployment)
     - [What is next](#what-is-next)
-- [GitOps](#gitops)
+- [GitOps subscription](#gitops-subscription)
+- [Object storage subscription](#object-storage-subscription)
 - [Community, discussion, contribution, and support](#community,-discussion,-contribution,-and-support)
 
 ## Overview
@@ -124,9 +125,13 @@ nginx-ingress-47f79-default-backend-7559599b64-rhwgm   1/1     Running     0    
 
 ```
 
-## GitOps
+## GitOps subscription
 
 You can subscribe to public or enterprise Git repositories that contain Kubernetes resource YAML files or Helm charts, or both. See [Git repository channel subscription](docs/gitrepo_subscription.md) for more details.
+
+## Object storage subscription
+
+You can subscribe to cloud object storage that contain Kubernetes resource YAML files. See [Object storage channel subscription](docs/objectstorage_subscription.md) for more details.
 
 ## Community, discussion, contribution, and support
 
