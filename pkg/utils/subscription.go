@@ -79,12 +79,13 @@ func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	return false
 }
 
-var AppSubStatusPredicateFunc = predicate.Funcs{
+var AppSubPackageStatusPredicateFunc = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
+		klog.Infof("UpdateFunc oldlabels:", e.MetaOld.GetLabels())
 		_, oldOK := e.MetaOld.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
 		_, newOK := e.MetaNew.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
 		if !oldOK && !newOK {
-			klog.V(1).Infof("Not a managed cluster appSubStatus updated, old: %v/%v, new: %v/%v",
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
 				e.MetaOld.GetNamespace(), e.MetaOld.GetName(), e.MetaNew.GetNamespace(), e.MetaNew.GetName())
 			return false
 		}
@@ -93,55 +94,57 @@ var AppSubStatusPredicateFunc = predicate.Funcs{
 		_, newOK = e.MetaNew.GetLabels()["apps.open-cluster-management.io/cluster"]
 
 		if !oldOK && !newOK {
-			klog.V(1).Infof("Not a managed cluster appSubStatus updated, old: %v/%v, new: %v/%v",
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
 				e.MetaOld.GetNamespace(), e.MetaOld.GetName(), e.MetaNew.GetNamespace(), e.MetaNew.GetName())
 			return false
 		}
 
-		oldAppSubStatus, ok := e.ObjectOld.(*appSubStatusV1alpha1.SubscriptionStatus)
+		oldAppSubStatus, ok := e.ObjectOld.(*appSubStatusV1alpha1.SubscriptionPackageStatus)
 		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubStatus, old: %v/%v", e.MetaOld.GetNamespace(), e.MetaOld.GetName())
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.MetaOld.GetNamespace(), e.MetaOld.GetName())
 			return false
 		}
 
-		newAppSubStatus, ok := e.ObjectNew.(*appSubStatusV1alpha1.SubscriptionStatus)
+		newAppSubStatus, ok := e.ObjectNew.(*appSubStatusV1alpha1.SubscriptionPackageStatus)
 		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubStatus, new: %v/%v", e.MetaNew.GetNamespace(), e.MetaNew.GetName())
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.MetaNew.GetNamespace(), e.MetaNew.GetName())
 			return false
 		}
 
 		return !reflect.DeepEqual(oldAppSubStatus.Statuses.SubscriptionPackageStatus, newAppSubStatus.Statuses.SubscriptionPackageStatus)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
+		klog.Infof("CreateFunc oldlabels:", e.Meta.GetLabels())
 		_, ok := e.Meta.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
 		if !ok {
-			klog.V(1).Infof("Not a managed cluster appSubStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 			return false
 		}
 
 		_, ok = e.Meta.GetLabels()["apps.open-cluster-management.io/cluster"]
 		if !ok {
-			klog.V(1).Infof("Not a managed cluster appSubStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 			return false
 		}
 
-		klog.V(1).Infof("New managed cluster appSubStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+		klog.V(1).Infof("New managed cluster appSubPackageStatus created: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 		return true
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
+		klog.Infof("DeleteFunc oldlabels:", e.Meta.GetLabels())
 		_, ok := e.Meta.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
 		if !ok {
-			klog.V(1).Infof("Not a managed cluster appSubStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 			return false
 		}
 
 		_, ok = e.Meta.GetLabels()["apps.open-cluster-management.io/cluster"]
 		if !ok {
-			klog.V(1).Infof("Not a managed cluster appSubStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 			return false
 		}
 
-		klog.Infof("managed cluster appSubStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
+		klog.Infof("managed cluster appSubPackageStatus deleted: %v/%v", e.Meta.GetNamespace(), e.Meta.GetName())
 		return true
 	},
 }

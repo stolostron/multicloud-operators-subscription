@@ -18,12 +18,12 @@ import (
 	pflag "github.com/spf13/pflag"
 )
 
-// AppSubStatusCMDOptions for command line flag parsing.
-type AppSubStatusCMDOptions struct {
+// AppSubPackageStatusCMDOptions for command line flag parsing.
+type AppSubPackageStatusCMDOptions struct {
 	MetricsAddr string
 }
 
-var options = AppSubStatusCMDOptions{
+var options = AppSubPackageStatusCMDOptions{
 	MetricsAddr: "",
 }
 

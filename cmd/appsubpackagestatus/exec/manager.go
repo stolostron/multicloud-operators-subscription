@@ -54,7 +54,7 @@ func RunManager() {
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
-		LeaderElectionID:        "multicloud-operators-appsubstatus-leader.open-cluster-management.io",
+		LeaderElectionID:        "multicloud-operators-appsubpackagestatus-leader.open-cluster-management.io",
 		LeaderElectionNamespace: "kube-system",
 	})
 	if err != nil {
@@ -62,7 +62,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	klog.Info("Registering AppSubStatus component.")
+	klog.Info("Registering AppSubPackageStatus component.")
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
@@ -71,7 +71,7 @@ func RunManager() {
 	}
 
 	// Setup all Controllers.
-	if err := controller.AddAppSubStatusToManager(mgr); err != nil {
+	if err := controller.AddAppSubPackageStatusToManager(mgr); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}

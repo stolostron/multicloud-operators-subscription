@@ -12,13 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package main
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/appsubstatus"
+	"flag"
+
+	"github.com/open-cluster-management/multicloud-operators-subscription/cmd/appsubpackagestatus/exec"
+	"github.com/spf13/pflag"
+	"k8s.io/klog"
 )
 
-func init() {
-	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddAppSubStatusToManagerFuncs = append(AddAppSubStatusToManagerFuncs, appsubstatus.Add)
+func main() {
+	exec.ProcessFlags()
+
+	klog.InitFlags(nil)
+
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+
+	defer klog.Flush()
+
+	pflag.Parse()
+
+	exec.RunManager()
 }

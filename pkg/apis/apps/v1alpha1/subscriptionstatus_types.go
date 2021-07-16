@@ -21,16 +21,40 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
-// +kubebuilder:resource:shortName=appsubstatus
-
-type SubscriptionStatus struct {
+// +kubebuilder:resource:shortName=appsubsummarystatus
+type SubscriptionSummaryStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	Summary SubscriptionSummary `json:"summary,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// SubscriptionSummaryStatusList contains a list of SubscriptionSummaryStatus.
+type SubscriptionSummaryStatusList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SubscriptionSummaryStatus `json:"items"`
+}
+
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope="Namespaced"
+// +kubebuilder:resource:shortName=appsubpackagestatus
+type SubscriptionPackageStatus struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	// Statuses represents all the resources deployed by the subscription per cluster
 	Statuses SubscriptionClusterStatusMap `json:"statuses,omitempty"`
+}
+
+// +kubebuilder:object:root=true
+// SubscriptionPackagetatusList contains a list of SubscriptionPackageStatus.
+type SubscriptionPackageStatusList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SubscriptionPackageStatus `json:"items"`
 }
 
 type SubscriptionSummary struct {
@@ -46,27 +70,20 @@ type ClusterSummary struct {
 
 // SubscriptionClusterStatusMap defines per cluster, per package status, key is package name.
 type SubscriptionClusterStatusMap struct {
-	SubscriptionPackageStatus map[string]SubscriptionUnitStatus `json:"packages,omitempty"`
+	SubscriptionPackageStatus []SubscriptionUnitStatus `json:"packages,omitempty"`
 }
 
 // SubscriptionUnitStatus defines status of a package deployment.
 type SubscriptionUnitStatus struct {
-	PkgKind        string      `json:"pkgkind,omitempty"`
-	PkgNamespace   string      `json:"pkgnamespace,omitempty"`
+	Name           string      `json:"name,omitempty"`
+	Kind           string      `json:"kind,omitempty"`
+	Namespace      string      `json:"namespace,omitempty"`
 	Phase          string      `json:"phase,omitempty"`
 	Message        string      `json:"message,omitempty"`
 	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
 }
 
-// +kubebuilder:object:root=true
-
-// SubscriptionStatusList contains a list of SubscriptionStatus.
-type SubscriptionStatusList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SubscriptionStatus `json:"items"`
-}
-
 func init() {
-	SchemeBuilder.Register(&SubscriptionStatus{}, &SubscriptionStatusList{})
+	SchemeBuilder.Register(&SubscriptionSummaryStatus{}, &SubscriptionSummaryStatusList{},
+		&SubscriptionPackageStatus{}, &SubscriptionPackageStatusList{})
 }
