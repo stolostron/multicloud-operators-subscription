@@ -21,6 +21,7 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: SubscriptionPackageStatus defines the status of package deployments
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -54,6 +55,7 @@ spec:
                   namespace:
                     type: string
                   phase:
+                    description: PackagePhase defines the phasing of a Package
                     type: string
                 required:
                 - lastUpdateTime

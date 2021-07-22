@@ -21,6 +21,8 @@ spec:
     status: {}
   validation:
     openAPIV3Schema:
+      description: SubscriptionPackageStatus defines a summary of the status of package
+        deployments on the clusters
       properties:
         apiVersion:
           description: 'APIVersion defines the versioned schema of this representation
@@ -35,9 +37,11 @@ spec:
         metadata:
           type: object
         summary:
+          description: SubscriptionSummary contains a ClusterSummary of packages that
+            deployed successfully, failed to deploy, or failed to propagate
           properties:
-            deployed:
-              description: ClusterSummary defines status of a package deployment.
+            deployFailed:
+              description: A ClusterSummary of packages that failed to deployed
               properties:
                 clusters:
                   items:
@@ -46,8 +50,18 @@ spec:
                 count:
                   type: integer
               type: object
-            failed:
-              description: ClusterSummary defines status of a package deployment.
+            deployed:
+              description: A ClusterSummary of packages that deployed successfully
+              properties:
+                clusters:
+                  items:
+                    type: string
+                  type: array
+                count:
+                  type: integer
+              type: object
+            propagationFailed:
+              description: A ClusterSummary of packages that failed to propagate
               properties:
                 clusters:
                   items:

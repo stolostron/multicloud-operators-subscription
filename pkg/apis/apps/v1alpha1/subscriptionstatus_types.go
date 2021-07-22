@@ -22,6 +22,7 @@ import (
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
 // +kubebuilder:resource:shortName=appsubsummarystatus
+// SubscriptionPackageStatus defines a summary of the status of package deployments on the clusters
 type SubscriptionSummaryStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -41,6 +42,7 @@ type SubscriptionSummaryStatusList struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
 // +kubebuilder:resource:shortName=appsubpackagestatus
+// SubscriptionPackageStatus defines the status of package deployments
 type SubscriptionPackageStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -57,9 +59,15 @@ type SubscriptionPackageStatusList struct {
 	Items           []SubscriptionPackageStatus `json:"items"`
 }
 
+//SubscriptionSummary contains a ClusterSummary of packages that deployed successfully,
+// failed to deploy, or failed to propagate
 type SubscriptionSummary struct {
+	// A ClusterSummary of packages that deployed successfully
 	DeployedSummary ClusterSummary `json:"deployed,omitempty"`
-	FailedSummary   ClusterSummary `json:"failed,omitempty"`
+	// A ClusterSummary of packages that failed to deployed
+	DeployFailedSummary ClusterSummary `json:"deployFailed,omitempty"`
+	// A ClusterSummary of packages that failed to propagate
+	PropagationFailedSummary ClusterSummary `json:"propagationFailed,omitempty"`
 }
 
 // ClusterSummary defines status of a package deployment.
@@ -68,20 +76,34 @@ type ClusterSummary struct {
 	Clusters []string `json:"clusters,omitempty"`
 }
 
-// SubscriptionClusterStatusMap defines per cluster, per package status, key is package name.
+// SubscriptionClusterStatusMap defines the status of packages in a cluster.
 type SubscriptionClusterStatusMap struct {
 	SubscriptionPackageStatus []SubscriptionUnitStatus `json:"packages,omitempty"`
 }
 
 // SubscriptionUnitStatus defines status of a package deployment.
 type SubscriptionUnitStatus struct {
-	Name           string      `json:"name,omitempty"`
-	Kind           string      `json:"kind,omitempty"`
-	Namespace      string      `json:"namespace,omitempty"`
-	Phase          string      `json:"phase,omitempty"`
-	Message        string      `json:"message,omitempty"`
-	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+	Name           string       `json:"name,omitempty"`
+	Kind           string       `json:"kind,omitempty"`
+	Namespace      string       `json:"namespace,omitempty"`
+	Phase          PackagePhase `json:"phase,omitempty"`
+	Message        string       `json:"message,omitempty"`
+	LastUpdateTime metav1.Time  `json:"lastUpdateTime"`
 }
+
+// PackagePhase defines the phasing of a Package
+type PackagePhase string
+
+const (
+	// PackageUnknown means the status of the package is unknown
+	PackageUnknown PackagePhase = ""
+	// PackageDeployed means this packaged is deployed on the manage cluster
+	PackageDeployed PackagePhase = "Deployed"
+	// PackageDeployFailed means this package failed to deploy on the manage cluster
+	PackageDeployFailed PackagePhase = "Failed"
+	// PackagePropagationFailed means this package failed to propagate to the manage cluster
+	PackagePropagationFailed PackagePhase = "PropagationFailed"
+)
 
 func init() {
 	SchemeBuilder.Register(&SubscriptionSummaryStatus{}, &SubscriptionSummaryStatusList{},
