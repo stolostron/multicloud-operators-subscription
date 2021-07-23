@@ -29,6 +29,8 @@ Subscriptions can point to a channel for identifying new or updated resource tem
 Deploy the subscription operator.
 
 ```shell
+$ git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+$ cd multicloud-operators-subscription
 $ make deploy-standalone
 $ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
@@ -56,7 +58,9 @@ nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0     
 
 ### Prerequisite
 
-Deploy a cluster manager on your _hub_ cluster and deploy a klusterlet agent on your _managed_ cluster using any methods described [here](https://open-cluster-management.io/getting-started/quick-start).
+Install the `clusteradm` CLI tool. For more information see [here](https://open-cluster-management.io/getting-started/quick-start/#install-clusteradm-cli-tool).
+
+Using `clusteradm`, deploy a cluster manager on your _hub_ cluster and deploy a klusterlet agent on your _managed_ cluster. For more information see [here](https://open-cluster-management.io/getting-started/quick-start/#deploy-a-cluster-manager-on-your-hub-cluster).
 
 ### Operator Deployment
 
@@ -64,31 +68,24 @@ Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
-$ make deploy-hub
+$ clusteradm install addons --names application-manager
 $ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           25s
+$ kubectl -n open-cluster-management wait deploy multicloud-operators-subscription --for condition=available
 ```
 
 ### Add-on Deployment
 
-Create the `open-cluster-management-agent-addon` namespace on the _managed_ cluster (if not already created).
 
-```shell
-$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
-$ kubectl create ns open-cluster-management-agent-addon
-namespace/open-cluster-management-agent-addon created
-```
-
-Deploy the subscription add-on on the _hub_ cluster. For the value of `MANAGED_CLUSTER_NAME`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
+Deploy the subscription add-on on the _hub_ cluster. For the value of `<managed cluster name>`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
 $ kubectl get managedclusters
 NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
 <managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
-$ export MANAGED_CLUSTER_NAME=<managed cluster name>  # export MANAGED_CLUSTER_NAME=cluster1
-$ make deploy-addon
+$ clusteradm enable addons --names application-manager --clusters <managed cluster name> # clusteradm enable addons --names application-manager --clusters cluster1
 $ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
 NAME                  AVAILABLE   DEGRADED   PROGRESSING
 application-manager   True
@@ -97,7 +94,8 @@ application-manager   True
 Check the the subscription add-on deployment on the _managed_ cluster.
 
 ```shell
-$ kubectl -n open-cluster-management-agent-addon get deploy  multicloud-operators-subscription
+$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
+$ kubectl -n open-cluster-management-agent-addon get deploy multicloud-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicloud-operators-subscription   1/1     1            1           103s
 ```
@@ -107,6 +105,8 @@ multicloud-operators-subscription   1/1     1            1           103s
 After a successful deployment, test the subscription operator with a `helm` subscription. Run the following command:
 
 ```Shell
+git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+cd multicloud-operators-subscription
 kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
 kubectl apply -f examples/helmrepo-hub-channel
 ```
@@ -122,7 +122,6 @@ $ kubectl get pod
 NAME                                                   READY   STATUS      RESTARTS   AGE
 nginx-ingress-47f79-controller-6f495bb5f9-lpv7z        1/1     Running     0          108m
 nginx-ingress-47f79-default-backend-7559599b64-rhwgm   1/1     Running     0          108m
-
 ```
 
 ## GitOps subscription
