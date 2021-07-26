@@ -1,6 +1,4 @@
 /*
-
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
@@ -20,10 +18,10 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	appsubv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	subutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -74,6 +72,8 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	klog.Infof("Add appsubstatus-controller to mgr")
+
 	// Create a new controller
 	c, err := controller.New("appsubstatus-controller", mgr, controller.Options{
 		Reconciler:              r,
@@ -83,11 +83,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch appsubstatus changes
+	// Watch appsubpackagestatus changes
 	err = c.Watch(
-		&source.Kind{Type: &appSubStatusV1alpha1.SubscriptionStatus{}},
+		&source.Kind{Type: &appSubStatusV1alpha1.SubscriptionPackageStatus{}},
 		&handler.EnqueueRequestForObject{},
-		subutils.AppSubStatusPredicateFunc)
+		subutils.AppSubPackageStatusPredicateFunc)
 
 	if err != nil {
 		return err
@@ -97,34 +97,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 func (r *ReconcileAppSubStatus) Reconcile(request reconcile.Request) (reconcile.Result, error) {
-	instance := &appSubStatusV1alpha1.SubscriptionStatus{}
+	instance := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	klog.Info("Reconciling:", request.NamespacedName, " with Get err:", err)
 
 	subNs, subName := subutils.GetHostSubscriptionNSFromObject(request.NamespacedName.Name)
-	clusterName := request.NamespacedName.Namespace
-
-	// sync appsubstatus object from the managed cluster NS to the appsub NS
-	klog.Infof("syncing appsubstatus object for appsub %v/%v", subNs, subName)
-
-	deletedAppSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-	newAppSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// appsubstatus object in managed cluster NS not found, remove it from the appsub NS
-			deletedAppSubStatus, _ = r.DeleteAppNSManagedSubStatus(request.NamespacedName, subNs)
-		}
-	} else {
-		// create or update the new appsubstatus object in cluster NS into the appsubNS
-		newAppSubStatus, _ = r.createOrUpdateAppNSManagedSubStatus(request.NamespacedName, instance, subNs, subName, clusterName)
-	}
-
-	klog.Infof("appsubstatus object for appsub %v/%v synced", subNs, subName)
+	//clusterName := request.NamespacedName.Namespace
 
 	// create or update summary appsubstatus object in the appsub NS
-	err = r.generateAppSubSummary(subNs, subName, deletedAppSubStatus, newAppSubStatus)
+	err = r.generateAppSubSummary(subNs, subName, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -133,10 +115,10 @@ func (r *ReconcileAppSubStatus) Reconcile(request reconcile.Request) (reconcile.
 }
 
 func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
-	deletedAppSubStatus, newAppSubStatus *appSubStatusV1alpha1.SubscriptionStatus) error {
-	klog.Infof("generating appsubstatus summary for appsub %v/%v", subNs, subName)
+	newAppSubStatus *appSubStatusV1alpha1.SubscriptionPackageStatus) error {
+	klog.Infof("generating appsubsummarystatus summary for appsub %v/%v", subNs, subName)
 
-	managedSubStatusList := &appSubStatusV1alpha1.SubscriptionStatusList{}
+	managedSubPackageStatusList := &appSubStatusV1alpha1.SubscriptionPackageStatusList{}
 	listopts := &client.ListOptions{}
 
 	managedSubStatusSelector := &metav1.LabelSelector{
@@ -153,227 +135,147 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 	}
 
 	listopts.LabelSelector = managedSubStatusLabels
-	listopts.Namespace = subNs
-	err = r.List(context.TODO(), managedSubStatusList, listopts)
+	err = r.List(context.TODO(), managedSubPackageStatusList, listopts)
 
 	if err != nil {
-		klog.Error("Failed to list managed appsubstatus, err:", err)
+		klog.Error("Failed to list managed appsubpackagestatus, err:", err)
 
 		return err
 	}
 
-	if len(managedSubStatusList.Items) == 0 {
-		klog.Infof("No managed appsubstatus with labels %v found in appsub NS %v", managedSubStatusSelector, subNs)
+	if len(managedSubPackageStatusList.Items) == 0 {
+		klog.Infof("No managed appsubpackagestatus with labels %v found", managedSubStatusSelector)
 
-		return nil
+		// no appsubpackagestatus in managed cluster NS - appsubsummary status can be deleted
+		appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
+		appNsHubSubSummaryStatusKey := types.NamespacedName{
+			Name:      subName + ".status",
+			Namespace: subNs,
+		}
+
+		if err := r.Get(context.TODO(), appNsHubSubSummaryStatusKey, appNsHubSubSummaryStatus); err == nil {
+			err = r.Delete(context.TODO(), appNsHubSubSummaryStatus)
+			if err != nil {
+				klog.Infof("Removed appsumsummary status %s/%s", subNs, subName)
+			}
+		}
+
+		return err
 	}
 
-	// subStatusClusterResults get all cluster status for the appsub.  key: cluster anme, value: true - deployed, false - failed
-	subStatusClusterResults := make(map[string]bool)
+	deployedClusters := []string{}
+	failedDeployClusters := []string{}
+	failedPropagationClusters := []string{}
 
-	for _, managedSubStatus := range managedSubStatusList.Items {
-		// dealing with cached managedSubStatus
-		// 1. if managedSubStatus is the deleted appSubstatus, don't aggregate it
-		if deletedAppSubStatus != nil && managedSubStatus.Name == deletedAppSubStatus.Name &&
-			managedSubStatus.Namespace == deletedAppSubStatus.Namespace {
-			continue
-		}
-
-		// 2. if managedSubStatus is the new updated appSubstatus, apply the new one in the summary aggregation
+	for _, managedSubPackageStatus := range managedSubPackageStatusList.Items {
+		// 1. if managedSubStatus is the new updated appSubstatus, apply the new one in the summary aggregation
 		// cached client may not be able to get the latest update
-		if newAppSubStatus != nil && managedSubStatus.Name == newAppSubStatus.Name &&
-			managedSubStatus.Namespace == newAppSubStatus.Namespace {
-			managedSubStatus = *newAppSubStatus.DeepCopy()
+		if newAppSubStatus != nil && managedSubPackageStatus.Name == newAppSubStatus.Name &&
+			managedSubPackageStatus.Namespace == newAppSubStatus.Namespace {
+			managedSubPackageStatus = *newAppSubStatus.DeepCopy()
 		}
 
-		parsedstr := strings.Split(managedSubStatus.GetName(), ".")
-		if len(parsedstr) != 4 {
-			klog.Errorf("Invalid managed appSubStatus name: %v/%v", managedSubStatus.GetNamespace(), managedSubStatus.GetName())
+		clusterName := managedSubPackageStatus.Namespace
 
-			continue
-		}
+		failed := false
+		for _, pkgStatus := range managedSubPackageStatus.Statuses.SubscriptionPackageStatus {
+			if pkgStatus.Phase == v1alpha1.PackagePropagationFailed {
+				// For propagation failed, all packages must have this phase
+				failedPropagationClusters = append(failedPropagationClusters, clusterName)
+				failed = true
 
-		clusterName := parsedstr[0]
-
-		if clusterName == "test-cluster-11" {
-			klog.V(1).Infof("Package list: %v ", managedSubStatus.Statuses.SubscriptionPackageStatus)
-		}
-
-		subStatusClusterResults[clusterName] = true
-
-		for _, pkgStatus := range managedSubStatus.Statuses.SubscriptionPackageStatus {
-			if pkgStatus.Phase != "Deployed" {
-				subStatusClusterResults[clusterName] = false
+				break
+			} else if pkgStatus.Phase == v1alpha1.PackageDeployFailed {
+				failedDeployClusters = append(failedDeployClusters, clusterName)
+				failed = true
 
 				break
 			}
 		}
-	}
 
-	deployedCount := 0
-	deployedClusters := []string{}
-
-	failedCount := 0
-	failedClusters := []string{}
-
-	for cluster, subStatus := range subStatusClusterResults {
-		if subStatus {
-			deployedCount++
-
-			if len(deployedClusters) < 10 {
-				deployedClusters = append(deployedClusters, cluster)
-			}
-		} else {
-			failedCount++
-
-			if len(failedClusters) < 10 {
-				failedClusters = append(failedClusters, cluster)
-			}
+		if !failed {
+			deployedClusters = append(deployedClusters, clusterName)
 		}
 	}
 
-	err = r.createOrUpdateAppNsHubSubStatus(subNs, subName, deployedCount, failedCount, deployedClusters, failedClusters)
+	err = r.createOrUpdateAppNsHubSubSummaryStatus(subNs, subName, deployedClusters, failedDeployClusters, failedPropagationClusters)
 
-	klog.V(1).Infof("appsubstatus summary for appsub %v/%v generated. Deployed: %v/%v; Failed: %v/%v; err: %v ", subNs, subName,
-		deployedCount, deployedClusters, failedCount, failedClusters, err)
+	klog.V(1).Infof("appsubsummarystatus summary for appsub %v/%v. Deployed: %v/%v; DeployFailed: %v/%v; PropadationFailed: %v:%v; err: %v ",
+		subNs, subName, len(deployedClusters), deployedClusters, len(failedDeployClusters), failedDeployClusters,
+		len(failedPropagationClusters), failedPropagationClusters, err)
 
 	return err
 }
 
-func (r *ReconcileAppSubStatus) createOrUpdateAppNsHubSubStatus(subNs, subName string,
-	deployedCount, failedCount int, deployedClusters, failedClusters []string) error {
-	appNsHubSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-	appNsHubSubStatusKey := types.NamespacedName{
+func (r *ReconcileAppSubStatus) createOrUpdateAppNsHubSubSummaryStatus(subNs, subName string,
+	deployedClusters, failedClusters, propgationFailedClusters []string) error {
+	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
+	appNsHubSubSummaryStatusKey := types.NamespacedName{
 		Name:      subName + ".status",
 		Namespace: subNs,
 	}
 
-	if err := r.Get(context.TODO(), appNsHubSubStatusKey, appNsHubSubStatus); err != nil {
+	if err := r.Get(context.TODO(), appNsHubSubSummaryStatusKey, appNsHubSubSummaryStatus); err != nil {
 		if errors.IsNotFound(err) {
-			appNsHubSubStatus = r.newAppNsHubSubStatus(subNs, subName, deployedCount, failedCount, deployedClusters, failedClusters)
+			appNsHubSubSummaryStatus = r.newAppNsHubSubSummaryStatus(subNs, subName, deployedClusters, failedClusters, propgationFailedClusters)
 
-			if err := r.Create(context.TODO(), appNsHubSubStatus); err != nil {
-				klog.Errorf("Failed to create appNsHubSubStatus err: %v", err)
+			if err := r.Create(context.TODO(), appNsHubSubSummaryStatus); err != nil {
+				klog.Errorf("Failed to create appNsHubSubSummaryStatus err: %v", err)
 
 				return err
 			}
 
-			klog.Infof("new appNsHubSubStatus created, %s/%s",
-				appNsHubSubStatus.GetNamespace(), appNsHubSubStatus.GetName())
+			klog.Infof("new appNsHubSubSummaryStatus created, %s/%s",
+				appNsHubSubSummaryStatus.GetNamespace(), appNsHubSubSummaryStatus.GetName())
 
 			return nil
 		}
 	}
 
-	origAppNsHubSubStatus := appNsHubSubStatus.DeepCopy()
+	origAppNsHubSubSummaryStatus := appNsHubSubSummaryStatus.DeepCopy()
 
-	appNsHubSubStatus.SetLabels(map[string]string{
-		"apps.open-cluster-management.io/hub-subscription": subName,
-	})
+	r.addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus, subNs, subName, deployedClusters, failedClusters, propgationFailedClusters)
 
-	appNsHubSubStatus.Summary.DeployedSummary.Count = deployedCount
-	appNsHubSubStatus.Summary.DeployedSummary.Clusters = deployedClusters
-	appNsHubSubStatus.Summary.FailedSummary.Count = failedCount
-	appNsHubSubStatus.Summary.FailedSummary.Clusters = failedClusters
-
-	r.setOwnerReferences(subNs, subName, appNsHubSubStatus)
-
-	if !reflect.DeepEqual(origAppNsHubSubStatus.Summary, appNsHubSubStatus.Summary) {
-		if err := r.Update(context.TODO(), appNsHubSubStatus); err != nil {
-			klog.Errorf("Failed to update appNSManagedSubStatus err: %v", err)
+	if !reflect.DeepEqual(origAppNsHubSubSummaryStatus.Summary, appNsHubSubSummaryStatus.Summary) {
+		if err := r.Update(context.TODO(), appNsHubSubSummaryStatus); err != nil {
+			klog.Errorf("Failed to update appNsHubSubSummaryStatus err: %v", err)
 
 			return err
 		}
 
-		klog.Infof("appNSManagedSubStatus updated, %s/%s",
-			appNsHubSubStatus.GetNamespace(), appNsHubSubStatus.GetName())
+		klog.Infof("appNSHub appSubSummaryStatus updated, %s/%s",
+			appNsHubSubSummaryStatus.GetNamespace(), appNsHubSubSummaryStatus.GetName())
 	}
 
 	return nil
 }
 
-func (r *ReconcileAppSubStatus) newAppNsHubSubStatus(subNs, subName string,
-	deployedCount, failedCount int, deployedClusters, failedClusters []string) *appSubStatusV1alpha1.SubscriptionStatus {
-	appNsHubSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
+func (r *ReconcileAppSubStatus) newAppNsHubSubSummaryStatus(subNs, subName string,
+	deployedClusters, failedDeployClusters, failedPropagationClusters []string) *appSubStatusV1alpha1.SubscriptionSummaryStatus {
+	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 
-	appNsHubSubStatus.SetName(subName + ".status")
-	appNsHubSubStatus.SetNamespace(subNs)
-	appNsHubSubStatus.SetLabels(map[string]string{
+	appNsHubSubSummaryStatus.SetName(subName + ".status")
+	appNsHubSubSummaryStatus.SetNamespace(subNs)
+
+	r.addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus, subNs, subName, deployedClusters, failedDeployClusters, failedPropagationClusters)
+
+	return appNsHubSubSummaryStatus
+}
+
+func (r *ReconcileAppSubStatus) addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus *appSubStatusV1alpha1.SubscriptionSummaryStatus,
+	subNs, subName string, deployedClusters, failedDeployClusters, failedPropagationClusters []string) {
+	appNsHubSubSummaryStatus.SetLabels(map[string]string{
 		"apps.open-cluster-management.io/hub-subscription": subName,
 	})
 
-	appNsHubSubStatus.Summary.DeployedSummary.Count = deployedCount
-	appNsHubSubStatus.Summary.DeployedSummary.Clusters = deployedClusters
-	appNsHubSubStatus.Summary.FailedSummary.Count = failedCount
-	appNsHubSubStatus.Summary.FailedSummary.Clusters = failedClusters
+	appNsHubSubSummaryStatus.Summary.DeployedSummary.Count = len(deployedClusters)
+	appNsHubSubSummaryStatus.Summary.DeployedSummary.Clusters = truncClusterList(deployedClusters)
+	appNsHubSubSummaryStatus.Summary.DeployFailedSummary.Count = len(failedDeployClusters)
+	appNsHubSubSummaryStatus.Summary.DeployFailedSummary.Clusters = truncClusterList(failedDeployClusters)
+	appNsHubSubSummaryStatus.Summary.PropagationFailedSummary.Count = len(failedPropagationClusters)
+	appNsHubSubSummaryStatus.Summary.PropagationFailedSummary.Clusters = truncClusterList(failedPropagationClusters)
 
-	r.setOwnerReferences(subNs, subName, appNsHubSubStatus)
-
-	return appNsHubSubStatus
-}
-
-func (r *ReconcileAppSubStatus) createOrUpdateAppNSManagedSubStatus(clusterNsManagedSubStatusKey types.NamespacedName,
-	clusterNsManagedSubStatus *appSubStatusV1alpha1.SubscriptionStatus,
-	subNs, subName, clusterName string) (*appSubStatusV1alpha1.SubscriptionStatus, error) {
-	appNsManagedSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-	appNsManagedSubStatusKey := types.NamespacedName{
-		Name:      clusterNsManagedSubStatusKey.Namespace + "." + clusterNsManagedSubStatusKey.Name,
-		Namespace: subNs,
-	}
-
-	if err := r.Get(context.TODO(), appNsManagedSubStatusKey, appNsManagedSubStatus); err != nil {
-		if errors.IsNotFound(err) {
-			appNsManagedSubStatus = r.newAppNsManagedSubStatus(clusterNsManagedSubStatus, subNs, subName, clusterName)
-
-			if err := r.Create(context.TODO(), appNsManagedSubStatus); err != nil {
-				klog.Errorf("Failed to create appNSManagedSubStatus err: %v", err)
-
-				return nil, err
-			}
-
-			klog.Infof("new appNSManagedSubStatus created, %s/%s",
-				appNsManagedSubStatus.GetNamespace(), appNsManagedSubStatus.GetName())
-
-			return appNsManagedSubStatus, nil
-		}
-	}
-
-	newLabels := clusterNsManagedSubStatus.GetLabels()
-	delete(newLabels, "apps.open-cluster-management.io/cluster")
-
-	appNsManagedSubStatus.SetLabels(newLabels)
-	appNsManagedSubStatus.Statuses = *clusterNsManagedSubStatus.Statuses.DeepCopy()
-
-	r.setOwnerReferences(subNs, subName, appNsManagedSubStatus)
-
-	if err := r.Update(context.TODO(), appNsManagedSubStatus); err != nil {
-		klog.Errorf("Failed to update appNSManagedSubStatus err: %v", err)
-
-		return nil, err
-	}
-
-	klog.Infof("appNSManagedSubStatus updated, %s/%s",
-		appNsManagedSubStatus.GetNamespace(), appNsManagedSubStatus.GetName())
-
-	return appNsManagedSubStatus, nil
-}
-
-func (r *ReconcileAppSubStatus) newAppNsManagedSubStatus(clusterNsManagedSubStatus *appSubStatusV1alpha1.SubscriptionStatus,
-	subNs, subName, clusterName string) *appSubStatusV1alpha1.SubscriptionStatus {
-	appNsManagedSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-
-	appNsManagedSubStatus.SetName(clusterName + "." + subNs + "." + subName + ".status")
-	appNsManagedSubStatus.SetNamespace(subNs)
-
-	newLabels := clusterNsManagedSubStatus.GetLabels()
-	delete(newLabels, "apps.open-cluster-management.io/cluster")
-
-	appNsManagedSubStatus.SetLabels(newLabels)
-	appNsManagedSubStatus.Statuses = *clusterNsManagedSubStatus.Statuses.DeepCopy()
-
-	r.setOwnerReferences(subNs, subName, appNsManagedSubStatus)
-
-	return appNsManagedSubStatus
+	r.setOwnerReferences(subNs, subName, appNsHubSubSummaryStatus)
 }
 
 func (r *ReconcileAppSubStatus) setOwnerReferences(subNs, subName string, obj metav1.Object) {
@@ -390,38 +292,9 @@ func (r *ReconcileAppSubStatus) setOwnerReferences(subNs, subName string, obj me
 		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
 }
 
-// DeleteManagedAppSubStatusFromAppNS delete the managed appSubStatus object from the app NS.
-func (r *ReconcileAppSubStatus) DeleteAppNSManagedSubStatus(ClusterNsManagedSubStatusKey types.NamespacedName,
-	subNs string) (*appSubStatusV1alpha1.SubscriptionStatus, error) {
-	appNsManagedSubStatusKey := types.NamespacedName{
-		Name:      ClusterNsManagedSubStatusKey.Namespace + "." + ClusterNsManagedSubStatusKey.Name,
-		Namespace: subNs,
+func truncClusterList(clusters []string) []string {
+	if len(clusters) > 10 {
+		return clusters[0:10]
 	}
-
-	appNsManagedAppSubStatus := r.GetAppNsManagedAppSubStatus(appNsManagedSubStatusKey)
-
-	if appNsManagedAppSubStatus != nil {
-		err := r.Delete(context.TODO(), appNsManagedAppSubStatus)
-		if err != nil {
-			klog.Warningf("Error in deleting existing appsubStatus from appsub NS, key: %v, err: %v ", appNsManagedSubStatusKey.String(), err)
-
-			return nil, err
-		}
-	}
-
-	return appNsManagedAppSubStatus, nil
-}
-
-// GetAppNsManagedAppSubStatus get the managed appSubStatus object from the app NS.
-func (r *ReconcileAppSubStatus) GetAppNsManagedAppSubStatus(appNsManagedSubStatusKey types.NamespacedName) *appSubStatusV1alpha1.SubscriptionStatus {
-	AppNsManagedSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
-
-	err := r.Get(context.TODO(), appNsManagedSubStatusKey, AppNsManagedSubStatus)
-	if err == nil {
-		return AppNsManagedSubStatus
-	}
-
-	klog.Warningf("appSubstatus not found in the appsub NS: key: %v", appNsManagedSubStatusKey.String())
-
-	return nil
+	return clusters
 }

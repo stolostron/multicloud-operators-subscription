@@ -77,7 +77,7 @@ func AddHubToManager(m manager.Manager) error {
 	return nil
 }
 
-// AddAppSubStatusToManager adds AppSubStatus Controllers to the Manager
+// AddAppSubPackageStatusToManager adds AppSubPackageStatus Controller to the Manager
 func AddAppSubStatusToManager(m manager.Manager) error {
 	for _, f := range AddAppSubStatusToManagerFuncs {
 		if err := f(m); err != nil {

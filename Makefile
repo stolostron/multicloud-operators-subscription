@@ -124,7 +124,7 @@ test:
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
-	@common/scripts/gobuild.sh build/_output/bin/appsubstatus ./cmd/appsubstatus
+	@common/scripts/gobuild.sh build/_output/bin/appsubpackagestatus ./cmd/appsubstatus
 
 local:
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
