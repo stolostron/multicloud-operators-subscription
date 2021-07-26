@@ -15,7 +15,6 @@
 package mcmhub
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -149,85 +148,6 @@ status:
                     status: "True"
                     type: ReleaseFailed`
 )
-
-func TestPrepareDeployableForSubscription(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	rec := newReconciler(mgr).(*ReconcileSubscription)
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	annotations := make(map[string]string)
-	annotations[appv1.AnnotationWebhookEventCount] = "1"
-	annotations[appv1.AnnotationGitBranch] = "branch1"
-	annotations[appv1.AnnotationGitPath] = "test/github"
-	githubsub.SetAnnotations(annotations)
-
-	subDpl, err := rec.prepareDeployableForSubscription(githubsub, nil)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(subDpl).NotTo(gomega.BeNil())
-}
-
-func TestUpdateSubscriptionToTarget(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	c = mgr.GetClient()
-
-	rec := newReconciler(mgr).(*ReconcileSubscription)
-
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
-
-	defer func() {
-		close(stopMgr)
-		mgrStopped.Wait()
-	}()
-
-	targetsub := &appv1.Subscription{}
-	err = yaml.Unmarshal([]byte(targetsubYAMLStr), &targetsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Create(context.TODO(), targetsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	time.Sleep(2 * time.Second)
-
-	sub := &appv1.Subscription{}
-	err = yaml.Unmarshal([]byte(subYAMLStr), &sub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	annotations := make(map[string]string)
-	annotations[appv1.AnnotationRollingUpdateTarget] = targetsub.Name
-	sub.SetAnnotations(annotations)
-
-	time.Sleep(2 * time.Second)
-
-	newSub, updated, err := rec.updateSubscriptionToTarget(sub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(updated).To(gomega.BeTrue())
-	g.Expect(newSub).NotTo(gomega.BeNil())
-
-	labels := newSub.GetLabels()
-	g.Expect(labels["key1"]).To(gomega.Equal("val1"))
-	g.Expect(labels["key2"]).To(gomega.Equal("val2"))
-
-	g.Expect(newSub.Spec.Channel).To(gomega.Equal(targetsub.Spec.Channel))
-
-	err = c.Delete(context.TODO(), targetsub)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-}
 
 func TestUpdateSubscriptionStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

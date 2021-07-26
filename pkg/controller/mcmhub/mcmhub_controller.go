@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -508,6 +507,10 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
+
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v", request.NamespacedName)
+			r.cleanupManifestWork(request.NamespacedName)
+
 			// Object not found, delete existing subscriberitem if any
 			if err := r.hooks.DeregisterSubscription(request.NamespacedName); err != nil {
 				return reconcile.Result{}, err
@@ -598,27 +601,15 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result rec
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
 			returnErr = err
-		} else {
-			// Get propagation status from the subscription deployable
-			r.setHubSubscriptionStatus(instance)
-			// for object store, it takes a while for the object to be downloaded,
-			// so we want to requeue to get a valid topo annotation
-			if !isTopoAnnoExist(instance) {
-				//skip gosec G404 since the random number is only used for requeue
-				//timer
-				// #nosec G404
-				if result.RequeueAfter == 0 {
-					result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
-				}
-			}
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
-		err = r.clearSubscriptionDpls(instance)
-
-		if err != nil {
-			instance.Status.Phase = appv1.SubscriptionFailed
-			instance.Status.Reason = err.Error()
+		if !utils.IsHostingAppsub(instance) {
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v/%v", instance.GetNamespace(), instance.GetName())
+			r.cleanupManifestWork(types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      instance.Name,
+			})
 		}
 
 		if instance.Status.Phase != appv1.SubscriptionFailed && instance.Status.Phase != appv1.SubscriptionSubscribed {

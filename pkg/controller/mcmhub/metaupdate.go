@@ -52,7 +52,6 @@ import (
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
 
 const (
@@ -113,34 +112,6 @@ func (c namespaceClientConfig) ConfigAccess() clientcmd.ConfigAccess {
 
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
-}
-
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) (bool, error) {
-	subanno := sub.GetAnnotations()
-	if len(subanno) == 0 {
-		subanno = make(map[string]string)
-	}
-
-	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, sub, insecureSkipVeriy)
-	if err != nil {
-		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
-		return false, err
-	}
-
-	expectTopo, err := generateResrouceList(hubCfg, helmRls)
-	if err != nil {
-		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
-		return false, err
-	}
-
-	if subanno[subv1.AnnotationTopo] != expectTopo {
-		subanno[subv1.AnnotationTopo] = expectTopo
-		sub.SetAnnotations(subanno)
-
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {

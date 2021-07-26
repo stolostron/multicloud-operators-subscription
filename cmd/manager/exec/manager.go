@@ -31,6 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
+	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
+	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
@@ -130,6 +132,18 @@ func RunManager() {
 	}
 
 	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+		// Setup managedCluster Scheme for manager
+		if err := spokeClusterV1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
+		// Setup manifestWork Scheme for manager
+		if err := manifestWorkV1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")

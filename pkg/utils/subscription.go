@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
@@ -34,6 +35,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1207,4 +1209,94 @@ func AddPartOfLabel(s *appv1.Subscription, m map[string]string) map[string]strin
 	}
 
 	return m
+}
+
+// CompareManifestWork compare two manifestWorks and return true if they are equal.
+func CompareManifestWork(oldManifestWork, newManifestWork *manifestWorkV1.ManifestWork) bool {
+	if len(oldManifestWork.Spec.Workload.Manifests) != len(newManifestWork.Spec.Workload.Manifests) {
+		klog.V(1).Infof("oldManifestWork length: %v, newManifestWork length: %v",
+			len(oldManifestWork.Spec.Workload.Manifests), len(newManifestWork.Spec.Workload.Manifests))
+		return false
+	}
+
+	for i := 0; i < len(oldManifestWork.Spec.Workload.Manifests); i++ {
+		oldManifest := &unstructured.Unstructured{}
+		newManifest := &unstructured.Unstructured{}
+
+		err := json.Unmarshal(oldManifestWork.Spec.Workload.Manifests[i].Raw, oldManifest)
+		if err != nil {
+			klog.Errorf("falied to unmarshal old manifestwork, err: %v", err)
+			return false
+		}
+
+		klog.V(1).Infof("=====\n oldManifest: %#v", oldManifest)
+
+		err = json.Unmarshal(newManifestWork.Spec.Workload.Manifests[i].Raw, newManifest)
+		if err != nil {
+			klog.Errorf("falied to unmarshal new manifestwork, err: %v", err)
+			return false
+		}
+
+		klog.V(1).Infof("=====\n newManifest: %#v", newManifest)
+
+		if !isSameUnstructured(oldManifest, newManifest) {
+			klog.V(1).Infof("old template: %#v, new template: %#v", oldManifest, newManifest)
+			return false
+		}
+	}
+
+	return true
+}
+
+// isSameUnstructured compares the two unstructured object.
+// The comparison ignores the metadata and status field, and check if the two objects are semantically equal.
+func isSameUnstructured(obj1, obj2 *unstructured.Unstructured) bool {
+	obj1Copy := obj1.DeepCopy()
+	obj2Copy := obj2.DeepCopy()
+
+	// Compare gvk, name, namespace at first
+	if obj1Copy.GroupVersionKind() != obj2Copy.GroupVersionKind() {
+		return false
+	}
+
+	if obj1Copy.GetName() != obj2Copy.GetName() {
+		return false
+	}
+
+	if obj1Copy.GetNamespace() != obj2Copy.GetNamespace() {
+		return false
+	}
+
+	// Compare label and annotations
+	if !equality.Semantic.DeepEqual(obj1Copy.GetLabels(), obj2Copy.GetLabels()) {
+		return false
+	}
+
+	if !equality.Semantic.DeepEqual(obj1Copy.GetAnnotations(), obj2Copy.GetAnnotations()) {
+		return false
+	}
+
+	// Compare semantically after removing metadata and status field
+	delete(obj1Copy.Object, "metadata")
+	delete(obj2Copy.Object, "metadata")
+	delete(obj1Copy.Object, "status")
+	delete(obj2Copy.Object, "status")
+
+	return equality.Semantic.DeepEqual(obj1Copy.Object, obj2Copy.Object)
+}
+
+// GetHostDeployableFromObject return nil if no host is found
+func IsHostingAppsub(appsub *appv1.Subscription) bool {
+	if appsub == nil {
+		return false
+	}
+
+	annotations := appsub.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+
+	_, ok := annotations[appv1.AnnotationHosting]
+
+	return ok
 }
