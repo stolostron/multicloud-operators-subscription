@@ -532,6 +532,9 @@ func (r *ReconcileSubscription) cleanupAppSubStatus(appsub *appSubV1.Subscriptio
 }
 
 func (r *ReconcileSubscription) updateSubAnnotations(sub *appSubV1.Subscription, hosting types.NamespacedName) map[string]string {
+	// Check and add cluster-admin annotation for multi-namepsace application
+	r.AddClusterAdminAnnotation(sub)
+
 	subepanno := make(map[string]string)
 
 	origsubanno := sub.GetAnnotations()
@@ -590,6 +593,11 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appSubV1.Subscription,
 
 	if !strings.EqualFold(origsubanno[appSubV1.AnnotationManualReconcileTime], "") {
 		subepanno[appSubV1.AnnotationManualReconcileTime] = origsubanno[appSubV1.AnnotationManualReconcileTime]
+	}
+
+	// Keep cluster admin annotation from the source subscription.
+	if !strings.EqualFold(origsubanno[appSubV1.AnnotationClusterAdmin], "") {
+		subepanno[appSubV1.AnnotationClusterAdmin] = origsubanno[appSubV1.AnnotationClusterAdmin]
 	}
 
 	// Add annotation for git path and branch

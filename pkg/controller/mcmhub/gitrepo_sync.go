@@ -219,6 +219,7 @@ func ifUpdateAnnotation(origanno, newanno map[string]string, annoString string) 
 	if !reflect.DeepEqual(origdplmap, newdplmap) {
 		klog.V(1).Infof("different Git Subscription deployable annotations. origdplmap: %v, newdplmap: %v",
 			origdplmap, newdplmap)
+
 		return true
 	}
 

@@ -79,9 +79,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		sub.SetLabels(sublabels)
 	}
 
-	// Check and add cluster-admin annotation for multi-namepsace application
-	r.AddClusterAdminAnnotation(sub)
-
 	klog.Infof("subscription: %v/%v", sub.GetNamespace(), sub.GetName())
 
 	err = r.PropagateAppSubManifestWork(sub)
