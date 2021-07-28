@@ -202,4 +202,3 @@ Check the [Security Doc](SECURITY.md) if you find a security issue.
 - [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
 - [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
 - [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
-
