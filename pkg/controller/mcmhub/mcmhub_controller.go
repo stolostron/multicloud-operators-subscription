@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -80,6 +82,8 @@ const (
 	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
 	placementRuleFlag          = "--fired-by-placementrule"
+	defaultGitWatchInterval    = time.Second * 180
+	gitWatchIntervalEnvVar     = "GIT_WATCH_INTERVAL"
 )
 
 var defaulRequeueInterval = time.Second * 3
@@ -93,6 +97,21 @@ func Add(mgr manager.Manager) error {
 //Option provide easy way to test the reconciler
 type Option func(*ReconcileSubscription)
 
+func getGitWatchIntervalEnvVar() time.Duration {
+	intervalStr, found := os.LookupEnv(gitWatchIntervalEnvVar)
+	if !found {
+		return defaultGitWatchInterval
+	}
+
+	intervalInt, err := strconv.Atoi(intervalStr)
+	if err != nil {
+		klog.Error(err)
+		return defaultGitWatchInterval
+	}
+
+	return time.Second * time.Duration(intervalInt)
+}
+
 func resetHubGitOps(g GitOps) Option {
 	return func(r *ReconcileSubscription) {
 		r.hubGitOps = g
@@ -104,7 +123,7 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 	logger := klogr.New().WithName(reconcileName)
 
-	gitOps := NewHookGit(mgr.GetClient(), setHubGitOpsLogger(logger))
+	gitOps := NewHookGit(mgr.GetClient(), setHubGitOpsLogger(logger), setHubGitOpsInterval(getGitWatchIntervalEnvVar()))
 
 	rec := &ReconcileSubscription{
 		name:   reconcileName,

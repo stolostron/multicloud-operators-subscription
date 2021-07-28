@@ -38,7 +38,6 @@ import (
 )
 
 const (
-	hookInterval   = time.Second * 90
 	commitIDSuffix = "-new"
 )
 
@@ -150,7 +149,6 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	hGit := &HubGitOps{
 		clt:                 clt,
 		mtx:                 sync.Mutex{},
-		watcherInterval:     hookInterval,
 		subRecords:          map[types.NamespacedName]string{},
 		repoRecords:         map[string]*RepoRegistery{},
 		downloadDirResolver: utils.GetLocalGitFolder,
@@ -170,6 +168,8 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 // subscription
 func (h *HubGitOps) Start(stop <-chan struct{}) error {
 	h.logger.Info("entry StartGitWatch")
+	h.logger.Info(fmt.Sprintf("GitWatch interval %s", h.watcherInterval.String()))
+
 	defer h.logger.Info("exit StartGitWatch")
 
 	go wait.Until(h.GitWatch, h.watcherInterval, stop)
@@ -184,22 +184,37 @@ func (h *HubGitOps) GitWatch() {
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
 
+	commitCacheMap := make(map[string]string)
+
 	for repoName, repoRegistery := range h.repoRecords {
 		url := repoRegistery.url
 		// need to figure out a way to separate the private repo
 		for bName, branchInfo := range repoRegistery.branchs {
 			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, bName))
-			nCommit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 
-			if err != nil {
-				h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
+			nCommit := ""
+			commitInCache := commitCacheMap[url+"-"+bName]
 
-				nCommit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret,
-					branchInfo.sshKey, branchInfo.passphrase, branchInfo.localDir,
-					branchInfo.insecureSkipVerify, branchInfo.gitCACert)
+			if commitInCache == "" {
+				commit, err := h.getCommitFunc(url, bName, branchInfo.username, branchInfo.secret)
 				if err != nil {
-					h.logger.Error(err, "failed to get the latest commit id by clone the repo")
+					h.logger.Error(err, "failed to get the latest commit id via API, will try to get the commit ID by clone")
+
+					commit, err = h.cloneFunc(url, bName, branchInfo.username, branchInfo.secret,
+						branchInfo.sshKey, branchInfo.passphrase, branchInfo.localDir,
+						branchInfo.insecureSkipVerify, branchInfo.gitCACert)
+					if err != nil {
+						h.logger.Error(err, "failed to get the latest commit id by clone the repo")
+					}
 				}
+
+				nCommit = commit
+
+				if nCommit != "" {
+					commitCacheMap[url+"-"+bName] = nCommit
+				}
+			} else {
+				nCommit = commitInCache
 			}
 
 			// safe guard condition to filter out the edge case
