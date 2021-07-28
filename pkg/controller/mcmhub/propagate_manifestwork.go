@@ -152,6 +152,12 @@ func (r *ReconcileSubscription) propagateManifestWorks(clusters []ManageClusters
 		familymap, err = r.createManifestWork(cluster, hosting, instance, familymap)
 		if err != nil {
 			klog.Error("Error in propagating ", cluster)
+
+			err2 := utils.CreatePropagatioFailedAppSubPackageStatus(r.Client, cluster.Cluster, instance.Namespace, instance.Name, err.Error())
+			if err2 != nil {
+				klog.Error("Error create appsubpackagestatus ", err2)
+			}
+
 			return familymap, err
 		}
 	}
@@ -481,7 +487,7 @@ func (r *ReconcileSubscription) cleanupManifestWork(appsub types.NamespacedName)
 }
 
 func (r *ReconcileSubscription) cleanupAppSubStatus(appsub *appSubV1.Subscription, manifestWorkNS string) error {
-	managedSubStatusList := &appSubStatusV1alpha1.SubscriptionStatusList{}
+	managedSubPackageStatusList := &appSubStatusV1alpha1.SubscriptionPackageStatusList{}
 	listopts := &client.ListOptions{}
 
 	managedSubStatusSelector := &metaV1.LabelSelector{
@@ -500,7 +506,7 @@ func (r *ReconcileSubscription) cleanupAppSubStatus(appsub *appSubV1.Subscriptio
 	listopts.LabelSelector = managedSubStatusLabels
 	listopts.Namespace = manifestWorkNS
 
-	err = r.List(context.TODO(), managedSubStatusList, listopts)
+	err = r.List(context.TODO(), managedSubPackageStatusList, listopts)
 
 	if err != nil {
 		klog.Error("Failed to list managed appsubstatus, err:", err)
@@ -508,13 +514,13 @@ func (r *ReconcileSubscription) cleanupAppSubStatus(appsub *appSubV1.Subscriptio
 		return err
 	}
 
-	if len(managedSubStatusList.Items) == 0 {
+	if len(managedSubPackageStatusList.Items) == 0 {
 		klog.Infof("No managed appsubstatus with labels %v found", managedSubStatusSelector)
 
 		return nil
 	}
 
-	for _, managedSubStatus := range managedSubStatusList.Items {
+	for _, managedSubStatus := range managedSubPackageStatusList.Items {
 		curManagedSubStatus := managedSubStatus.DeepCopy()
 		err := r.Delete(context.TODO(), curManagedSubStatus)
 

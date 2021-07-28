@@ -175,7 +175,13 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 			managedSubPackageStatus = *newAppSubStatus.DeepCopy()
 		}
 
-		clusterName := managedSubPackageStatus.Namespace
+		// Get cluster name from hosting label
+		lbls := managedSubPackageStatus.GetLabels()
+
+		clusterName := lbls["apps.open-cluster-management.io/cluster"]
+		if clusterName == "" {
+			clusterName = managedSubPackageStatus.Namespace
+		}
 
 		failed := false
 		for _, pkgStatus := range managedSubPackageStatus.Statuses.SubscriptionPackageStatus {
@@ -265,7 +271,7 @@ func (r *ReconcileAppSubStatus) newAppNsHubSubSummaryStatus(subNs, subName strin
 func (r *ReconcileAppSubStatus) addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus *appSubStatusV1alpha1.SubscriptionSummaryStatus,
 	subNs, subName string, deployedClusters, failedDeployClusters, failedPropagationClusters []string) {
 	appNsHubSubSummaryStatus.SetLabels(map[string]string{
-		"apps.open-cluster-management.io/hub-subscription": subName,
+		"apps.open-cluster-management.io/hub-subscription": subNs + "." + subName,
 	})
 
 	appNsHubSubSummaryStatus.Summary.DeployedSummary.Count = len(deployedClusters)
