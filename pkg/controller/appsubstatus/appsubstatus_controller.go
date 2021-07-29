@@ -123,7 +123,7 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 
 	managedSubStatusSelector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"apps.open-cluster-management.io/hosting-subscription": subNs + "." + subName,
+			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", subNs+"."+subName),
 		},
 	}
 
@@ -271,7 +271,7 @@ func (r *ReconcileAppSubStatus) newAppNsHubSubSummaryStatus(subNs, subName strin
 func (r *ReconcileAppSubStatus) addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus *appSubStatusV1alpha1.SubscriptionSummaryStatus,
 	subNs, subName string, deployedClusters, failedDeployClusters, failedPropagationClusters []string) {
 	appNsHubSubSummaryStatus.SetLabels(map[string]string{
-		"apps.open-cluster-management.io/hub-subscription": subNs + "." + subName,
+		"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", subNs+"."+subName),
 	})
 
 	appNsHubSubSummaryStatus.Summary.DeployedSummary.Count = len(deployedClusters)

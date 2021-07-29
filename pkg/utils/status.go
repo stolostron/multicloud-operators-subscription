@@ -1,16 +1,16 @@
-// Copyright 2019 The Kubernetes Authors.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/*
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
 
 package utils
 
@@ -26,7 +26,8 @@ import (
 )
 
 // createPropagatioFailedAppSubPackageStatus creates an appsubpackagestatus with the phase PropagationFailed
-func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, cluster, appSubNs, appSubName, statusMsg string) error {
+func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, cluster string, isClusterLocal bool, appSubNs, appSubName, statusMsg string) error {
+	klog.Info("")
 	packagesStatuses := &v1alpha1.SubscriptionUnitStatus{
 		Phase:   v1alpha1.PackagePropagationFailed,
 		Message: statusMsg,
@@ -35,10 +36,15 @@ func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, clust
 		},
 	}
 
-	return CreateAppSubPackageStatus(statusClient, cluster, appSubNs, appSubName, []v1alpha1.SubscriptionUnitStatus{*packagesStatuses})
+	packageStatusNs := cluster
+	if isClusterLocal {
+		packageStatusNs = appSubNs
+	}
+
+	return CreateAppSubPackageStatus(statusClient, cluster, packageStatusNs, appSubNs, appSubName, []v1alpha1.SubscriptionUnitStatus{*packagesStatuses})
 }
 
-func CreateAppSubPackageStatus(statusClient client.Client, cluster, appSubNs, appSubName string, packagesStatuses []v1alpha1.SubscriptionUnitStatus) error {
+func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatusNs, appSubNs, appSubName string, packagesStatuses []v1alpha1.SubscriptionUnitStatus) error {
 	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
 
 	// Check if appsubpackagestatus already exists
@@ -57,7 +63,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, appSubNs, ap
 	}
 
 	listopts.LabelSelector = psLabels
-	listopts.Namespace = appSubNs
+	listopts.Namespace = packageStatusNs
 	pkgstatusList := &v1alpha1.SubscriptionPackageStatusList{}
 
 	err = statusClient.List(context.TODO(), pkgstatusList, listopts)
@@ -85,7 +91,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, appSubNs, ap
 
 	// Create new appsubpackagestatus
 	pkgstatus.Name = appSubNs + "." + appSubName + ".status"
-	pkgstatus.Namespace = appSubNs
+	pkgstatus.Namespace = packageStatusNs
 
 	klog.Infof("Creating new appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
 

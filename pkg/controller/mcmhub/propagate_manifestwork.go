@@ -151,14 +151,12 @@ func (r *ReconcileSubscription) propagateManifestWorks(clusters []ManageClusters
 	for _, cluster := range clusters {
 		familymap, err = r.createManifestWork(cluster, hosting, instance, familymap)
 		if err != nil {
-			klog.Error("Error in propagating ", cluster)
+			klog.Errorf("Error in propagating to cluster: %v, error:%v", cluster.Cluster, err)
 
-			err2 := utils.CreatePropagatioFailedAppSubPackageStatus(r.Client, cluster.Cluster, instance.Namespace, instance.Name, err.Error())
-			if err2 != nil {
-				klog.Error("Error create appsubpackagestatus ", err2)
+			err = utils.CreatePropagatioFailedAppSubPackageStatus(r.Client, cluster.Cluster, cluster.IsLocalCluster, instance.Namespace, instance.Name, err.Error())
+			if err != nil {
+				klog.Error("Error create appsubpackagestatus: ", err)
 			}
-
-			return familymap, err
 		}
 	}
 
