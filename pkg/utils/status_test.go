@@ -25,6 +25,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
+var (
+	cluster    = "local-cluster"
+	appSubNs   = "appsub-ns"
+	appSubName = "appsub-test"
+	message    = "Failed to deploy to cluster"
+)
+
 func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -47,21 +54,22 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	g.Expect(CreatePropagatioFailedAppSubPackageStatus(c, "local-cluster", true, "appns", "testapp", "Failed to propagate to cluster: local-cluster")).NotTo(gomega.HaveOccurred())
+	g.Expect(CreatePropagatioFailedAppSubPackageStatus(c, cluster, true, appSubNs, appSubName, message)).NotTo(gomega.HaveOccurred())
 
 	time.Sleep(1 * time.Second)
 
 	pkgKey := types.NamespacedName{
-		Name:      "appns.testapp.status",
-		Namespace: "appns",
+		Name:      appSubNs + "." + appSubName + ".status",
+		Namespace: cluster,
 	}
 	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
 	g.Expect(c.Get(context.TODO(), pkgKey, pkgstatus)).NotTo(gomega.HaveOccurred())
+	g.Expect(pkgstatus.Namespace).To(gomega.Equal(cluster))
 	g.Expect(len(pkgstatus.Statuses.SubscriptionPackageStatus)).To(gomega.Equal(1))
 
 	pkgFailStatus := pkgstatus.Statuses.SubscriptionPackageStatus[0]
 	g.Expect(pkgFailStatus.Phase).To(gomega.Equal(v1alpha1.PackagePropagationFailed))
-	g.Expect(pkgFailStatus.Message).To(gomega.Equal("Failed to propagate to cluster: local-cluster"))
+	g.Expect(pkgFailStatus.Message).To(gomega.Equal(message))
 
 	g.Expect(c.Delete(context.TODO(), pkgstatus)).NotTo(gomega.HaveOccurred())
 }

@@ -26,6 +26,7 @@ import (
 )
 
 // createPropagatioFailedAppSubPackageStatus creates an appsubpackagestatus with the phase PropagationFailed
+// in the managed cluster namespace
 func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, cluster string, isClusterLocal bool, appSubNs, appSubName, statusMsg string) error {
 	klog.Info("")
 	packagesStatuses := &v1alpha1.SubscriptionUnitStatus{
@@ -36,12 +37,7 @@ func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, clust
 		},
 	}
 
-	packageStatusNs := cluster
-	if isClusterLocal {
-		packageStatusNs = appSubNs
-	}
-
-	return CreateAppSubPackageStatus(statusClient, cluster, packageStatusNs, appSubNs, appSubName, []v1alpha1.SubscriptionUnitStatus{*packagesStatuses})
+	return CreateAppSubPackageStatus(statusClient, cluster, cluster, appSubNs, appSubName, []v1alpha1.SubscriptionUnitStatus{*packagesStatuses})
 }
 
 func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatusNs, appSubNs, appSubName string, packagesStatuses []v1alpha1.SubscriptionUnitStatus) error {
