@@ -276,6 +276,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		merge = false
 	}
 
+	hasHostSubscription := tmplAnnotations[appv1alpha1.AnnotationHosting] != ""
+
 	newobj := tplunit.Unstructured.DeepCopy()
 	newobj.SetResourceVersion(obj.GetResourceVersion())
 
@@ -344,10 +346,14 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		klog.Error("Failed to update resource with error:", err)
 	}
 
-	sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"], false)
+	if strings.EqualFold(tplunit.GetKind(), "subscription") && hasHostSubscription {
+		klog.Info("this is propagated subscription resource. skip updating status")
+	} else {
+		sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"], false)
 
-	if sterr != nil {
-		klog.Error("Failed to update host status with error:", err)
+		if sterr != nil {
+			klog.Error("Failed to update host status with error:", err)
+		}
 	}
 
 	return nil
