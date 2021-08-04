@@ -242,6 +242,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return err
 	}
 
+	errMsg := ""
+
 	syncsource := githubk8ssyncsource + hostkey.String()
 
 	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
@@ -252,6 +254,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe crd and ns resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
@@ -262,6 +266,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe rbac resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
@@ -272,6 +278,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe other resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
@@ -282,6 +290,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to subscribe kustomize resources")
 
 		ghsi.successful = false
+
+		errMsg += err.Error()
 	}
 
 	klog.V(4).Info("Applying helm charts..")
@@ -293,7 +303,17 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		ghsi.successful = false
 
+		errMsg += err.Error()
+
 		return err
+	}
+
+	// If it failed to add applicable resources to the list, do not apply the empty list.
+	// It will cause already deployed resourced to be removed.
+	if len(ghsi.resources) == 0 && !ghsi.successful {
+		klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
+
+		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
 	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
