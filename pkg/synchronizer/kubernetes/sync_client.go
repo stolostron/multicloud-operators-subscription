@@ -45,6 +45,7 @@ type resourceOrder struct {
 type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
+	GetRemoteClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
 	AddTemplates(string, types.NamespacedName, []DplUnit) error
@@ -57,6 +58,10 @@ func (sync *KubeSynchronizer) GetInterval() int {
 
 func (sync *KubeSynchronizer) GetLocalClient() client.Client {
 	return sync.LocalClient
+}
+
+func (sync *KubeSynchronizer) GetRemoteClient() client.Client {
+	return sync.RemoteClient
 }
 
 // GetValidatedGVK return right gvk from original
