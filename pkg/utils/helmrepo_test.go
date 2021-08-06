@@ -108,10 +108,11 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -176,10 +177,11 @@ func TestCheckVersion(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -231,10 +233,11 @@ func TestOverride(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -288,10 +291,11 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -356,10 +360,11 @@ func TestDeleteHelmReleaseCRD(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

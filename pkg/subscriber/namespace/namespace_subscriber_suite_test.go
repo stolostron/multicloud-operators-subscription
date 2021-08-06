@@ -14,6 +14,8 @@
 package namespace
 
 import (
+	"context"
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -23,6 +25,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -60,17 +64,8 @@ var _ = BeforeSuite(func(done Done) {
 			UseExistingCluster: &t,
 		}
 	} else {
-		customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
-			"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
-			"PersistentVolumeClaimResize,ResourceQuota",
-		}
-
-		apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
-		apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-
 		testEnv = &envtest.Environment{
-			CRDDirectoryPaths:  []string{filepath.Join("..", "..", "..", "deploy", "crds"), filepath.Join("..", "..", "..", "hack", "test")},
-			KubeAPIServerFlags: apiServerFlags,
+			CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "deploy", "crds"), filepath.Join("..", "..", "..", "hack", "test")},
 		}
 	}
 
@@ -92,6 +87,18 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
+
+	var c client.Client
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "srt-test-sub-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	close(done)
 }, StartTimeout)

@@ -7,7 +7,6 @@ import (
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type cachedClient struct {
@@ -25,7 +24,7 @@ func newCachedClient(config *rest.Config, nsKey *types.NamespacedName) (*cachedC
 
 	m.clientCache = c
 
-	clt, err := manager.DefaultNewClient(c, config, client.Options{})
+	clt, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create cached client, err: %w", err)
 	}

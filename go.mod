@@ -8,42 +8,43 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.5.0
 	github.com/blang/semver v3.5.1+incompatible
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-git/go-git/v5 v5.2.0
-	github.com/go-logr/logr v0.3.0
+	github.com/go-git/go-git/v5 v5.4.2
+	github.com/go-logr/logr v0.4.0
 	github.com/go-openapi/spec v0.19.5
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.6
 	github.com/google/go-github/v32 v32.1.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
-	github.com/onsi/ginkgo v1.12.1
-	github.com/onsi/gomega v1.10.1
-	github.com/open-cluster-management/api v0.0.0-20201007180356-41d07eee4294
-	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
-	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
-	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210512-114e1b8
-	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
+	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/gomega v1.13.0
+	github.com/open-cluster-management/api v0.0.0-20210513122330-d76f10481f05
+	github.com/open-cluster-management/multicloud-operators-channel v1.2.4-0-20210817-0d8714a
+	github.com/open-cluster-management/multicloud-operators-deployable v1.2.4-0-20210816-f9fe854
+	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.4-0-20210816-01723b6
+	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/pkg/errors v0.9.1
-	github.com/prometheus/client_golang v1.7.1
+	github.com/prometheus/client_golang v1.11.0
 	github.com/sabhiram/go-gitignore v0.0.0-20180611051255-d3107576ba94
 	github.com/spf13/pflag v1.0.5
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b
+	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	helm.sh/helm/v3 v3.5.2
-	k8s.io/api v0.20.2
-	k8s.io/apiextensions-apiserver v0.20.2
-	k8s.io/apimachinery v0.20.2
-	k8s.io/cli-runtime v0.20.2
+	helm.sh/helm/v3 v3.6.3
+	k8s.io/api v0.21.3
+	k8s.io/apiextensions-apiserver v0.21.3
+	k8s.io/apimachinery v0.21.3
+	k8s.io/cli-runtime v0.21.3
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
-	k8s.io/kube-openapi v0.0.0-20201113171705-d219536bb9fd
-	sigs.k8s.io/controller-runtime v0.6.3
-	sigs.k8s.io/kustomize/api v0.8.5
+	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
+	sigs.k8s.io/controller-runtime v0.9.1
+	sigs.k8s.io/kustomize/api v0.8.8
 )
 
 replace (
 	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
 	github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
-	k8s.io/client-go => k8s.io/client-go v0.20.2
-	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
+	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.5.0
+	k8s.io/client-go => k8s.io/client-go v0.21.1
+
 )

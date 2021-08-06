@@ -69,10 +69,11 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 
 	rec := newReconciler(mgr).(*ReconcileSubscription)
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

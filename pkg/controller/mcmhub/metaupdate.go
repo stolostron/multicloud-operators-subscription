@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -401,20 +402,19 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 		return nil, err
 	}
 
-	stop := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
 
 	go func() {
-		if err := mgr.Start(stop); err != nil {
+		if err := mgr.Start(ctx); err != nil {
 			klog.Error(err)
 		}
 	}()
 
 	defer func() {
-		close(stop)
-		dryRunEventRecorder.Shutdown()
+		cancel()
 	}()
 
-	if mgr.GetCache().WaitForCacheSync(stop) {
+	if mgr.GetCache().WaitForCacheSync(ctx) {
 		return generateResourceList(mgr, s)
 	}
 
