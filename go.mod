@@ -20,7 +20,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.2-2-20201130-37b47
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.2-2-20210512-114e1b8
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.4-0-20210810-5d83c37
 	github.com/openshift/api v0.0.0-20201130121019-19e3831bc513
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
