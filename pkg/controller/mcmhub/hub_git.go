@@ -39,7 +39,6 @@ import (
 )
 
 const (
-	hookInterval     = time.Second * 180
 	gitWatchInterval = time.Hour
 	commitIDSuffix   = "-new"
 )
