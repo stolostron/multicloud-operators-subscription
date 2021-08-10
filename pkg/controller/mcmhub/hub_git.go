@@ -39,8 +39,8 @@ import (
 )
 
 const (
-	hookInterval   = time.Second * 180
-	commitIDSuffix = "-new"
+	gitWatchInterval = time.Hour
+	commitIDSuffix   = "-new"
 )
 
 type GitOps interface {
@@ -144,7 +144,7 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	hGit := &HubGitOps{
 		clt:                 clt,
 		mtx:                 sync.Mutex{},
-		watcherInterval:     hookInterval,
+		watcherInterval:     gitWatchInterval,
 		subRecords:          map[types.NamespacedName]string{},
 		repoRecords:         map[string]*RepoRegistery{},
 		downloadDirResolver: utils.GetLocalGitFolder,
@@ -469,6 +469,10 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 
 		return nil
 	}
+
+	h.logger.Info("setting the latest commit ID to ", commitID)
+
+	subscriptionRepoInfo.branchs[branchInfoName].lastCommitID = commitID
 
 	// Pick up new channel configurations
 	subscriptionRepoInfo.branchs[branchInfoName].gitCloneOptions = *cloneOptions
