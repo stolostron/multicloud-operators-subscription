@@ -38,8 +38,8 @@ import (
 )
 
 const (
-	hookInterval   = time.Second * 90
-	commitIDSuffix = "-new"
+	gitWatchInterval = time.Hour
+	commitIDSuffix   = "-new"
 )
 
 type GitOps interface {
@@ -150,7 +150,7 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 	hGit := &HubGitOps{
 		clt:                 clt,
 		mtx:                 sync.Mutex{},
-		watcherInterval:     hookInterval,
+		watcherInterval:     gitWatchInterval,
 		subRecords:          map[types.NamespacedName]string{},
 		repoRecords:         map[string]*RepoRegistery{},
 		downloadDirResolver: utils.GetLocalGitFolder,
@@ -409,14 +409,6 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		return nil
 	}
 
-	// Pick up new channel configurations
-	bInfo.branchs[branchName].username = user
-	bInfo.branchs[branchName].secret = pwd
-	bInfo.branchs[branchName].passphrase = passphrase
-	bInfo.branchs[branchName].sshKey = sshKey
-	bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
-	bInfo.branchs[branchName].gitCACert = caCert
-
 	if bInfo.branchs[branchName] == nil {
 		bInfo.branchs[branchName] = &branchInfo{
 			username:           user,
@@ -434,6 +426,18 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 
 		return nil
 	}
+
+	// Pick up new channel configurations
+	bInfo.branchs[branchName].username = user
+	bInfo.branchs[branchName].secret = pwd
+	bInfo.branchs[branchName].passphrase = passphrase
+	bInfo.branchs[branchName].sshKey = sshKey
+	bInfo.branchs[branchName].insecureSkipVerify = skipCertVerify
+	bInfo.branchs[branchName].gitCACert = caCert
+
+	h.logger.Info("setting the latest commit ID to ", commitID)
+
+	bInfo.branchs[branchName].lastCommitID = commitID
 
 	bInfo.branchs[branchName].registeredSub[subKey] = struct{}{}
 
