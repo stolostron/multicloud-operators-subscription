@@ -49,8 +49,8 @@ type SubscriptionUnitStatus struct {
 
 type SubscriptionClusterStatus struct {
 	Cluster                   string
-	AppSub                    string /* hosting appsub, format:  appsubNs/appsubName */
-	Action                    string /* "APPLY" or "DELETE" */
+	AppSub                    types.NamespacedName /* hosting appsub */
+	Action                    string               /* "APPLY" or "DELETE" */
 	SubscriptionPackageStatus []SubscriptionUnitStatus
 }
 

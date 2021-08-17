@@ -55,8 +55,57 @@ func (sync *KubeSynchronizer) getGVRfromUnstructuredObj(resource ResourceUnit) (
 	return sync.getGVRfromGVK(group, version, kind)
 }
 
+// DeleteSingleSubscribedResource delete a subcribed resource from a appsub.
+func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.NamespacedName,
+	pkgStatus appSubStatusV1alpha1.SubscriptionUnitStatus) error {
+	pkgGroup, pkgVersion := utils.ParseApiVersion(pkgStatus.ApiVersion)
+
+	if pkgGroup == "" && pkgVersion == "" {
+		klog.Infof("invalid apiversion pkgStatus: %v", pkgStatus)
+
+		return fmt.Errorf("invalid apiversion")
+	}
+
+	pkgGVR, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgStatus.Kind)
+
+	if err != nil {
+		klog.Infof("Failed to get GVR from restmapping: %v", err)
+
+		return err
+	}
+
+	nri := sync.DynamicClient.Resource(pkgGVR)
+
+	var ri dynamic.ResourceInterface
+	if pkgStatus.Namespace != "" {
+		ri = nri.Namespace(pkgStatus.Namespace)
+	} else {
+		ri = nri
+	}
+
+	pkgObj, err := ri.Get(context.TODO(), pkgStatus.Name, metav1.GetOptions{})
+
+	if err != nil {
+		klog.Infof("Failed to get the package, no need to delete. err: %v, ", err)
+
+		return nil
+	}
+
+	deletepolicy := metav1.DeletePropagationBackground
+	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
+
+	if err != nil {
+		klog.Errorf("Failed to delete package, appsub: %v, pkgName: %v, pkgNamespace: %v, err: %v",
+			hostSub, pkgStatus.Name, pkgStatus.Namespace, err)
+
+		return err
+	}
+
+	return nil
+}
+
 // PurgeSubscribedResources purge all resources deployed by the appsub.
-func (sync *KubeSynchronizer) PurgeSubscribedResources(hostSub types.NamespacedName) error {
+func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.NamespacedName) error {
 	sync.kmtx.Lock()
 	defer sync.kmtx.Unlock()
 
@@ -86,61 +135,11 @@ func (sync *KubeSynchronizer) PurgeSubscribedResources(hostSub types.NamespacedN
 		appSubUnitStatus.Name = pkgStatus.Name
 		appSubUnitStatus.Namespace = pkgStatus.Namespace
 
-		pkgGroup, pkgVersion := utils.ParseApiVersion(pkgStatus.ApiVersion)
-
-		if pkgGroup == "" || pkgVersion == "" {
-			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
-			appSubUnitStatus.Message = "Invalid apiVersion"
-			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
-
-			klog.Infof("invalid apiversion pkgStatus:%v", pkgStatus)
-
-			continue
-		}
-
-		pkgGVR, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgStatus.Kind)
-
+		err := sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		if err != nil {
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
-
-			klog.Infof("Failed to get GVR from restmapping: %w", err)
-
-			continue
-		}
-
-		nri := sync.DynamicClient.Resource(pkgGVR)
-
-		var ri dynamic.ResourceInterface
-		if pkgStatus.Namespace != "" {
-			ri = nri.Namespace(pkgStatus.Namespace)
-		} else {
-			ri = nri
-		}
-
-		pkgObj, err := ri.Get(context.TODO(), pkgStatus.Name, metav1.GetOptions{})
-
-		if err != nil {
-			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
-			appSubUnitStatus.Message = err.Error()
-			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
-
-			klog.Infof("Failed to get the package: %v", err)
-
-			continue
-		}
-
-		deletepolicy := metav1.DeletePropagationBackground
-		err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
-
-		if err != nil {
-			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
-			appSubUnitStatus.Message = err.Error()
-			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
-
-			klog.Errorf("Failed to delete package, appsub: %v, pkgName: %v, pkgNamespace: %v, err: %v",
-				hostSub, pkgStatus.Name, pkgStatus.Namespace, err)
 
 			continue
 		}
@@ -152,7 +151,7 @@ func (sync *KubeSynchronizer) PurgeSubscribedResources(hostSub types.NamespacedN
 
 	appsubClusterStatus := SubscriptionClusterStatus{
 		Cluster:                   sync.SynchronizerID.Name,
-		AppSub:                    hostSub.String(),
+		AppSub:                    hostSub,
 		Action:                    "DELETE",
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
@@ -165,7 +164,7 @@ func (sync *KubeSynchronizer) PurgeSubscribedResources(hostSub types.NamespacedN
 func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit) error {
 	// meaning clean up all the resource from a source:host
 	if len(resources) == 0 {
-		return sync.PurgeSubscribedResources(hostSub)
+		return sync.PurgeAllSubscribedResources(hostSub)
 	}
 
 	// handle orphan resource
@@ -183,7 +182,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 
-			klog.Infof("Failed to overrifde resource. err: %w", err)
+			klog.Infof("Failed to overrifde resource. err: %v", err)
 
 			continue
 		}
@@ -202,7 +201,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 
-			klog.Infof("Failed to get GVR from restmapping: %w", err)
+			klog.Infof("Failed to get GVR from restmapping: %v", err)
 
 			continue
 		}
@@ -231,7 +230,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 
 	appsubClusterStatus := SubscriptionClusterStatus{
 		Cluster:                   sync.SynchronizerID.Name,
-		AppSub:                    hostSub.String(),
+		AppSub:                    hostSub,
 		Action:                    "APPLY",
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
@@ -567,7 +566,7 @@ func (sync *KubeSynchronizer) OverrideResource(hostSub types.NamespacedName, res
 		template, err = utils.OverrideTemplate(template, ovmap)
 
 		if err != nil {
-			klog.Error("Failed to apply override for instance: %v/%v", appsub.Namespace, appsub.Name)
+			klog.Errorf("Failed to apply override for instance: %v/%v", appsub.Namespace, appsub.Name)
 
 			return nil, err
 		}

@@ -36,7 +36,7 @@ type SyncSource interface {
 	GetRemoteClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
 	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit) error
-	PurgeSubscribedResources(types.NamespacedName) error
+	PurgeAllSubscribedResources(types.NamespacedName) error
 }
 
 // Subscriber - information to run object bucket subscription.
@@ -124,7 +124,7 @@ func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 		subitem.Stop()
 		delete(obs.itemmap, key)
 
-		if err := obs.synchronizer.PurgeSubscribedResources(key); err != nil {
+		if err := obs.synchronizer.PurgeAllSubscribedResources(key); err != nil {
 			klog.Errorf("failed to unsubscribe  %v, err: %v", key.String(), err)
 
 			return err

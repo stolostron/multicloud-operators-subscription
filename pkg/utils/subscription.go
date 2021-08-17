@@ -1296,6 +1296,10 @@ func IsHostingAppsub(appsub *appv1.Subscription) bool {
 // ParseApiVersion return group and version from a given apiVersion string
 func ParseApiVersion(apiVersion string) (string, string) {
 	parsedstr := strings.Split(apiVersion, "/")
+	if len(parsedstr) == 1 {
+		return "", parsedstr[0]
+	}
+
 	if len(parsedstr) != 2 {
 		return "", ""
 	}

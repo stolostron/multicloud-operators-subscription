@@ -36,7 +36,7 @@ type SyncSource interface {
 	GetRemoteClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
 	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit) error
-	PurgeSubscribedResources(types.NamespacedName) error
+	PurgeAllSubscribedResources(types.NamespacedName) error
 }
 
 type itemmap map[types.NamespacedName]*SubscriberItem
@@ -155,7 +155,7 @@ func (hrs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 		subitem.Stop()
 		delete(hrs.itemmap, key)
 
-		if err := hrs.synchronizer.PurgeSubscribedResources(key); err != nil {
+		if err := hrs.synchronizer.PurgeAllSubscribedResources(key); err != nil {
 			klog.Errorf("failed to unsubscribe  %v, err: %v", key.String(), err)
 
 			return err
