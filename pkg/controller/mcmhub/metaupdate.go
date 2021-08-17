@@ -28,6 +28,7 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
+	"helm.sh/helm/v3/pkg/releaseutil"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -50,6 +51,7 @@ import (
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 
+	rHelper "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -371,13 +373,33 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 	install.Replace = true
 
 	release, err := install.Run(chart, values)
+	if err != nil || release == nil {
+		return nil, err
+	}
+
+	var resources []*resource.Info
+
+	// parse the manifest into individual yaml content
+	caps, err := rHelper.GetCapabilities(actionConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	resources, err := kubeClient.Build(bytes.NewBufferString(release.Manifest), false)
+	manifests := releaseutil.SplitManifests(release.Manifest)
+
+	_, files, err := releaseutil.SortManifests(manifests, caps.APIVersions, releaseutil.InstallOrder)
 	if err != nil {
-		return nil, fmt.Errorf("unable to build kubernetes objects from release manifest: %w", err)
+		return nil, err
+	}
+
+	// for each content try to build a k8s resource, if successful add it to the list of return
+	for _, file := range files {
+		res, err := kubeClient.Build(bytes.NewBufferString(file.Content), false)
+		if err == nil {
+			resources = append(resources, res...)
+		} else {
+			klog.Warning("unable to build kubernetes objects from release manifest: %w", err)
+		}
 	}
 
 	return resources, nil
