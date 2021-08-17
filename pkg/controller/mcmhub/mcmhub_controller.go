@@ -318,6 +318,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &appv1.Subscription{}},
 		handler.EnqueueRequestsFromMapFunc(smapper.Map),
 		utils.SubscriptionPredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -327,6 +328,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &dplv1.Deployable{}},
 		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
 		utils.DeployablePredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -337,6 +339,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &chnv1.Channel{}},
 		handler.EnqueueRequestsFromMapFunc(cMapper.Map),
 		utils.ChannelPredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -347,6 +350,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &plrv1.PlacementRule{}},
 		handler.EnqueueRequestsFromMapFunc(prMapper.Map),
 		utils.PlacementRulePredicateFunctions)
+
 	if err != nil {
 		return err
 	}

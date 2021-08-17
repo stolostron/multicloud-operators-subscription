@@ -55,6 +55,7 @@ func TestMain(m *testing.M) {
 	}
 
 	var c client.Client
+
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
 		log.Fatal(err)
 	}

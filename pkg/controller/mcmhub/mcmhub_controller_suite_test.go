@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -56,6 +57,12 @@ func TestMain(m *testing.M) {
 		stdlog.Fatal(err)
 	}
 
+	var c client.Client
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
+	}
+
 	err = c.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-chn-namespace"},
 	})
@@ -79,6 +86,34 @@ func TestMain(m *testing.M) {
 
 	err = c.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "tp-chn-helm-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-1"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-sub-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "topo-anno-sub-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "topo-helm-sub-ns"},
 	})
 	if err != nil {
 		log.Fatal(err)

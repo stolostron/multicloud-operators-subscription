@@ -15,7 +15,6 @@ package namespace
 
 import (
 	"context"
-	"log"
 	"os"
 	"testing"
 	"time"
@@ -79,6 +78,19 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
+	c, err := client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "srt-test-sub-namespace"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "tch"},
+	})
+	Expect(err).ToNot(HaveOccurred())
+
 	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2)).NotTo(HaveOccurred())
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
@@ -87,18 +99,6 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
-
-	var c client.Client
-	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		log.Fatal(err)
-	}
-
-	err = c.Create(context.Background(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "srt-test-sub-namespace"},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
 
 	close(done)
 }, StartTimeout)

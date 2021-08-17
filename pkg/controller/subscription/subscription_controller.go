@@ -166,6 +166,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 			&source.Kind{Type: &chnv1.Channel{}},
 			handler.EnqueueRequestsFromMapFunc(cmapper.Map),
 			utils.ChannelPredicateFunctions)
+
 		if err != nil {
 			return err
 		}
