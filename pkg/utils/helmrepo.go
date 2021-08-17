@@ -38,8 +38,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -77,6 +75,7 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 
 		if err != nil {
 			klog.Error("There was a problem in generating helm charts index file: ", err.Error())
+
 			return indexFile, err
 		}
 
@@ -224,6 +223,7 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 
 	if err != nil {
 		klog.Error("Failed to mashall ", helmRelease.Name, " err:", err)
+
 		return err
 	}
 
@@ -234,10 +234,11 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 		klog.Warning("Processing local deployable with error template:", helmRelease, err)
 	}
 
-	template, err = dplutils.OverrideTemplate(template, overrides.ClusterOverrides)
+	template, err = OverrideTemplate(template, overrides.ClusterOverrides)
 
 	if err != nil {
 		klog.Error("Failed to apply override for instance: ")
+
 		return err
 	}
 
@@ -245,6 +246,7 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 
 	if err != nil {
 		klog.Error("Failed to mashall ", helmRelease.Name, " err:", err)
+
 		return err
 	}
 
@@ -293,7 +295,7 @@ func CreateHelmCRDeployable(
 	chartVersions repo.ChartVersions,
 	client client.Client,
 	channel *chnv1.Channel,
-	sub *appv1.Subscription) (*dplv1.Deployable, error) {
+	sub *appv1.Subscription) (*unstructured.Unstructured, error) {
 	releaseCRName, err := PkgToReleaseCRName(sub, packageName)
 	if err != nil {
 		return nil, err
@@ -321,6 +323,7 @@ func CreateHelmCRDeployable(
 
 	if err != nil {
 		klog.Error("Failed to create or update helm chart ", packageName, " err:", err)
+
 		return nil, err
 	}
 
@@ -328,6 +331,7 @@ func CreateHelmCRDeployable(
 
 	if err != nil {
 		klog.Error("Failed to override ", helmRelease.Name, " err:", err)
+
 		return nil, err
 	}
 
@@ -337,6 +341,7 @@ func CreateHelmCRDeployable(
 		err := yaml.Unmarshal([]byte("{\"\":\"\"}"), &spec)
 		if err != nil {
 			klog.Error("Failed to create an empty spec for helm release", helmRelease)
+
 			return nil, err
 		}
 
@@ -348,36 +353,37 @@ func CreateHelmCRDeployable(
 		helmRelease.Labels = hrLbls
 	}
 
-	dpl := &dplv1.Deployable{}
-	dpl.Name = sub.Name + "-" + getShortSubUID(string(sub.UID)) + "-" + packageName
-	dpl.Namespace = sub.Namespace
-
-	dpl.Spec.Template = &runtime.RawExtension{}
-	dpl.Spec.Template.Raw, err = json.Marshal(helmRelease)
+	helmReleaseRaw, err := json.Marshal(helmRelease)
 
 	if err != nil {
 		klog.Error("Failed to mashall helm release", helmRelease)
+
 		return nil, err
 	}
 
-	dplanno := make(map[string]string)
-	dplanno[dplv1.AnnotationLocal] = "true"
-	dpl.SetAnnotations(dplanno)
+	helmReleaseResource := &unstructured.Unstructured{}
+	err = json.Unmarshal(helmReleaseRaw, helmReleaseResource)
 
-	return dpl, nil
+	if err != nil {
+		klog.Error("Failed to unmashall helm release", helmReleaseResource)
+
+		return nil, err
+	}
+
+	return helmReleaseResource, nil
 }
 
-func getOverrides(packageName string, sub *appv1.Subscription) dplv1.Overrides {
-	dploverrides := dplv1.Overrides{}
+func getOverrides(packageName string, sub *appv1.Subscription) appv1.ClusterOverrides {
+	dploverrides := appv1.ClusterOverrides{}
 
 	for _, overrides := range sub.Spec.PackageOverrides {
 		if overrides.PackageName == packageName {
 			klog.Infof("Overrides for package %s found", packageName)
 			dploverrides.ClusterName = packageName
-			dploverrides.ClusterOverrides = make([]dplv1.ClusterOverride, 0)
+			dploverrides.ClusterOverrides = make([]appv1.ClusterOverride, 0)
 
 			for _, override := range overrides.PackageOverrides {
-				clusterOverride := dplv1.ClusterOverride{
+				clusterOverride := appv1.ClusterOverride{
 					RawExtension: runtime.RawExtension{
 						Raw: override.RawExtension.Raw,
 					},

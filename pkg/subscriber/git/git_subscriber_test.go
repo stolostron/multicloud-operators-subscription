@@ -16,7 +16,6 @@ package git
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -542,11 +541,7 @@ metadata:
 data:
   path: test/github/helmcharts`
 
-		deployable, _, err := subitem.subscribeResource([]byte(configMapYAML))
-		Expect(err).NotTo(HaveOccurred())
-
-		resource := &unstructured.Unstructured{}
-		err = json.Unmarshal(deployable.Spec.Template.Raw, resource)
+		resource, _, err := subitem.subscribeResource([]byte(configMapYAML))
 		Expect(err).NotTo(HaveOccurred())
 
 		rscAnnotations := resource.GetAnnotations()

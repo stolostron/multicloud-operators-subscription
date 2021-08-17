@@ -19,6 +19,13 @@ import (
 	"strings"
 	"time"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
+	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -34,17 +41,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
-	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
-	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
-	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
-	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -65,19 +61,12 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to hub cluster with error:", err)
+
 		return err
 	}
 
 	subs := make(map[string]appv1.Subscriber)
 
-	if nssub.GetdefaultNsSubscriber() == nil {
-		errmsg := "default namespace subscriber is not initialized"
-		klog.Error(errmsg)
-
-		return errors.NewServiceUnavailable(errmsg)
-	}
-
-	subs[chnv1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
 	subs[chnv1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
@@ -128,7 +117,7 @@ func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
 	return requests
 }
 
-// newReconciler returns a new reconcile.Reconciler
+// newReconciler returns a new reconcile.Reconciler.
 func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber, standalone bool) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 
@@ -145,7 +134,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 	return rec
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
+// add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	// Create a new controller
 	c, err := controller.New("subscription-controller", mgr, controller.Options{Reconciler: r})
@@ -173,12 +162,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
+// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler.
 var _ reconcile.Reconciler = &ReconcileSubscription{}
 
 type clock func() time.Time
 
-// ReconcileSubscription reconciles a Subscription object
+// ReconcileSubscription reconciles a Subscription object.
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
@@ -239,28 +228,6 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		// If standalone = false, reconcile subscriptions that are propagated from ACM hub. These subscriptions have this annotation.
 		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
 			(!strings.EqualFold(annotations[appv1.AnnotationHosting], "") && !r.standalone) {
-			// Check if the subscription deployable still exists on the hub.
-			hostDeployableName := utils.GetHostDeployable(annotations[dplv1.AnnotationHosting])
-
-			if hostDeployableName != nil {
-				hostDeployable := &dplv1.Deployable{}
-
-				err := r.hubclient.Get(context.TODO(), *hostDeployableName, hostDeployable)
-
-				if err != nil && errors.IsNotFound(err) {
-					klog.Infof("Host deployable %s is not found on the hub cluster. Remove subscription %s.", hostDeployableName, request.NamespacedName)
-
-					// Delete the subscription and let the next reconcile unsubscribe/delete resources.
-					err = r.Delete(context.TODO(), instance)
-
-					if err == nil {
-						klog.Infof("Removed subscription %s.", request.NamespacedName)
-					}
-
-					return reconcile.Result{}, err
-				}
-			}
-
 			reconcileErr := r.doReconcile(instance)
 
 			// doReconcile updates the subscription. Later this function fails to update the subscription status
@@ -324,6 +291,7 @@ func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.
 		// if the subscription pause lable is true, stop unsubscription here.
 		if subutil.GetPauseLabel(instance) {
 			klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
+
 			return reconcile.Result{}, nil
 		}
 

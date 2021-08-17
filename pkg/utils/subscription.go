@@ -460,23 +460,12 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	sourcestr := objanno[appv1.AnnotationSyncSource]
+	sourcestr := objanno[appv1.AnnotationHosting]
 	if sourcestr == "" {
 		return nil
 	}
 
-	pos := strings.Index(sourcestr, "-")
-	if pos == -1 {
-		return nil
-	}
-
-	hosttr := sourcestr[pos+1:]
-
-	if hosttr == "" {
-		return nil
-	}
-
-	parsedstr := strings.Split(hosttr, "/")
+	parsedstr := strings.Split(sourcestr, "/")
 	if len(parsedstr) != 2 {
 		return nil
 	}
@@ -850,12 +839,12 @@ func OverrideResourceBySubscription(template *unstructured.Unstructured,
 	return OverrideTemplate(template, ovs)
 }
 
-func prepareOverrides(pkgName string, instance *appv1.Subscription) []dplv1.ClusterOverride {
+func prepareOverrides(pkgName string, instance *appv1.Subscription) []appv1.ClusterOverride {
 	if instance == nil || instance.Spec.PackageOverrides == nil {
 		return nil
 	}
 
-	var overrides []dplv1.ClusterOverride
+	var overrides []appv1.ClusterOverride
 
 	// go over clsuters to find matching override
 	for _, ov := range instance.Spec.PackageOverrides {
@@ -864,7 +853,7 @@ func prepareOverrides(pkgName string, instance *appv1.Subscription) []dplv1.Clus
 		}
 
 		for _, pov := range ov.PackageOverrides {
-			overrides = append(overrides, dplv1.ClusterOverride(pov))
+			overrides = append(overrides, appv1.ClusterOverride(pov))
 		}
 	}
 
@@ -1048,7 +1037,7 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 		delete(objanno, appv1.AnnotationClusterAdmin)
 		delete(objanno, appv1.AnnotationHosting)
 		delete(objanno, appv1.AnnotationSyncSource)
-		delete(objanno, dplv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationHostingDeployable)
 		delete(objanno, appv1.AnnotationChannelType)
 	}
 
@@ -1061,7 +1050,7 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 	return obj
 }
 
-// RemoveSubAnnotations removes RHACM specific owner reference from subscription
+// RemoveSubOwnerRef removes RHACM specific owner reference from subscription
 func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructured {
 	ownerRefs := obj.GetOwnerReferences()
 	newOwnerRefs := []metav1.OwnerReference{}
@@ -1302,4 +1291,14 @@ func IsHostingAppsub(appsub *appv1.Subscription) bool {
 	_, ok := annotations[appv1.AnnotationHosting]
 
 	return ok
+}
+
+// ParseApiVersion return group and version from a given apiVersion string
+func ParseApiVersion(apiVersion string) (string, string) {
+	parsedstr := strings.Split(apiVersion, "/")
+	if len(parsedstr) != 2 {
+		return "", ""
+	}
+
+	return parsedstr[0], parsedstr[1]
 }

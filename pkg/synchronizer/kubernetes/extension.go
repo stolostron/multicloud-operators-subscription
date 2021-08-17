@@ -26,7 +26,6 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -50,11 +49,7 @@ type Extension interface {
 }
 
 var (
-	defaultExtension = &SubscriptionExtension{
-		IngoredGroupKindMap: map[schema.GroupKind]bool{
-			dplgk: true,
-		},
-	}
+	defaultExtension = &SubscriptionExtension{}
 )
 
 // UpdateHostSubscriptionStatus defines update host status function for deployable
@@ -124,7 +119,7 @@ func (se *SubscriptionExtension) SetSynchronizerToObject(obj metav1.Object, sync
 
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
-		delete(objanno, dplv1.AnnotationManagedCluster)
+		delete(objanno, appv1.AnnotationManagedCluster)
 		obj.SetAnnotations(objanno)
 	}
 
@@ -159,7 +154,8 @@ func (se *SubscriptionExtension) IsObjectOwnedBySynchronizer(obj metav1.Object, 
 
 	objanno := obj.GetAnnotations()
 	if objanno != nil {
-		_, ok := objanno[dplv1.AnnotationManagedCluster]
+		_, ok := objanno[appv1.AnnotationManagedCluster]
+
 		return !ok
 	}
 

@@ -31,6 +31,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/ghodss/yaml"
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"helm.sh/helm/v3/pkg/repo"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,16 +43,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
-// SubscriberItem - defines the unit of namespace subscription
+// SubscriberItem - defines the unit of namespace subscription.
 type SubscriberItem struct {
 	appv1.SubscriberItem
 
@@ -69,7 +67,7 @@ var (
 	}
 )
 
-// SubscribeItem subscribes a subscriber item with namespace channel
+// SubscribeItem subscribes a subscriber item with namespace channel.
 func (hrsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if hrsi.stopch != nil {
@@ -79,6 +77,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 			hrsi.Stop()
 		} else {
 			klog.Info("SubscriberItem already started: ", hrsi.Subscription.Name)
+
 			return
 		}
 	}
@@ -105,6 +104,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
 					hrsi.SubscriberItem.Subscription.GetNamespace(),
 					hrsi.SubscriberItem.Subscription.GetName(), nextRun)
+
 				return
 			}
 		}
@@ -112,6 +112,7 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 		// if the subscription pause lable is true, stop subscription here.
 		if utils.GetPauseLabel(hrsi.SubscriberItem.Subscription) {
 			klog.Infof("Helm Subscription %v/%v is paused.", hrsi.SubscriberItem.Subscription.GetNamespace(), hrsi.SubscriberItem.Subscription.GetName())
+
 			return
 		}
 
@@ -152,6 +153,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	if err != nil {
 		klog.Error(err, "Unable to create client for helm repo", repoURL)
+
 		return
 	}
 
@@ -159,10 +161,11 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	if err != nil {
 		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
+
 		return
 	}
 
-	klog.V(4).Infof("Check if helmRepo %s changed with hash %s", repoURL, hash)
+	klog.Infof("Check if helmRepo %s changed with hash %v", repoURL, hash)
 
 	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
 
@@ -212,7 +215,7 @@ func (hrsi *SubscriberItem) doSubscription() {
 }
 
 func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []string {
-	klog.V(4).Infof("Calculating the HelmRelease names")
+	klog.Infof("Calculating the HelmRelease names")
 
 	var hrNames []string
 
@@ -220,6 +223,7 @@ func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []s
 		releaseCRName, err := utils.PkgToReleaseCRName(sub, packageName)
 		if err != nil {
 			klog.Error(err, "Unable to get HelmRelease name for package: ", packageName)
+
 			continue
 		}
 
@@ -230,7 +234,7 @@ func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []s
 }
 
 func isHelmReleaseExists(client client.Client, namespace string, releaseCRName string) (bool, error) {
-	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s exists", namespace, releaseCRName)
+	klog.Infof("Checking to see if the HelmRelease %s/%s exists", namespace, releaseCRName)
 
 	helmRelease := &releasev1.HelmRelease{}
 
@@ -249,7 +253,7 @@ func isHelmReleaseExists(client client.Client, namespace string, releaseCRName s
 }
 
 func isHelmReleaseStatusPopulated(client client.Client, hostSub types.NamespacedName, namespace string, releaseCRName string) (bool, error) {
-	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s status is populated", namespace, releaseCRName)
+	klog.Infof("Checking to see if the HelmRelease %s/%s status is populated", namespace, releaseCRName)
 
 	helmRelease := &releasev1.HelmRelease{}
 
@@ -275,36 +279,12 @@ func isHelmReleaseStatusPopulated(client client.Client, hostSub types.Namespaced
 		return false, err
 	}
 
-	statuses := sub.Status.Statuses
-	if len(statuses) == 0 {
-		return false, nil
-	}
-
-	localStatus := statuses["/"]
-	if localStatus == nil {
-		return false, nil
-	}
-
-	pkgStatus := localStatus.SubscriptionPackageStatus
-	if len(pkgStatus) == 0 {
-		return false, nil
-	}
-
-	hostDpl := utils.GetHostDeployableFromObject(helmRelease)
-	if hostDpl == nil {
-		return true, nil
-	}
-
-	if pkgStatus[hostDpl.Name] == nil || pkgStatus[hostDpl.Name].ResourceStatus == nil || len(pkgStatus[hostDpl.Name].ResourceStatus.Raw) == 0 {
-		return false, nil
-	}
-
 	return true, nil
 }
 
 func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash string) error {
 	repoURL := hrsi.Channel.Spec.Pathname
-	klog.V(4).Info("Proecssing HelmRepo:", repoURL)
+	klog.Info("Proecssing HelmRepo:", repoURL)
 
 	if err := hrsi.manageHelmCR(indexFile, repoURL); err != nil {
 		return err
@@ -342,12 +322,13 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 
 	if chnCfg != nil && !insecureSkipVerify {
 		helmRepoConfigData := chnCfg.Data
-		klog.V(5).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
+		klog.V(1).Infof("s.HelmRepoConfig.Data %v", helmRepoConfigData)
 
 		if helmRepoConfigData["insecureSkipVerify"] != "" {
 			b, err := strconv.ParseBool(helmRepoConfigData["insecureSkipVerify"])
 			if err != nil {
 				klog.Error(err, "Unable to parse insecureSkipVerify: ", helmRepoConfigData["insecureSkipVerify"])
+
 				return nil, err
 			}
 
@@ -357,10 +338,10 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 				klog.Info("Channel has config map with insecureSkipVerify: true. Skipping Helm repo server certificate verification.")
 			}
 		} else {
-			klog.V(5).Info("helmRepoConfigData[\"insecureSkipVerify\"] is empty")
+			klog.Info("helmRepoConfigData[\"insecureSkipVerify\"] is empty")
 		}
 	} else {
-		klog.V(5).Info("s.HelmRepoConfig is nil")
+		klog.Info("s.HelmRepoConfig is nil")
 	}
 
 	client.Transport = transport
@@ -376,6 +357,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 
 	if err != nil {
 		klog.Error(err, "Can not build request: ", cleanRepoURL)
+
 		return nil, "", err
 	}
 
@@ -391,7 +373,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 		}
 	}
 
-	klog.V(5).Info(req)
+	klog.V(1).Info(req)
 	resp, err := client.Do(req)
 
 	if err != nil {
@@ -400,11 +382,12 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 		return nil, "", err
 	}
 
-	klog.V(5).Info("Get succeeded: ", cleanRepoURL)
+	klog.Info("Get succeeded: ", cleanRepoURL)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		klog.Error(err, "Unable to read body: ", cleanRepoURL)
+
 		return nil, "", err
 	}
 
@@ -415,6 +398,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 
 	if err != nil {
 		klog.Error(err, "Unable to parse the indexfile: ", cleanRepoURL)
+
 		return nil, "", err
 	}
 
@@ -507,11 +491,12 @@ func ChartIndexToHelmReleases(hclt client.Client, chn *chnv1.Channel, sub *appv1
 	return helms, nil
 }
 
-//loadIndex loads data into a repo.IndexFile
+// loadIndex loads data into a repo.IndexFile.
 func loadIndex(data []byte) (*repo.IndexFile, error) {
 	i := &repo.IndexFile{}
 	if err := yaml.Unmarshal(data, i); err != nil {
 		klog.Error(err, "Unmarshal failed. Data: ", data)
+
 		return i, err
 	}
 
@@ -540,14 +525,12 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 	var doErr error
 
 	hostkey := types.NamespacedName{Name: hrsi.Subscription.Name, Namespace: hrsi.Subscription.Namespace}
-	syncsource := helmreposyncsource + hostkey.String()
-	pkgMap := make(map[string]bool)
 
-	dplUnits := make([]kubesynchronizer.DplUnit, 0)
+	resources := make([]kubesynchronizer.ResourceUnit, 0)
 
 	//Loop on all packages selected by the subscription
 	for packageName, chartVersions := range indexFile.Entries {
-		klog.V(5).Infof("chart: %s\n%v", packageName, chartVersions)
+		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRDeployable(
 			repoURL, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.Subscription)
@@ -560,23 +543,17 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 			continue
 		}
 
-		unit := kubesynchronizer.DplUnit{Dpl: dpl, Gvk: helmGvk}
-		dplUnits = append(dplUnits, unit)
-
-		dplkey := types.NamespacedName{
-			Name:      dpl.Name,
-			Namespace: dpl.Namespace,
-		}
-		pkgMap[dplkey.Name] = true
+		unit := kubesynchronizer.ResourceUnit{Resource: dpl, Gvk: helmGvk}
+		resources = append(resources, unit)
 	}
 
-	if len(dplUnits) > 0 || (len(dplUnits) == 0 && doErr == nil) {
-		if len(dplUnits) == 0 {
-			klog.Warningf("The dplUnits length is 0, this might lead to deregistration for subscription %s/%s",
+	if len(resources) > 0 || (len(resources) == 0 && doErr == nil) {
+		if len(resources) == 0 {
+			klog.Warningf("The resources length is 0, this might lead to deregistration for subscription %s/%s",
 				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
 		}
 
-		if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+		if err := hrsi.synchronizer.ProcessSubResources(hostkey, resources); err != nil {
 			klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
 			doErr = err
 		}
