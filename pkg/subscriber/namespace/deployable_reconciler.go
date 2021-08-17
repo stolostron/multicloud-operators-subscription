@@ -87,7 +87,7 @@ func (r *DeployableReconciler) isUpdateLinkedSubscription(request reconcile.Requ
 }
 
 // Reconcile finds out all channels related to this deployable, then all subscriptions subscribing that channel and update them
-func (r *DeployableReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *DeployableReconciler) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.V(1).Infof("deployable reconciling: %v deployable for subitem %v", request.NamespacedName, r.itemkey.String())
 
 	tw := r.subscriber.itemmap[r.itemkey].Subscription.Spec.TimeWindow

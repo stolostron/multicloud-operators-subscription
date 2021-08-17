@@ -15,6 +15,8 @@
 package mcmhub
 
 import (
+	"context"
+	"log"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -22,8 +24,11 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -36,20 +41,11 @@ import (
 var cfg *rest.Config
 
 func TestMain(m *testing.M) {
-	customAPIServerFlags := []string{"--disable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount," +
-		"TaintNodesByCondition,Priority,DefaultTolerationSeconds,DefaultStorageClass,StorageObjectInUseProtection," +
-		"PersistentVolumeClaimResize,ResourceQuota",
-	}
-
-	apiServerFlags := append([]string(nil), envtest.DefaultKubeAPIServerFlags...)
-	apiServerFlags = append(apiServerFlags, customAPIServerFlags...)
-
 	t := &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "..", "hack", "test"),
 		},
-		KubeAPIServerFlags: apiServerFlags,
 	}
 
 	ansiblejob.AddToScheme(scheme.Scheme)
@@ -59,6 +55,68 @@ func TestMain(m *testing.M) {
 	var err error
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)
+	}
+
+	var c client.Client
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-chn-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ch-helm-ns"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "tp-chn-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "tp-chn-helm-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-1"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-sub-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "topo-anno-sub-namespace"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "topo-helm-sub-ns"},
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	code := m.Run()
@@ -71,8 +129,8 @@ func TestMain(m *testing.M) {
 // writes the request to requests after Reconcile is finished.
 func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan reconcile.Request) {
 	requests := make(chan reconcile.Request)
-	fn := reconcile.Func(func(req reconcile.Request) (reconcile.Result, error) {
-		result, err := inner.Reconcile(req)
+	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+		result, err := inner.Reconcile(ctx, req)
 		requests <- req
 
 		return result, err
@@ -82,15 +140,14 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 }
 
 // StartTestManager adds recFn
-func StartTestManager(mgr manager.Manager, g *gomega.GomegaWithT) (chan struct{}, *sync.WaitGroup) {
-	stop := make(chan struct{})
+func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(stop)).NotTo(gomega.HaveOccurred())
+		wg.Done()
+		mgr.Start(ctx)
 	}()
 
-	return stop, wg
+	return wg
 }

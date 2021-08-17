@@ -15,6 +15,7 @@
 package kubernetes
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -165,33 +166,33 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 }
 
 // Start the discovery and start caches, this will be triggered by the manager
-func (sync *KubeSynchronizer) Start(s <-chan struct{}) error {
+func (sync *KubeSynchronizer) Start(ctx context.Context) error {
 	klog.Info("start synchronizer")
 	defer klog.Info("stop synchronizer")
 
 	sync.rediscoverResource()
 
-	go sync.processTplChan(s)
+	go sync.processTplChan(ctx.Done())
 
 	go func() {
-		if err := sync.localCachedClient.clientCache.Start(s); err != nil {
+		if err := sync.localCachedClient.clientCache.Start(ctx); err != nil {
 			klog.Error(err, "failed to start up cache")
 		}
 	}()
 
 	go func() {
-		if err := sync.remoteCachedClient.clientCache.Start(s); err != nil {
+		if err := sync.remoteCachedClient.clientCache.Start(ctx); err != nil {
 			klog.Error(err, "failed to start up cache")
 		}
 	}()
 
-	if !sync.localCachedClient.clientCache.WaitForCacheSync(s) {
+	if !sync.localCachedClient.clientCache.WaitForCacheSync(ctx) {
 		return fmt.Errorf("failed to start up local cache")
 	}
 
 	klog.Info("local config cache started")
 
-	if !sync.remoteCachedClient.clientCache.WaitForCacheSync(s) {
+	if !sync.remoteCachedClient.clientCache.WaitForCacheSync(ctx) {
 		return fmt.Errorf("failed to start up remote cache")
 	}
 

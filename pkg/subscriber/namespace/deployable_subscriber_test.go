@@ -120,7 +120,6 @@ var _ = Describe("default deployable should be reconciled", func() {
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 		// channel when it is finished.
 
-		Expect(k8sClient.Create(context.TODO(), ns)).NotTo(HaveOccurred())
 		Expect(k8sClient.Create(context.TODO(), dpl)).NotTo(HaveOccurred())
 		Expect(k8sClient.Create(context.TODO(), dpldft)).NotTo(HaveOccurred())
 

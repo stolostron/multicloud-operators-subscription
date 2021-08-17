@@ -38,7 +38,6 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 
 	options := &krusty.Options{
 		DoLegacyResourceSort: true,
-		UseKyaml:             true,
 	}
 
 	k := krusty.MakeKustomizer(options)

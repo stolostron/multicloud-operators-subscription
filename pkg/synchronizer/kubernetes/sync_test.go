@@ -203,7 +203,7 @@ var _ = Describe("test apply", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		dpl := dplinstance.DeepCopy()
 		hostnn := sharedkey
@@ -329,7 +329,7 @@ var _ = Describe("test CRD discovery", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		Expect(sync.KubeResources[foocrdgvk]).Should(BeNil())
 
@@ -381,7 +381,7 @@ var _ = Describe("test CRD discovery", func() {
 		sch := make(chan struct{})
 		defer close(sch)
 
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		sub := subinstance.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), sub)).Should(Succeed())
@@ -759,7 +759,7 @@ var _ = Describe("test resource overwrite", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		// Create a config map that is not owned by any subscription
 		cm := configMap.DeepCopy()
@@ -843,7 +843,7 @@ var _ = Describe("test resource overwrite", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		// Create a config map that is not owned by any subscription
 		cm := configMap.DeepCopy()
@@ -928,7 +928,7 @@ var _ = Describe("test resource overwrite", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 
 		// Create a config map that is not owned by any subscription
 		cm := configMap.DeepCopy()
@@ -996,7 +996,7 @@ var _ = Describe("test resource overwrite", func() {
 
 		sch := make(chan struct{})
 		defer close(sch)
-		go sync.Start(sch)
+		go sync.Start(context.TODO())
 		time.Sleep(k8swait)
 
 		// Create a config map that is not owned by any subscription
