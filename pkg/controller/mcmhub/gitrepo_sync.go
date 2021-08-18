@@ -602,7 +602,6 @@ func (r *ReconcileSubscription) createDeployable(
 
 			if err := r.Client.Update(context.TODO(), dpl); err != nil {
 				klog.Error("Failed to update deployable.")
-				return err
 			}
 
 			return nil
