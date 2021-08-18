@@ -27,7 +27,7 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
   Compare each resource in the new appsubPackaggeStatus map with existing appsubPackaggeStatus map
   - append all the resources in the new appsubPackaggeStatus map to the final appsubPackaggeStatus map,
     and delete all the resources from the existing appsubPackaggeStatus map
-  - For the left resources in the existing appsubPackaggeStatus map, they should be undeployeds
+  - For the left resources in the existing appsubPackaggeStatus map, they should be undeployed
     call sync.DeleteSingleSubscribedResource to delete these deployed resources from the managed cluster
 	If succeed, don't need to append these deleted resources to the final appsubPackaggeStatus map
 	If fail, append thse delete failed resources to the final appsubPackaggeStatus map
@@ -42,7 +42,7 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
 
 func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus SubscriptionClusterStatus) error {
 	klog.V(1).Infof("cluster: %v\n", appsubClusterStatus.Cluster)
-	klog.V(1).Infof("appsub: %v\n", appsubClusterStatus.AppSub.Namespace)
+	klog.V(1).Infof("appsub: %v\n", appsubClusterStatus.AppSub.String())
 	klog.V(1).Infof("action: %v\n", appsubClusterStatus.Action)
 
 	for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {

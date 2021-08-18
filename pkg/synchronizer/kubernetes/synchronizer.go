@@ -31,7 +31,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
 
-func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema.GroupVersionResource, error) {
+func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema.GroupVersionResource, bool, error) {
 	pkgGK := schema.GroupKind{
 		Kind:  kind,
 		Group: group,
@@ -39,20 +39,18 @@ func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema
 
 	mapping, err := sync.RestMapper.RESTMapping(pkgGK, version)
 	if err != nil {
-		return schema.GroupVersionResource{}, fmt.Errorf("Failed to get GVR from restmapping: %w", err)
+		return schema.GroupVersionResource{}, false, fmt.Errorf("Failed to get GVR from restmapping: %v", err)
 	}
 
-	return mapping.Resource, nil
-}
+	var isNamespaced bool = true
 
-func (sync *KubeSynchronizer) getGVRfromUnstructuredObj(resource ResourceUnit) (schema.GroupVersionResource, error) {
-	unstructuredObj := resource.Resource
+	if mapping.Scope.Name() != "namespace" {
+		isNamespaced = false
+	}
 
-	group := unstructuredObj.GroupVersionKind().Group
-	version := unstructuredObj.GroupVersionKind().Version
-	kind := unstructuredObj.GroupVersionKind().Kind
+	klog.Infof("scope: %#v", mapping.Scope)
 
-	return sync.getGVRfromGVK(group, version, kind)
+	return mapping.Resource, isNamespaced, nil
 }
 
 // DeleteSingleSubscribedResource delete a subcribed resource from a appsub.
@@ -66,7 +64,7 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 		return fmt.Errorf("invalid apiversion")
 	}
 
-	pkgGVR, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgStatus.Kind)
+	pkgGVR, isNamespaced, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgStatus.Kind)
 
 	if err != nil {
 		klog.Infof("Failed to get GVR from restmapping: %v", err)
@@ -77,7 +75,8 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 	nri := sync.DynamicClient.Resource(pkgGVR)
 
 	var ri dynamic.ResourceInterface
-	if pkgStatus.Namespace != "" {
+
+	if isNamespaced {
 		ri = nri.Namespace(pkgStatus.Namespace)
 	} else {
 		ri = nri
@@ -194,7 +193,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 		appSubUnitStatus.Name = resource.Resource.GetName()
 		appSubUnitStatus.Namespace = resource.Resource.GetNamespace()
 
-		pkgGVR, err := sync.getGVRfromGVK(resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind)
+		pkgGVR, isNamespaced, err := sync.getGVRfromGVK(resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind)
 
 		if err != nil {
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
@@ -208,9 +207,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 
 		nri := sync.DynamicClient.Resource(pkgGVR)
 
-		nameSpaced := resource.Resource.GetNamespace() != ""
-
-		err = sync.applyTemplate(nri, nameSpaced, resource, isSpecialResource(pkgGVR))
+		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR))
 
 		if err != nil {
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
@@ -434,7 +431,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 	}
 
-	klog.V(1).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
+	klog.Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
 	if err != nil {
 		klog.Error("Failed to update resource with error:", err)
@@ -578,9 +575,19 @@ func (sync *KubeSynchronizer) OverrideResource(hostSub types.NamespacedName, res
 }
 
 func (sync *KubeSynchronizer) IsResourceNamespaced(rsc *unstructured.Unstructured) bool {
-	// we assume all resources are always namespaced
-	// when cluster scoped resources are applied, the namespace spec will be igored
-	return true
+	pkgGroup := rsc.GroupVersionKind().Group
+	pkgVersion := rsc.GroupVersionKind().Version
+	pkgKind := rsc.GroupVersionKind().Kind
+
+	_, isNamespaced, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgKind)
+
+	if err != nil {
+		klog.Infof("Failed to get GVR from restmapping: %v", err)
+
+		return false
+	}
+
+	return isNamespaced
 }
 
 func (sync *KubeSynchronizer) getHostingAppSub(hostSub types.NamespacedName) (*appv1alpha1.Subscription, error) {
