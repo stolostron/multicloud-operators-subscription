@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
@@ -40,38 +41,44 @@ var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-manageme
 type SubscriberItem struct {
 	appv1.SubscriberItem
 
-	bucket       string
-	objectStore  awsutils.ObjectStore
-	stopch       chan struct{}
-	successful   bool
-	syncinterval int
-	synchronizer SyncSource
+	count         int
+	reconcileRate string
+	syncTime      string
+	bucket        string
+	objectStore   awsutils.ObjectStore
+	stopch        chan struct{}
+	successful    bool
+	syncinterval  int
+	synchronizer  SyncSource
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel.
-func (obsi *SubscriberItem) Start() error {
-	err := obsi.initObjectStore()
-
-	// If the new object store connection status (successful or failed) is different, return for updating the appsub status
-	// This will trigger another reconcile.
-	if !obsi.CompareOjbectStoreStatus(err) {
-		return err
-	}
-
-	// If the object bucket connection fails, stop the object bucket subscription
-	// At this stage, there is no app status phase change, no new reconcile will happen.
-	if err != nil {
-		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
-
-		return err
-	}
-
+func (obsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if obsi.stopch != nil {
-		return nil
+		if restart {
+			// restart this goroutine
+			klog.Info("Stopping object SubscriberItem: ", obsi.Subscription.Name)
+			obsi.Stop()
+		} else {
+			klog.Info("object SubscriberItem already started: ", obsi.Subscription.Name)
+
+			return
+		}
 	}
 
 	obsi.stopch = make(chan struct{})
+
+	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(obsi.reconcileRate, chnv1.ChannelTypeObjectBucket)
+	klog.Infof("reconcileRate: %v, loopPeriod: %v, retryInterval: %v, retries: %v", obsi.reconcileRate, loopPeriod, retryInterval, retries)
+
+	if strings.EqualFold(obsi.reconcileRate, "off") {
+		klog.Infof("auto-reconcile is OFF")
+
+		obsi.doSubscriptionWithRetries(retryInterval, retries)
+
+		return
+	}
 
 	go wait.Until(func() {
 		tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -93,18 +100,8 @@ func (obsi *SubscriberItem) Start() error {
 			return
 		}
 
-		if !obsi.successful {
-			err := obsi.doSubscription()
-
-			if err != nil {
-				klog.Error("Object Bucket ", obsi.Subscription.Namespace, "/", obsi.Subscription.Name, "housekeeping failed with error: ", err)
-			} else {
-				obsi.successful = true
-			}
-		}
-	}, time.Duration(obsi.syncinterval)*time.Second, obsi.stopch)
-
-	return nil
+		obsi.doSubscriptionWithRetries(retryInterval, retries)
+	}, loopPeriod, obsi.stopch)
 }
 
 // Stop the subscriber.
@@ -184,7 +181,7 @@ func (obsi *SubscriberItem) initObjectStore() error {
 		}
 	}
 
-	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
+	klog.Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
 
 	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
 		klog.Error(err, "unable initialize object store settings")
@@ -211,8 +208,35 @@ func generateDplNameFromKey(key string) string {
 	return strings.ReplaceAll(key, "/", "-")
 }
 
-func (obsi *SubscriberItem) doSubscription() error {
+func (obsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
+	obsi.doSubscription()
+
+	// If the initial subscription fails, retry.
+	n := 0
+
+	for n < retries {
+		if !obsi.successful {
+			time.Sleep(retryInterval)
+			klog.Infof("Re-try #%d: subcribing to the object bucket: %v", n+1, obsi.bucket)
+			obsi.doSubscription()
+			n++
+		} else {
+			break
+		}
+	}
+}
+
+func (obsi *SubscriberItem) doSubscription() {
 	var folderName *string
+
+	err := obsi.initObjectStore()
+
+	if err != nil {
+		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
+		obsi.successful = false
+
+		return
+	}
 
 	annotations := obsi.Subscription.GetAnnotations()
 	bucketPath := annotations[appv1.AnnotationBucketPath]
@@ -222,12 +246,13 @@ func (obsi *SubscriberItem) doSubscription() error {
 	}
 
 	keys, err := obsi.objectStore.List(obsi.bucket, folderName)
-	klog.V(5).Infof("object keys: %v", keys)
+	klog.Infof("object keys: %v", keys)
 
 	if err != nil {
 		klog.Error("Failed to list objects in bucket ", obsi.bucket)
+		obsi.successful = false
 
-		return err
+		return
 	}
 
 	tpls := []unstructured.Unstructured{}
@@ -237,8 +262,9 @@ func (obsi *SubscriberItem) doSubscription() error {
 		tplb, err := obsi.objectStore.Get(obsi.bucket, key)
 		if err != nil {
 			klog.Error("Failed to get object ", key, " in bucket ", obsi.bucket)
+			obsi.successful = false
 
-			return err
+			return
 		}
 
 		// skip empty body object store
@@ -251,8 +277,9 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 		if err != nil {
 			klog.Error("Failed to unmashall ", obsi.bucket, "/", key, " err:", err)
+			obsi.successful = false
 
-			return err
+			return
 		}
 
 		tpls = append(tpls, *tpl)
@@ -282,10 +309,18 @@ func (obsi *SubscriberItem) doSubscription() error {
 	if err := obsi.synchronizer.ProcessSubResources(hostkey, resources); err != nil {
 		klog.Error(err)
 
-		return err
+		obsi.successful = false
+
+		return
 	}
 
-	return doErr
+	if doErr != nil {
+		obsi.successful = false
+
+		return
+	}
+
+	obsi.successful = true
 }
 
 func (obsi *SubscriberItem) doSubscribeDeployable(template *unstructured.Unstructured) (*kubesynchronizer.ResourceUnit, error) {

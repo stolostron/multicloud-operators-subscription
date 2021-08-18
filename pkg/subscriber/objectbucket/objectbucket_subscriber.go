@@ -16,9 +16,11 @@ package objectbucket
 
 import (
 	"errors"
+	"strings"
 
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -56,7 +58,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
-	klog.V(2).Info("Setting up default objectbucket subscriber on ", syncid)
+	klog.Info("Setting up default objectbucket subscriber on ", syncid)
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
@@ -107,11 +109,38 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	obs.itemmap[itemkey] = obssubitem
 
-	obssubitem.successful = false
+	previousReconcileLevel := obssubitem.reconcileRate
+	previousSyncTime := obssubitem.syncTime
 
-	err := obssubitem.Start()
+	chnAnnotations := obssubitem.Channel.GetAnnotations()
+	subAnnotations := obssubitem.Subscription.GetAnnotations()
 
-	return err
+	obssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
+	obssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
+
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", obssubitem.reconcileRate)
+		obssubitem.reconcileRate = "off"
+	}
+
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, obssubitem.reconcileRate) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	// If manual sync time is updated, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousSyncTime, obssubitem.syncTime) {
+		klog.Infof("Manual reconcile time has changed from %s to %s. restart to reconcile resources", previousSyncTime, obssubitem.syncTime)
+
+		restart = true
+	}
+
+	obssubitem.Start(restart)
+
+	return nil
 }
 
 // UnsubscribeItem uobsubscribes a namespace subscriber item.

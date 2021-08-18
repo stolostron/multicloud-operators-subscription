@@ -1170,6 +1170,9 @@ func GetReconcileInterval(reconcileRate, chType string) (time.Duration, time.Dur
 		if strings.EqualFold(chType, chnv1.ChannelTypeHelmRepo) {
 			interval = 15 * time.Minute
 		}
+		if strings.EqualFold(chType, chnv1.ChannelTypeObjectBucket) {
+			interval = 15 * time.Minute
+		}
 		retryInterval = 90 * time.Second
 		retryCount = 1
 	} else if strings.EqualFold(reconcileRate, "high") {
