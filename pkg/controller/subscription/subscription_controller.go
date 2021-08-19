@@ -67,6 +67,7 @@ var syncrhonizerLock sync.RWMutex
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, standalone bool) error {
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
+	klog.Info("Add controlle: subscription_controller ")
 
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {

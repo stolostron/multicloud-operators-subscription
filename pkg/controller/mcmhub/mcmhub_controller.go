@@ -92,6 +92,7 @@ var syncrhonizerLock sync.RWMutex
 func Add(mgr manager.Manager) error {
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
+	klog.Info("Add controlle: mcmhub_controller ")
 
 	return add(mgr, newReconciler(mgr))
 }

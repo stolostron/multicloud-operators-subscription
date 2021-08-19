@@ -99,6 +99,11 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	// lock here to ensure that defaultSynchronizer can only be add once into the mgr
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
+	klog.Info("Add controlle: namespace_subscriber ")
+
+	if defaultNsSubscriber != nil {
+		return nil
+	}
 
 	// No polling, use cache. Add default one for cluster namespace
 	sync := kubesynchronizer.GetDefaultSynchronizer()
@@ -313,6 +318,9 @@ func (ns *NsSubscriber) UnsubscribeItem(key types.NamespacedName) error {
 
 // GetdefaultNsSubscriber - returns the default namespace subscriber
 func GetdefaultNsSubscriber() appv1alpha1.Subscriber {
+	syncrhonizerLock.RLock()
+	defer syncrhonizerLock.RUnlock()
+
 	if defaultNsSubscriber == nil {
 		return nil
 	}

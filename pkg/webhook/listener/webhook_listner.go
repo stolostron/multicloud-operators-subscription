@@ -72,6 +72,11 @@ var syncrhonizerLock sync.RWMutex
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool, createService bool) error {
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
+	klog.Info("Add controlle: webhook_listener ")
+
+	if webhookListener != nil {
+		return nil
+	}
 
 	klog.V(2).Info("Setting up webhook listener ...")
 

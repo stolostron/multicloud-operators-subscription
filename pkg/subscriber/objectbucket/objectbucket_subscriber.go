@@ -59,6 +59,11 @@ var syncrhonizerLock sync.RWMutex
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
+	klog.Info("Add controlle: objectbucker_subscriber ")
+
+	if defaultSubscriber != nil {
+		return nil
+	}
 
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
@@ -140,6 +145,9 @@ func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 
 // GetDefaultSubscriber - returns the defajlt namespace subscriber
 func GetDefaultSubscriber() appv1alpha1.Subscriber {
+	syncrhonizerLock.RLock()
+	defer syncrhonizerLock.RUnlock()
+
 	return defaultSubscriber
 }
 
