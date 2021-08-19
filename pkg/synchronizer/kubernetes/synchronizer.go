@@ -114,7 +114,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 	appSubPackageStatus := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
 
 	appSubPackageStatusKey := types.NamespacedName{
-		Name:      hostSub.Name,
+		Name:      hostSub.Name + ".status",
 		Namespace: hostSub.Namespace,
 	}
 
@@ -162,6 +162,8 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 }
 
 func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit) error {
+	klog.Infof("Enter ProcessSubResources, resource length:%v", len(resources))
+
 	// meaning clean up all the resource from a source:host
 	if len(resources) == 0 {
 		return sync.PurgeAllSubscribedResources(hostSub)
@@ -235,6 +237,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
+	klog.Infof("Calling sync.SyncAppsubClusterStatus, appsubClusterStatus:%v", appsubClusterStatus)
 	sync.SyncAppsubClusterStatus(appsubClusterStatus)
 
 	sync.kmtx.Unlock()
