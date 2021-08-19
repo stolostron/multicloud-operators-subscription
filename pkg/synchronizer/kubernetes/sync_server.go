@@ -186,31 +186,32 @@ func (sync *KubeSynchronizer) Start(ctx context.Context) error {
 
 	sync.rediscoverResource()
 	klog.Info("done rediscoverResource")
-	/*
-		go sync.processTplChan(ctx.Done())
 
-		go func() {
-			if err := sync.localCachedClient.clientCache.Start(ctx); err != nil {
-				klog.Error(err, "failed to start up cache")
-			}
-		}()
+	go sync.processTplChan(ctx.Done())
+	klog.Info("done processTplChan")
 
-		go func() {
-			if err := sync.remoteCachedClient.clientCache.Start(ctx); err != nil {
-				klog.Error(err, "failed to start up cache")
-			}
-		}()
-
-		if !sync.localCachedClient.clientCache.WaitForCacheSync(ctx) {
-			return fmt.Errorf("failed to start up local cache")
+	go func() {
+		if err := sync.localCachedClient.clientCache.Start(ctx); err != nil {
+			klog.Error(err, "failed to start up cache")
 		}
+	}()
 
-		klog.Info("local config cache started")
-
-		if !sync.remoteCachedClient.clientCache.WaitForCacheSync(ctx) {
-			return fmt.Errorf("failed to start up remote cache")
+	go func() {
+		if err := sync.remoteCachedClient.clientCache.Start(ctx); err != nil {
+			klog.Error(err, "failed to start up cache")
 		}
-	*/
+	}()
+
+	if !sync.localCachedClient.clientCache.WaitForCacheSync(ctx) {
+		return fmt.Errorf("failed to start up local cache")
+	}
+
+	klog.Info("local config cache started")
+
+	if !sync.remoteCachedClient.clientCache.WaitForCacheSync(ctx) {
+		return fmt.Errorf("failed to start up remote cache")
+	}
+
 	klog.Info("remote config cache started")
 
 	return nil

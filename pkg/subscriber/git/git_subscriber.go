@@ -75,7 +75,6 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	klog.V(5).Info("Setting up default github subscriber on ", syncid)
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
-	klog.Info("Synchronizer:", sync)
 	if sync == nil {
 		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
 		if err != nil {

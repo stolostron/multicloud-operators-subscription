@@ -107,7 +107,6 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	// No polling, use cache. Add default one for cluster namespace
 	sync := kubesynchronizer.GetDefaultSynchronizer()
-	klog.Info("Synchronizer:", sync)
 	if sync == nil {
 		if err := kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval); err != nil {
 			klog.Error("failed to initialize synchronizer for default namespace channel with error:", err)
