@@ -93,6 +93,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	if defaultSynchronizer != nil {
 		return nil
 	}
+	klog.Info("Add controlle: sync_server")
 
 	var err error
 	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension)

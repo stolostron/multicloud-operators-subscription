@@ -61,11 +61,11 @@ var syncrhonizerLock sync.RWMutex
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
 	syncrhonizerLock.Lock()
 	defer syncrhonizerLock.Unlock()
-	klog.Info("Add controlle: helmrepo_subscriber ")
 
 	if defaultSubscriber != nil {
 		return nil
 	}
+	klog.Info("Add controlle: helmrepo_subscriber ")
 
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
@@ -73,6 +73,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	klog.V(2).Info("Setting up default helmrepo subscriber on ", syncid)
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
+	klog.Info("Synchronizer:", sync)
 	if sync == nil {
 		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
 		if err != nil {
