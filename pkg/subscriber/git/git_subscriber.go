@@ -156,10 +156,10 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		klog.Info("Webhook event processed")
 
 		return nil
-	} else {
-		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = false
 	}
+
+	klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+	ghssubitem.webhookEnabled = false
 
 	var restart bool = false
 
