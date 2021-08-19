@@ -86,7 +86,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatu
 	}
 
 	// Create new appsubpackagestatus
-	pkgstatus.Name = appSubNs + "." + appSubName + ".status"
+	pkgstatus.Name = appSubName
 	pkgstatus.Namespace = packageStatusNs
 
 	klog.Infof("Creating new appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)

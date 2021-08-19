@@ -59,7 +59,7 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	pkgKey := types.NamespacedName{
-		Name:      appSubNs + "." + appSubName + ".status",
+		Name:      appSubName,
 		Namespace: cluster,
 	}
 	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}

@@ -149,7 +149,7 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 		// no appsubpackagestatus in managed cluster NS - appsubsummary status can be deleted
 		appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 		appNsHubSubSummaryStatusKey := types.NamespacedName{
-			Name:      subName + ".status",
+			Name:      subName,
 			Namespace: subNs,
 		}
 
@@ -217,7 +217,7 @@ func (r *ReconcileAppSubStatus) createOrUpdateAppNsHubSubSummaryStatus(subNs, su
 	deployedClusters, failedClusters, propgationFailedClusters []string) error {
 	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 	appNsHubSubSummaryStatusKey := types.NamespacedName{
-		Name:      subName + ".status",
+		Name:      subName,
 		Namespace: subNs,
 	}
 
@@ -260,7 +260,7 @@ func (r *ReconcileAppSubStatus) newAppNsHubSubSummaryStatus(subNs, subName strin
 	deployedClusters, failedDeployClusters, failedPropagationClusters []string) *appSubStatusV1alpha1.SubscriptionSummaryStatus {
 	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 
-	appNsHubSubSummaryStatus.SetName(subName + ".status")
+	appNsHubSubSummaryStatus.SetName(subName)
 	appNsHubSubSummaryStatus.SetNamespace(subNs)
 
 	r.addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus, subNs, subName, deployedClusters, failedDeployClusters, failedPropagationClusters)

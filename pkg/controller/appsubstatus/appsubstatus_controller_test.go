@@ -37,7 +37,7 @@ var (
 	}
 
 	summarykey = types.NamespacedName{
-		Name:      "test-pkgstatus.status",
+		Name:      "test-pkgstatus",
 		Namespace: "test-pkgstatus-namespace",
 	}
 
