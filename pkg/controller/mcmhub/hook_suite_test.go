@@ -15,10 +15,12 @@
 package mcmhub
 
 import (
+	"context"
+	"log"
 	"testing"
 	"time"
 
-	tlog "github.com/go-logr/logr/testing"
+	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
@@ -31,6 +33,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -90,7 +94,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	defaulRequeueInterval = time.Second * 1
 
-	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(tlog.NullLogger{}),
+	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(logr.DiscardLogger{}),
 		setHubGitOpsInterval(hookRequeueInterval*1),
 		setGetCommitFunc(cFunc),
 		setGetCloneFunc(cloneFunc),
@@ -106,6 +110,34 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClt = k8sManager.GetClient()
 	Expect(k8sClt).ToNot(BeNil())
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "normal-sub"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ansible-reconcile-1"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-0"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-2"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	close(done)
 }, StartTimeout)

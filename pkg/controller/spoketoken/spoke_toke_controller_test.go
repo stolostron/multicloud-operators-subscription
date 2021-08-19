@@ -143,10 +143,11 @@ func TestReconcile(t *testing.T) {
 
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 
@@ -165,6 +166,8 @@ func TestReconcile(t *testing.T) {
 	// Create the source service account token secret and reconcile.
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
+
+	time.Sleep(time.Second * 2)
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
