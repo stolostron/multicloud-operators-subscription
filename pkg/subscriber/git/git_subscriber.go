@@ -17,6 +17,7 @@ package git
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -110,19 +111,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	ghs.itemmap[itemkey] = ghssubitem
 
-	// If the channel has annotation webhookenabled="true", do not poll the repo.
-	// Do subscription only on webhook events.
-	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
-		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = true
-		// Set successful to false so that the subscription keeps trying until all resources are successfully
-		// applied until the next webhook event.
-		ghssubitem.successful = false
-	} else {
-		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = false
-	}
-
 	previousReconcileLevel := ghssubitem.reconcileRate
 
 	previousDesiredCommit := ghssubitem.desiredCommit
@@ -153,6 +141,25 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 	ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
 	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
+
+	// If the channel has annotation webhookenabled="true", do not poll the repo.
+	// Do subscription only on webhook events.
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
+		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = true
+		// Set successful to false so that the subscription keeps trying until all resources are successfully
+		// applied until the next webhook event.
+		ghssubitem.successful = false
+
+		ghssubitem.doSubscriptionWithRetries(time.Hour*3, 10)
+
+		klog.Info("Webhook event processed")
+
+		return nil
+	} else {
+		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = false
+	}
 
 	var restart bool = false
 
