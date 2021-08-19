@@ -111,7 +111,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
 
 			if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
-				klog.Errorf("Error in creating appsubpackagestatus:%v for cluster:%v", pkgstatusName, appsubClusterStatus.Cluster)
+				klog.Errorf("Error in creating appsubpackagestatus:%v for cluster:%v, err:%v", pkgstatusName, appsubClusterStatus.Cluster, err)
 				return err
 			}
 		} else {
