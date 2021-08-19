@@ -17,6 +17,7 @@ package helmrepo
 import (
 	"errors"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -54,8 +55,13 @@ var defaultSubscriber *Subscriber
 
 var helmreposyncsource = "subhelm-"
 
+var syncrhonizerLock sync.RWMutex
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 

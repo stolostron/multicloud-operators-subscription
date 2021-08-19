@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -65,8 +66,13 @@ type WebhookListener struct {
 
 var webhookListener *WebhookListener
 
+var syncrhonizerLock sync.RWMutex
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool, createService bool) error {
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	klog.V(2).Info("Setting up webhook listener ...")
 
 	if !disableTLS {

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"strings"
+	"sync"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -84,9 +85,14 @@ const (
 
 var defaulRequeueInterval = time.Second * 3
 
+var syncrhonizerLock sync.RWMutex
+
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	return add(mgr, newReconciler(mgr))
 }
 

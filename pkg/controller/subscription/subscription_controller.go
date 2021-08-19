@@ -17,6 +17,7 @@ package subscription
 import (
 	"context"
 	"strings"
+	"sync"
 	"time"
 
 	gerr "github.com/pkg/errors"
@@ -52,6 +53,8 @@ const (
 	subscriptionBlock  string = "Blocked"
 )
 
+var syncrhonizerLock sync.RWMutex
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -62,6 +65,9 @@ const (
 // If standalone = true, it will only reconcile standalone subscriptions without hosting subscription from ACM hub.
 // If standalone = false, it will only reconcile subscriptions that are propagated from ACM hub.
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, standalone bool) error {
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to hub cluster with error:", err)

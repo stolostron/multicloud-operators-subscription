@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"sync"
 	"time"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
@@ -44,8 +45,13 @@ const (
 	infrastructureConfigName = "cluster"
 )
 
+var syncrhonizerLock sync.RWMutex
+
 // Add creates a new agent token controller and adds it to the Manager if standalone is false.
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, standalone bool) error {
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	if !standalone {
 		hubclient, err := client.New(hubconfig, client.Options{})
 

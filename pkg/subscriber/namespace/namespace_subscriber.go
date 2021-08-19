@@ -17,6 +17,7 @@ package namespace
 import (
 	"context"
 	"reflect"
+	"sync"
 
 	"github.com/pkg/errors"
 	v1 "k8s.io/api/core/v1"
@@ -91,8 +92,14 @@ const (
 	secretsyncsource     = "subnssec-" // #nosec G101
 )
 
+var syncrhonizerLock sync.RWMutex
+
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+	// lock here to ensure that defaultSynchronizer can only be add once into the mgr
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
 	// No polling, use cache. Add default one for cluster namespace
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
