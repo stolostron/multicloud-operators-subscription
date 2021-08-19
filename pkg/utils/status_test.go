@@ -39,7 +39,8 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	stopMgr, mgrStopped := StartTestManager(mgr, g)
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	c = mgr.GetClient()
 	g.Expect(c).ToNot(gomega.BeNil())
@@ -47,10 +48,10 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 	stop := make(chan struct{})
 	defer close(stop)
 
-	g.Expect(mgr.GetCache().WaitForCacheSync(stop)).Should(gomega.BeTrue())
+	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
 
 	defer func() {
-		close(stopMgr)
+		cancel()
 		mgrStopped.Wait()
 	}()
 

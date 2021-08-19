@@ -96,7 +96,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
-func (r *ReconcileAppSubStatus) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileAppSubStatus) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	instance := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 

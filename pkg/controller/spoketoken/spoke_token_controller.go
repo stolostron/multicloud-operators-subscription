@@ -112,7 +112,7 @@ type Config struct {
 // Reconciles <clusterName>-cluster-secret secret in the managed cluster's namespace
 // on the hub cluster to the klusterlet-addon-appmgr service account's token secret.
 // If it is running on the hub, don't do anything.
-func (r *ReconcileAgentToken) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.Infof("Reconciling %s", request.NamespacedName)
 
 	appmgrsa := &corev1.ServiceAccount{}

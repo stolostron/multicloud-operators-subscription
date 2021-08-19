@@ -79,7 +79,7 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -89,7 +89,7 @@ func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
 
 	// if channel is created/updated/deleted, its subscriptions should be reconciled.
 
-	chn := obj.Meta.GetNamespace() + "/" + obj.Meta.GetName()
+	chn := obj.GetNamespace() + "/" + obj.GetName()
 
 	var requests []reconcile.Request
 
@@ -150,10 +150,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 
 	if standalone {
 		// There is no channel CRD on a managed cluster
+		cmapper := &channelMapper{mgr.GetClient()}
 		err = c.Watch(
 			&source.Kind{Type: &chnv1.Channel{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}},
+			handler.EnqueueRequestsFromMapFunc(cmapper.Map),
 			utils.ChannelPredicateFunctions)
+
 		if err != nil {
 			return err
 		}
@@ -182,7 +184,7 @@ type ReconcileSubscription struct {
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
 	klog.Info("Standalone/Endpoint Reconciling subscription: ", request.NamespacedName)
 	defer klog.Info("Exit Reconciling subscription: ", request.NamespacedName)
 

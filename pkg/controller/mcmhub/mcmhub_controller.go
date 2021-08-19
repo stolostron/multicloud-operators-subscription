@@ -136,7 +136,7 @@ type subscriptionMapper struct {
 	client.Client
 }
 
-func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *subscriptionMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -151,15 +151,15 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 	requests = append(requests,
 		reconcile.Request{
 			NamespacedName: types.NamespacedName{
-				Name:      obj.Meta.GetName(),
-				Namespace: obj.Meta.GetNamespace(),
+				Name:      obj.GetName(),
+				Namespace: obj.GetNamespace(),
 			},
 		},
 	)
 
 	// list thing for rolling update check
 	subList := &appv1.SubscriptionList{}
-	listopts := &client.ListOptions{Namespace: obj.Meta.GetNamespace()}
+	listopts := &client.ListOptions{Namespace: obj.GetNamespace()}
 	err := mapper.List(context.TODO(), subList, listopts)
 
 	if err != nil {
@@ -173,7 +173,7 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 			continue
 		}
 
-		if annotations[appv1.AnnotationRollingUpdateTarget] != obj.Meta.GetName() {
+		if annotations[appv1.AnnotationRollingUpdateTarget] != obj.GetName() {
 			// rolling to another one, skipping
 			continue
 		}
@@ -189,7 +189,7 @@ func (mapper *subscriptionMapper) Map(obj handler.MapObject) []reconcile.Request
 	// end of rolling update check
 
 	// reconcile hosting one, if there is change in cluster, assuming no 2-hop hosting
-	hdplkey := utils.GetHostSubscriptionFromObject(obj.Meta)
+	hdplkey := utils.GetHostSubscriptionFromObject(obj)
 	if hdplkey != nil && hdplkey.Name != "" {
 		requests = append(requests, reconcile.Request{NamespacedName: *hdplkey})
 	}
@@ -203,7 +203,7 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -213,7 +213,7 @@ func (mapper *channelMapper) Map(obj handler.MapObject) []reconcile.Request {
 
 	// if channel is created/updated/deleted, its relative subscriptions should be reconciled.
 
-	chn := obj.Meta.GetNamespace() + "/" + obj.Meta.GetName()
+	chn := obj.GetNamespace() + "/" + obj.GetName()
 
 	var requests []reconcile.Request
 
@@ -245,7 +245,7 @@ type placementRuleMapper struct {
 	client.Client
 }
 
-func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Request {
+func (mapper *placementRuleMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -274,13 +274,13 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 				plRef.Namespace = sub.Namespace
 			}
 
-			if plRef.Name != obj.Meta.GetName() || plRef.Namespace != obj.Meta.GetNamespace() {
+			if plRef.Name != obj.GetName() || plRef.Namespace != obj.GetNamespace() {
 				continue
 			}
 
 			// If there is no cluster in placement decision, no reconcile.
 			placementRule := &plrv1.PlacementRule{}
-			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.Meta.GetName(), Namespace: obj.Meta.GetNamespace()}, placementRule)
+			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, placementRule)
 
 			if err != nil {
 				klog.Error("failed to get placementrule error:", err)
@@ -292,7 +292,7 @@ func (mapper *placementRuleMapper) Map(obj handler.MapObject) []reconcile.Reques
 			}
 
 			// in Reconcile(), removed the below suffix flag when processing the subscription
-			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.Meta.GetResourceVersion(), Namespace: sub.GetNamespace()}
+			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.GetResourceVersion(), Namespace: sub.GetNamespace()}
 
 			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
@@ -312,10 +312,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to primary resource Subscription
+	smapper := &subscriptionMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &appv1.Subscription{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: &subscriptionMapper{mgr.GetClient()}},
+		handler.EnqueueRequestsFromMapFunc(smapper.Map),
 		utils.SubscriptionPredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -325,24 +327,29 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&source.Kind{Type: &dplv1.Deployable{}},
 		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
 		utils.DeployablePredicateFunctions)
+
 	if err != nil {
 		return err
 	}
 
 	// in hub, watch for channel changes
+	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &chnv1.Channel{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: &channelMapper{mgr.GetClient()}},
+		handler.EnqueueRequestsFromMapFunc(cMapper.Map),
 		utils.ChannelPredicateFunctions)
+
 	if err != nil {
 		return err
 	}
 
 	// in hub, watch for placement rule changes
+	prMapper := &placementRuleMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &plrv1.PlacementRule{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: &placementRuleMapper{mgr.GetClient()}},
+		handler.EnqueueRequestsFromMapFunc(prMapper.Map),
 		utils.PlacementRulePredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -463,7 +470,7 @@ func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription
 
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
-func (r *ReconcileSubscription) Reconcile(request reconcile.Request) (result reconcile.Result, returnErr error) {
+func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile.Request) (result reconcile.Result, returnErr error) {
 	logger := r.logger.WithName(request.String())
 	logger.Info(fmt.Sprint("entry MCM Hub Reconciling subscription: ", request.String()))
 
