@@ -114,7 +114,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 	appSubPackageStatus := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
 
 	appSubPackageStatusKey := types.NamespacedName{
-		Name:      hostSub.Name + ".status",
+		Name:      hostSub.Name,
 		Namespace: hostSub.Namespace,
 	}
 

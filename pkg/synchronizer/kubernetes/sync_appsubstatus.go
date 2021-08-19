@@ -79,13 +79,13 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				resource.Name, resource.Namespace, resource.ApiVersion, resource.Kind, resource.Phase, resource.Message)
 
 			uS := &v1alpha1.SubscriptionUnitStatus{
-				Name:      resource.Name,
-				Namespace: appsubClusterStatus.AppSub.Namespace,
-				Phase:     v1alpha1.PackagePhase(resource.Phase),
-				Message:   resource.Message,
-				LastUpdateTime: metaV1.Time{
-					Time: time.Now(),
-				},
+				Name:           resource.Name,
+				ApiVersion:     resource.ApiVersion,
+				Kind:           resource.Kind,
+				Namespace:      appsubClusterStatus.AppSub.Namespace,
+				Phase:          v1alpha1.PackagePhase(resource.Phase),
+				Message:        resource.Message,
+				LastUpdateTime: metaV1.Time{Time: time.Now()},
 			}
 			newUnitStatus = append(newUnitStatus, *uS)
 			// sync.LocalClient: go cached client for managed cluster
