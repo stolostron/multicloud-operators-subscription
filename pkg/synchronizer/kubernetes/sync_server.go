@@ -82,8 +82,18 @@ var (
 
 var defaultSynchronizer *KubeSynchronizer
 
+var syncrhonizerLock sync.RWMutex
+
 // Add creates the default syncrhonizer and add the start function as runnable into manager
 func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, interval int) error {
+	// lock here to ensure that defaultSynchronizer can only be add once into the mgr
+	syncrhonizerLock.Lock()
+	defer syncrhonizerLock.Unlock()
+
+	if defaultSynchronizer != nil {
+		return nil
+	}
+
 	var err error
 	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension)
 
@@ -97,6 +107,9 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 // GetDefaultSynchronizer - return the default kubernetse synchronizer
 func GetDefaultSynchronizer() *KubeSynchronizer {
+	syncrhonizerLock.RLock()
+	defer syncrhonizerLock.RUnlock()
+
 	return defaultSynchronizer
 }
 

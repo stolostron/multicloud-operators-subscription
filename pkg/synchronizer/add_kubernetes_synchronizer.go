@@ -16,9 +16,14 @@ package synchronizer
 
 import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func init() {
 	// AddToManagerFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerFuncs = append(AddToManagerFuncs, kubernetes.Add)
+	AddToManagerFuncs = []func(manager.Manager, *rest.Config, *types.NamespacedName, int) error{
+		kubernetes.Add,
+	}
 }
