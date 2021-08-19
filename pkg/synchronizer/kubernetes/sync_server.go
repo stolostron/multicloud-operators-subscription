@@ -187,8 +187,13 @@ func (sync *KubeSynchronizer) Start(ctx context.Context) error {
 	sync.rediscoverResource()
 	klog.Info("done rediscoverResource")
 
+	time.Sleep(1 * time.Second)
+
 	go sync.processTplChan(ctx.Done())
 	klog.Info("done processTplChan")
+
+	time.Sleep(1 * time.Second)
+	klog.Info("localCachedClient start")
 
 	go func() {
 		if err := sync.localCachedClient.clientCache.Start(ctx); err != nil {
@@ -196,11 +201,17 @@ func (sync *KubeSynchronizer) Start(ctx context.Context) error {
 		}
 	}()
 
+	time.Sleep(1 * time.Second)
+	klog.Info("remoteCachedClient start")
+
 	go func() {
 		if err := sync.remoteCachedClient.clientCache.Start(ctx); err != nil {
 			klog.Error(err, "failed to start up cache")
 		}
 	}()
+
+	time.Sleep(1 * time.Second)
+	klog.Info("before local config cache started")
 
 	if !sync.localCachedClient.clientCache.WaitForCacheSync(ctx) {
 		return fmt.Errorf("failed to start up local cache")
