@@ -112,7 +112,20 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
 
 			if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
-				klog.Errorf("Error in creating appsubpackagestatus:%v for cluster:%v, err:%v", pkgstatusName, appsubClusterStatus.Cluster, err)
+				klog.Errorf("Error in creating appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
+				return err
+			}
+
+			// Sync to hub
+			klog.Infof("Sync appSubPackageStatus:%v/%v to hub", pkgstatus.Namespace, pkgstatus.Name)
+			hubPkgstatus := pkgstatus.DeepCopy()
+			hubPkgstatus.Namespace = appsubClusterStatus.Cluster
+
+			if err := sync.RemoteClient.Get(context.TODO(),
+				client.ObjectKey{Name: hubPkgstatus.Name,
+					Namespace: hubPkgstatus.Namespace}, hubPkgstatus); err != nil {
+
+				klog.Errorf("Error in propagating to hub appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.Cluster, pkgstatusName, err)
 				return err
 			}
 		} else {
@@ -160,9 +173,27 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				}
 			}
 
+			// TODO: If all packages are remove - delete appsubpackagestatus
+
 			pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
 			if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
-				klog.Errorf("Error in updating appsubpackagestatus:%v for cluster:%v, err:%v", pkgstatusName, appsubClusterStatus.Cluster, err)
+				klog.Errorf("Error in updating appsubpackagestatus:%v/%v for cluster:%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
+				return err
+			}
+
+			// Update appsubpackagestatus from hub
+			hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
+			if err := sync.LocalClient.Get(context.TODO(),
+				client.ObjectKey{Name: pkgstatusName,
+					Namespace: appsubClusterStatus.Cluster}, hubPkgStatus); err != nil {
+
+				return err
+			}
+
+			// TODO: If apppackagestatus not found in hub, create it
+			hubPkgStatus.Statuses.SubscriptionPackageStatus = newUnitStatus
+			if err := sync.RemoteClient.Update(context.TODO(), hubPkgStatus); err != nil {
+				klog.Errorf("Error in updating on hub appsubpackagestatus:%v for cluster:%v, err:%v", hubPkgStatus.Namespace, hubPkgStatus.Name, err)
 				return err
 			}
 		}
@@ -191,7 +222,23 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 		if len(failedUnitStatuses) == 0 {
 			if foundPkgStatus {
 				if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
-					klog.Errorf("Error delete package status:%v/%v from managed cluster:%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, appsubClusterStatus.Cluster, err)
+					klog.Errorf("Error delete from managed cluster appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
+					return err
+				}
+
+				// Delete appsubpackagestatus from hub
+				hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
+				if err := sync.LocalClient.Get(context.TODO(),
+					client.ObjectKey{Name: pkgstatusName,
+						Namespace: appsubClusterStatus.Cluster}, hubPkgStatus); err != nil {
+
+					// TODO: Ignore if it's not found
+
+					return err
+				}
+
+				if err := sync.RemoteClient.Delete(context.TODO(), hubPkgStatus); err != nil {
+					klog.Errorf("Error delete from hub package appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
 					return err
 				}
 			}
@@ -207,23 +254,24 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 					klog.Errorf("Error in updating appsubpackagestatus:%v for cluster:%v, err:%v", pkgstatusName, appsubClusterStatus.Cluster, err)
 					return err
 				}
+
+				// Update appsubpackagestatus from hub
+				hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
+				if err := sync.LocalClient.Get(context.TODO(),
+					client.ObjectKey{Name: pkgstatusName,
+						Namespace: appsubClusterStatus.Cluster}, hubPkgStatus); err != nil {
+
+					return err
+				}
+
+				// TODO: If apppackagestatus not found in hub, create it
+				hubPkgStatus.Statuses.SubscriptionPackageStatus = failedUnitStatuses
+				if err := sync.RemoteClient.Update(context.TODO(), hubPkgStatus); err != nil {
+					klog.Errorf("Error in updating on hub appsubpackagestatus:%v for cluster:%v, err:%v", hubPkgStatus.Namespace, hubPkgStatus.Name, err)
+					return err
+				}
 			}
 		}
-	}
-
-	// TODO: Sync to hub
-
-	return nil
-}
-
-func SyncAppsubClusterStatusToHub(remoteClient client.Client, appsubPackageStatus v1alpha1.SubscriptionPackageStatus, action string) error {
-	klog.Infof("Sync appSubPackageStatus:%v/%v to hub with action:%v", appsubPackageStatus.Namespace, appsubPackageStatus.Name, action)
-
-	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
-	if err := remoteClient.Get(context.TODO(),
-		client.ObjectKey{Name: appsubPackageStatus.Name,
-			Namespace: appsubPackageStatus.Namespace}, pkgstatus); err != nil {
-
 	}
 
 	return nil
