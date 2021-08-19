@@ -60,20 +60,20 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 	pkgstatusName := appsubClusterStatus.AppSub.Name
 	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
 
-	foundPkgStatus := false
+	foundPkgStatus := true
 	if err := sync.LocalClient.Get(context.TODO(),
 		client.ObjectKey{Name: pkgstatusName,
 			Namespace: appsubClusterStatus.AppSub.Namespace}, pkgstatus); err != nil {
 
 		if errors.IsNotFound(err) {
-			foundPkgStatus = true
+			foundPkgStatus = false
 		} else {
 			return err
 		}
 	}
 
 	if appsubClusterStatus.Action == "APPLY" {
-		newUnitStatus := make([]v1alpha1.SubscriptionUnitStatus, len(appsubClusterStatus.SubscriptionPackageStatus))
+		newUnitStatus := []v1alpha1.SubscriptionUnitStatus{}
 		for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
 			klog.V(1).Infof("resource status - Name: %v, Namespace: %v, Apiversion: %v, Kind: %v, Phase: %v, Message: %v\n",
 				resource.Name, resource.Namespace, resource.ApiVersion, resource.Kind, resource.Phase, resource.Message)
@@ -94,8 +94,9 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			// appsubClusterStatus.AppSub: appsub namespaced name
 
 		}
+		klog.Infof("Subscription unit statuses:%v", newUnitStatus)
 
-		if foundPkgStatus {
+		if !foundPkgStatus {
 			// Create new appsubpackagestatus
 			pkgstatus.Name = pkgstatusName
 			pkgstatus.Namespace = appsubClusterStatus.AppSub.Namespace
