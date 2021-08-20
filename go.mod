@@ -46,5 +46,5 @@ replace (
 	github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
 	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.5.0
 	k8s.io/client-go => k8s.io/client-go v0.21.1
-
+	sigs.k8s.io/controller-runtime  => github.com/philipwu08/controller-runtime v0.9.9
 )
