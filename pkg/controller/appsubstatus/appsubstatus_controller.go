@@ -129,7 +129,7 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 
 	managedSubStatusLabels, err := subutils.ConvertLabels(managedSubStatusSelector)
 	if err != nil {
-		klog.Error("Failed to convert managed appsubstatus label selector, err:", err)
+		klog.Errorf("Failed to convert managed appsubstatus label selector, err:%v", err)
 
 		return err
 	}
@@ -138,7 +138,7 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 	err = r.List(context.TODO(), managedSubPackageStatusList, listopts)
 
 	if err != nil {
-		klog.Error("Failed to list managed appsubpackagestatus, err:", err)
+		klog.Errorf("Failed to list managed appsubpackagestatus, err:%v", err)
 
 		return err
 	}
