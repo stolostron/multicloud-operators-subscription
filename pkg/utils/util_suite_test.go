@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"log"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -24,6 +25,8 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,6 +52,26 @@ func TestMain(m *testing.M) {
 	var err error
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(fmt.Errorf("got error while start up the envtest, err: %v", err))
+	}
+
+	var c client.Client
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "local-cluster"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "appsub-ns"},
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	code := m.Run()
