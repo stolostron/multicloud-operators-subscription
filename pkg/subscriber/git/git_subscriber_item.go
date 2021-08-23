@@ -745,6 +745,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		return "", err
 	}
 
+	primaryChannelConnectionConfig.RepoURL = ghsi.Channel.Spec.Pathname
 	cloneOptions.PrimaryConnectionOption = primaryChannelConnectionConfig
 
 	// Get the secondary channel connection options
@@ -764,6 +765,8 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 }
 
 func getChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigMap) (connCfg *utils.ChannelConnectionCfg, err error) {
+	connCfg = &utils.ChannelConnectionCfg{}
+
 	if secret != nil {
 		user, token, sshKey, passphrase, err := utils.ParseChannelSecret(secret)
 

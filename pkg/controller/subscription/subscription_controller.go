@@ -383,7 +383,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.SecondaryChannel.Spec.SecretRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.SecretRef != nil {
 		subitem.SecondaryChannelSecret = &corev1.Secret{}
 		scndChnSecKey := types.NamespacedName{
 			Name:      subitem.SecondaryChannel.Spec.SecretRef.Name,
@@ -395,7 +395,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.Channel.Spec.ConfigMapRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.Channel.Spec.ConfigMapRef != nil {
 		subitem.ChannelConfigMap = &corev1.ConfigMap{}
 		chncfgkey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.ConfigMapRef.Name,
@@ -407,7 +407,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
 		subitem.SecondaryChannelConfigMap = &corev1.ConfigMap{}
 		scndChnCfgKey := types.NamespacedName{
 			Name:      subitem.SecondaryChannel.Spec.ConfigMapRef.Name,
@@ -429,7 +429,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.SecondaryChannel.Spec.SecretRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.SecretRef != nil {
 		obj := subitem.SecondaryChannelSecret
 
 		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
@@ -449,7 +449,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
 		obj := subitem.SecondaryChannelConfigMap
 		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
