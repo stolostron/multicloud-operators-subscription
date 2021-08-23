@@ -72,6 +72,17 @@ type Source struct {
 	HelmRepo   *HelmRepo      `json:"helmRepo,omitempty"`
 }
 
+//AltSource holds the alternative source
+type AltSource struct {
+	SourceType         SourceTypeEnum          `json:"type,omitempty"`
+	GitHub             *GitHub                 `json:"github,omitempty"`
+	Git                *Git                    `json:"git,omitempty"`
+	HelmRepo           *HelmRepo               `json:"helmRepo,omitempty"`
+	SecretRef          *corev1.ObjectReference `json:"secretRef,omitempty"`
+	ConfigMapRef       *corev1.ObjectReference `json:"configMapRef,omitempty"`
+	InsecureSkipVerify bool                    `json:"insecureSkipVerify,omitempty"`
+}
+
 func (s Source) String() string {
 	switch strings.ToLower(string(s.SourceType)) {
 	case string(HelmRepoSourceType):
@@ -85,6 +96,50 @@ func (s Source) String() string {
 	}
 }
 
+func (s AltSource) String() string {
+	switch strings.ToLower(string(s.SourceType)) {
+	case string(HelmRepoSourceType):
+		return fmt.Sprintf("%v", s.HelmRepo.Urls)
+	case string(GitHubSourceType):
+		return fmt.Sprintf("%v|%s|%s", s.GitHub.Urls, s.GitHub.Branch, s.GitHub.ChartPath)
+	case string(GitSourceType):
+		return fmt.Sprintf("%v|%s|%s", s.Git.Urls, s.Git.Branch, s.Git.ChartPath)
+	default:
+		return fmt.Sprintf("SourceType %s not supported", s.SourceType)
+	}
+}
+
+func (repo HelmReleaseRepo) Clone() HelmReleaseRepo {
+	return HelmReleaseRepo{
+		ChartName:          repo.ChartName,
+		Version:            repo.Version,
+		Digest:             repo.Digest,
+		AltSource:          repo.AltSource,
+		SecretRef:          repo.SecretRef,
+		ConfigMapRef:       repo.ConfigMapRef,
+		InsecureSkipVerify: repo.InsecureSkipVerify,
+		Source:             repo.Source,
+	}
+}
+
+func (repo HelmReleaseRepo) AltSourceToSource() HelmReleaseRepo {
+	return HelmReleaseRepo{
+		ChartName:          repo.ChartName,
+		Version:            repo.Version,
+		Digest:             repo.Digest,
+		AltSource:          repo.AltSource,
+		SecretRef:          repo.AltSource.SecretRef,
+		ConfigMapRef:       repo.AltSource.ConfigMapRef,
+		InsecureSkipVerify: repo.AltSource.InsecureSkipVerify,
+		Source: &Source{
+			SourceType: repo.AltSource.SourceType,
+			GitHub:     repo.AltSource.GitHub,
+			Git:        repo.AltSource.Git,
+			HelmRepo:   repo.AltSource.HelmRepo,
+		},
+	}
+}
+
 // HelmReleaseRepo defines the repository of HelmRelease
 // +k8s:openapi-gen=true
 type HelmReleaseRepo struct {
@@ -93,6 +148,8 @@ type HelmReleaseRepo struct {
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	// Source holds the url toward the helm-chart
 	Source *Source `json:"source,omitempty"`
+	// AltSource holds the url toward the helm-chart
+	AltSource *AltSource `json:"altSource,omitempty"`
 	// ChartName is the name of the chart within the repo
 	ChartName string `json:"chartName,omitempty"`
 	// Version is the chart version
