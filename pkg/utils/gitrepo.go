@@ -78,18 +78,23 @@ type KubeResource struct {
 }
 
 type GitCloneOption struct {
+	CommitHash                string
+	RevisionTag               string
+	Branch                    plumbing.ReferenceName
+	DestDir                   string
+	CloneDepth                int
+	PrimaryConnectionOption   *ChannelConnectionCfg
+	SecondaryConnectionOption *ChannelConnectionCfg
+}
+
+type ChannelConnectionCfg struct {
 	RepoURL            string
-	CommitHash         string
-	RevisionTag        string
-	Branch             plumbing.ReferenceName
 	User               string
 	Password           string
 	SSHKey             []byte
 	Passphrase         []byte
-	DestDir            string
 	InsecureSkipVerify bool
 	CaCerts            string
-	CloneDepth         int
 }
 
 // ParseKubeResoures parses a YAML content and returns kube resources in byte array from the file
@@ -153,13 +158,47 @@ func getCertChain(certs string) tls.Certificate {
 	return certChain
 }
 
-// CloneGitRepo clones a GitHub repository
-func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
+func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectionOptions *git.CloneOptions, err error) {
+	channelConnOptions := cloneOptions.PrimaryConnectionOption
+
+	if !primary {
+		channelConnOptions = cloneOptions.SecondaryConnectionOption
+	}
+
 	options := &git.CloneOptions{
-		URL:               cloneOptions.RepoURL,
+		URL:               channelConnOptions.RepoURL,
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		ReferenceName:     cloneOptions.Branch,
+	}
+
+	if strings.HasPrefix(options.URL, "http") {
+		klog.Info("Connecting to Git server via HTTP")
+
+		err := getHTTPOptions(options, channelConnOptions.User, channelConnOptions.Password, channelConnOptions.CaCerts, channelConnOptions.InsecureSkipVerify)
+
+		if err != nil {
+			klog.Error(err, "failed to prepare HTTP clone options")
+			return nil, err
+		}
+	} else {
+		klog.Info("Connecting to Git server via SSH")
+
+		knownhostsfile := filepath.Join(cloneOptions.DestDir, "known_hosts")
+
+		if !channelConnOptions.InsecureSkipVerify {
+			err := getKnownHostFromURL(channelConnOptions.RepoURL, knownhostsfile)
+
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		err = getSSHOptions(options, channelConnOptions.SSHKey, channelConnOptions.Passphrase, knownhostsfile, channelConnOptions.InsecureSkipVerify)
+		if err != nil {
+			klog.Error(err, " failed to prepare SSH clone options")
+			return nil, err
+		}
 	}
 
 	options.Depth = 1
@@ -173,7 +212,6 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			options.Depth = 20
 		}
 	}
-
 	err = os.RemoveAll(cloneOptions.DestDir)
 	if err != nil {
 		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
@@ -181,52 +219,68 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	if strings.HasPrefix(cloneOptions.RepoURL, "http") {
-		klog.Info("Connecting to Git server via HTTP")
+	return options, nil
+}
 
-		err := getHTTPOptions(options, cloneOptions.User, cloneOptions.Password, cloneOptions.CaCerts, cloneOptions.InsecureSkipVerify)
+// CloneGitRepo clones a GitHub repository
+func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
+	usingPrimary := true
+
+	options, err := getConnectionOptions(cloneOptions, true)
+
+	if err != nil {
+		klog.Error("Failed to get Git clone options with the primary channel. Trying the secondary channel.")
+
+		options, err = getConnectionOptions(cloneOptions, false)
 
 		if err != nil {
-			klog.Error(err, "failed to prepare HTTP clone options")
-			return "", err
-		}
-	} else {
-		klog.Info("Connecting to Git server via SSH")
+			klog.Error("Failed to get Git clone options with the secondary channel.")
 
-		knownhostsfile := filepath.Join(cloneOptions.DestDir, "known_hosts")
+			usingPrimary = false
 
-		if !cloneOptions.InsecureSkipVerify {
-			err := getKnownHostFromURL(cloneOptions.RepoURL, knownhostsfile)
-
-			if err != nil {
-				return "", err
-			}
-		}
-
-		err = getSSHOptions(options, cloneOptions.SSHKey, cloneOptions.Passphrase, knownhostsfile, cloneOptions.InsecureSkipVerify)
-		if err != nil {
-			klog.Error(err, " failed to prepare SSH clone options")
 			return "", err
 		}
 	}
 
-	klog.Info("Cloning ", cloneOptions.RepoURL, " into ", cloneOptions.DestDir)
+	klog.Info("Cloning ", options.URL, " into ", cloneOptions.DestDir)
 
 	klog.Info("cloneOptions.DestDir = " + cloneOptions.DestDir)
 	klog.Info("cloneOptions.Branch = " + cloneOptions.Branch)
 	klog.Info("cloneOptions.CommitHash = " + cloneOptions.CommitHash)
 	klog.Info("cloneOptions.RevisionTag = " + cloneOptions.RevisionTag)
-	klog.Info("cloneOptions.RepoURL = " + cloneOptions.RepoURL)
 	klog.Infof("cloneOptions.CloneDepth = %d", cloneOptions.CloneDepth)
 
 	repo, err := git.PlainClone(cloneOptions.DestDir, false, options)
 
 	if err != nil {
-		klog.Error(err, " Failed to git clone: ", err.Error())
-		return "", errors.New("Failed to clone git: " + cloneOptions.RepoURL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+		if usingPrimary {
+			klog.Error(err, " Failed to git clone with the primary channel: ", err.Error())
+
+			// Get clone options with the secondary channel
+			options, err = getConnectionOptions(cloneOptions, false)
+
+			if err != nil {
+				klog.Error("Failed to get Git clone options with the secondary channel.")
+
+				return "", errors.New("Failed to get Git clone options with the secondary channel: " + " err: " + err.Error())
+			}
+
+			klog.Info("Trying to clone with the secondary channel")
+			klog.Info("Cloning ", options.URL, " into ", cloneOptions.DestDir)
+
+			repo, err = git.PlainClone(cloneOptions.DestDir, false, options)
+
+			if err != nil {
+				klog.Error("Failed to clone Git with the secondary channel. err:" + err.Error())
+
+				return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+			}
+		} else {
+			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+		}
 	}
 
 	ref, err := repo.Head()
@@ -512,6 +566,31 @@ func GetSubscriptionBranchRef(b string) plumbing.ReferenceName {
 	return branch
 }
 
+func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigMap) (connCfg *ChannelConnectionCfg, err error) {
+	connCfg = &ChannelConnectionCfg{}
+
+	if secret != nil {
+		user, token, sshKey, passphrase, err := ParseChannelSecret(secret)
+
+		if err != nil {
+			return nil, err
+		}
+
+		connCfg.User = user
+		connCfg.Password = token
+		connCfg.SSHKey = sshKey
+		connCfg.Passphrase = passphrase
+	}
+
+	if configmap != nil {
+		caCert := configmap.Data[appv1.ChannelCertificateData]
+
+		connCfg.CaCerts = caCert
+	}
+
+	return connCfg, nil
+}
+
 // GetChannelSecret returns username and password for channel
 func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, []byte, []byte, error) {
 	username := ""
@@ -597,7 +676,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 }
 
 // GetLocalGitFolder returns the local Git repo clone directory
-func GetLocalGitFolder(chn *chnv1.Channel, sub *appv1.Subscription) string {
+func GetLocalGitFolder(sub *appv1.Subscription) string {
 	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
 }
 

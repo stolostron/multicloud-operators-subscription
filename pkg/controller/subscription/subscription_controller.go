@@ -356,6 +356,21 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
+	if instance.Spec.SecondaryChannel != "" {
+		subitem.SecondaryChannel = &chnv1.Channel{}
+		scndChnkey := utils.NamespacedNameFormat(instance.Spec.SecondaryChannel)
+		err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
+
+		if err != nil {
+			time.Sleep(1 * time.Second)
+
+			err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
+			if err != nil {
+				return gerr.Wrapf(err, "failed to get the secondary channel of subscription %v", instance)
+			}
+		}
+	}
+
 	if subitem.Channel.Spec.SecretRef != nil {
 		subitem.ChannelSecret = &corev1.Secret{}
 		chnseckey := types.NamespacedName{
@@ -365,6 +380,18 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 		if err := r.hubclient.Get(context.TODO(), chnseckey, subitem.ChannelSecret); err != nil {
 			return gerr.Wrap(err, "failed to get reference secret from channel")
+		}
+	}
+
+	if subitem.SecondaryChannel.Spec.SecretRef != nil {
+		subitem.SecondaryChannelSecret = &corev1.Secret{}
+		scndChnSecKey := types.NamespacedName{
+			Name:      subitem.SecondaryChannel.Spec.SecretRef.Name,
+			Namespace: subitem.SecondaryChannel.Namespace,
+		}
+
+		if err := r.hubclient.Get(context.TODO(), scndChnSecKey, subitem.SecondaryChannelSecret); err != nil {
+			return gerr.Wrap(err, "failed to get reference secret from the secondary channel")
 		}
 	}
 
@@ -380,6 +407,18 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
+	if subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+		subitem.SecondaryChannelConfigMap = &corev1.ConfigMap{}
+		scndChnCfgKey := types.NamespacedName{
+			Name:      subitem.SecondaryChannel.Spec.ConfigMapRef.Name,
+			Namespace: subitem.SecondaryChannel.Namespace,
+		}
+
+		if err := r.hubclient.Get(context.TODO(), scndChnCfgKey, subitem.SecondaryChannelConfigMap); err != nil {
+			return gerr.Wrap(err, "failed to get reference configmap from the secondary channel")
+		}
+	}
+
 	if subitem.Channel.Spec.SecretRef != nil {
 		obj := subitem.ChannelSecret
 
@@ -390,8 +429,28 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
+	if subitem.SecondaryChannel.Spec.SecretRef != nil {
+		obj := subitem.SecondaryChannelSecret
+
+		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+
+		if err := r.ListAndDeployReferredObject(instance, gvk, obj); err != nil {
+			return gerr.Wrapf(err, "Can't deploy reference secret %v for subscription %v", subitem.SecondaryChannelSecret.GetName(), instance.GetName())
+		}
+	}
+
 	if subitem.Channel.Spec.ConfigMapRef != nil {
 		obj := subitem.ChannelConfigMap
+		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+		err = r.ListAndDeployReferredObject(instance, gvk, obj)
+
+		if err != nil {
+			return gerr.Wrapf(err, "can't deploy reference configmap %v for subscription %v", obj.GetName(), instance.GetName())
+		}
+	}
+
+	if subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+		obj := subitem.SecondaryChannelConfigMap
 		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 

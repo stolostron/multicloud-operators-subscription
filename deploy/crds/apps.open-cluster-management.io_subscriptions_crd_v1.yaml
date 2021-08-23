@@ -49,6 +49,8 @@ spec:
             properties:
               channel:
                 type: string
+              secondaryChannel:
+                type: string
               hooksecretref:
                 description: 'ObjectReference contains enough information to let you
                   inspect or modify the referred object. --- New uses of this type

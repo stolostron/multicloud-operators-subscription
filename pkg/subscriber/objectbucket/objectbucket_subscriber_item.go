@@ -135,18 +135,20 @@ func (obsi *SubscriberItem) CompareOjbectStoreStatus(initObjectStoreErr error) b
 	return false
 }
 
-func (obsi *SubscriberItem) initObjectStore() error {
-	var err error
+func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyID, secretAccessKey, region string, err error) {
+	channel := obsi.Channel
 
-	awshandler := &awsutils.Handler{}
+	if !primary {
+		channel = obsi.SecondaryChannel
+	}
 
-	pathName := obsi.Channel.Spec.Pathname
+	pathName := channel.Spec.Pathname
 
 	if pathName == "" {
-		errmsg := "Empty Pathname in channel " + obsi.Channel.Name
+		errmsg := "Empty Pathname in channel " + channel.Name
 		klog.Error(errmsg)
 
-		return errors.New(errmsg)
+		return "", "", "", "", errors.New(errmsg)
 	}
 
 	if strings.HasSuffix(pathName, "/") {
@@ -155,55 +157,87 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	}
 
 	loc := strings.LastIndex(pathName, "/")
-	endpoint := pathName[:loc]
+	endpoint = pathName[:loc]
 	obsi.bucket = pathName[loc+1:]
+	secret := obsi.ChannelSecret
 
-	accessKeyID := ""
-	secretAccessKey := ""
-	region := ""
+	if !primary {
+		secret = obsi.SecondaryChannelSecret
+	}
 
-	if obsi.ChannelSecret != nil {
-		err = yaml.Unmarshal(obsi.ChannelSecret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
+	if secret != nil {
+		err = yaml.Unmarshal(secret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
 		if err != nil {
 			klog.Error("Failed to unmashall accessKey from secret with error:", err)
 
-			return err
+			return "", "", "", "", err
 		}
 
-		err = yaml.Unmarshal(obsi.ChannelSecret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
+		err = yaml.Unmarshal(secret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
 		if err != nil {
 			klog.Error("Failed to unmashall secretaccessKey from secret with error:", err)
 
-			return err
+			return "", "", "", "", err
 		}
 
-		regionData := obsi.ChannelSecret.Data[awsutils.SecretMapKeyRegion]
+		regionData := secret.Data[awsutils.SecretMapKeyRegion]
 
 		if len(regionData) > 0 {
 			err = yaml.Unmarshal(regionData, &region)
 			if err != nil {
 				klog.Error("Failed to unmashall region from secret with error:", err)
 
-				return err
+				return "", "", "", "", err
 			}
 		}
+	}
+
+	return endpoint, accessKeyID, secretAccessKey, region, nil
+}
+
+func (obsi *SubscriberItem) getAwsHandler(primary bool) error {
+	awshandler := &awsutils.Handler{}
+
+	endpoint, accessKeyID, secretAccessKey, region, err := obsi.getChannelConfig(primary)
+
+	if err != nil {
+		return err
 	}
 
 	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
 
 	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
 		klog.Error(err, "unable initialize object store settings")
-
 		return err
 	}
 	// Check whether the connection is setup successfully
 	if err := awshandler.Exists(obsi.bucket); err != nil {
 		klog.Error(err, "Unable to access object store bucket ", obsi.bucket, " for channel ", obsi.Channel.Name)
-
 		return err
 	}
-
 	obsi.objectStore = awshandler
+	return nil
+}
+
+func (obsi *SubscriberItem) initObjectStore() error {
+	// Get AWS handler with the primary channel first
+	err := obsi.getAwsHandler(true)
+
+	if err != nil {
+		if obsi.SecondaryChannel == nil {
+			return err
+		} else {
+			klog.Warning("failed to connect with the primary channel, err: " + err.Error())
+			klog.Info("trying with the secondary channel")
+
+			err2 := obsi.getAwsHandler(false)
+
+			if err2 != nil {
+				klog.Error("failed to connect with the primary channel, err: " + err2.Error())
+				return err2
+			}
+		}
+	}
 
 	return nil
 }
