@@ -162,18 +162,36 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	// handles the download of the chart as well
 	helmOperatorManagerFactory, err := r.newHelmOperatorManagerFactory(instance)
 	if err != nil {
-		klog.Error("Failed to create new HelmOperatorManagerFactory: ",
-			helmreleaseNsn(instance), " ", err)
+		altSourcePassed := false
 
-		instance.Status.SetCondition(appv1.HelmAppCondition{
-			Type:    appv1.ConditionIrreconcilable,
-			Status:  appv1.StatusTrue,
-			Reason:  appv1.ReasonReconcileError,
-			Message: err.Error(),
-		})
-		_ = r.updateResourceStatus(instance)
+		if instance.Repo.AltSource != nil {
+			klog.Warning("Attempting AltSource to create new HelmOperatorManagerFactory because Source failed: ",
+				helmreleaseNsn(instance), " ", err)
 
-		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+			repoClone := instance.Repo.Clone()
+			instance.Repo = instance.Repo.AltSourceToSource()
+
+			helmOperatorManagerFactory, err = r.newHelmOperatorManagerFactory(instance)
+			if err == nil {
+				altSourcePassed = true
+				instance.Repo = repoClone
+			}
+		}
+
+		if !altSourcePassed {
+			klog.Error("Failed to create new HelmOperatorManagerFactory: ",
+				helmreleaseNsn(instance), " ", err)
+
+			instance.Status.SetCondition(appv1.HelmAppCondition{
+				Type:    appv1.ConditionIrreconcilable,
+				Status:  appv1.StatusTrue,
+				Reason:  appv1.ReasonReconcileError,
+				Message: err.Error(),
+			})
+			_ = r.updateResourceStatus(instance)
+
+			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+		}
 	}
 
 	manager, err := r.newHelmOperatorManager(instance, request, helmOperatorManagerFactory)
