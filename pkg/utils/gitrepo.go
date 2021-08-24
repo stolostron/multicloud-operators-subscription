@@ -212,12 +212,15 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 			options.Depth = 20
 		}
 	}
+
 	err = os.RemoveAll(cloneOptions.DestDir)
+
 	if err != nil {
 		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
 	}
 
 	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
+
 	if err != nil {
 		return nil, err
 	}

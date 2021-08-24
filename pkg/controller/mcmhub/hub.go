@@ -72,11 +72,12 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	if (primaryChannel != nil && secondaryChannel != nil) &&
 		(primaryChannel.Spec.Type != secondaryChannel.Spec.Type) {
-		klog.Errorf("The type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+		klog.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
 			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
 
-		newError := fmt.Errorf("The type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+		newError := fmt.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
 			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
+
 		return newError
 	}
 
@@ -102,9 +103,15 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, primaryChannel.Spec.InsecureSkipVerify)
+		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
 	case chnv1alpha1.ChannelTypeObjectBucket:
 		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, primaryChannel, objectBucketParent)
+
+		if err != nil && secondaryChannel != nil {
+			klog.Infof("Trying the secondary channel: %s/%s", secondaryChannel.GetNamespace(), secondaryChannel.GetName())
+
+			updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, secondaryChannel, objectBucketParent)
+		}
 	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub, deployableParent)
 	}
@@ -470,18 +477,18 @@ func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err1 := fmt.Errorf("Primary channel %s not found for subscription %s/%s", s.Spec.Channel, s.GetNamespace(), s.GetName())
-			err = err1
+			klog.Errorf("primary channel %s not found for subscription %s/%s", s.Spec.Channel, s.GetNamespace(), s.GetName())
+
+			return nil, nil, err
 		}
 	}
 
 	secondaryChannel, err := parseGetChannel(clt, s.Spec.SecondaryChannel)
 
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			err1 := fmt.Errorf("Seconday channel %s not found for subscription %s/%s", s.Spec.SecondaryChannel, s.GetNamespace(), s.GetName())
-			err = err1
-		}
+		klog.Errorf("secondary channel %s not found for subscription %s/%s", s.Spec.SecondaryChannel, s.GetNamespace(), s.GetName())
+
+		return nil, nil, err
 	}
 
 	return primaryChannel, secondaryChannel, err

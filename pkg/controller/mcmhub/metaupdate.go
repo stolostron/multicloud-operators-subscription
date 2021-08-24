@@ -48,6 +48,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 
@@ -118,13 +119,13 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) (bool, error) {
+func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) (bool, error) {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
 	}
 
-	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, sub, insecureSkipVeriy)
+	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
 	if err != nil {
 		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false, err

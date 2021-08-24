@@ -700,7 +700,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRDeployable(
-			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.Subscription)
+			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)

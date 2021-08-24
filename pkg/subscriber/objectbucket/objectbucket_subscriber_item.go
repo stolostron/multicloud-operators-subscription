@@ -215,7 +215,9 @@ func (obsi *SubscriberItem) getAwsHandler(primary bool) error {
 		klog.Error(err, "Unable to access object store bucket ", obsi.bucket, " for channel ", obsi.Channel.Name)
 		return err
 	}
+
 	obsi.objectStore = awshandler
+
 	return nil
 }
 
@@ -226,16 +228,16 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	if err != nil {
 		if obsi.SecondaryChannel == nil {
 			return err
-		} else {
-			klog.Warning("failed to connect with the primary channel, err: " + err.Error())
-			klog.Info("trying with the secondary channel")
+		}
 
-			err2 := obsi.getAwsHandler(false)
+		klog.Warning("failed to connect with the primary channel, err: " + err.Error())
+		klog.Info("trying with the secondary channel")
 
-			if err2 != nil {
-				klog.Error("failed to connect with the primary channel, err: " + err2.Error())
-				return err2
-			}
+		err2 := obsi.getAwsHandler(false)
+
+		if err2 != nil {
+			klog.Error("failed to connect with the secondary channel, err: " + err2.Error())
+			return err2
 		}
 	}
 
