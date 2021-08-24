@@ -112,9 +112,21 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 
 	appSubPackageStatus := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
 
+	pkgstatusName := hostSub.Name
+	packagestatusNs := hostSub.Namespace
+
+	// Handle appsubpackagestatus on local-cluster
+	if sync.SynchronizerID.Name == "local-cluster" {
+		if strings.HasSuffix(pkgstatusName, "-local") {
+			pkgstatusName = pkgstatusName[:len(pkgstatusName)-6]
+		}
+
+		packagestatusNs = sync.SynchronizerID.Name
+	}
+
 	appSubPackageStatusKey := types.NamespacedName{
-		Name:      hostSub.Name,
-		Namespace: hostSub.Namespace,
+		Name:      hostSub.Namespace + "." + pkgstatusName,
+		Namespace: packagestatusNs,
 	}
 
 	if err := sync.LocalClient.Get(context.TODO(), appSubPackageStatusKey, appSubPackageStatus); err != nil {

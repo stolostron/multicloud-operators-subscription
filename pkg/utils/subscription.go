@@ -83,19 +83,21 @@ func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 
 var AppSubPackageStatusPredicateFunc = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		klog.Infof("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
+		klog.Info("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
+		var hostingAppSubLabel string
 		_, oldOK := e.ObjectOld.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		_, newOK := e.ObjectNew.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !oldOK && !newOK {
+		hostingAppSubLabel, newOK := e.ObjectNew.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
+		if !oldOK || !newOK || hostingAppSubLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
 				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
 			return false
 		}
 
+		var clusterLabel string
 		_, oldOK = e.ObjectOld.GetLabels()["apps.open-cluster-management.io/cluster"]
-		_, newOK = e.ObjectNew.GetLabels()["apps.open-cluster-management.io/cluster"]
+		clusterLabel, newOK = e.ObjectNew.GetLabels()["apps.open-cluster-management.io/cluster"]
 
-		if !oldOK && !newOK {
+		if !oldOK || !newOK || clusterLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
 				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
 			return false
@@ -116,15 +118,19 @@ var AppSubPackageStatusPredicateFunc = predicate.Funcs{
 		return !reflect.DeepEqual(oldAppSubStatus.Statuses.SubscriptionPackageStatus, newAppSubStatus.Statuses.SubscriptionPackageStatus)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
-		klog.Infof("CreateFunc oldlabels:", e.Object.GetLabels())
-		_, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !ok {
+		klog.Info("CreateFunc oldlabels:", e.Object.GetLabels())
+		var hostingAppSubLabel string
+		hostingAppSubLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
+
+		if !ok || hostingAppSubLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 			return false
 		}
 
-		_, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
-		if !ok {
+		var clusterLabel string
+		clusterLabel, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+
+		if !ok || clusterLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 			return false
 		}
@@ -133,15 +139,17 @@ var AppSubPackageStatusPredicateFunc = predicate.Funcs{
 		return true
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		klog.Infof("DeleteFunc oldlabels:", e.Object.GetLabels())
-		_, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !ok {
+		klog.Info("DeleteFunc oldlabels:", e.Object.GetLabels())
+		var hostingAppSubLabel string
+		hostingAppSubLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
+		if !ok || hostingAppSubLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 			return false
 		}
 
-		_, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
-		if !ok {
+		var clusterLabel string
+		clusterLabel, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+		if !ok || clusterLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 			return false
 		}
@@ -481,18 +489,7 @@ func GetHostSubscriptionNSFromObject(ClusterNsManagedSubStatusName string) (stri
 		return "", ""
 	}
 
-	pos := strings.Index(ClusterNsManagedSubStatusName, ".status")
-	if pos == -1 {
-		return "", ""
-	}
-
-	hosttr := ClusterNsManagedSubStatusName[:pos]
-
-	if hosttr == "" {
-		return "", ""
-	}
-
-	parsedstr := strings.Split(hosttr, ".")
+	parsedstr := strings.Split(ClusterNsManagedSubStatusName, ".")
 	if len(parsedstr) != 2 {
 		return "", ""
 	}

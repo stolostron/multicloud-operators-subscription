@@ -103,7 +103,6 @@ func (r *ReconcileAppSubStatus) Reconcile(ctx context.Context, request reconcile
 	klog.Info("Reconciling:", request.NamespacedName, " with Get err:", err)
 
 	subNs, subName := subutils.GetHostSubscriptionNSFromObject(request.NamespacedName.Name)
-	//clusterName := request.NamespacedName.Namespace
 
 	// create or update summary appsubstatus object in the appsub NS
 	err = r.generateAppSubSummary(subNs, subName, instance)
@@ -129,7 +128,7 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 
 	managedSubStatusLabels, err := subutils.ConvertLabels(managedSubStatusSelector)
 	if err != nil {
-		klog.Error("Failed to convert managed appsubstatus label selector, err:", err)
+		klog.Errorf("Failed to convert managed appsubstatus label selector, err:%v", err)
 
 		return err
 	}
@@ -138,18 +137,18 @@ func (r *ReconcileAppSubStatus) generateAppSubSummary(subNs, subName string,
 	err = r.List(context.TODO(), managedSubPackageStatusList, listopts)
 
 	if err != nil {
-		klog.Error("Failed to list managed appsubpackagestatus, err:", err)
+		klog.Errorf("Failed to list managed appsubpackagestatus, err:%v", err)
 
 		return err
 	}
 
 	if len(managedSubPackageStatusList.Items) == 0 {
-		klog.Infof("No managed appsubpackagestatus with labels %v found", managedSubStatusSelector)
+		klog.Infof("No managed appsubpackagestatus with labels %v found, delete appsubsummarystatus", managedSubStatusSelector)
 
 		// no appsubpackagestatus in managed cluster NS - appsubsummary status can be deleted
 		appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 		appNsHubSubSummaryStatusKey := types.NamespacedName{
-			Name:      subName + ".status",
+			Name:      subName,
 			Namespace: subNs,
 		}
 
@@ -217,7 +216,7 @@ func (r *ReconcileAppSubStatus) createOrUpdateAppNsHubSubSummaryStatus(subNs, su
 	deployedClusters, failedClusters, propgationFailedClusters []string) error {
 	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 	appNsHubSubSummaryStatusKey := types.NamespacedName{
-		Name:      subName + ".status",
+		Name:      subName,
 		Namespace: subNs,
 	}
 
@@ -260,7 +259,7 @@ func (r *ReconcileAppSubStatus) newAppNsHubSubSummaryStatus(subNs, subName strin
 	deployedClusters, failedDeployClusters, failedPropagationClusters []string) *appSubStatusV1alpha1.SubscriptionSummaryStatus {
 	appNsHubSubSummaryStatus := &appSubStatusV1alpha1.SubscriptionSummaryStatus{}
 
-	appNsHubSubSummaryStatus.SetName(subName + ".status")
+	appNsHubSubSummaryStatus.SetName(subName)
 	appNsHubSubSummaryStatus.SetNamespace(subNs)
 
 	r.addAppNsHubSubSummaryStatus(appNsHubSubSummaryStatus, subNs, subName, deployedClusters, failedDeployClusters, failedPropagationClusters)
