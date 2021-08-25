@@ -39,6 +39,7 @@ import (
 )
 
 var cfg *rest.Config
+var c client.Client
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{

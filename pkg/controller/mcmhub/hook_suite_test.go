@@ -79,6 +79,8 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
+	c = k8sManager.GetClient()
+
 	cloneFunc := func(*utils.GitCloneOption) (string, error) {
 		return defaultCommit, nil
 	}
