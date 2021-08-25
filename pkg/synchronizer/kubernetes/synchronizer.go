@@ -116,7 +116,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 	packagestatusNs := hostSub.Namespace
 
 	// Handle appsubpackagestatus on local-cluster
-	if sync.SynchronizerID.Name == "local-cluster" {
+	if sync.hub && !sync.standalone {
 		if strings.HasSuffix(pkgstatusName, "-local") {
 			pkgstatusName = pkgstatusName[:len(pkgstatusName)-6]
 		}

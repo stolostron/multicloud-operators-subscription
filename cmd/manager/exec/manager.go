@@ -39,6 +39,7 @@ import (
 	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
 )
@@ -209,21 +210,22 @@ func RunManager() {
 
 func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName, standalone bool) error {
 	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	isHub := utils.IsHub(mgr.GetConfig())
+	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
 
 		return err
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize subscriber with error:", err)
 
 		return err
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, id, standalone); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, id, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
 
 		return err

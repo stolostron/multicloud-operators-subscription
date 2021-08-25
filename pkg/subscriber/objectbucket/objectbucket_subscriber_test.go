@@ -75,7 +75,7 @@ func TestObjectSubscriber(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	g.Expect(Add(mgr, cfg, &id, 2)).NotTo(gomega.HaveOccurred())
+	g.Expect(Add(mgr, cfg, &id, 2, false, false)).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)

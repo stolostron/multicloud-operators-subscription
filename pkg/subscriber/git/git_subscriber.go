@@ -56,7 +56,7 @@ var githubk8ssyncsource = "subgbk8s-"
 var githubhelmsyncsource = "subgbhelm-"
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item.
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int, hub, standalone bool) error {
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
@@ -64,7 +64,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
-		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
+		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval, hub, standalone)
 		if err != nil {
 			klog.Error("Failed to initialize synchronizer for default namespace channel with error:", err)
 

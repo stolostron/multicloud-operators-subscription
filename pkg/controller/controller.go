@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -38,7 +37,7 @@ var AddHubToManagerFuncs []func(manager.Manager) error
 var AddAppSubStatusToManagerFuncs []func(manager.Manager) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, standalone bool) error {
+func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, hub, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
@@ -47,7 +46,7 @@ func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedN
 
 	// If remote subscription pod (appmgr) is running in hub, don't add helmrelease controller to the manager,
 	// As there has been a helmrelease controller running in standalone subscription pod
-	if !utils.IsHub(m.GetConfig()) || standalone {
+	if !hub || standalone {
 		klog.Info("Add helmrelease controller when the remote subscription is NOT running on hub or standalone subscription")
 
 		for _, f := range AddHelmToManagerFuncs {

@@ -63,6 +63,8 @@ type KubeSynchronizer struct {
 	LocalClient        client.Client
 	RemoteClient       client.Client
 	localConfig        *rest.Config
+	hub                bool
+	standalone         bool
 	DynamicClient      dynamic.Interface
 	RestMapper         meta.RESTMapper
 	kmtx               sync.Mutex            // lock the kubeResource
@@ -79,9 +81,9 @@ var (
 var defaultSynchronizer *KubeSynchronizer
 
 // Add creates the default syncrhonizer and add the start function as runnable into manager.
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, interval int) error {
+func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, interval int, hub, standalone bool) error {
 	var err error
-	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension)
+	defaultSynchronizer, err = CreateSynchronizer(mgr.GetConfig(), hubconfig, mgr.GetScheme(), syncid, interval, defaultExtension, hub, standalone)
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer with error: ", err)
@@ -99,7 +101,7 @@ func GetDefaultSynchronizer() *KubeSynchronizer {
 
 // CreateSynchronizer createa an instance of synchrizer with give api-server config.
 func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Scheme, syncid *types.NamespacedName,
-	interval int, ext Extension) (*KubeSynchronizer, error) {
+	interval int, ext Extension, hub, standalone bool) (*KubeSynchronizer, error) {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -122,6 +124,8 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		DynamicClient:  dynamicClient,
 		RestMapper:     restMapper,
 		localConfig:    config,
+		hub:            hub,
+		standalone:     standalone,
 		kmtx:           sync.Mutex{},
 		Extension:      ext,
 		dmtx:           sync.Mutex{},

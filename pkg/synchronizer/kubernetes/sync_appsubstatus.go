@@ -52,11 +52,11 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
 */
 
 func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus SubscriptionClusterStatus) error {
-	klog.V(1).Infof("cluster: %v, appsub: %v/%v, action: %v\n", appsubClusterStatus.Cluster,
-		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action)
+	klog.V(1).Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
+		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
 
 	// Get existing appsubpackagestatus on managed cluster, if it exists
-	isLocalCluster := appsubClusterStatus.Cluster == "local-cluster"
+	isLocalCluster := sync.hub && !sync.standalone
 
 	appsubName := appsubClusterStatus.AppSub.Name
 	pkgstatusNs := appsubClusterStatus.AppSub.Namespace
@@ -118,15 +118,17 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				}
 			}
 
-			// Sync to hub
-			klog.Infof("Sync appSubPackageStatus:%v/%v to hub", pkgstatus.Namespace, pkgstatus.Name)
-			hubPkgstatus := pkgstatus.DeepCopy()
-			hubPkgstatus.Namespace = appsubClusterStatus.Cluster
-			hubPkgstatus.ResourceVersion = ""
+			// Sync to hub, except for standalone
+			if !sync.standalone {
+				klog.Infof("Sync appSubPackageStatus:%v/%v to hub", pkgstatus.Namespace, pkgstatus.Name)
+				hubPkgstatus := pkgstatus.DeepCopy()
+				hubPkgstatus.Namespace = appsubClusterStatus.Cluster
+				hubPkgstatus.ResourceVersion = ""
 
-			if err := sync.RemoteClient.Create(context.TODO(), hubPkgstatus); err != nil {
-				klog.Errorf("Error in creating on hub, appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.Cluster, pkgstatusName, err)
-				return err
+				if err := sync.RemoteClient.Create(context.TODO(), hubPkgstatus); err != nil {
+					klog.Errorf("Error in creating on hub, appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.Cluster, pkgstatusName, err)
+					return err
+				}
 			}
 		} else {
 			klog.Infof("Update existing appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
@@ -156,7 +158,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			}
 
 			for _, resource := range deleteUnitStatuses {
-				klog.V(2).Infof("Delete subscription unit kind:%v resource:%v/%v", resource.Kind, resource.Namespace, resource.Name)
+				klog.Infof("Delete subscription unit kind:%v resource:%v/%v", resource.Kind, resource.Namespace, resource.Name)
 
 				hostSub := types.NamespacedName{
 					Namespace: appsubClusterStatus.AppSub.Namespace,
@@ -177,15 +179,15 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			if len(newUnitStatus) == 0 {
 				// No appsubpackagestatus on appSub NS on local-cluster - skip
 				if !isLocalCluster {
-					klog.V(2).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+					klog.V(1).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 					if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
 						klog.Errorf("Error delete from managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
 						return err
 					}
 				}
 
-				klog.V(2).Infof("Delete from hub cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster); err != nil {
+				klog.V(1).Infof("Delete from hub cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster, sync.standalone); err != nil {
 					return err
 				}
 
@@ -194,7 +196,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 
 			// No appsubpackagestatus on appSub NS on local-cluster - skip
 			if !isLocalCluster {
-				klog.V(2).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 				pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
 				if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
 					klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
@@ -204,7 +206,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 
 			// Update appsubpackagestatus from hub
 			if err := updateAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster,
-				appsubName, appsubClusterStatus.AppSub.Namespace, newUnitStatus); err != nil {
+				appsubName, appsubClusterStatus.AppSub.Namespace, newUnitStatus, sync.standalone); err != nil {
 				return err
 			}
 		}
@@ -234,7 +236,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			if foundPkgStatus {
 				// No appsubpackagestatus on appSub NS on local-cluster - skip
 				if !isLocalCluster {
-					klog.V(2).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+					klog.V(1).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 					if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
 						klog.Errorf("Error delete from managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
 						return err
@@ -242,7 +244,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				}
 
 				// Delete appsubpackagestatus from hub
-				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster); err != nil {
+				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster, sync.standalone); err != nil {
 					return err
 				}
 			}
@@ -255,7 +257,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			} else {
 				// No appsubpackagestatus on appSub NS on local-cluster - skip
 				if !isLocalCluster {
-					klog.V(2).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+					klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 					pkgstatus.Statuses.SubscriptionPackageStatus = failedUnitStatuses
 					if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
 						klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
@@ -265,7 +267,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 
 				// Update appsubpackagestatus from hub
 				if err := updateAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster,
-					appsubName, appsubClusterStatus.AppSub.Namespace, failedUnitStatuses); err != nil {
+					appsubName, appsubClusterStatus.AppSub.Namespace, failedUnitStatuses, sync.standalone); err != nil {
 					return err
 				}
 			}
@@ -292,8 +294,13 @@ func buildAppSubPackageStatus(statusName, statusNs, appsubName, appsubNs, cluste
 	return pkgstatus
 }
 
-func updateAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs, appsubName, appsubNs string, unitStatuses []v1alpha1.SubscriptionUnitStatus) error {
-	klog.V(2).Infof("Update on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
+func updateAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs, appsubName, appsubNs string, unitStatuses []v1alpha1.SubscriptionUnitStatus, standalone bool) error {
+	if standalone {
+		klog.V(2).Infof("Skip update on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
+		return nil
+	}
+
+	klog.V(1).Infof("Update on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
 
 	hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
 	if err := rClient.Get(context.TODO(),
@@ -301,7 +308,7 @@ func updateAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgsta
 
 		// appsubpackagestatus doesn't exist on the hub - create it
 		if errors.IsNotFound(err) {
-			klog.V(2).Infof("appsubpackagestatus:%v/%v not found on hub, creating...", pkgstatusNs, pkgstatusName)
+			klog.V(1).Infof("appsubpackagestatus:%v/%v not found on hub, creating...", pkgstatusNs, pkgstatusName)
 
 			hubPkgStatus := buildAppSubPackageStatus(pkgstatusName, pkgstatusNs,
 				appsubName, appsubNs, pkgstatusNs, unitStatuses)
@@ -327,8 +334,13 @@ func updateAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgsta
 	return nil
 }
 
-func deleteAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs string) error {
-	klog.V(2).Infof("Delete from hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
+func deleteAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs string, standalone bool) error {
+	if standalone {
+		klog.V(2).Infof("Skip delete on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
+		return nil
+	}
+
+	klog.V(1).Infof("Delete from hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
 
 	hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
 	if err := rClient.Get(context.TODO(),
@@ -337,7 +349,7 @@ func deleteAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgsta
 
 		if errors.IsNotFound(err) {
 			// hub appsubpackagestatus is already deleted - ignore
-			klog.V(2).Infof("appsubpackagestatus:%v/%v not found on hub, may be deleted already", pkgstatusNs, pkgstatusName)
+			klog.V(1).Infof("appsubpackagestatus:%v/%v not found on hub, may be deleted already", pkgstatusNs, pkgstatusName)
 			return nil
 		}
 

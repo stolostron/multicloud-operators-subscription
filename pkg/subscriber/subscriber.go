@@ -21,12 +21,12 @@ import (
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, int) error
+var AddToManagerFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, int, bool, bool) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+func AddToManager(m manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int, hub, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m, hubconfig, syncid, syncinterval); err != nil {
+		if err := f(m, hubconfig, syncid, syncinterval, hub, standalone); err != nil {
 			return err
 		}
 	}

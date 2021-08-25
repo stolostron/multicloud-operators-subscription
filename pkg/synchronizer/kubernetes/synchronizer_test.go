@@ -81,7 +81,7 @@ var (
 
 var _ = Describe("test Delete Single Subscribed Resource", func() {
 	It("should delete the confimap and deployment without failure", func() {
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		workload1 := workload1Configmap.DeepCopy()

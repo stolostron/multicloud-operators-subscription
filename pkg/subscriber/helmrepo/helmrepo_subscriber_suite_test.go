@@ -77,7 +77,7 @@ var _ = BeforeSuite(func(done Done) {
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2)).NotTo(HaveOccurred())
+	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2, false, false)).NotTo(HaveOccurred())
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
