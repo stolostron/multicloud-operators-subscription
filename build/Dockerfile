@@ -14,6 +14,7 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
 
 # install operator binary
 COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY build/_output/bin/multicluster-operators-placementrule /usr/local/bin
 COPY build/_output/bin/uninstall-crd /usr/local/bin
 COPY build/_output/bin/appsubsummary /usr/local/bin
 

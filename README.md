@@ -196,9 +196,5 @@ Check the [Security Doc](SECURITY.md) if you find a security issue.
 
 ### Multicloud-operators repositories
 
-- [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
 - [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
-- [multicloud-operators-deployable](https://github.com/open-cluster-management/multicloud-operators-deployable)
-- [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
 - [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
-- [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
