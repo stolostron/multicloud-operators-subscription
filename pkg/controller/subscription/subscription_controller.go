@@ -395,7 +395,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.SecondaryChannel != nil && subitem.Channel.Spec.ConfigMapRef != nil {
+	if subitem.Channel != nil && subitem.Channel.Spec.ConfigMapRef != nil {
 		subitem.ChannelConfigMap = &corev1.ConfigMap{}
 		chncfgkey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.ConfigMapRef.Name,
