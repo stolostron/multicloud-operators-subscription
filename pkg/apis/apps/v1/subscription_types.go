@@ -152,6 +152,8 @@ type HourRange struct {
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
+	// When fails to connect to the channel, connect to the secondary channel
+	SecondaryChannel string `json:"secondaryChannel"`
 	// To specify 1 package in channel
 	Package string `json:"name,omitempty"`
 	// To specify more than 1 package in channel
@@ -280,11 +282,14 @@ type SubscriptionList struct {
 
 // SubscriberItem defines subscriber item to share subscribers with different channel types
 type SubscriberItem struct {
-	Subscription          *Subscription
-	SubscriptionConfigMap *corev1.ConfigMap
-	Channel               *chnv1alpha1.Channel
-	ChannelSecret         *corev1.Secret
-	ChannelConfigMap      *corev1.ConfigMap
+	Subscription              *Subscription
+	SubscriptionConfigMap     *corev1.ConfigMap
+	Channel                   *chnv1alpha1.Channel
+	ChannelSecret             *corev1.Secret
+	ChannelConfigMap          *corev1.ConfigMap
+	SecondaryChannel          *chnv1alpha1.Channel
+	SecondaryChannelSecret    *corev1.Secret
+	SecondaryChannelConfigMap *corev1.ConfigMap
 }
 
 // Subscriber efines common interface of different channel types

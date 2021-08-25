@@ -377,7 +377,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementD
 
 	if len(preJobs) != 0 || len(postJobs) != 0 {
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-		a.registry[subKey].lastSub = unmaskFakeCommiIDOnSubIns(subIns)
+		a.registry[subKey].lastSub = subIns
 	}
 
 	if len(preJobs) != 0 {

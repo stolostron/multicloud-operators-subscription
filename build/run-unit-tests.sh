@@ -12,7 +12,8 @@ _script_dir=$(dirname "$0")
 if ! which patter > /dev/null; then      echo "Installing patter ..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/apg/patter && popd; fi
 if ! which gocovmerge > /dev/null; then  echo "Installing gocovmerge..."; pushd $(mktemp -d) && GOSUMDB=off go get -u github.com/wadey/gocovmerge && popd; fi
 
-export GOFLAGS=""
+# GOFLAGS="-count=1" to disable test cache
+export GOFLAGS="-count=1"
 mkdir -p test_tmp/unit/coverage
 echo 'mode: atomic' > test_tmp/unit/coverage/cover.out
 echo '' > test_tmp/unit/coverage/cover.tmp

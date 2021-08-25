@@ -63,14 +63,25 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	channel, err := r.getChannel(sub)
+	primaryChannel, secondaryChannel, err := r.getChannel(sub)
 
 	if err != nil {
 		klog.Errorf("Failed to find a channel for subscription: %s", sub.GetName())
 		return err
 	}
 
-	chnAnnotations := channel.GetAnnotations()
+	if (primaryChannel != nil && secondaryChannel != nil) &&
+		(primaryChannel.Spec.Type != secondaryChannel.Spec.Type) {
+		klog.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
+
+		newError := fmt.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
+
+		return newError
+	}
+
+	chnAnnotations := primaryChannel.GetAnnotations()
 
 	if chnAnnotations[appv1.AnnotationResourceReconcileLevel] != "" {
 		// When channel reconcile rate is changed, this label is used to trigger
@@ -88,13 +99,19 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	updateSubDplAnno := false
 
-	switch tp := strings.ToLower(string(channel.Spec.Type)); tp {
+	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
+		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
 	case chnv1alpha1.ChannelTypeObjectBucket:
-		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, channel, objectBucketParent)
+		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, primaryChannel, objectBucketParent)
+
+		if err != nil && secondaryChannel != nil {
+			klog.Infof("Trying the secondary channel: %s/%s", secondaryChannel.GetNamespace(), secondaryChannel.GetName())
+
+			updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, secondaryChannel, objectBucketParent)
+		}
 	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub, deployableParent)
 	}
@@ -172,7 +189,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		}
 	} else {
 		klog.V(1).Infof("update Subscription status, sub:%v/%v", sub.GetNamespace(), sub.GetName())
-		err = r.updateSubscriptionStatus(sub, found, channel)
+		err = r.updateSubscriptionStatus(sub, found, primaryChannel)
 	}
 
 	return err
@@ -455,33 +472,54 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	return chNameSpace, chName, chType
 }
 
-func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1.Channel, error) {
-	chNameSpace := ""
-	chName := ""
-
-	if s.Spec.Channel != "" {
-		strs := strings.Split(s.Spec.Channel, "/")
-		if len(strs) == 2 {
-			chNameSpace = strs[0]
-			chName = strs[1]
-		}
-	}
-
-	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1.Channel{}
-	err := clt.Get(context.TODO(), chkey, chobj)
+func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1.Channel, *chnv1.Channel, error) {
+	primaryChannel, err := parseGetChannel(clt, s.Spec.Channel)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			err1 := fmt.Errorf("channel %s/%s not found for subscription %s/%s", chNameSpace, chName, s.GetNamespace(), s.GetName())
-			err = err1
+			klog.Errorf("primary channel %s not found for subscription %s/%s", s.Spec.Channel, s.GetNamespace(), s.GetName())
+
+			return nil, nil, err
 		}
 	}
 
-	return chobj, err
+	secondaryChannel, err := parseGetChannel(clt, s.Spec.SecondaryChannel)
+
+	if err != nil {
+		klog.Errorf("secondary channel %s not found for subscription %s/%s", s.Spec.SecondaryChannel, s.GetNamespace(), s.GetName())
+
+		return nil, nil, err
+	}
+
+	return primaryChannel, secondaryChannel, err
 }
 
-func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, error) {
+func parseGetChannel(clt client.Client, channelName string) (*chnv1.Channel, error) {
+	if channelName == "" {
+		return nil, nil
+	}
+
+	chNameSpace := ""
+	chName := ""
+	strs := strings.Split(channelName, "/")
+
+	if len(strs) == 2 {
+		chNameSpace = strs[0]
+		chName = strs[1]
+	}
+
+	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
+	channel := &chnv1.Channel{}
+	err := clt.Get(context.TODO(), chkey, channel)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return channel, nil
+}
+
+func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, *chnv1alpha1.Channel, error) {
 	return GetSubscriptionRefChannel(r.Client, s)
 }
 
