@@ -8,12 +8,12 @@ env:
   # Common versions
   GO_VERSION: '1.16'
   GO_REQUIRED_MIN_VERSION: ''
-  GOPATH: '/home/runner/work/multicloud-operators-channel/multicloud-operators-channel/go'
+  GOPATH: '/home/runner/work/multicloud-operators-subscription/multicloud-operators-subscription/go'
   GITHUB_REF: ${{ github.ref }}
 
 defaults:
   run:
-    working-directory: go/src/open-cluster-management.io/multicloud-operators-channel
+    working-directory: go/src/open-cluster-management.io/multicloud-operators-subscription
 
 jobs:
   release:
@@ -24,7 +24,7 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 1
-          path: go/src/open-cluster-management.io/multicloud-operators-channel
+          path: go/src/open-cluster-management.io/multicloud-operators-subscription
       - name: install Go
         uses: actions/setup-go@v2
         with:
@@ -42,13 +42,13 @@ jobs:
       - name: push image
         run: |
           echo ${{ secrets.DOCKER_PASSWORD }} | docker login quay.io --username ${{ secrets.DOCKER_USER }} --password-stdin
-          docker tag quay.io/open-cluster-management/multicloud-operators-channel:latest quay.io/open-cluster-management/multicloud-operators-channel:$RELEASE_VERSION
-          docker push quay.io/open-cluster-management/multicloud-operators-channel:$RELEASE_VERSION
+          docker tag quay.io/open-cluster-management/multicloud-operators-subscription:latest quay.io/open-cluster-management/multicloud-operators-subscription:$RELEASE_VERSION
+          docker push quay.io/open-cluster-management/multicloud-operators-subscription:$RELEASE_VERSION
       - name: generate changelog
         run: |
-          echo "# multicloud-operators-channel $RELEASE_VERSION" > /home/runner/work/changelog.txt
-          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicloud-operators-channel/blob/main/CHANGELOG/CHANGELOG-${MAJOR_RELEASE_VERSION}.md) for more details." >> /home/runner/work/changelog.txt
-          echo "- The released image is quay.io/open-cluster-management/multicloud-operators-channel:$RELEASE_VERSION" >> /home/runner/work/changelog.txt
+          echo "# multicloud-operators-subscription $RELEASE_VERSION" > /home/runner/work/changelog.txt
+          echo "- See the [CHANGELOG](https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/CHANGELOG/CHANGELOG-${MAJOR_RELEASE_VERSION}.md) for more details." >> /home/runner/work/changelog.txt
+          echo "- The released image is quay.io/open-cluster-management/multicloud-operators-subscription:$RELEASE_VERSION" >> /home/runner/work/changelog.txt
       - name: publish release
         uses: softprops/action-gh-release@v0.1.5
         env:
