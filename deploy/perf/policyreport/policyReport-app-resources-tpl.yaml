@@ -1,0 +1,35 @@
+- source: <APPSUB-NS>/<APPSUB-NAME>
+  policy: APPSUB_RESOURCE_LIST
+  result: pass
+  timestamp:
+    nanos: 0
+    seconds: 1629921632
+  resources:
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+    namespace: <APPSUB-NS>
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+    namespace: <APPSUB-NS>
+  - apiVersion: v1
+    kind: Service
+    name: frontend
+    namespace: <APPSUB-NS>
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: redis-master
+    namespace: <APPSUB-NS>
+  - apiVersion: v1
+    kind: Service
+    name: redis-master
+    namespace: <APPSUB-NS>
+  - apiVersion: apps/v1
+    kind: Deployment
+    name: redis-slave
+    namespace: <APPSUB-NS>
+  - apiVersion: v1
+    kind: Service
+    name: redis-slave
+    namespace: <APPSUB-NS>
