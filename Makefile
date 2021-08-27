@@ -125,11 +125,13 @@ build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 	@common/scripts/gobuild.sh build/_output/bin/appsubpackagestatus ./cmd/appsubstatus
+	@common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 
 local:
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubstatus ./cmd/appsubstatus
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 
 ############################################################
 # images section

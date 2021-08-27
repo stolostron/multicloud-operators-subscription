@@ -36,6 +36,9 @@ var AddHubToManagerFuncs []func(manager.Manager) error
 // AddAppSubStatusToManagerFuncs is a list of functions to add all AppSubStatus Controllers to the Manager
 var AddAppSubStatusToManagerFuncs []func(manager.Manager) error
 
+// AddAppSubSummaryToManagerFuncs is a list of functions to add all AppSubSummary Controllers to the Manager
+var AddAppSubSummaryToManagerFuncs []func(manager.Manager) error
+
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, hub, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
@@ -76,9 +79,20 @@ func AddHubToManager(m manager.Manager) error {
 	return nil
 }
 
-// AddAppSubPackageStatusToManager adds AppSubPackageStatus Controller to the Manager
+// AddAppSubStatusToManager adds AppSubStatus Controller to the Manager
 func AddAppSubStatusToManager(m manager.Manager) error {
 	for _, f := range AddAppSubStatusToManagerFuncs {
+		if err := f(m); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddAppSubSummaryToManager adds AppSubSummary Controller to the Manager
+func AddAppSubSummaryToManager(m manager.Manager) error {
+	for _, f := range AddAppSubSummaryToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
 		}

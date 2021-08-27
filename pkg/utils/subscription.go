@@ -32,6 +32,7 @@ import (
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -79,6 +80,62 @@ func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	klog.V(5).Info("Something we don't care changed")
 
 	return false
+}
+
+var AppSubSummaryPredicateFunc = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		klog.Info("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
+		var clusterLabel string
+		_, oldOK := e.ObjectOld.GetLabels()["apps.open-cluster-management.io/cluster"]
+		clusterLabel, newOK := e.ObjectNew.GetLabels()["apps.open-cluster-management.io/cluster"]
+
+		if !oldOK || !newOK || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
+				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+			return false
+		}
+
+		oldAppSubSummary, ok := e.ObjectOld.(*policyReportV1alpha2.PolicyReport)
+		if !ok {
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.ObjectOld.GetNamespace(), e.ObjectOld.GetName())
+			return false
+		}
+
+		newAppSubSummary, ok := e.ObjectNew.(*policyReportV1alpha2.PolicyReport)
+		if !ok {
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+			return false
+		}
+
+		return !equality.Semantic.DeepEqual(oldAppSubSummary, newAppSubSummary)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		klog.Info("CreateFunc oldlabels:", e.Object.GetLabels())
+
+		var clusterLabel string
+		clusterLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+
+		if !ok || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+			return false
+		}
+
+		klog.V(1).Infof("New managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		klog.Info("DeleteFunc oldlabels:", e.Object.GetLabels())
+
+		var clusterLabel string
+		clusterLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+		if !ok || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+			return false
+		}
+
+		klog.Infof("managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+		return true
+	},
 }
 
 var AppSubPackageStatusPredicateFunc = predicate.Funcs{
@@ -1301,6 +1358,18 @@ func ParseApiVersion(apiVersion string) (string, string) {
 	}
 
 	if len(parsedstr) != 2 {
+		return "", ""
+	}
+
+	return parsedstr[0], parsedstr[1]
+}
+
+// ParseNamespacedName return namespace and name from a given "namespace/name" string
+func ParseNamespacedName(namespacedName string) (string, string) {
+	parsedstr := strings.Split(namespacedName, "/")
+
+	if len(parsedstr) != 2 {
+		klog.Infof("invalid namespacedName: %v", namespacedName)
 		return "", ""
 	}
 
