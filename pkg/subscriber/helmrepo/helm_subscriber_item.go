@@ -457,22 +457,46 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 }
 
 func GetSubscriptionChartsOnHub(hubClt client.Client, channel, secondChannel *chnv1.Channel, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
-	repoURL := channel.Spec.Pathname
-	klog.V(2).Infof("getting resource list of HelmRepo %v", repoURL)
+	// Try with the primary channel first
+	indexFile, err := getChartIndexWithChannel(hubClt, channel, sub)
 
-	chSrt := &corev1.Secret{}
+	if err != nil {
+		klog.Errorf("unable to retrieve the helm repo index from %v", channel.Spec.Pathname)
+
+		if secondChannel != nil {
+			// try with the secondary channel
+			indexFile, err = getChartIndexWithChannel(hubClt, secondChannel, sub)
+
+			if err != nil {
+				klog.Errorf("unable to retrieve the helm repo index from %v", secondChannel.Spec.Pathname)
+				return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index from %v", secondChannel.Spec.Pathname)
+			}
+		} else {
+			return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index from %v", channel.Spec.Pathname)
+		}
+	}
+
+	return ChartIndexToHelmReleases(hubClt, channel, secondChannel, sub, indexFile)
+}
+
+func getChartIndexWithChannel(hubClt client.Client, channel *chnv1.Channel, sub *appv1.Subscription) (*repo.IndexFile, error) {
+	klog.Infof("Preparing HTTP client with channel %s/%s", channel.Namespace, channel.Name)
+
+	chSecret := &corev1.Secret{}
 
 	if channel.Spec.SecretRef != nil {
 		srtNs := channel.GetNamespace()
 
-		chnSrtKey := types.NamespacedName{
+		chnSecretKey := types.NamespacedName{
 			Name:      channel.Spec.SecretRef.Name,
 			Namespace: srtNs,
 		}
 
-		if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
-			return nil, gerr.Wrapf(err, "failed to get reference secret %v from channel", chnSrtKey.String())
+		if err := hubClt.Get(context.TODO(), chnSecretKey, chSecret); err != nil {
+			return nil, gerr.Wrapf(err, "failed to get reference secret %v from channel", chnSecretKey.String())
 		}
+
+		klog.Infof("got secret %v from channel %v", chnSecretKey.String(), channel)
 	}
 
 	chnCfg := &corev1.ConfigMap{}
@@ -489,24 +513,25 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, channel, secondChannel *ch
 			Namespace: cfgNs,
 		}
 
-		klog.V(2).Infof("getting cfg %v from channel %v", chnCfgKey.String(), channel)
-
 		if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
 			return nil, gerr.Wrapf(err, "failed to get reference configmap %v from channel", chnCfgKey.String())
 		}
+
+		klog.Infof("got configmap %v from channel %v", chnCfgKey.String(), channel)
 	}
 
 	httpClient, err := getHelmRepoClient(chnCfg, channel.Spec.InsecureSkipVerify)
+
 	if err != nil {
-		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", repoURL)
+		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", channel.Spec.Pathname)
 	}
 
-	indexFile, _, err := getHelmRepoIndex(httpClient, sub, chSrt, repoURL)
+	indexFile, _, err := getHelmRepoIndex(httpClient, sub, chSecret, channel.Spec.Pathname)
 	if err != nil {
-		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", repoURL)
+		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", channel.Spec.Pathname)
 	}
 
-	return ChartIndexToHelmReleases(hubClt, channel, secondChannel, sub, indexFile)
+	return indexFile, nil
 }
 
 func ChartIndexToHelmReleases(hclt client.Client,

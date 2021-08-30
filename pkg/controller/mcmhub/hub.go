@@ -105,13 +105,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeHelmRepo:
 		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
 	case chnv1alpha1.ChannelTypeObjectBucket:
-		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, primaryChannel, objectBucketParent)
-
-		if err != nil && secondaryChannel != nil {
-			klog.Infof("Trying the secondary channel: %s/%s", secondaryChannel.GetNamespace(), secondaryChannel.GetName())
-
-			updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, secondaryChannel, objectBucketParent)
-		}
+		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, primaryChannel, secondaryChannel, objectBucketParent)
 	default:
 		updateSubDplAnno = r.UpdateDeployablesAnnotation(sub, deployableParent)
 	}
@@ -1336,10 +1330,26 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 }
 
 func (r *ReconcileSubscription) updateObjectBucketAnnotation(
-	sub *appv1alpha1.Subscription, channel *chnv1alpha1.Channel, parentType string) (bool, error) {
+	sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel, parentType string) (bool, error) {
 	awsHandler, bucket, err := r.initObjectStore(channel)
 	if err != nil {
-		return false, err
+		klog.Error(err, "Unable to access object store: ")
+
+		if secondaryChannel != nil {
+			klog.Infof("trying the secondary channel %s", secondaryChannel.Name)
+			// Try with secondary channel
+			awsHandler, bucket, err = r.initObjectStore(secondaryChannel)
+
+			if err != nil {
+				klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+				return false, err
+			}
+		} else {
+			klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+			return false, err
+		}
 	}
 
 	var folderName *string
