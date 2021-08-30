@@ -1,0 +1,1 @@
+A simple nginx chart for testing purpose.
