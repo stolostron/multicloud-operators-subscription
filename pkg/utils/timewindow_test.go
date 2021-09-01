@@ -296,6 +296,53 @@ func TestTimeWindowDurationTillNextWindow(t *testing.T) {
 	}
 }
 
+func TestTimeWindowDurationTillNextWindow2021(t *testing.T) {
+	testCases := []struct {
+		desc    string
+		curTime string
+		windows *appv1alpha1.TimeWindow
+		want    time.Duration
+	}{
+		{
+			desc:    "currently in active slot",
+			curTime: "Wed Sep  1 19:30:00 UTC 2021",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "active",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:00AM", End: "11:00PM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "tuesday", "thursday", "friday", "saturday"},
+				Location:   "America/Toronto",
+			},
+			want: time.Hour*18 + time.Minute*30,
+		},
+		{
+			desc:    "current not blocked with time outside blocked time slot",
+			curTime: "Wed Sep  1 19:30:00 UTC 2021",
+			windows: &appv1alpha1.TimeWindow{
+				WindowType: "block",
+				Hours: []appv1alpha1.HourRange{
+					{Start: "10:00AM", End: "11:00PM"},
+				},
+				Daysofweek: []string{"Sunday", "monday", "tuesday", "thursday", "friday", "saturday"},
+				Location:   "",
+			},
+			want: 0,
+		},
+	}
+
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			c, _ := time.Parse(time.UnixDate, tC.curTime)
+			got := NextStartPoint(tC.windows, c)
+
+			if got != tC.want {
+				t.Errorf("wanted time.Duration %v, got %v", tC.want, got)
+			}
+		})
+	}
+}
+
 func TestValidateHours(t *testing.T) {
 	f := func(ts, l string) time.Time {
 		t, _ := time.ParseInLocation(time.Kitchen, ts, getLoc(l))
