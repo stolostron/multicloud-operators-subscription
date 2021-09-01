@@ -162,6 +162,11 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 	channelConnOptions := cloneOptions.PrimaryConnectionOption
 
 	if !primary {
+		if cloneOptions.SecondaryConnectionOption == nil {
+			klog.Error("no secondary channel to try")
+			return nil, errors.New("no secondary channel to try")
+		}
+
 		channelConnOptions = cloneOptions.SecondaryConnectionOption
 	}
 
