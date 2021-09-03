@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"github.com/ghodss/yaml"
@@ -554,6 +555,17 @@ func (r *ReconcileSubscription) createDeployable(
 	}
 
 	dpl.Name = strings.ToLower(sub.Name + "-" + prefix + obj.GetName() + "-" + obj.GetKind())
+
+	// Replace special characters with -
+	re, reErr := regexp.Compile(`[^\w]`)
+
+	if reErr != nil {
+		klog.Error("Failed to compile regular expression [^\\w]")
+		return reErr
+	}
+
+	dpl.Name = re.ReplaceAllString(dpl.Name, "-")
+
 	klog.Info("Creating a deployable " + dpl.Name)
 
 	if len(dpl.Name) > 252 { // kubernetest resource name length limit
