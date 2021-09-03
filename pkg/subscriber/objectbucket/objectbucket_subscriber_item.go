@@ -341,7 +341,7 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dplUnits = append(dplUnits, unit)
 	}
 
-	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits, nil); err != nil {
 		return err
 	}
 

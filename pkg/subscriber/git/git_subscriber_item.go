@@ -339,7 +339,18 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
-	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources); err != nil {
+	allowList := make(map[string]map[string]string)
+	//allowGroupRecources := ghsi.Subscription.Spec.Allow
+
+	for _, allowGroup := range ghsi.Subscription.Spec.Allow {
+		for _, resource := range allowGroup.Resources {
+			klog.Info("ALLOW ADD " + allowGroup.ApiGroup + "    " + resource)
+			allowList[allowGroup.ApiGroup][resource] = resource
+		}
+
+	}
+
+	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources, allowList); err != nil {
 		klog.Error(err)
 
 		ghsi.successful = false

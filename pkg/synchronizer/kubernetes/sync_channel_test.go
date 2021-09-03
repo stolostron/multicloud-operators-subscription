@@ -80,7 +80,7 @@ var _ = Describe("benchmark the sync channel", func() {
 		dplinstance.SetName(strconv.Itoa(rand.Intn(200)))
 		payload.SetName(strconv.Itoa(rand.Intn(200)))
 		dplinstance.Spec.Template.Object = payload
-		go sync.AddTemplates(syncsource, hostKey, []DplUnit{{Dpl: &dplinstance, Gvk: pGvk}})
+		go sync.AddTemplates(syncsource, hostKey, []DplUnit{{Dpl: &dplinstance, Gvk: pGvk}}, nil)
 
 		tt := b.Time("timing the adding template", func() {
 			sync.processOrder(<-sync.tplCh)

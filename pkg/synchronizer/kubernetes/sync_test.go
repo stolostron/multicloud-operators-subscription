@@ -417,7 +417,7 @@ var _ = Describe("test CRD discovery", func() {
 		Expect(ok).Should(BeFalse())
 
 		//apply CRD foo via subscription
-		Expect(sync.AddTemplates(source, hostnn, []DplUnit{dplU})).Should(Succeed())
+		Expect(sync.AddTemplates(source, hostnn, []DplUnit{dplU}, nil)).Should(Succeed())
 
 		time.Sleep(time.Duration(waitInterval) * time.Second)
 

@@ -36,10 +36,12 @@ type DplUnit struct {
 }
 
 type resourceOrder struct {
-	subType string
-	hostSub types.NamespacedName
-	dpls    []DplUnit
-	err     chan error
+	subType   string
+	admin     bool
+	allowList map[string]map[string]string
+	hostSub   types.NamespacedName
+	dpls      []DplUnit
+	err       chan error
 }
 
 type SyncSource interface {
@@ -117,12 +119,13 @@ func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) 
 	return sync.KubeResources[gvk].Namespaced
 }
 
-func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []DplUnit) error {
+func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []DplUnit, allowlist map[string]map[string]string) error {
 	rsOrder := resourceOrder{
-		subType: subType,
-		hostSub: hostSub,
-		dpls:    dpls,
-		err:     make(chan error, 1),
+		subType:   subType,
+		hostSub:   hostSub,
+		allowList: allowlist,
+		dpls:      dpls,
+		err:       make(chan error, 1),
 	}
 
 	select {
@@ -148,5 +151,5 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 
 // CleanupByHost returns initialized validator struct
 func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) error {
-	return sync.AddTemplates(syncsource, host, []DplUnit{})
+	return sync.AddTemplates(syncsource, host, []DplUnit{}, nil)
 }

@@ -631,7 +631,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
 		}
 
-		if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
+		if err := dplpro.Units(hrsi.Subscription, hrsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits, nil); err != nil {
 			klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
 			doErr = err
 		}

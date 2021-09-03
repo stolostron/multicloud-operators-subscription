@@ -218,6 +218,22 @@ spec:
                   - packageName
                   type: object
                 type: array
+              allow:
+                description: To allow deployment of listed resources
+                items:
+                  description: Set of kubernetes group esources allowed to be deployed
+                  properties:
+                    apiGroup:
+                      type: string
+                    resources:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - apiGroup
+                  - resources
+                  type: object
+                type: array
               placement:
                 description: For hub use only, to specify which clusters to go to
                 properties:

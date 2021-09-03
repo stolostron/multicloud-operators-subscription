@@ -40,7 +40,7 @@ type SyncSource interface {
 	GetRemoteClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit, map[string]map[string]string) error
 	CleanupByHost(types.NamespacedName, string) error
 }
 

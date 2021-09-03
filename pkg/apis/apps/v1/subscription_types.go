@@ -129,6 +129,12 @@ type Overrides struct {
 	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"` // To be added
 }
 
+// AllowItem is a group resources allowed for deployment
+type AllowItem struct {
+	ApiGroup  string   `json:"apiGroup,omitempty"`
+	Resources []string `json:"resources,omitempty"`
+}
+
 // TimeWindow defines a time window for subscription to run or be blocked
 type TimeWindow struct {
 	// active time window or not, if timewindow is active, then deploy will only applies during these windows
@@ -168,6 +174,7 @@ type SubscriptionSpec struct {
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 	// +optional
 	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
+	Allow         []*AllowItem            `json:"allow,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription

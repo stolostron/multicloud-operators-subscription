@@ -383,6 +383,9 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
+		klog.Infof("==============> APPLYING GroupVersionResource: %v    KIND: %v", res.GroupVersionResource, k)
+		klog.Infof("==============> APPLYING apiVersion: %s    resource: %s", res.GroupVersionResource.Group, res.GroupVersionResource.Resource)
+		klog.Info(res)
 		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
 		if err != nil {

@@ -217,7 +217,7 @@ func (r *DeployableReconciler) doSubscription() error {
 		return retryerr
 	}
 
-	return r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder)
+	return r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder, nil)
 }
 
 func (r *DeployableReconciler) doSubscribeDeployable(subitem *NsSubscriberItem, dpl *dplv1alpha1.Deployable,
