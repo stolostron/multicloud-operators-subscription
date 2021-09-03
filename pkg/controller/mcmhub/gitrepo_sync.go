@@ -557,12 +557,7 @@ func (r *ReconcileSubscription) createDeployable(
 	dpl.Name = strings.ToLower(sub.Name + "-" + prefix + obj.GetName() + "-" + obj.GetKind())
 
 	// Replace special characters with -
-	re, reErr := regexp.Compile(`[^\w]`)
-
-	if reErr != nil {
-		klog.Error("Failed to compile regular expression [^\\w]")
-		return reErr
-	}
+	re := regexp.MustCompile(`[^\w]`)
 
 	dpl.Name = re.ReplaceAllString(dpl.Name, "-")
 
