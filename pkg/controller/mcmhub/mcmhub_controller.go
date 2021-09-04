@@ -226,7 +226,7 @@ func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	}
 
 	for _, sub := range subList.Items {
-		if sub.Spec.Channel == chn {
+		if sub.Spec.Channel == chn || sub.Spec.SecondaryChannel == chn {
 			objkey := types.NamespacedName{
 				Name:      sub.GetName(),
 				Namespace: sub.GetNamespace(),

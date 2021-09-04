@@ -127,7 +127,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	githubsub.UID = "dummyuid"
-	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -137,7 +137,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	// Sleep to make sure the helm release is created in the test kube
 	time.Sleep(5 * time.Second)
 
-	helmrelease, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -147,7 +147,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	var relativeChartVersions []*repo.ChartVersion
 	relativeChartVersions = append(relativeChartVersions, &repo.ChartVersion{URLs: relativeUrls})
 
-	helmrelease, err = CreateOrUpdateHelmChart("my-app", "my-app-0.1.0", relativeChartVersions, c, helmchn, helmsub)
+	helmrelease, err = CreateOrUpdateHelmChart("my-app", "my-app-0.1.0", relativeChartVersions, c, helmchn, nil, helmsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
@@ -160,7 +160,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	var fullChartVersions []*repo.ChartVersion
 	fullChartVersions = append(fullChartVersions, &repo.ChartVersion{URLs: fullUrls})
 
-	helmrelease, err = CreateOrUpdateHelmChart("nginx-ingress", "nginx-ingress-1.36.3", fullChartVersions, c, helmchn, helmsub)
+	helmrelease, err = CreateOrUpdateHelmChart("nginx-ingress", "nginx-ingress-1.36.3", fullChartVersions, c, helmchn, nil, helmsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
@@ -274,7 +274,7 @@ persistence:
 	time.Sleep(3 * time.Second)
 
 	sub2.UID = "dummyuid"
-	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, sub2)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, nil, sub2)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -319,14 +319,14 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
 	dplName1 := dpl.GetName()
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
@@ -342,7 +342,7 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 

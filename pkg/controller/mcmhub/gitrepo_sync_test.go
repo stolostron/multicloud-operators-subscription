@@ -77,6 +77,8 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
+	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
 	githubsub.UID = "dummyid"
 
 	annotations := make(map[string]string)

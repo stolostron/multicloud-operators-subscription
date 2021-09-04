@@ -261,6 +261,11 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 		return tillNextSlot(slots, uniCurTime)
 	}
 
+	if !rdays.isCurDayInDaysOfWeek(uniCurTime.Weekday()) {
+		// the current day is not suppose to be active so find the next available time
+		return timeLeftTillNextMidNight(uniCurTime) + tillNextSlotFromMidnight(slots, uniCurTime) + rdays.durationToNextRunableWeekday(slots, uniCurTime)
+	}
+
 	if rdays.durationToNextRunableWeekday(slots, uniCurTime) == 0 {
 		// There is another active window today
 		ns := tillNextSlotInCurrentDay(slots, uniCurTime)

@@ -96,17 +96,7 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 	return indexFile, nil
 }
 
-func CreateOrUpdateHelmChart(
-	packageName string,
-	releaseCRName string,
-	chartVersions repo.ChartVersions,
-	client client.Client,
-	channel *chnv1.Channel,
-	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
-	helmRelease = &releasev1.HelmRelease{}
-	err = client.Get(context.TODO(),
-		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
-
+func createSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, sub *appv1.Subscription, packageName string) (*releasev1.Source, error) {
 	var source *releasev1.Source
 
 	if IsGitChannel(string(channel.Spec.Type)) {
@@ -140,6 +130,82 @@ func CreateOrUpdateHelmChart(
 			},
 		}
 	}
+
+	return source, nil
+}
+
+func createAltSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, sub *appv1.Subscription, packageName string) (*releasev1.AltSource, error) {
+	var altSource *releasev1.AltSource
+
+	if IsGitChannel(string(channel.Spec.Type)) {
+		altSource = &releasev1.AltSource{
+			SourceType: releasev1.GitSourceType,
+			Git: &releasev1.Git{
+				Urls:      []string{channel.Spec.Pathname},
+				ChartPath: chartVersions[0].URLs[0],
+				Branch:    GetSubscriptionBranch(sub).Short(),
+			},
+		}
+	} else {
+		var validURLs []string
+
+		for _, url := range chartVersions[0].URLs {
+			if IsURL(url) {
+				validURLs = append(validURLs, url)
+			} else if IsURL(channel.Spec.Pathname + "/" + url) {
+				validURLs = append(validURLs, channel.Spec.Pathname+"/"+url)
+			}
+		}
+
+		if len(validURLs) == 0 {
+			return nil, fmt.Errorf("no valid URLs are found for package: %s", packageName)
+		}
+
+		altSource = &releasev1.AltSource{
+			SourceType: releasev1.HelmRepoSourceType,
+			HelmRepo: &releasev1.HelmRepo{
+				Urls: validURLs,
+			},
+		}
+	}
+
+	return altSource, nil
+}
+
+func CreateOrUpdateHelmChart(
+	packageName string,
+	releaseCRName string,
+	chartVersions repo.ChartVersions,
+	client client.Client,
+	channel *chnv1.Channel,
+	secondaryChannel *chnv1.Channel,
+	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
+	helmRelease = &releasev1.HelmRelease{}
+
+	source, err := createSource(channel, chartVersions, sub, packageName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var altSource *releasev1.AltSource
+
+	if secondaryChannel != nil {
+		altSource, err = createAltSource(secondaryChannel, chartVersions, sub, packageName)
+
+		if err != nil {
+			return nil, err
+		}
+
+		altSource.ConfigMapRef = secondaryChannel.Spec.ConfigMapRef
+		altSource.InsecureSkipVerify = secondaryChannel.Spec.InsecureSkipVerify
+		altSource.SecretRef = secondaryChannel.Spec.SecretRef
+
+		klog.Infof("Created altSource for helmRelease %s", releaseCRName)
+	}
+
+	err = client.Get(context.TODO(),
+		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -179,6 +245,7 @@ func CreateOrUpdateHelmChart(
 					ChartName:          packageName,
 					Version:            version,
 					Digest:             digest,
+					AltSource:          altSource,
 				},
 			}
 		} else {
@@ -210,6 +277,7 @@ func CreateOrUpdateHelmChart(
 			ChartName:          packageName,
 			Version:            version,
 			Digest:             digest,
+			AltSource:          altSource,
 		}
 	}
 
@@ -295,6 +363,7 @@ func CreateHelmCRDeployable(
 	chartVersions repo.ChartVersions,
 	client client.Client,
 	channel *chnv1.Channel,
+	secondaryChannel *chnv1.Channel,
 	sub *appv1.Subscription) (*unstructured.Unstructured, error) {
 	releaseCRName, err := PkgToReleaseCRName(sub, packageName)
 	if err != nil {
@@ -319,7 +388,7 @@ func CreateHelmCRDeployable(
 	}
 
 	helmRelease, err := CreateOrUpdateHelmChart(
-		packageName, releaseCRName, chartVersions, client, channel, sub)
+		packageName, releaseCRName, chartVersions, client, channel, secondaryChannel, sub)
 
 	if err != nil {
 		klog.Error("Failed to create or update helm chart ", packageName, " err:", err)

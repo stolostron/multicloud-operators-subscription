@@ -145,27 +145,61 @@ func (hrsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duratio
 	}
 }
 
-func (hrsi *SubscriberItem) doSubscription() {
-	//Retrieve the helm repo
-	repoURL := hrsi.Channel.Spec.Pathname
+func (hrsi *SubscriberItem) getRepoInfo(usePrimary bool) (*repo.IndexFile, string, error) {
+	channel := hrsi.Channel
 
-	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap, hrsi.Channel.Spec.InsecureSkipVerify)
+	if !usePrimary && hrsi.SecondaryChannel != nil {
+		channel = hrsi.SecondaryChannel
+	}
+
+	//Retrieve the helm repo
+	repoURL := channel.Spec.Pathname
+
+	httpClient, err := getHelmRepoClient(hrsi.ChannelConfigMap, channel.Spec.InsecureSkipVerify)
 
 	if err != nil {
 		klog.Error(err, "Unable to create client for helm repo", repoURL)
-
-		return
+		return nil, "", err
 	}
 
 	indexFile, hash, err := getHelmRepoIndex(httpClient, hrsi.Subscription, hrsi.ChannelSecret, repoURL)
 
 	if err != nil {
 		klog.Error(err, "Unable to retrieve the helm repo index", repoURL)
-
-		return
+		return nil, "", err
 	}
 
-	klog.Infof("Check if helmRepo %s changed with hash %v", repoURL, hash)
+	return indexFile, hash, nil
+}
+
+func (hrsi *SubscriberItem) doSubscription() {
+	var indexFile *repo.IndexFile
+
+	var hash string
+
+	var err error
+
+	indexFile, hash, err = hrsi.getRepoInfo(true) // true for using primary channel
+
+	if err != nil {
+		klog.Error(err, "Unable to retrieve the helm repo index from the primary channel.")
+
+		if hrsi.SecondaryChannel != nil {
+			klog.Info("Trying the secondary channel")
+
+			indexFile, hash, err = hrsi.getRepoInfo(false) // true for using primary channel
+
+			if err != nil {
+				klog.Error(err, "Unable to retrieve the helm repo index from the secondary channel.")
+
+				return
+			}
+		} else {
+			return
+		}
+	}
+
+	klog.V(4).Infof("Check if helmRepo changed with hash %s", hash)
 
 	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
 
@@ -283,10 +317,7 @@ func isHelmReleaseStatusPopulated(client client.Client, hostSub types.Namespaced
 }
 
 func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash string) error {
-	repoURL := hrsi.Channel.Spec.Pathname
-	klog.Info("Proecssing HelmRepo:", repoURL)
-
-	if err := hrsi.manageHelmCR(indexFile, repoURL); err != nil {
+	if err := hrsi.manageHelmCR(indexFile); err != nil {
 		return err
 	}
 
@@ -407,67 +438,89 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 	return indexfile, hash, err
 }
 
-func GetSubscriptionChartsOnHub(hubClt client.Client, sub *appv1.Subscription, insecureSkipVerify bool) ([]*releasev1.HelmRelease, error) {
-	chn := &chnv1.Channel{}
-	chnkey := utils.NamespacedNameFormat(sub.Spec.Channel)
+func GetSubscriptionChartsOnHub(hubClt client.Client, channel, secondChannel *chnv1.Channel, sub *appv1.Subscription) ([]*releasev1.HelmRelease, error) {
+	// Try with the primary channel first
+	indexFile, err := getChartIndexWithChannel(hubClt, channel, sub)
 
-	if err := hubClt.Get(context.TODO(), chnkey, chn); err != nil {
-		return nil, gerr.Wrapf(err, "failed to get channel of subscription %v", sub)
+	if err != nil {
+		klog.Errorf("unable to retrieve the helm repo index from %v", channel.Spec.Pathname)
+
+		if secondChannel != nil {
+			// try with the secondary channel
+			indexFile, err = getChartIndexWithChannel(hubClt, secondChannel, sub)
+
+			if err != nil {
+				klog.Errorf("unable to retrieve the helm repo index from %v", secondChannel.Spec.Pathname)
+				return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index from %v", secondChannel.Spec.Pathname)
+			}
+		} else {
+			return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index from %v", channel.Spec.Pathname)
+		}
 	}
 
-	repoURL := chn.Spec.Pathname
-	klog.V(2).Infof("getting resource list of HelmRepo %v", repoURL)
+	return ChartIndexToHelmReleases(hubClt, channel, secondChannel, sub, indexFile)
+}
 
-	chSrt := &corev1.Secret{}
+func getChartIndexWithChannel(hubClt client.Client, channel *chnv1.Channel, sub *appv1.Subscription) (*repo.IndexFile, error) {
+	klog.Infof("Preparing HTTP client with channel %s/%s", channel.Namespace, channel.Name)
 
-	if chn.Spec.SecretRef != nil {
-		srtNs := chn.GetNamespace()
+	chSecret := &corev1.Secret{}
 
-		chnSrtKey := types.NamespacedName{
-			Name:      chn.Spec.SecretRef.Name,
+	if channel.Spec.SecretRef != nil {
+		srtNs := channel.GetNamespace()
+
+		chnSecretKey := types.NamespacedName{
+			Name:      channel.Spec.SecretRef.Name,
 			Namespace: srtNs,
 		}
 
-		if err := hubClt.Get(context.TODO(), chnSrtKey, chSrt); err != nil {
-			return nil, gerr.Wrapf(err, "failed to get reference secret %v from channel", chnSrtKey.String())
+		if err := hubClt.Get(context.TODO(), chnSecretKey, chSecret); err != nil {
+			return nil, gerr.Wrapf(err, "failed to get reference secret %v from channel", chnSecretKey.String())
 		}
+
+		klog.Infof("got secret %v from channel %v", chnSecretKey.String(), channel)
 	}
 
 	chnCfg := &corev1.ConfigMap{}
 
-	if chn.Spec.ConfigMapRef != nil {
-		cfgNs := chn.Spec.ConfigMapRef.Namespace
+	if channel.Spec.ConfigMapRef != nil {
+		cfgNs := channel.Spec.ConfigMapRef.Namespace
 
 		if cfgNs == "" {
-			cfgNs = chn.GetNamespace()
+			cfgNs = channel.GetNamespace()
 		}
 
 		chnCfgKey := types.NamespacedName{
-			Name:      chn.Spec.ConfigMapRef.Name,
+			Name:      channel.Spec.ConfigMapRef.Name,
 			Namespace: cfgNs,
 		}
-
-		klog.V(2).Infof("getting cfg %v from channel %v", chnCfgKey.String(), chn)
 
 		if err := hubClt.Get(context.TODO(), chnCfgKey, chnCfg); err != nil {
 			return nil, gerr.Wrapf(err, "failed to get reference configmap %v from channel", chnCfgKey.String())
 		}
+
+		klog.Infof("got configmap %v from channel %v", chnCfgKey.String(), channel)
 	}
 
-	httpClient, err := getHelmRepoClient(chnCfg, insecureSkipVerify)
+	httpClient, err := getHelmRepoClient(chnCfg, channel.Spec.InsecureSkipVerify)
+
 	if err != nil {
-		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", repoURL)
+		return nil, gerr.Wrapf(err, "Unable to create client for helm repo %v", channel.Spec.Pathname)
 	}
 
-	indexFile, _, err := getHelmRepoIndex(httpClient, sub, chSrt, repoURL)
+	indexFile, _, err := getHelmRepoIndex(httpClient, sub, chSecret, channel.Spec.Pathname)
 	if err != nil {
-		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", repoURL)
+		return nil, gerr.Wrapf(err, "unable to retrieve the helm repo index %v", channel.Spec.Pathname)
 	}
 
-	return ChartIndexToHelmReleases(hubClt, chn, sub, indexFile)
+	return indexFile, nil
 }
 
-func ChartIndexToHelmReleases(hclt client.Client, chn *chnv1.Channel, sub *appv1.Subscription, indexFile *repo.IndexFile) ([]*releasev1.HelmRelease, error) {
+func ChartIndexToHelmReleases(hclt client.Client,
+	chn *chnv1.Channel,
+	secondChn *chnv1.Channel,
+	sub *appv1.Subscription,
+	indexFile *repo.IndexFile) ([]*releasev1.HelmRelease, error) {
 	helms := make([]*releasev1.HelmRelease, 0)
 
 	for pkgName, chartVer := range indexFile.Entries {
@@ -476,7 +529,7 @@ func ChartIndexToHelmReleases(hclt client.Client, chn *chnv1.Channel, sub *appv1
 			return nil, gerr.Wrapf(err, "failed to generate releaseCRName of helm chart %v for subscription %v", pkgName, sub)
 		}
 
-		helm, err := utils.CreateOrUpdateHelmChart(pkgName, releaseCRName, chartVer, hclt, chn, sub)
+		helm, err := utils.CreateOrUpdateHelmChart(pkgName, releaseCRName, chartVer, hclt, chn, secondChn, sub)
 		if err != nil {
 			return nil, gerr.Wrapf(err, "failed to get helm chart of %v for subscription %v", pkgName, sub)
 		}
@@ -521,7 +574,7 @@ func hashKey(b []byte) string {
 	return string(h.Sum(nil))
 }
 
-func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL string) error {
+func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 	var doErr error
 
 	hostkey := types.NamespacedName{Name: hrsi.Subscription.Name, Namespace: hrsi.Subscription.Namespace}
@@ -533,7 +586,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile, repoURL stri
 		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRDeployable(
-			repoURL, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.Subscription)
+			hrsi.Channel.Spec.Pathname, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.SecondaryChannel, hrsi.Subscription)
 
 		if err != nil {
 			klog.Error("failed to create a helmrelease CR deployable, err: ", err)

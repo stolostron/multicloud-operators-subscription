@@ -654,7 +654,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		klog.V(1).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		helmReleaseCR, err := utils.CreateHelmCRDeployable(
-			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.Subscription)
+			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
@@ -669,27 +669,6 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 }
 
 func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
-	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Channel, ghsi.Subscription)
-
-	user := ""
-	token := ""
-	sshKey := []byte("")
-	passphrase := []byte("")
-
-	if ghsi.SubscriberItem.ChannelSecret != nil {
-		user, token, sshKey, passphrase, err = utils.ParseChannelSecret(ghsi.SubscriberItem.ChannelSecret)
-
-		if err != nil {
-			return "", err
-		}
-	}
-
-	caCert := ""
-
-	if ghsi.SubscriberItem.ChannelConfigMap != nil {
-		caCert = ghsi.SubscriberItem.ChannelConfigMap.Data[appv1.ChannelCertificateData]
-	}
-
 	annotations := ghsi.Subscription.GetAnnotations()
 
 	cloneDepth := 1
@@ -704,22 +683,65 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 	}
 
+	ghsi.repoRoot = utils.GetLocalGitFolder(ghsi.Subscription)
+
 	cloneOptions := &utils.GitCloneOption{
-		RepoURL:            ghsi.Channel.Spec.Pathname,
-		CommitHash:         ghsi.desiredCommit,
-		RevisionTag:        ghsi.desiredTag,
-		CloneDepth:         cloneDepth,
-		Branch:             utils.GetSubscriptionBranch(ghsi.Subscription),
-		User:               user,
-		Password:           token,
-		SSHKey:             sshKey,
-		Passphrase:         passphrase,
-		DestDir:            ghsi.repoRoot,
-		InsecureSkipVerify: ghsi.Channel.Spec.InsecureSkipVerify,
-		CaCerts:            caCert,
+		CommitHash:  ghsi.desiredCommit,
+		RevisionTag: ghsi.desiredTag,
+		CloneDepth:  cloneDepth,
+		Branch:      utils.GetSubscriptionBranch(ghsi.Subscription),
+		DestDir:     ghsi.repoRoot,
+	}
+
+	// Get the primary channel connection options
+	primaryChannelConnectionConfig, err := getChannelConnectionConfig(ghsi.ChannelSecret, ghsi.ChannelConfigMap)
+
+	if err != nil {
+		return "", err
+	}
+
+	primaryChannelConnectionConfig.RepoURL = ghsi.Channel.Spec.Pathname
+	cloneOptions.PrimaryConnectionOption = primaryChannelConnectionConfig
+
+	// Get the secondary channel connection options
+	if ghsi.SecondaryChannel != nil {
+		// Get the secondary channel connection options
+		secondaryChannelConnectionConfig, err := getChannelConnectionConfig(ghsi.SecondaryChannelSecret, ghsi.SecondaryChannelConfigMap)
+
+		if err != nil {
+			return "", err
+		}
+
+		secondaryChannelConnectionConfig.RepoURL = ghsi.SecondaryChannel.Spec.Pathname
+		cloneOptions.SecondaryConnectionOption = secondaryChannelConnectionConfig
 	}
 
 	return utils.CloneGitRepo(cloneOptions)
+}
+
+func getChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigMap) (connCfg *utils.ChannelConnectionCfg, err error) {
+	connCfg = &utils.ChannelConnectionCfg{}
+
+	if secret != nil {
+		user, token, sshKey, passphrase, err := utils.ParseChannelSecret(secret)
+
+		if err != nil {
+			return nil, err
+		}
+
+		connCfg.User = user
+		connCfg.Password = token
+		connCfg.SSHKey = sshKey
+		connCfg.Passphrase = passphrase
+	}
+
+	if configmap != nil {
+		caCert := configmap.Data[appv1.ChannelCertificateData]
+
+		connCfg.CaCerts = caCert
+	}
+
+	return connCfg, nil
 }
 
 func (ghsi *SubscriberItem) sortClonedGitRepo() error {

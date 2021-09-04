@@ -1,0 +1,32 @@
+# Licensed Materials - Property of IBM
+# 5737-E67
+# (C) Copyright IBM Corporation 2016, 2019 All Rights Reserved
+# US Government Users Restricted Rights - Use, duplication or disclosure restricted by GSA ADP Schedule Contract with IBM Corp.
+# Copyright (c) 2020 Red Hat, Inc
+
+# Default values for application-manager.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+enabled: true
+
+subscriptionrelease:
+  enabled: true
+  image:
+    repository: quay.io/open-cluster-management/multicloud-operators-subscription-release:latest
+    tag: latest
+    pullPolicy: IfNotPresent
+  hostname: mycluster.icp
+  ip: 0.0.0.0
+
+nodeSelector: {}
+
+affinity: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 2Gi

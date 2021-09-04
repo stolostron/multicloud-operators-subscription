@@ -27,7 +27,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	"github.com/google/go-github/v32/github"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -69,7 +68,7 @@ type GitOps interface {
 	GetLatestCommitID(*subv1.Subscription) (string, error)
 	//ResolveLocalGitFolder is used to open a local folder for downloading the
 	//repo branch
-	ResolveLocalGitFolder(*chnv1.Channel, *subv1.Subscription) string
+	ResolveLocalGitFolder(*subv1.Subscription) string
 
 	GetRepoRootDirctory(*subv1.Subscription) string
 
@@ -88,11 +87,9 @@ type RepoRegistery struct {
 	branchs map[string]*branchInfo
 }
 
-type GetCommitFunc func(url string, branchName string, user string, secret string) (string, error)
-
 type cloneFunc func(cloneOptions *utils.GitCloneOption) (string, error)
 
-type dirResolver func(*chnv1.Channel, *subv1.Subscription) string
+type dirResolver func(*subv1.Subscription) string
 
 type HubGitOps struct {
 	clt                 client.Client
@@ -102,7 +99,6 @@ type HubGitOps struct {
 	subRecords          map[types.NamespacedName]string
 	repoRecords         map[string]*RepoRegistery
 	downloadDirResolver dirResolver
-	getCommitFunc       GetCommitFunc
 	cloneFunc           cloneFunc
 }
 
@@ -122,15 +118,9 @@ func setHubGitOpsLogger(logger logr.Logger) HubGitOption {
 	}
 }
 
-func setLocalDirResovler(resolveFunc func(*chnv1.Channel, *subv1.Subscription) string) HubGitOption {
+func setLocalDirResovler(resolveFunc func(*subv1.Subscription) string) HubGitOption {
 	return func(a *HubGitOps) {
 		a.downloadDirResolver = resolveFunc
-	}
-}
-
-func setGetCommitFunc(gFunc GetCommitFunc) HubGitOption {
-	return func(a *HubGitOps) {
-		a.getCommitFunc = gFunc
 	}
 }
 
@@ -148,7 +138,6 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 		subRecords:          map[types.NamespacedName]string{},
 		repoRecords:         map[string]*RepoRegistery{},
 		downloadDirResolver: utils.GetLocalGitFolder,
-		getCommitFunc:       GetLatestRemoteGitCommitID,
 		cloneFunc:           cloneGitRepoBranch,
 	}
 
@@ -186,20 +175,13 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 			// If tag is provided, resolve tag to commit SHA and compare it to the currently deployed commit
 			// Otherwise, compare the latest commit of the repo branch to the currently deployed commit
 			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, branchInfoName))
-			newCommit, err := h.getCommitFunc(url, branchInfo.gitCloneOptions.Branch.Short(), branchInfo.gitCloneOptions.User, branchInfo.gitCloneOptions.Password)
+			newCommit, err := h.cloneFunc(&branchInfo.gitCloneOptions)
 
-			cloneDone := false
-
-			if err != nil || branchInfo.gitCloneOptions.RevisionTag != "" || branchInfo.gitCloneOptions.CommitHash != "" {
-				// The get commit GitHub API does not work for tag or commit
-				newCommit, err = h.cloneFunc(&branchInfo.gitCloneOptions)
-
-				if err != nil {
-					h.logger.Error(err, " failed to get the commit SHA")
-				} else {
-					cloneDone = true
-				}
+			if err != nil {
+				h.logger.Error(err, " failed to get the commit SHA")
 			}
+
+			cloneDone := true
 
 			// safe guard condition to filter out the edge case
 			if newCommit == "" {
@@ -343,8 +325,8 @@ func genRepoName(subName, subNamespace string) string {
 	return repoName
 }
 
-func (h *HubGitOps) ResolveLocalGitFolder(chn *chnv1.Channel, subIns *subv1.Subscription) string {
-	return h.downloadDirResolver(chn, subIns)
+func (h *HubGitOps) ResolveLocalGitFolder(subIns *subv1.Subscription) string {
+	return h.downloadDirResolver(subIns)
 }
 
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
@@ -355,50 +337,13 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	//	return
 	//}
 
-	channel, err := GetSubscriptionRefChannel(h.clt, subIns)
-
-	if err != nil {
-		h.logger.Error(err, "failed to register subscription to GitOps")
-		return err
-	}
-
-	if !isGitChannel(channel) {
-		return nil
-	}
-
-	user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, channel)
-
-	if err != nil {
-		h.logger.Error(err, "failed to register subscription to git watcher register")
-		return err
-	}
-
-	channelConfig := utils.GetChannelConfigMap(h.clt, channel)
-	caCert := ""
-
-	if channelConfig != nil {
-		caCert = channelConfig.Data[subv1.ChannelCertificateData]
-		if caCert != "" {
-			h.logger.Info("Channel config map with CA certs found")
-		}
-	}
-
-	skipCertVerify := false
-
-	if channel.Spec.InsecureSkipVerify {
-		skipCertVerify = true
-
-		h.logger.Info("Channel spec has insecureSkipVerify: true.")
-	}
-
-	repoURL := channel.Spec.Pathname
 	// repoName is the key of a map that stores repository information for subscription.
 	// It needs to be unique for each subscription because each subscription need to
 	// have its own copy of cloned repo to work on subscription specific overrides.
 	repoName := genRepoName(subIns.Name, subIns.Namespace)
 	branchInfoName := genBranchString(subIns)
 	branchName, commit, tag, depth := getBranchCommitDepthAndTag(subIns)
-	repoBranchDir := h.downloadDirResolver(channel, subIns)
+	repoBranchDir := h.downloadDirResolver(subIns)
 
 	h.mtx.Lock()
 	defer h.mtx.Unlock()
@@ -410,28 +355,108 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	depthInt := 0
 
 	if depth != "" {
-		depthInt, err = strconv.Atoi(depth)
+		depthInt2, err2 := strconv.Atoi(depth)
 
-		if err != nil {
-			h.logger.Error(err, " failed to convert git-clone-depth to integer")
+		if err2 != nil {
+			h.logger.Error(err2, " failed to convert git-clone-depth to integer")
 
-			depthInt = 0
+			depthInt2 = 0
 		}
+
+		depthInt = depthInt2
 	}
 
 	cloneOptions := &utils.GitCloneOption{
-		Branch:             utils.GetSubscriptionBranchRef(branchName),
-		CommitHash:         commit,
-		RevisionTag:        tag,
-		DestDir:            repoBranchDir,
-		User:               user,
-		Password:           pwd,
-		SSHKey:             sshKey,
-		Passphrase:         passphrase,
-		InsecureSkipVerify: skipCertVerify,
-		RepoURL:            repoURL,
-		CloneDepth:         depthInt,
-		CaCerts:            caCert,
+		Branch:      utils.GetSubscriptionBranchRef(branchName),
+		CommitHash:  commit,
+		RevisionTag: tag,
+		DestDir:     repoBranchDir,
+		CloneDepth:  depthInt,
+	}
+
+	primaryChannel, secondaryChannel, err := GetSubscriptionRefChannel(h.clt, subIns)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to GitOps")
+		return err
+	}
+
+	if !isGitChannel(primaryChannel) {
+		return nil
+	}
+
+	user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, primaryChannel)
+
+	if err != nil {
+		h.logger.Error(err, "failed to register subscription to git watcher register")
+		return err
+	}
+
+	channelConfig := utils.GetChannelConfigMap(h.clt, primaryChannel)
+	caCert := ""
+
+	if channelConfig != nil {
+		caCert = channelConfig.Data[subv1.ChannelCertificateData]
+		if caCert != "" {
+			h.logger.Info("Channel config map with CA certs found")
+		}
+	}
+
+	skipCertVerify := false
+
+	if primaryChannel.Spec.InsecureSkipVerify {
+		skipCertVerify = true
+
+		h.logger.Info("Channel spec has insecureSkipVerify: true.")
+	}
+
+	primaryChannelConnectionConfig := &utils.ChannelConnectionCfg{}
+	primaryChannelConnectionConfig.RepoURL = primaryChannel.Spec.Pathname
+	primaryChannelConnectionConfig.CaCerts = caCert
+	primaryChannelConnectionConfig.InsecureSkipVerify = skipCertVerify
+	primaryChannelConnectionConfig.Passphrase = passphrase
+	primaryChannelConnectionConfig.Password = pwd
+	primaryChannelConnectionConfig.SSHKey = sshKey
+	primaryChannelConnectionConfig.User = user
+
+	cloneOptions.PrimaryConnectionOption = primaryChannelConnectionConfig
+
+	if secondaryChannel != nil {
+		user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, secondaryChannel)
+
+		if err != nil {
+			h.logger.Error(err, "failed to register subscription to git watcher register")
+			return err
+		}
+
+		channelConfig := utils.GetChannelConfigMap(h.clt, primaryChannel)
+		caCert := ""
+
+		if channelConfig != nil {
+			caCert = channelConfig.Data[subv1.ChannelCertificateData]
+			if caCert != "" {
+				h.logger.Info("Channel config map with CA certs found")
+			}
+		}
+
+		skipCertVerify := false
+
+		if primaryChannel.Spec.InsecureSkipVerify {
+			skipCertVerify = true
+
+			h.logger.Info("Channel spec has insecureSkipVerify: true.")
+		}
+
+		secondaryChannelConnectionConfig := &utils.ChannelConnectionCfg{}
+		secondaryChannelConnectionConfig.RepoURL = secondaryChannel.Spec.Pathname
+		secondaryChannelConnectionConfig.CaCerts = caCert
+		secondaryChannelConnectionConfig.InsecureSkipVerify = skipCertVerify
+		secondaryChannelConnectionConfig.Passphrase = passphrase
+		secondaryChannelConnectionConfig.Password = pwd
+		secondaryChannelConnectionConfig.SSHKey = sshKey
+		secondaryChannelConnectionConfig.User = user
+
+		cloneOptions.SecondaryConnectionOption = secondaryChannelConnectionConfig
 	}
 
 	commitID, err := h.cloneFunc(cloneOptions)
@@ -443,7 +468,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	//make sure the initial prehook is passed
 	if !ok {
 		h.repoRecords[repoName] = &RepoRegistery{
-			url: repoURL,
+			url: primaryChannelConnectionConfig.RepoURL,
 			branchs: map[string]*branchInfo{
 				branchInfoName: {
 					gitCloneOptions: *cloneOptions,
@@ -490,16 +515,6 @@ func unmaskFakeCommitID(c string) string {
 	return strings.TrimSuffix(c, commitIDSuffix)
 }
 
-func unmaskFakeCommiIDOnSubIns(subIns *subv1.Subscription) *subv1.Subscription {
-	out := subIns.DeepCopy()
-
-	umaskCommitID := unmaskFakeCommitID(getCommitID(out))
-
-	setCommitID(out, umaskCommitID)
-
-	return out
-}
-
 func setCommitID(subIns *subv1.Subscription, commitID string) {
 	aAno := subIns.GetAnnotations()
 	if len(aAno) == 0 {
@@ -539,15 +554,6 @@ func (h *HubGitOps) DeregisterBranch(subKey types.NamespacedName) {
 			delete(h.repoRecords, repoName)
 		}
 	}
-}
-
-func GetLatestRemoteGitCommitID(repo, branch, user, pwd string) (string, error) {
-	tp := github.BasicAuthTransport{
-		Username: strings.TrimSpace(user),
-		Password: strings.TrimSpace(pwd),
-	}
-
-	return utils.GetLatestCommitID(repo, branch, github.NewClient(tp.Client()))
 }
 
 func (h *HubGitOps) GetLatestCommitID(subIns *subv1.Subscription) (string, error) {
