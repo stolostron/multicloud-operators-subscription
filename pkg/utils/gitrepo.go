@@ -441,6 +441,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 	if installProtocol {
 		klog.Info("HTTP_PROXY = " + os.Getenv("HTTP_PROXY"))
 		klog.Info("HTTPS_PROXY = " + os.Getenv("HTTPS_PROXY"))
+		klog.Info("NO_PROXY = " + os.Getenv("NO_PROXY"))
 
 		transportConfig := &http.Transport{
 			/* #nosec G402 */
@@ -453,19 +454,14 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 			proxyURLEnv = os.Getenv("HTTPS_PROXY")
 		} else if os.Getenv("HTTP_PROXY") != "" {
 			proxyURLEnv = os.Getenv("HTTP_PROXY")
+		} else if os.Getenv("NO_PROXY") != "" {
+			proxyURLEnv = os.Getenv("NO_PROXY")
 		}
 
 		if proxyURLEnv != "" {
-			proxyURL, err := url.Parse(proxyURLEnv)
+			transportConfig.Proxy = http.ProxyFromEnvironment
 
-			if err != nil {
-				klog.Error(err.Error())
-				return err
-			}
-
-			transportConfig.Proxy = http.ProxyURL(proxyURL)
-
-			klog.Info("setting HTTP transport proxy to " + proxyURLEnv)
+			klog.Info("HTTP transport proxy set")
 		}
 
 		customClient := &http.Client{
