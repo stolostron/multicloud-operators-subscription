@@ -12,6 +12,12 @@ Look for containers **multicluster-operators-standalone-subscription** and **mul
 
 ## Patching managed clusters
 
+If you are patching `local-cluster` managed cluster, which is the ACM hub cluster itself, run this command.
+
+```
+oc annotate -n open-cluster-management `oc get mch -oname -n open-cluster-management | head -n1` mch-pause=true --overwrite=true
+```
+
 Then update the images on managed-clusters. On the ACM hub cluster, run this command while replacing CLUSTER_NAME with the actual managed-cluster name.
 
 ```
