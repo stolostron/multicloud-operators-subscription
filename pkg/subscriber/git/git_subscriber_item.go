@@ -341,7 +341,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
 
-	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources, allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
+	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources,
+		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
 		klog.Error(err)
 
 		ghsi.successful = false

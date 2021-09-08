@@ -37,7 +37,8 @@ type SyncSource interface {
 	GetLocalClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit, map[string]map[string]string, map[string]map[string]string, bool) error
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit,
+		map[string]map[string]string, map[string]map[string]string, bool) error
 	CleanupByHost(types.NamespacedName, string) error
 }
 

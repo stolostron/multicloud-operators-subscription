@@ -414,7 +414,8 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, de
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	k string, tplunit *TemplateUnit, specialResource bool, allowlist map[string]map[string]string, isAdmin bool) error {
+	k string, tplunit *TemplateUnit, specialResource bool,
+	allowlist map[string]map[string]string, isAdmin bool) error {
 	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 	var ri dynamic.ResourceInterface

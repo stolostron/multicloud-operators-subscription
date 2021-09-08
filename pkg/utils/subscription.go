@@ -893,6 +893,8 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 	return true
 }
 
+// IsResourceAllowed checks if the resource is on application subscription's allow list. The allow list is used only
+// if the subscription is created by subscription-admin user.
 func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
 	if isAdmin {
 		// If allow list is empty, the resource is allowed
@@ -908,6 +910,8 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 	}
 }
 
+// IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
+// if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
 	if isAdmin {
 		if len(denyList) == 0 {
@@ -921,6 +925,7 @@ func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]ma
 	}
 }
 
+// GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.
 func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]string, map[string]map[string]string) {
 	allowedGroupResources := make(map[string]map[string]string)
 

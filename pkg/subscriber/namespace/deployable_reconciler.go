@@ -217,6 +217,8 @@ func (r *DeployableReconciler) doSubscription() error {
 		return retryerr
 	}
 
+	// Allow, deny list are set to nil because they are not supported by helmrepo subscription. isAdmin is set to false
+	// because it is irrelevant in helmrepo subscription
 	return r.subscriber.synchronizer.AddTemplates(syncsource, hostkey, dplOrder, nil, nil, false)
 }
 

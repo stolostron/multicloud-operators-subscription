@@ -36,12 +36,12 @@ type DplUnit struct {
 }
 
 type resourceOrder struct {
-	subType   string
-	admin     bool
-	allowList map[string]map[string]string
-	denyList  map[string]map[string]string
-	hostSub   types.NamespacedName
-	dpls      []DplUnit
+	subType   string                       // subscription source type i.e git, helmrepo, objectbucket
+	admin     bool                         // indicates if subscription-admin role is enabled
+	allowList map[string]map[string]string // allow list from subscription spec
+	denyList  map[string]map[string]string // deny list from subscription spec
+	hostSub   types.NamespacedName         // host subscription
+	dpls      []DplUnit                    // list of resources to create or update
 	err       chan error
 }
 
@@ -120,7 +120,8 @@ func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) 
 	return sync.KubeResources[gvk].Namespaced
 }
 
-func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName,
+	dpls []DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
 	rsOrder := resourceOrder{
 		subType:   subType,
 		admin:     isAdmin,

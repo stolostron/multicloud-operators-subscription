@@ -344,7 +344,8 @@ func (obsi *SubscriberItem) doSubscription() error {
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*obsi.Subscription)
 
-	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits, allowedGroupResources, deniedGroupResources, false); err != nil {
+	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey,
+		syncsource, pkgMap, dplUnits, allowedGroupResources, deniedGroupResources, false); err != nil {
 		return err
 	}
 

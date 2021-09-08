@@ -190,7 +190,8 @@ func (f *fakeSynchronizer) GetInterval() int {
 	return f.interval
 }
 
-func (f *fakeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []kubernetes.DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+func (f *fakeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName,
+	dpls []kubernetes.DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
 	return nil
 }
 
