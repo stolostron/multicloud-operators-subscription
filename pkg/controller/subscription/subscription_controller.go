@@ -483,7 +483,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 	subtype := strings.ToLower(string(subitem.Channel.Spec.Type))
 
-	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) {
+	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) ||
+		strings.EqualFold(subtype, chnv1.ChannelTypeObjectBucket) {
 		annotations := instance.GetAnnotations()
 
 		if utils.IsClusterAdmin(r.hubclient, instance, r.eventRecorder) {
