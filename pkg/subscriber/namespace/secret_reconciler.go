@@ -243,7 +243,7 @@ func registerToResourceMap(sch *runtime.Scheme, pSubscription *appv1alpha1.Subsc
 		klog.V(10).Info("Finished Register ", *validgvk, hostkey, dplkey, " with err:", err)
 	}
 
-	return kubesync.AddTemplates(syncsource, hostkey, dplOrder, nil)
+	return kubesync.AddTemplates(syncsource, hostkey, dplOrder, nil, nil, false)
 }
 
 //PackageSecert put the secret to the deployable template

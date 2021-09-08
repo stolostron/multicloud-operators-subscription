@@ -295,7 +295,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	// handle orphan resource
 	sync.kmtx.Lock()
 	for resgvk, resmap := range sync.KubeResources {
-		klog.Info("****************> resgvk: " + resgvk.String())
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
 			//nothing
@@ -327,7 +326,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 			}
 		}
 
-		sync.applyKindTemplates(resmap)
+		sync.applyKindTemplates(resmap, order.allowList, order.denyList, order.admin)
 	}
 	sync.kmtx.Unlock()
 

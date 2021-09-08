@@ -49,6 +49,7 @@ type SubscriberItem struct {
 	objectStore  awsutils.ObjectStore
 	stopch       chan struct{}
 	successful   bool
+	clusterAdmin bool
 	syncinterval int
 	synchronizer SyncSource
 }
@@ -341,7 +342,9 @@ func (obsi *SubscriberItem) doSubscription() error {
 		dplUnits = append(dplUnits, unit)
 	}
 
-	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits, nil); err != nil {
+	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*obsi.Subscription)
+
+	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits, allowedGroupResources, deniedGroupResources, false); err != nil {
 		return err
 	}
 

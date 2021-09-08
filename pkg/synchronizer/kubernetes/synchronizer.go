@@ -13,12 +13,13 @@ package kubernetes
 import (
 	"context"
 	"encoding/json"
+	gerrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -378,24 +379,42 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 	return gvr == serviceGVR || gvr == serviceAccountGVR || gvr == namespaceGVR
 }
 
-func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
+func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, denyList map[string]map[string]string, isAdmin bool) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
-		klog.Infof("==============> APPLYING GroupVersionResource: %v    KIND: %v", res.GroupVersionResource, k)
-		klog.Infof("==============> APPLYING apiVersion: %s    resource: %s", res.GroupVersionResource.Group, res.GroupVersionResource.Resource)
-		klog.Info(res)
-		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
-		if err != nil {
-			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
+		if utils.IsResourceDenied(*tplunit.Unstructured, denyList, isAdmin) {
+			denyError := gerrors.New(fmt.Sprintf("The resource apiVersion: %s kind: %s is on the deny list. Not deployed.", tplunit.GetAPIVersion(), tplunit.GetKind()))
+			klog.Info(denyError.Error())
+
+			err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
+
+			if err != nil {
+				klog.Error("failed to update the status, err: " + err.Error())
+			}
+		} else if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
+			err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource), allowlist, isAdmin)
+
+			if err != nil {
+				klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
+			}
+		} else {
+			denyError := gerrors.New(fmt.Sprintf("The resource apiVersion: %s kind: %s is not on the allow list. Not deployed.", tplunit.GetAPIVersion(), tplunit.GetKind()))
+			klog.Info(denyError.Error())
+
+			err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
+
+			if err != nil {
+				klog.Error("failed to update the status, err: " + err.Error())
+			}
 		}
 	}
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	k string, tplunit *TemplateUnit, specialResource bool) error {
+	k string, tplunit *TemplateUnit, specialResource bool, allowlist map[string]map[string]string, isAdmin bool) error {
 	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 	var ri dynamic.ResourceInterface

@@ -893,6 +893,66 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 	return true
 }
 
+func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
+	if isAdmin {
+		// If allow list is empty, the resource is allowed
+		if len(allowlist) == 0 {
+			return true
+		}
+
+		return (allowlist[resource.GetAPIVersion()][resource.GetKind()] != "" ||
+			allowlist[resource.GetAPIVersion()]["*"] != "")
+	} else {
+		// If not subscription admin, Policy is always not allowed
+		return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
+	}
+}
+
+func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
+	if isAdmin {
+		if len(denyList) == 0 {
+			return false
+		}
+		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
+			denyList[resource.GetAPIVersion()]["*"] != "")
+	} else {
+		// If not subscription admin, Policy is always not allowed
+		return resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
+	}
+}
+
+func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]string, map[string]map[string]string) {
+	allowedGroupResources := make(map[string]map[string]string)
+
+	if subscription.Spec.Allow != nil {
+		for _, allowGroup := range subscription.Spec.Allow {
+			for _, resource := range allowGroup.Resources {
+				klog.Info("allowing to deploy resource " + allowGroup.ApiGroup + "/" + resource)
+				if allowedGroupResources[allowGroup.ApiGroup] == nil {
+					allowedGroupResources[allowGroup.ApiGroup] = make(map[string]string)
+				}
+				allowedGroupResources[allowGroup.ApiGroup][resource] = resource
+			}
+		}
+	}
+
+	deniedGroupResources := make(map[string]map[string]string)
+
+	if subscription.Spec.Deny != nil {
+		for _, denyGroup := range subscription.Spec.Deny {
+			for _, resource := range denyGroup.Resources {
+				klog.Info("denying to deploy resource " + denyGroup.ApiGroup + "/" + resource)
+				if deniedGroupResources[denyGroup.ApiGroup] == nil {
+					deniedGroupResources[denyGroup.ApiGroup] = make(map[string]string)
+				}
+				deniedGroupResources[denyGroup.ApiGroup][resource] = resource
+			}
+		}
+	}
+
+	return allowedGroupResources, deniedGroupResources
+}
+
 //DeleteSubscriptionCRD deletes the Subscription CRD
 func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
 	sublist := &appv1.SubscriptionList{}

@@ -30,14 +30,14 @@ import (
 type SyncSource interface {
 	GetLocalClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit, map[string]map[string]string) error
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit, map[string]map[string]string, map[string]map[string]string, bool) error
 }
 
 //PProcessDeployableUnits unify the deployable handle process between helm and objectbucket deployables
 func Units(sub *subv1.Subscription, synchronizer SyncSource,
 	hostkey types.NamespacedName, syncsource string,
-	pkgMap map[string]bool, dplUnits []kubesynchronizer.DplUnit, allowlist map[string]map[string]string) error {
-	if err := synchronizer.AddTemplates(syncsource, hostkey, dplUnits, allowlist); err != nil {
+	pkgMap map[string]bool, dplUnits []kubesynchronizer.DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	if err := synchronizer.AddTemplates(syncsource, hostkey, dplUnits, allowlist, denyList, isAdmin); err != nil {
 		klog.Error("error in registering :", err)
 
 		if serr := utils.SetInClusterPackageStatus(&(sub.Status), sub.GetName(), err, nil); serr != nil {
