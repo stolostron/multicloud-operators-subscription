@@ -131,7 +131,7 @@ type Overrides struct {
 
 // AllowDenyItem is a group resources allowed or denied for deployment
 type AllowDenyItem struct {
-	ApiGroup  string   `json:"apiVersion,omitempty"`
+	APIGroup  string   `json:"apiVersion,omitempty"`
 	Resources []string `json:"kinds,omitempty"`
 }
 

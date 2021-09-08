@@ -13,7 +13,6 @@ package kubernetes
 import (
 	"context"
 	"encoding/json"
-	gerrors "errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -386,7 +385,9 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, de
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
 
 		if utils.IsResourceDenied(*tplunit.Unstructured, denyList, isAdmin) {
-			denyError := gerrors.New(fmt.Sprintf("The resource apiVersion: %s kind: %s is on the deny list. Not deployed.", tplunit.GetAPIVersion(), tplunit.GetKind()))
+			denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
+				tplunit.GetAPIVersion(), tplunit.GetKind())
+
 			klog.Info(denyError.Error())
 
 			err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
@@ -395,13 +396,14 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, de
 				klog.Error("failed to update the status, err: " + err.Error())
 			}
 		} else if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
-			err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource), allowlist, isAdmin)
+			err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
 			if err != nil {
 				klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
 			}
 		} else {
-			denyError := gerrors.New(fmt.Sprintf("The resource apiVersion: %s kind: %s is not on the allow list. Not deployed.", tplunit.GetAPIVersion(), tplunit.GetKind()))
+			denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
+				tplunit.GetAPIVersion(), tplunit.GetKind())
 			klog.Info(denyError.Error())
 
 			err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
@@ -414,8 +416,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, de
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	k string, tplunit *TemplateUnit, specialResource bool,
-	allowlist map[string]map[string]string, isAdmin bool) error {
+	k string, tplunit *TemplateUnit, specialResource bool) error {
 	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
 
 	var ri dynamic.ResourceInterface

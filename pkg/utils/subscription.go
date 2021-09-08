@@ -904,25 +904,27 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 
 		return (allowlist[resource.GetAPIVersion()][resource.GetKind()] != "" ||
 			allowlist[resource.GetAPIVersion()]["*"] != "")
-	} else {
-		// If not subscription admin, Policy is always not allowed
-		return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
 	}
+
+	// If not subscription admin, Policy is always not allowed
+	return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
 }
 
 // IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
 	if isAdmin {
+		// If allow list is empty, the resource is NOT denied
 		if len(denyList) == 0 {
 			return false
 		}
+
 		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
 			denyList[resource.GetAPIVersion()]["*"] != "")
-	} else {
-		// If not subscription admin, Policy is always not allowed
-		return resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
 	}
+
+	// If not subscription admin, Policy is always not allowed
+	return resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
 }
 
 // GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.
@@ -932,11 +934,13 @@ func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]s
 	if subscription.Spec.Allow != nil {
 		for _, allowGroup := range subscription.Spec.Allow {
 			for _, resource := range allowGroup.Resources {
-				klog.Info("allowing to deploy resource " + allowGroup.ApiGroup + "/" + resource)
-				if allowedGroupResources[allowGroup.ApiGroup] == nil {
-					allowedGroupResources[allowGroup.ApiGroup] = make(map[string]string)
+				klog.Info("allowing to deploy resource " + allowGroup.APIGroup + "/" + resource)
+
+				if allowedGroupResources[allowGroup.APIGroup] == nil {
+					allowedGroupResources[allowGroup.APIGroup] = make(map[string]string)
 				}
-				allowedGroupResources[allowGroup.ApiGroup][resource] = resource
+
+				allowedGroupResources[allowGroup.APIGroup][resource] = resource
 			}
 		}
 	}
@@ -946,11 +950,13 @@ func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]s
 	if subscription.Spec.Deny != nil {
 		for _, denyGroup := range subscription.Spec.Deny {
 			for _, resource := range denyGroup.Resources {
-				klog.Info("denying to deploy resource " + denyGroup.ApiGroup + "/" + resource)
-				if deniedGroupResources[denyGroup.ApiGroup] == nil {
-					deniedGroupResources[denyGroup.ApiGroup] = make(map[string]string)
+				klog.Info("denying to deploy resource " + denyGroup.APIGroup + "/" + resource)
+
+				if deniedGroupResources[denyGroup.APIGroup] == nil {
+					deniedGroupResources[denyGroup.APIGroup] = make(map[string]string)
 				}
-				deniedGroupResources[denyGroup.ApiGroup][resource] = resource
+
+				deniedGroupResources[denyGroup.APIGroup][resource] = resource
 			}
 		}
 	}

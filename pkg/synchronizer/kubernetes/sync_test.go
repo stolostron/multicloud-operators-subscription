@@ -225,7 +225,7 @@ var _ = Describe("test apply", func() {
 		defer k8sClient.Delete(context.TODO(), sub)
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		cfgmap := &corev1.ConfigMap{}
 		Expect(k8sClient.Get(context.TODO(), sharedkey, cfgmap)).NotTo(HaveOccurred())
@@ -244,7 +244,7 @@ var _ = Describe("test apply", func() {
 		nu.DeepCopyInto(tplunit.Unstructured)
 
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		defer k8sClient.Delete(context.TODO(), newtplobj)
 
@@ -677,7 +677,7 @@ var _ = Describe("test service resource", func() {
 		Expect(tplunit.Unstructured.Object).Should(BeEquivalentTo(converted.Object))
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, true, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, true)).NotTo(HaveOccurred())
 
 		time.Sleep(k8swait)
 
@@ -822,7 +822,7 @@ var _ = Describe("test resource overwrite", func() {
 		Expect(tplunit.Source).Should(Equal(source))
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), cm)
@@ -906,7 +906,7 @@ var _ = Describe("test resource overwrite", func() {
 		Expect(tplunit.Source).Should(Equal(source))
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), cm)
@@ -981,7 +981,7 @@ var _ = Describe("test resource overwrite", func() {
 		Expect(tplunit.Source).Should(Equal(source))
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), cm)
@@ -1063,7 +1063,7 @@ var _ = Describe("test resource overwrite", func() {
 		Expect(tplunit.Source).Should(Equal(source))
 
 		nri := sync.DynamicClient.Resource(resmap.GroupVersionResource)
-		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false, nil, false)).NotTo(HaveOccurred())
+		Expect(sync.applyTemplate(nri, resmap.Namespaced, reskey, tplunit, false)).NotTo(HaveOccurred())
 
 		Expect(k8sClient.Get(context.TODO(), configMapSharedkey, cm)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), cm)
