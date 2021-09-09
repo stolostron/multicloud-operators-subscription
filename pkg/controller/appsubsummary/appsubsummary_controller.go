@@ -164,21 +164,17 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary(policyReport *policyRepor
 		return nil
 	}
 
-	// create a map for cotaining all appsub resource list. key is appsub name
-	appSubResourceMap := make(map[string]AppSubResoures)
-
-	// create a map for cotaining all appsub status per cluster. key is appsub name
+	// create a map for containing all appsub status per cluster. key is appsub name
 	appSubClusterFailStatusMap := make(map[string]AppSubClustersFailStatus)
 
 	for _, appsubPolicyReportPerCluster := range appPolicyReportClusterList.Items {
-		r.UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster, appSubResourceMap, appSubClusterFailStatusMap)
+		r.UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster, appSubClusterFailStatusMap)
 	}
 
 	klog.Infof("appSub Resource Map and appSub Cluster Status Map ready")
-	klog.V(1).Infof("appSub Resource Map: %v", appSubResourceMap)
 	klog.V(1).Infof("appSub Cluster Failure Status Map: %v", appSubClusterFailStatusMap)
 
-	r.createOrUpdateAppSubPolicyReport(appSubResourceMap, appSubClusterFailStatusMap)
+	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap, len(appPolicyReportClusterList.Items))
 
 	klog.Infof("All AppSub Policy Report re-genreated")
 
@@ -186,27 +182,14 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary(policyReport *policyRepor
 }
 
 func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster policyReportV1alpha2.PolicyReport,
-	appSubResourceMap map[string]AppSubResoures, appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
+	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
 	cluster := appsubPolicyReportPerCluster.Namespace
 
 	for _, result := range appsubPolicyReportPerCluster.Results {
+		klog.Infof("Result:%v", result)
 		appsubName, appsubNs := utils.ParseNamespacedName(result.Source)
 		if appsubName == "" && appsubNs == "" {
 			continue
-		}
-
-		if result.Policy == "APPSUB_RESOURCE_LIST" {
-			rs := AppSubResoures{}
-			rs.Resoures = result.Subjects
-			rs.Timestamp = result.Timestamp
-
-			if appSubResource, ok := appSubResourceMap[result.Source]; ok {
-				rs.TotalClusterCount = appSubResource.TotalClusterCount + 1
-			} else {
-				rs.TotalClusterCount = 1
-			}
-
-			appSubResourceMap[result.Source] = rs
 		}
 
 		if result.Policy == "APPSUB_FAILURE" {
@@ -230,8 +213,11 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 }
 
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
-	appSubResourceMap map[string]AppSubResoures, appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
-	for appsub, resources := range appSubResourceMap {
+	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus, clusterCount int) {
+
+	// Find existing policyReport for app - can assume it exists for now
+
+	for appsub, clustersFailStatus := range appSubClusterFailStatusMap {
 		appsubNs, appsubName := utils.ParseNamespacedName(appsub)
 		if appsubName == "" && appsubNs == "" {
 			continue
@@ -245,23 +231,23 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 			Namespace: appsubNs,
 		}
 
-		clustersFailStatus := appSubClusterFailStatusMap[appsub]
-
-		newPolicyReport := r.newAppPolicyReport(appsubNs, appsubName, resources, clustersFailStatus)
-
 		if err := r.Get(context.TODO(), appsubPolicyReportKey, appsubPolicyReport); err != nil {
 			if errors.IsNotFound(err) {
-				if err := r.Create(context.TODO(), newPolicyReport); err != nil {
-					klog.Errorf("Failed to create app policyReport err: %v", err)
-
-					continue
-				}
-
-				klog.V(1).Infof("new policyReport created, %v/%v", newPolicyReport.GetNamespace(), newPolicyReport.GetName())
+				klog.Errorf("Failed to find app policyReport err: %v", err)
 
 				continue
 			}
 		}
+
+		// Find and keep appsub resource list from original policy report
+		policyReportResult := &v1alpha2.PolicyReportResult{}
+		for _, result := range appsubPolicyReport.Results {
+			if result.Policy == "APPSUB_RESOURCE_LIST" {
+				policyReportResult = result.DeepCopy()
+			}
+		}
+
+		newPolicyReport := r.newAppPolicyReport(appsubNs, appsubName, policyReportResult, clustersFailStatus, clusterCount)
 
 		origAppsubPolicyReport := appsubPolicyReport.DeepCopy()
 
@@ -270,7 +256,9 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Scope, newPolicyReport.Scope) ||
 			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Summary, newPolicyReport.Summary) {
 			appsubPolicyReport.SetLabels(newPolicyReport.GetLabels())
+
 			appsubPolicyReport.Results = newPolicyReport.Results
+
 			appsubPolicyReport.Scope = newPolicyReport.Scope
 			appsubPolicyReport.Summary = newPolicyReport.Summary
 
@@ -286,21 +274,14 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 }
 
 func (r *ReconcileAppSubSummary) newAppPolicyReport(appsubNs, appsubName string,
-	resources AppSubResoures, clustersFailStatus AppSubClustersFailStatus) *policyReportV1alpha2.PolicyReport {
+	appsubResourceList *policyReportV1alpha2.PolicyReportResult,
+	clustersFailStatus AppSubClustersFailStatus, clusterCount int) *policyReportV1alpha2.PolicyReport {
 	newPolicyReportResults := []*policyReportV1alpha2.PolicyReportResult{}
 
-	newPolicyReportResult := &policyReportV1alpha2.PolicyReportResult{
-		Policy:    "APPSUB_RESOURCE_LIST",
-		Source:    appsubNs + "/" + appsubName,
-		Result:    policyReportV1alpha2.PolicyResult("pass"),
-		Timestamp: resources.Timestamp,
-		Subjects:  resources.Resoures,
-	}
-
-	newPolicyReportResults = append(newPolicyReportResults, newPolicyReportResult)
+	newPolicyReportResults = append(newPolicyReportResults, appsubResourceList)
 
 	for _, ClustersFailStatus := range clustersFailStatus.Clusters {
-		newPolicyReportResult = &policyReportV1alpha2.PolicyReportResult{
+		newPolicyReportResult := &policyReportV1alpha2.PolicyReportResult{
 			Policy:      "APPSUB_FAILURE",
 			Source:      ClustersFailStatus.Cluster,
 			Description: ClustersFailStatus.Message,
@@ -329,7 +310,8 @@ func (r *ReconcileAppSubSummary) newAppPolicyReport(appsubNs, appsubName string,
 			Namespace: appsubNs,
 		},
 		Summary: v1alpha2.PolicyReportSummary{
-			Pass:  resources.TotalClusterCount - len(clustersFailStatus.Clusters),
+			// TODO: Have to get total cluster count for app from appsub?
+			Pass:  clusterCount - len(clustersFailStatus.Clusters),
 			Fail:  len(clustersFailStatus.Clusters),
 			Warn:  0,
 			Error: 0,
