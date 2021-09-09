@@ -17,7 +17,8 @@ package appsubsummary
 import (
 	"context"
 	"fmt"
-	"sync"
+	"runtime"
+	"time"
 
 	appsubv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -26,16 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 	"sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
@@ -43,16 +39,7 @@ import (
 // ReconcileAppSubStatus reconciles a AppSubStatus object.
 type ReconcileAppSubSummary struct {
 	client.Client
-	authClient kubernetes.Interface
-	scheme     *runtime.Scheme
-	lock       sync.Mutex
-}
-
-// resource list deployed by the appsub, per app.
-type AppSubResoures struct {
-	TotalClusterCount int
-	Timestamp         metav1.Timestamp
-	Resoures          []*corev1.ObjectReference
+	Interval int
 }
 
 type AppSubClusterFailStatus struct {
@@ -67,72 +54,33 @@ type AppSubClustersFailStatus struct {
 	Clusters []AppSubClusterFailStatus
 }
 
-// Add creates a new argocd cluster Controller and adds it to the Manager with default RBAC.
-// The Manager will set fields on the Controller and Start it when the Manager is Started.
-func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
-}
-
-var _ reconcile.Reconciler = &ReconcileAppSubSummary{}
-
-// newReconciler returns a new reconcile.Reconciler.
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	authCfg := mgr.GetConfig()
-	klog.Infof("Host: %v, BearerToken: %v", authCfg.Host, authCfg.BearerToken)
-	kubeClient := kubernetes.NewForConfigOrDie(authCfg)
-
+func Add(mgr manager.Manager, interval int) error {
 	dsRS := &ReconcileAppSubSummary{
-		Client:     mgr.GetClient(),
-		scheme:     mgr.GetScheme(),
-		authClient: kubeClient,
-		lock:       sync.Mutex{},
+		Client:   mgr.GetClient(),
+		Interval: interval,
 	}
 
-	return dsRS
+	return mgr.Add(dsRS)
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler.
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
-	klog.Infof("Add appsubstatus-controller to mgr")
-
-	// Create a new controller
-	c, err := controller.New("appsubstatus-controller", mgr, controller.Options{
-		Reconciler:              r,
-		MaxConcurrentReconciles: 10,
-	})
-	if err != nil {
-		return err
-	}
-
-	// Watch appsubpackagestatus changes
-	err = c.Watch(
-		&source.Kind{Type: &policyReportV1alpha2.PolicyReport{}},
-		&handler.EnqueueRequestForObject{},
-		subutils.AppSubSummaryPredicateFunc)
-
-	if err != nil {
-		return err
-	}
+func (r *ReconcileAppSubSummary) Start(ctx context.Context) error {
+	go wait.Until(func() {
+		r.houseKeeping()
+	}, time.Duration(r.Interval)*time.Second, ctx.Done())
 
 	return nil
 }
 
-func (r *ReconcileAppSubSummary) Reconcile(ctx context.Context, request reconcile.Request) (reconcile.Result, error) {
-	instance := &policyReportV1alpha2.PolicyReport{}
-	err := r.Get(context.TODO(), request.NamespacedName, instance)
+func (r *ReconcileAppSubSummary) houseKeeping() {
+	klog.Info("Start aggregating all appsub policyReports based on policyReport per cluster...")
 
-	klog.Info("Reconciling:", request.NamespacedName, " with Get err:", err)
+	// create or update all app policyReport object in the appsub NS
+	r.generateAppSubSummary()
 
-	// create or update summary appsubstatus object in the appsub NS
-	err = r.generateAppSubSummary(instance)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	return reconcile.Result{}, nil
+	klog.Info("Finish aggregating all appsub policyReports.")
 }
 
-func (r *ReconcileAppSubSummary) generateAppSubSummary(policyReport *policyReportV1alpha2.PolicyReport) error {
+func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 	appPolicyReportClusterList := &policyReportV1alpha2.PolicyReportList{}
 	listopts := &client.ListOptions{}
 
@@ -164,6 +112,8 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary(policyReport *policyRepor
 		return nil
 	}
 
+	PrintMemUsage("Initialize AppSub Map.")
+
 	// create a map for containing all appsub status per cluster. key is appsub name
 	appSubClusterFailStatusMap := make(map[string]AppSubClustersFailStatus)
 
@@ -171,12 +121,9 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary(policyReport *policyRepor
 		r.UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster, appSubClusterFailStatusMap)
 	}
 
-	klog.Infof("appSub Resource Map and appSub Cluster Status Map ready")
-	klog.V(1).Infof("appSub Cluster Failure Status Map: %v", appSubClusterFailStatusMap)
+	PrintMemUsage("AppSub Map generated.")
 
 	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap, len(appPolicyReportClusterList.Items))
-
-	klog.Infof("All AppSub Policy Report re-genreated")
 
 	return nil
 }
@@ -185,9 +132,11 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
 	cluster := appsubPolicyReportPerCluster.Namespace
 
+	TotalResult := len(appsubPolicyReportPerCluster.Results)
+
 	for _, result := range appsubPolicyReportPerCluster.Results {
-		klog.Infof("Result:%v", result)
 		appsubName, appsubNs := utils.ParseNamespacedName(result.Source)
+
 		if appsubName == "" && appsubNs == "" {
 			continue
 		}
@@ -210,11 +159,13 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 			}
 		}
 	}
+
+	klog.Infof("AppSub Map updated. Cluster: %v, Total failed apps: %v", cluster, TotalResult)
+	PrintMemUsage("memory usage when generaring AppSub Map.")
 }
 
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus, clusterCount int) {
-
 	// Find existing policyReport for app - can assume it exists for now
 
 	for appsub, clustersFailStatus := range appSubClusterFailStatusMap {
@@ -241,15 +192,20 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 
 		// Find and keep appsub resource list from original policy report
 		policyReportResult := &v1alpha2.PolicyReportResult{}
+
 		for _, result := range appsubPolicyReport.Results {
 			if result.Policy == "APPSUB_RESOURCE_LIST" {
 				policyReportResult = result.DeepCopy()
+
+				break
 			}
 		}
 
 		newPolicyReport := r.newAppPolicyReport(appsubNs, appsubName, policyReportResult, clustersFailStatus, clusterCount)
 
 		origAppsubPolicyReport := appsubPolicyReport.DeepCopy()
+
+		PrintMemUsage("memory usage when updating appsub PolicyReport.")
 
 		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.GetLabels(), newPolicyReport.GetLabels()) ||
 			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Results, newPolicyReport.Results) ||
@@ -336,4 +292,21 @@ func (r *ReconcileAppSubSummary) setOwnerReferences(subNs, subName string, obj m
 
 	obj.SetOwnerReferences([]metav1.OwnerReference{
 		*metav1.NewControllerRef(owner, owner.GetObjectKind().GroupVersionKind())})
+}
+
+func PrintMemUsage(title string) {
+	var m runtime.MemStats
+
+	runtime.ReadMemStats(&m)
+
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	klog.Infof("%v", title)
+	klog.Infof("Alloc = %v MiB", bToMb(m.Alloc))
+	klog.Infof("\tTotalAlloc = %v MiB", bToMb(m.TotalAlloc))
+	klog.Infof("\tSys = %v MiB", bToMb(m.Sys))
+	klog.Infof("\tNumGC = %v\n", m.NumGC)
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
 }

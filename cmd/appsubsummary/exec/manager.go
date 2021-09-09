@@ -47,8 +47,6 @@ func RunManager() {
 	}
 
 	cfg := ctrl.GetConfigOrDie()
-	cfg.QPS = 100.0
-	cfg.Burst = 200
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
@@ -77,7 +75,7 @@ func RunManager() {
 	}
 
 	// Setup all Controllers.
-	if err := controller.AddAppSubSummaryToManager(mgr); err != nil {
+	if err := controller.AddAppSubSummaryToManager(mgr, options.SyncInterval); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
@@ -91,4 +89,5 @@ func RunManager() {
 		klog.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
+
 }

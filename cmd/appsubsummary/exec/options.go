@@ -20,11 +20,13 @@ import (
 
 // AppSubStatusCMDOptions for command line flag parsing.
 type AppSubStatusCMDOptions struct {
-	MetricsAddr string
+	MetricsAddr  string
+	SyncInterval int
 }
 
 var options = AppSubStatusCMDOptions{
-	MetricsAddr: "",
+	MetricsAddr:  "",
+	SyncInterval: 15,
 }
 
 // ProcessFlags parses command line parameters into options.
@@ -37,4 +39,12 @@ func ProcessFlags() {
 		options.MetricsAddr,
 		"The address the metric endpoint binds to.",
 	)
+
+	flag.IntVar(
+		&options.SyncInterval,
+		"sync-interval",
+		options.SyncInterval,
+		"The interval of housekeeping in seconds.",
+	)
+
 }
