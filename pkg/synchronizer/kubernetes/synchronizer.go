@@ -378,11 +378,16 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 	return gvr == serviceGVR || gvr == serviceAccountGVR || gvr == namespaceGVR
 }
 
-func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, denyList map[string]map[string]string, isAdmin bool) {
+func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[string]bool, allowlist, denyList map[string]map[string]string, isAdmin bool) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
+
+		if !keySet[k] {
+			klog.Infof("k: %v, does not belong to the order. skip", k)
+			continue
+		}
 
 		if utils.IsResourceDenied(*tplunit.Unstructured, denyList, isAdmin) {
 			denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
@@ -395,21 +400,25 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, allowlist, de
 			if err != nil {
 				klog.Error("failed to update the status, err: " + err.Error())
 			}
-		} else if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
-			err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
-
-			if err != nil {
-				klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
-			}
 		} else {
-			denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
-				tplunit.GetAPIVersion(), tplunit.GetKind())
-			klog.Info(denyError.Error())
+			if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
+				klog.Infof("the resource apiVersion: %s kind: %s name: %s is GOING TO BE DEPLOYED. ",
+					tplunit.GetAPIVersion(), tplunit.GetKind(), tplunit.GetName())
+				err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
-			err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
+				if err != nil {
+					klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
+				}
+			} else {
+				denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
+					tplunit.GetAPIVersion(), tplunit.GetKind())
+				klog.Info(denyError.Error())
 
-			if err != nil {
-				klog.Error("failed to update the status, err: " + err.Error())
+				err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
+
+				if err != nil {
+					klog.Error("failed to update the status, err: " + err.Error())
+				}
 			}
 		}
 	}

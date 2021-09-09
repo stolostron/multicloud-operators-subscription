@@ -896,35 +896,43 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 // IsResourceAllowed checks if the resource is on application subscription's allow list. The allow list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
+	// Policy is not allowed by default
+	allowed := resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
+
+	// If subscription-admin, honour the allow list
 	if isAdmin {
-		// If allow list is empty, the resource is allowed
+		// If allow list is empty, all resources are allowed for deploy except the policy
 		if len(allowlist) == 0 {
-			return true
+			return allowed
 		}
 
 		return (allowlist[resource.GetAPIVersion()][resource.GetKind()] != "" ||
 			allowlist[resource.GetAPIVersion()]["*"] != "")
 	}
 
-	// If not subscription admin, Policy is always not allowed
-	return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
+	// If not subscription-admin, ignore the allow list
+	return allowed
 }
 
 // IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
+	// Policy is denied by default
+	denied := resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
+
+	// If subscription-admin, honour the deny list
 	if isAdmin {
-		// If allow list is empty, the resource is NOT denied
+		// If deny list is empty, all resources are NOT denied except the policy
 		if len(denyList) == 0 {
-			return false
+			return denied
 		}
 
 		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
 			denyList[resource.GetAPIVersion()]["*"] != "")
 	}
 
-	// If not subscription admin, Policy is always not allowed
-	return resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
+	// If not subscription-admin, ignore the deny list
+	return denied
 }
 
 // GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.
