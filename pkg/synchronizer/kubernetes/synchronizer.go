@@ -388,6 +388,7 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[st
 			// ketSet contains resource keys to be deployed for this sinigle subscription item.
 			// if the current resource from the template map does not belong to ketSet,
 			// it belongs to another subscription. Skip.
+			klog.V(1).Infof("k: %v, does not belong to the order to be processed. skip", k)
 			continue
 		}
 
