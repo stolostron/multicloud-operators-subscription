@@ -378,11 +378,18 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 	return gvr == serviceGVR || gvr == serviceAccountGVR || gvr == namespaceGVR
 }
 
-func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap) {
+func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[string]bool) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
 	for k, tplunit := range res.TemplateMap {
 		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
+
+		// ketSet contains resource keys to be deployed for this sinigle subscription item.
+		if !keySet[k] {
+			klog.Infof("k: %v, does not belong to the order to be processed. skip", k)
+			continue
+		}
+
 		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
 
 		if err != nil {

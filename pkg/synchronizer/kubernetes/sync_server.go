@@ -326,7 +326,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 			}
 		}
 
-		sync.applyKindTemplates(resmap)
+		sync.applyKindTemplates(resmap, keySet)
 	}
 	sync.kmtx.Unlock()
 
