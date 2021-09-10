@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sort"
 	"time"
 
 	appsubv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -54,6 +55,13 @@ type AppSubClustersFailStatus struct {
 	Clusters []AppSubClusterFailStatus
 }
 
+// ClusterSorter sorts policyreport results by source name.
+type ClusterSorter []*v1alpha2.PolicyReportResult
+
+func (a ClusterSorter) Len() int           { return len(a) }
+func (a ClusterSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a ClusterSorter) Less(i, j int) bool { return a[i].Source < a[j].Source }
+
 func Add(mgr manager.Manager, interval int) error {
 	dsRS := &ReconcileAppSubSummary{
 		Client:   mgr.GetClient(),
@@ -81,6 +89,8 @@ func (r *ReconcileAppSubSummary) houseKeeping() {
 }
 
 func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
+	PrintMemUsage("prepare to fetch all cluster policyReports.")
+
 	appPolicyReportClusterList := &policyReportV1alpha2.PolicyReportList{}
 	listopts := &client.ListOptions{}
 
@@ -106,7 +116,9 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 		return err
 	}
 
-	if len(appPolicyReportClusterList.Items) == 0 {
+	clusterPolicyReportCount := len(appPolicyReportClusterList.Items)
+
+	if clusterPolicyReportCount == 0 {
 		klog.Infof("No appsub PolicyReport Per Cluster with labels %v found", appPolicyReportClusterSelector)
 
 		return nil
@@ -121,9 +133,15 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 		r.UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster, appSubClusterFailStatusMap)
 	}
 
+	appPolicyReportClusterList = nil
+
+	runtime.GC()
+
 	PrintMemUsage("AppSub Map generated.")
 
-	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap, len(appPolicyReportClusterList.Items))
+	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap, clusterPolicyReportCount)
+
+	runtime.GC()
 
 	return nil
 }
@@ -131,8 +149,6 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPerCluster policyReportV1alpha2.PolicyReport,
 	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
 	cluster := appsubPolicyReportPerCluster.Namespace
-
-	TotalResult := len(appsubPolicyReportPerCluster.Results)
 
 	for _, result := range appsubPolicyReportPerCluster.Results {
 		appsubName, appsubNs := utils.ParseNamespacedName(result.Source)
@@ -159,9 +175,6 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 			}
 		}
 	}
-
-	klog.Infof("AppSub Map updated. Cluster: %v, Total failed apps: %v", cluster, TotalResult)
-	PrintMemUsage("memory usage when generaring AppSub Map.")
 }
 
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
@@ -207,10 +220,36 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 
 		PrintMemUsage("memory usage when updating appsub PolicyReport.")
 
-		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.GetLabels(), newPolicyReport.GetLabels()) ||
-			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Results, newPolicyReport.Results) ||
-			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Scope, newPolicyReport.Scope) ||
-			!equality.Semantic.DeepEqual(origAppsubPolicyReport.Summary, newPolicyReport.Summary) {
+		isSame := true
+
+		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.GetLabels(), newPolicyReport.GetLabels()) {
+			klog.V(1).Info("labels not same")
+
+			isSame = false
+		}
+
+		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.Scope, newPolicyReport.Scope) {
+			klog.V(1).Info("Scope not same")
+
+			isSame = false
+		}
+
+		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.Summary, newPolicyReport.Summary) {
+			klog.V(1).Info("Summary not same")
+
+			isSame = false
+		}
+
+		sort.Sort(ClusterSorter(origAppsubPolicyReport.Results))
+		sort.Sort(ClusterSorter(newPolicyReport.Results))
+
+		if !equality.Semantic.DeepEqual(origAppsubPolicyReport.Results, newPolicyReport.Results) {
+			klog.V(1).Info("Results not same")
+
+			isSame = false
+		}
+
+		if !isSame {
 			appsubPolicyReport.SetLabels(newPolicyReport.GetLabels())
 
 			appsubPolicyReport.Results = newPolicyReport.Results
