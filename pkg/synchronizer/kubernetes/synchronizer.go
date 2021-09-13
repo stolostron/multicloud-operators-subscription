@@ -392,6 +392,8 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[st
 			if err != nil {
 				klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
 			}
+		} else {
+			klog.Errorf("kind template with key %v not found", resourceKey)
 		}
 	}
 }
