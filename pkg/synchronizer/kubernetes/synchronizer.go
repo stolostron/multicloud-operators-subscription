@@ -381,21 +381,17 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[string]bool) {
 	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
 
-	for k, tplunit := range res.TemplateMap {
-		klog.V(1).Infof("k: %v, res.GroupVersionResource: %v", k, res.GroupVersionResource)
+	for resourceKey, okVal := range keySet {
+		tplunit := res.TemplateMap[resourceKey]
 
-		if !keySet[k] {
-			// ketSet contains resource keys to be deployed for this sinigle subscription item.
-			// if the current resource from the template map does not belong to ketSet,
-			// it belongs to another subscription. Skip.
-			klog.V(1).Infof("k: %v, does not belong to the order to be processed. skip", k)
-			continue
-		}
+		if okVal && tplunit != nil {
+			klog.Infof("applying kind template with key: %v,", resourceKey)
 
-		err := sync.applyTemplate(nri, res.Namespaced, k, tplunit, isSpecialResource(res.GroupVersionResource))
+			err := sync.applyTemplate(nri, res.Namespaced, resourceKey, tplunit, isSpecialResource(res.GroupVersionResource))
 
-		if err != nil {
-			klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
+			if err != nil {
+				klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
+			}
 		}
 	}
 }
