@@ -78,7 +78,7 @@ $ kubectl -n open-cluster-management wait deploy multicloud-operators-subscripti
 ### Add-on Deployment
 
 
-Deploy the subscription add-on on the _hub_ cluster. For the value of `<managed cluster name>`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
+Enable the subscription add-on for _managed_ cluster. For the value of `<managed cluster name>`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
