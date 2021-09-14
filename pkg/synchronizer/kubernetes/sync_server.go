@@ -272,7 +272,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	//adding update,new resource to cache and create them at cluster\
 	for _, dplUn := range order.dpls {
-		klog.Info(dplUn.Gvk.String() + "    " + dplUn.Dpl.APIVersion + "    " + dplUn.Dpl.Kind + "    " + dplUn.Dpl.Name)
 		err = sync.RegisterTemplate(order.hostSub, dplUn.Dpl, order.subType)
 
 		if err != nil {
