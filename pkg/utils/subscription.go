@@ -899,7 +899,7 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 	// Policy is not allowed by default
 	allowed := resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
 
-	// If subscription-admin, honour the allow list
+	// If subscription-admin, honor the allow list
 	if isAdmin {
 		// If allow list is empty, all resources are allowed for deploy except the policy
 		if len(allowlist) == 0 {
@@ -920,7 +920,7 @@ func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]ma
 	// Policy is denied by default
 	denied := resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
 
-	// If subscription-admin, honour the deny list
+	// If subscription-admin, honor the deny list
 	if isAdmin {
 		// If deny list is empty, all resources are NOT denied except the policy
 		if len(denyList) == 0 {
