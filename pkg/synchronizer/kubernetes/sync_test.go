@@ -1315,8 +1315,7 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 		// Since applyKindTemplates was called with isAdmin=true, it should honor the allow/deny lists
 		// and apply the configmap because the allow list has it and deny list does not have it
 		cfgmap := &corev1.ConfigMap{}
-		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
-		Expect(errors.IsNotFound(err)).Should(BeTrue())
+		Expect(k8sClient.Get(context.TODO(), sharedkey, cfgmap)).NotTo(HaveOccurred())
 
 		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
 		time.Sleep(1 * time.Second)
