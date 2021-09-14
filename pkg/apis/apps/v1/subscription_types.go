@@ -131,8 +131,8 @@ type Overrides struct {
 
 // AllowDenyItem is a group resources allowed or denied for deployment
 type AllowDenyItem struct {
-	APIGroup  string   `json:"apiVersion,omitempty"`
-	Resources []string `json:"kinds,omitempty"`
+	APIVersion string   `json:"apiVersion,omitempty"`
+	Kinds      []string `json:"kinds,omitempty"`
 }
 
 // TimeWindow defines a time window for subscription to run or be blocked

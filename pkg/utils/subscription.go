@@ -941,14 +941,14 @@ func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]s
 
 	if subscription.Spec.Allow != nil {
 		for _, allowGroup := range subscription.Spec.Allow {
-			for _, resource := range allowGroup.Resources {
-				klog.Info("allowing to deploy resource " + allowGroup.APIGroup + "/" + resource)
+			for _, resource := range allowGroup.Kinds {
+				klog.Info("allowing to deploy resource " + allowGroup.APIVersion + "/" + resource)
 
-				if allowedGroupResources[allowGroup.APIGroup] == nil {
-					allowedGroupResources[allowGroup.APIGroup] = make(map[string]string)
+				if allowedGroupResources[allowGroup.APIVersion] == nil {
+					allowedGroupResources[allowGroup.APIVersion] = make(map[string]string)
 				}
 
-				allowedGroupResources[allowGroup.APIGroup][resource] = resource
+				allowedGroupResources[allowGroup.APIVersion][resource] = resource
 			}
 		}
 	}
@@ -957,14 +957,14 @@ func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]s
 
 	if subscription.Spec.Deny != nil {
 		for _, denyGroup := range subscription.Spec.Deny {
-			for _, resource := range denyGroup.Resources {
-				klog.Info("denying to deploy resource " + denyGroup.APIGroup + "/" + resource)
+			for _, resource := range denyGroup.Kinds {
+				klog.Info("denying to deploy resource " + denyGroup.APIVersion + "/" + resource)
 
-				if deniedGroupResources[denyGroup.APIGroup] == nil {
-					deniedGroupResources[denyGroup.APIGroup] = make(map[string]string)
+				if deniedGroupResources[denyGroup.APIVersion] == nil {
+					deniedGroupResources[denyGroup.APIVersion] = make(map[string]string)
 				}
 
-				deniedGroupResources[denyGroup.APIGroup][resource] = resource
+				deniedGroupResources[denyGroup.APIVersion][resource] = resource
 			}
 		}
 	}
