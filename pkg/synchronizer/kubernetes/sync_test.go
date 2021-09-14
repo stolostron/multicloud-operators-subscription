@@ -1135,7 +1135,8 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 		time.Sleep(3 * time.Second)
 
-		// Since applyKindTemplates was called with isAdmin=false, it should have applied the configmap
+		// Since applyKindTemplates was called with isAdmin=false, it should have
+		// ignored apply/deny lists and applied the configmap
 		cfgmap := &corev1.ConfigMap{}
 		Expect(k8sClient.Get(context.TODO(), sharedkey, cfgmap)).NotTo(HaveOccurred())
 
@@ -1196,7 +1197,8 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 		time.Sleep(3 * time.Second)
 
-		// Since applyKindTemplates was called with isAdmin=true, it should have skipped the configmap because deny list has it
+		// Since applyKindTemplates was called with isAdmin=true, it should
+		// honor the allow/deny lists and skip applying the configmap because deny list has it
 		cfgmap := &corev1.ConfigMap{}
 		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
@@ -1250,8 +1252,8 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 		time.Sleep(3 * time.Second)
 
-		// Since applyKindTemplates was called with isAdmin=true, it should have
-		// skipped the configmap because allow list does not have it
+		// Since applyKindTemplates was called with isAdmin=true, it should
+		// honor the allow list and skip appying the configmap because not on the allow list
 		cfgmap := &corev1.ConfigMap{}
 		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
@@ -1261,7 +1263,7 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 	})
 
-	It("should not ignore allow and deny lists and skip applying configmap", func() {
+	It("should not ignore allow and deny lists and apply configmap", func() {
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 		// channel when it is finished.
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
@@ -1293,7 +1295,7 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 		denyItem := &appv1alpha1.AllowDenyItem{}
 		denyItem.APIVersion = "v1"
-		denyItem.Kinds = []string{"ConfigMap"}
+		denyItem.Kinds = []string{"Service"}
 
 		sub := subinstance.DeepCopy()
 
@@ -1310,8 +1312,8 @@ var _ = Describe("test applying resources with allow and deny lists", func() {
 
 		time.Sleep(3 * time.Second)
 
-		// Since applyKindTemplates was called with isAdmin=true, it should have skipped the configmap
-		// because allow and deny lists both have it
+		// Since applyKindTemplates was called with isAdmin=true, it should honor the allow/deny lists
+		// and apply the configmap because the allow list has it and deny list does not have it
 		cfgmap := &corev1.ConfigMap{}
 		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
 		Expect(errors.IsNotFound(err)).Should(BeTrue())
