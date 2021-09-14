@@ -30,14 +30,23 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
+	kustomizetypes "sigs.k8s.io/kustomize/api/types"
 )
 
 // RunKustomizeBuild runs kustomize build and returns the build output
 func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 	fSys := filesys.MakeFsOnDisk()
 
+	// Allow external plugins when executing Kustomize. This is required to support the policy
+	// generator. This builtin plugin loading option is the default value and is recommended
+	// for production use-cases.
+	pluginConfig := kustomizetypes.MakePluginConfig(
+		kustomizetypes.PluginRestrictionsNone,
+		kustomizetypes.BploUseStaticallyLinked,
+	)
 	options := &krusty.Options{
 		DoLegacyResourceSort: true,
+		PluginConfig:         pluginConfig,
 	}
 
 	k := krusty.MakeKustomizer(options)
