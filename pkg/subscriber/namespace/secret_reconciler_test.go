@@ -111,6 +111,14 @@ var _ = Describe("base secret reconcile", func() {
 		// pointing to a namespace type of channel
 		srtRec := newSecretReconciler(defaultNsSubscriber, k8sManager, subkey)
 
+		k8sClient.Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: "srt-test-sub-namespace"},
+		})
+
+		k8sClient.Create(context.Background(), &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{Name: "tch"},
+		})
+
 		// Create secrets at the channel namespace
 
 		Expect(k8sClient.Create(context.TODO(), subscription)).NotTo(HaveOccurred())
