@@ -417,7 +417,7 @@ var _ = Describe("test CRD discovery", func() {
 		Expect(ok).Should(BeFalse())
 
 		//apply CRD foo via subscription
-		Expect(sync.AddTemplates(source, hostnn, []DplUnit{dplU})).Should(Succeed())
+		Expect(sync.AddTemplates(source, hostnn, []DplUnit{dplU}, nil, nil, false)).Should(Succeed())
 
 		time.Sleep(time.Duration(waitInterval) * time.Second)
 
@@ -1071,6 +1071,255 @@ var _ = Describe("test resource overwrite", func() {
 		Expect(cm.Data["name"]).Should(Equal("joe"))
 		// age field should be kept because the reconcile option was merge
 		Expect(cm.Data["age"]).Should(Equal("19"))
+	})
+})
+
+var _ = Describe("test applying resources with allow and deny lists", func() {
+	var (
+		sharedkey = types.NamespacedName{
+			Name:      "workload",
+			Namespace: "default",
+		}
+		subinstance = appv1alpha1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sharedkey.Name,
+				Namespace: sharedkey.Namespace,
+			},
+			Spec: appv1alpha1.SubscriptionSpec{
+				Channel: sharedkey.String(),
+			},
+		}
+	)
+
+	It("should ignore deny list and apply configmap", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is finished.
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(context.TODO())
+
+		dpl := dplinstance.DeepCopy()
+		hostnn := sharedkey
+		dplnn := sharedkey
+		source := sourceprefix + hostnn.String()
+
+		Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(HaveOccurred())
+
+		resmap, ok := sync.KubeResources[configmapgvk]
+		Expect(ok).Should(BeTrue())
+
+		keySet := make(map[string]bool)
+
+		reskey := sync.generateResourceMapKey(hostnn, dplnn)
+		keySet[reskey] = true
+		Expect(ok).Should(BeTrue())
+
+		denyItem := &appv1alpha1.AllowDenyItem{}
+		denyItem.APIVersion = "v1"
+		denyItem.Kinds = []string{"ConfigMap"}
+
+		sub := subinstance.DeepCopy()
+
+		sub.Spec.Deny = []*appv1alpha1.AllowDenyItem{denyItem}
+
+		allowList, denyList := utils.GetAllowDenyLists(*sub)
+
+		Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), sub)
+
+		sync.applyKindTemplates(resmap, keySet, allowList, denyList, false)
+
+		time.Sleep(3 * time.Second)
+
+		// Since applyKindTemplates was called with isAdmin=false, it should have
+		// ignored apply/deny lists and applied the configmap
+		cfgmap := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(context.TODO(), sharedkey, cfgmap)).NotTo(HaveOccurred())
+
+		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
+		time.Sleep(1 * time.Second)
+
+		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
+
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+	})
+
+	It("should not ignore deny list and skip applying configmap", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is finished.
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(context.TODO())
+
+		dpl := dplinstance.DeepCopy()
+		hostnn := sharedkey
+		dplnn := sharedkey
+		source := sourceprefix + hostnn.String()
+
+		Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(HaveOccurred())
+
+		resmap, ok := sync.KubeResources[configmapgvk]
+		Expect(ok).Should(BeTrue())
+
+		keySet := make(map[string]bool)
+
+		reskey := sync.generateResourceMapKey(hostnn, dplnn)
+		keySet[reskey] = true
+		Expect(ok).Should(BeTrue())
+
+		allowItem := &appv1alpha1.AllowDenyItem{}
+		allowItem.APIVersion = "v1"
+		allowItem.Kinds = []string{"ConfigMap"}
+
+		denyItem := &appv1alpha1.AllowDenyItem{}
+		denyItem.APIVersion = "v1"
+		denyItem.Kinds = []string{"ConfigMap"}
+
+		sub := subinstance.DeepCopy()
+
+		sub.Spec.Allow = []*appv1alpha1.AllowDenyItem{allowItem}
+		sub.Spec.Deny = []*appv1alpha1.AllowDenyItem{denyItem}
+
+		allowList, denyList := utils.GetAllowDenyLists(*sub)
+
+		Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), sub)
+
+		sync.applyKindTemplates(resmap, keySet, allowList, denyList, true)
+
+		time.Sleep(3 * time.Second)
+
+		// Since applyKindTemplates was called with isAdmin=true, it should
+		// honor the allow/deny lists and skip applying the configmap because deny list has it
+		cfgmap := &corev1.ConfigMap{}
+		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+
+		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
+		time.Sleep(1 * time.Second)
+
+	})
+
+	It("should not ignore allow list and skip applying configmap", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is finished.
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(context.TODO())
+
+		dpl := dplinstance.DeepCopy()
+		hostnn := sharedkey
+		dplnn := sharedkey
+		source := sourceprefix + hostnn.String()
+
+		Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(HaveOccurred())
+
+		resmap, ok := sync.KubeResources[configmapgvk]
+		Expect(ok).Should(BeTrue())
+
+		keySet := make(map[string]bool)
+
+		reskey := sync.generateResourceMapKey(hostnn, dplnn)
+		keySet[reskey] = true
+		Expect(ok).Should(BeTrue())
+
+		allowItem := &appv1alpha1.AllowDenyItem{}
+		allowItem.APIVersion = "v1"
+		allowItem.Kinds = []string{"Service"}
+
+		sub := subinstance.DeepCopy()
+
+		sub.Spec.Allow = []*appv1alpha1.AllowDenyItem{allowItem}
+
+		allowList, denyList := utils.GetAllowDenyLists(*sub)
+
+		Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), sub)
+
+		sync.applyKindTemplates(resmap, keySet, allowList, denyList, true)
+
+		time.Sleep(3 * time.Second)
+
+		// Since applyKindTemplates was called with isAdmin=true, it should
+		// honor the allow list and skip appying the configmap because not on the allow list
+		cfgmap := &corev1.ConfigMap{}
+		err = k8sClient.Get(context.TODO(), sharedkey, cfgmap)
+		Expect(errors.IsNotFound(err)).Should(BeTrue())
+
+		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
+		time.Sleep(1 * time.Second)
+
+	})
+
+	It("should not ignore allow and deny lists and apply configmap", func() {
+		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+		// channel when it is finished.
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil)
+		Expect(err).NotTo(HaveOccurred())
+
+		sch := make(chan struct{})
+		defer close(sch)
+		go sync.Start(context.TODO())
+
+		dpl := dplinstance.DeepCopy()
+		hostnn := sharedkey
+		dplnn := sharedkey
+		source := sourceprefix + hostnn.String()
+
+		Expect(sync.RegisterTemplate(hostnn, dpl, source)).NotTo(HaveOccurred())
+
+		resmap, ok := sync.KubeResources[configmapgvk]
+		Expect(ok).Should(BeTrue())
+
+		keySet := make(map[string]bool)
+
+		reskey := sync.generateResourceMapKey(hostnn, dplnn)
+		keySet[reskey] = true
+		Expect(ok).Should(BeTrue())
+
+		allowItem := &appv1alpha1.AllowDenyItem{}
+		allowItem.APIVersion = "v1"
+		allowItem.Kinds = []string{"ConfigMap"}
+
+		denyItem := &appv1alpha1.AllowDenyItem{}
+		denyItem.APIVersion = "v1"
+		denyItem.Kinds = []string{"Service"}
+
+		sub := subinstance.DeepCopy()
+
+		sub.Spec.Allow = []*appv1alpha1.AllowDenyItem{allowItem}
+		sub.Spec.Deny = []*appv1alpha1.AllowDenyItem{denyItem}
+
+		allowList, denyList := utils.GetAllowDenyLists(*sub)
+
+		Expect(k8sClient.Create(context.TODO(), sub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), sub)
+
+		sync.applyKindTemplates(resmap, keySet, allowList, denyList, true)
+
+		time.Sleep(3 * time.Second)
+
+		// Since applyKindTemplates was called with isAdmin=true, it should honor the allow/deny lists
+		// and apply the configmap because the allow list has it and deny list does not have it
+		cfgmap := &corev1.ConfigMap{}
+		Expect(k8sClient.Get(context.TODO(), sharedkey, cfgmap)).NotTo(HaveOccurred())
+
+		Expect(sync.DeRegisterTemplate(hostnn, dplnn, source)).NotTo(HaveOccurred())
+		time.Sleep(1 * time.Second)
+
 	})
 })
 

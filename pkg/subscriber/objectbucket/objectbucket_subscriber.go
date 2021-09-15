@@ -16,6 +16,7 @@ package objectbucket
 
 import (
 	"errors"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -36,7 +37,8 @@ type SyncSource interface {
 	GetLocalClient() client.Client
 	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
 	IsResourceNamespaced(schema.GroupVersionKind) bool
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
+	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit,
+		map[string]map[string]string, map[string]map[string]string, bool) error
 	CleanupByHost(types.NamespacedName, string) error
 }
 
@@ -107,6 +109,13 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	obs.itemmap[itemkey] = obssubitem
 
 	obssubitem.successful = false
+
+	subAnnotations := obssubitem.Subscription.GetAnnotations()
+
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", obssubitem.Subscription.Name)
+		obssubitem.clusterAdmin = true
+	}
 
 	err := obssubitem.Start()
 

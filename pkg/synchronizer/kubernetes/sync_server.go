@@ -270,9 +270,10 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 	var err error
 
-	//adding update,new resource to cache and create them at cluster
+	//adding update,new resource to cache and create them at cluster\
 	for _, dplUn := range order.dpls {
 		err = sync.RegisterTemplate(order.hostSub, dplUn.Dpl, order.subType)
+
 		if err != nil {
 			klog.Error(fmt.Sprintf("failed to register template of %v/%v, error: %v",
 				dplUn.Dpl.GetNamespace(), dplUn.Dpl.GetName(), err))
@@ -281,6 +282,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 
 		dplKey := types.NamespacedName{Name: dplUn.Dpl.GetName(), Namespace: dplUn.Dpl.GetNamespace()}
 		rKey := sync.generateResourceMapKey(order.hostSub, dplKey)
+
 		keySet[rKey] = true
 
 		if _, ok := resSet[rKey][dplUn.Gvk]; !ok {
@@ -326,7 +328,7 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 			}
 		}
 
-		sync.applyKindTemplates(resmap, keySet)
+		sync.applyKindTemplates(resmap, keySet, order.allowList, order.denyList, order.admin)
 	}
 	sync.kmtx.Unlock()
 

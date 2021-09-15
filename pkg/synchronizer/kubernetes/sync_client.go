@@ -36,10 +36,13 @@ type DplUnit struct {
 }
 
 type resourceOrder struct {
-	subType string
-	hostSub types.NamespacedName
-	dpls    []DplUnit
-	err     chan error
+	subType   string                       // subscription source type i.e git, helmrepo, objectbucket
+	admin     bool                         // indicates if subscription-admin role is enabled
+	allowList map[string]map[string]string // allow list from subscription spec
+	denyList  map[string]map[string]string // deny list from subscription spec
+	hostSub   types.NamespacedName         // host subscription
+	dpls      []DplUnit                    // list of resources to create or update
+	err       chan error
 }
 
 type SyncSource interface {
@@ -117,12 +120,16 @@ func (sync *KubeSynchronizer) IsResourceNamespaced(gvk schema.GroupVersionKind) 
 	return sync.KubeResources[gvk].Namespaced
 }
 
-func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName, dpls []DplUnit) error {
+func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.NamespacedName,
+	dpls []DplUnit, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
 	rsOrder := resourceOrder{
-		subType: subType,
-		hostSub: hostSub,
-		dpls:    dpls,
-		err:     make(chan error, 1),
+		subType:   subType,
+		admin:     isAdmin,
+		hostSub:   hostSub,
+		allowList: allowlist,
+		denyList:  denyList,
+		dpls:      dpls,
+		err:       make(chan error, 1),
 	}
 
 	select {
@@ -148,5 +155,5 @@ func (sync *KubeSynchronizer) AddTemplates(subType string, hostSub types.Namespa
 
 // CleanupByHost returns initialized validator struct
 func (sync *KubeSynchronizer) CleanupByHost(host types.NamespacedName, syncsource string) error {
-	return sync.AddTemplates(syncsource, host, []DplUnit{})
+	return sync.AddTemplates(syncsource, host, []DplUnit{}, nil, nil, false)
 }
