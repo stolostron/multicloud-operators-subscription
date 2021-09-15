@@ -512,9 +512,6 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		return nil
 	}
 
-	klog.Infof("the resource apiVersion: %s kind: %s name: %s is GOING TO BE DEPLOYED. ",
-		tplunit.GetAPIVersion(), tplunit.GetKind(), tplunit.GetName())
-
 	origUnit, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 
 	if err != nil {
