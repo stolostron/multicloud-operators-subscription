@@ -398,8 +398,6 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[st
 				}
 			} else {
 				if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
-					klog.Infof("the resource apiVersion: %s kind: %s name: %s is GOING TO BE DEPLOYED. ",
-						tplunit.GetAPIVersion(), tplunit.GetKind(), tplunit.GetName())
 					err := sync.applyTemplate(nri, res.Namespaced, resourceKey, tplunit, isSpecialResource(res.GroupVersionResource))
 
 					if err != nil {
