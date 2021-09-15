@@ -37,7 +37,8 @@ type SyncSource interface {
 	GetLocalClient() client.Client
 	GetRemoteClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
-	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit) error
+	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit,
+		map[string]map[string]string, map[string]map[string]string, bool) error
 	PurgeAllSubscribedResources(types.NamespacedName) error
 }
 
@@ -114,6 +115,11 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	chnAnnotations := obssubitem.Channel.GetAnnotations()
 	subAnnotations := obssubitem.Subscription.GetAnnotations()
+
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", obssubitem.Subscription.Name)
+		obssubitem.clusterAdmin = true
+	}
 
 	obssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
 	obssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]

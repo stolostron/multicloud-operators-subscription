@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -172,7 +172,8 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 	return nil
 }
 
-func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit) error {
+func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit,
+	allowlist, denyList map[string]map[string]string, isAdmin bool) error {
 	// meaning clean up all the resource from a source:host
 	if len(resources) == 0 {
 		return sync.PurgeAllSubscribedResources(hostSub)
@@ -219,7 +220,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 
 		nri := sync.DynamicClient.Resource(pkgGVR)
 
-		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR))
+		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR), allowlist, denyList, isAdmin)
 
 		if err != nil {
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
@@ -476,7 +477,7 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	resource ResourceUnit, specialResource bool) error {
+	resource ResourceUnit, specialResource bool, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
 	tplunit := resource.Resource
 	klog.Infof("Applying template: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
 
@@ -492,6 +493,27 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 
 		return nil
 	}
+
+	if utils.IsResourceDenied(*tplunit, denyList, isAdmin) {
+		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
+			tplunit.GetAPIVersion(), tplunit.GetKind())
+
+		klog.Info(denyError.Error())
+
+		return nil
+	}
+
+	if !utils.IsResourceAllowed(*tplunit, allowlist, isAdmin) {
+		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
+			tplunit.GetAPIVersion(), tplunit.GetKind())
+
+		klog.Info(denyError.Error())
+
+		return nil
+	}
+
+	klog.Infof("the resource apiVersion: %s kind: %s name: %s is GOING TO BE DEPLOYED. ",
+		tplunit.GetAPIVersion(), tplunit.GetKind(), tplunit.GetName())
 
 	origUnit, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 

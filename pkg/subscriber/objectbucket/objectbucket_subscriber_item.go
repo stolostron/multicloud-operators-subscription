@@ -48,6 +48,7 @@ type SubscriberItem struct {
 	objectStore   awsutils.ObjectStore
 	stopch        chan struct{}
 	successful    bool
+	clusterAdmin  bool
 	syncinterval  int
 	synchronizer  SyncSource
 }
@@ -342,7 +343,9 @@ func (obsi *SubscriberItem) doSubscription() {
 		resources = append(resources, *resource)
 	}
 
-	if err := obsi.synchronizer.ProcessSubResources(hostkey, resources); err != nil {
+	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*obsi.Subscription)
+
+	if err := obsi.synchronizer.ProcessSubResources(hostkey, resources, allowedGroupResources, deniedGroupResources, false); err != nil {
 		klog.Error(err)
 
 		obsi.successful = false

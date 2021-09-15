@@ -337,7 +337,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
-	if err := ghsi.synchronizer.ProcessSubResources(hostkey, ghsi.resources); err != nil {
+	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
+
+	if err := ghsi.synchronizer.ProcessSubResources(hostkey, ghsi.resources,
+		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
 		klog.Error(err)
 
 		ghsi.successful = false
