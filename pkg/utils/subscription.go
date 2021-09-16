@@ -917,14 +917,11 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 // IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
-	// Policy is denied by default
-	denied := resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
-
 	// If subscription-admin, honor the deny list
 	if isAdmin {
 		// If deny list is empty, all resources are NOT denied except the policy
 		if len(denyList) == 0 {
-			return denied
+			return false
 		}
 
 		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
@@ -932,7 +929,7 @@ func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]ma
 	}
 
 	// If not subscription-admin, ignore the deny list
-	return denied
+	return false
 }
 
 // GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.
