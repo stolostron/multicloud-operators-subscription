@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
-	placementV1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	placementV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appSubV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"

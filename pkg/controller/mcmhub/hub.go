@@ -37,9 +37,8 @@ import (
 	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -359,7 +358,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		matchLbls := sub.Spec.PackageFilter.LabelSelector.MatchLabels
 		matchLbls[chnv1alpha1.KeyChannel] = chName
 		matchLbls[chnv1alpha1.KeyChannelType] = chType
-		clSelector, err := dplutils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
+		clSelector, err := subutil.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
 
 		if err != nil {
 			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err: ", err)
@@ -386,7 +385,7 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 		labelSelector := &metav1.LabelSelector{
 			MatchLabels: subLabel,
 		}
-		chSelector, err := dplutils.ConvertLabels(labelSelector)
+		chSelector, err := subutil.ConvertLabels(labelSelector)
 
 		if err != nil {
 			klog.Error("Failed to set label selector. err: ", chSelector, " err: ", err)
