@@ -897,7 +897,8 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 // if the subscription is created by subscription-admin user.
 func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
 	// Policy is not allowed by default
-	allowed := resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
+	// allowed is true if resource.GetAPIVersion() equals "policy.open-cluster-management.io/v1"
+	allowed := true
 
 	// If subscription-admin, honor the allow list
 	if isAdmin {
@@ -918,7 +919,8 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 // if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
 	// Policy is denied by default
-	denied := resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
+	// denied is false unless resource.GetAPIVersion() equals "policy.open-cluster-management.io/v1"
+	denied := false
 
 	// If subscription-admin, honor the deny list
 	if isAdmin {
