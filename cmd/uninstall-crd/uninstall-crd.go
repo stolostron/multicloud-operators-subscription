@@ -80,15 +80,13 @@ func main() {
 	_, err = crdx.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "multiclusterhubs.operator.open-cluster-management.io", v1.GetOptions{})
 
 	if err != nil && kerrors.IsNotFound(err) {
-		klog.Info("This is not ACM hub cluster. Deleting helmrelease and deployable CRDs.")
+		klog.Info("This is not ACM hub cluster. Deleting helmrelease CRDs.")
 
 		// handle helmrelease crd
 		utils.DeleteHelmReleaseCRD(runtimeClient, crdx)
 
-		// handle deployable crd
-		utils.DeleteDeployableCRD(runtimeClient, crdx)
 	} else {
-		klog.Info("This is ACM hub cluster. Skip deleting helmrelease and deployable CRDs.")
+		klog.Info("This is ACM hub cluster. Skip deleting helmrelease CRDs.")
 	}
 
 	// handle subscription crd

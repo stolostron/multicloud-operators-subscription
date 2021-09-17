@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -100,7 +99,7 @@ func VerifyAndOverrideKustomize(packageOverrides []*appv1.Overrides, relativePat
 }
 
 func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
-	kustomizeOverride := dplv1alpha1.ClusterOverride(pov)
+	kustomizeOverride := appv1.ClusterOverride(pov)
 	ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&kustomizeOverride)
 
 	klog.Info("Kustomize parse : ", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])

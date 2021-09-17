@@ -19,16 +19,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -37,12 +33,9 @@ import (
 	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
 )
 
@@ -201,83 +194,6 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 	return strconv.FormatInt(chobj.Generation, 10), nil
 }
 
-func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
-	r.logger.Info(fmt.Sprintf("entry doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
-	defer r.logger.Info(fmt.Sprintf("exit doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
-
-	newsubstatus := appv1alpha1.SubscriptionStatus{}
-
-	newsubstatus.AnsibleJobsStatus = *sub.Status.AnsibleJobsStatus.DeepCopy()
-
-	newsubstatus.Phase = appv1alpha1.SubscriptionPropagated
-	newsubstatus.Message = ""
-	newsubstatus.Reason = ""
-
-	msg := ""
-
-	if found.Status.Phase == dplv1alpha1.DeployableFailed {
-		newsubstatus.Statuses = nil
-	} else {
-		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
-
-		for cluster, cstatus := range found.Status.PropagatedStatus {
-			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
-			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
-
-			if cstatus.ResourceStatus != nil {
-				mcsubstatus := &appv1alpha1.SubscriptionStatus{}
-				err := json.Unmarshal(cstatus.ResourceStatus.Raw, mcsubstatus)
-				if err != nil {
-					klog.Infof("Failed to unmashall ResourceStatus from target cluster: %v, in deployable: %v/%v", cluster, found.GetNamespace(), found.GetName())
-					return err
-				}
-
-				if msg == "" {
-					msg = fmt.Sprintf("%s:%s", cluster, mcsubstatus.Message)
-				} else {
-					msg += fmt.Sprintf(",%s:%s", cluster, mcsubstatus.Message)
-				}
-
-				//get status per package if exist, for namespace/objectStore/helmRepo channel subscription status
-				for _, lcStatus := range mcsubstatus.Statuses {
-					for pkg, pkgStatus := range lcStatus.SubscriptionPackageStatus {
-						subPkgStatus[pkg] = getStatusPerPackage(pkgStatus, chn)
-					}
-				}
-
-				//if no status per package, apply status.<per cluster>.resourceStatus, for github channel subscription status
-				if len(subPkgStatus) == 0 {
-					subUnitStatus := &appv1alpha1.SubscriptionUnitStatus{}
-					subUnitStatus.LastUpdateTime = mcsubstatus.LastUpdateTime
-					subUnitStatus.Phase = mcsubstatus.Phase
-					subUnitStatus.Message = mcsubstatus.Message
-					subUnitStatus.Reason = mcsubstatus.Reason
-
-					subPkgStatus["/"] = subUnitStatus
-				}
-			}
-
-			clusterSubStatus.SubscriptionPackageStatus = subPkgStatus
-
-			newsubstatus.Statuses[cluster] = clusterSubStatus
-		}
-	}
-
-	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
-	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
-	newsubstatus.Message = msg
-
-	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
-		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
-			sub.Namespace, sub.Name, sub.Status, newsubstatus)
-
-		//perserve the Ansiblejob status
-		newsubstatus.DeepCopyInto(&sub.Status)
-	}
-
-	return nil
-}
-
 func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chnv1alpha1.Channel) *appv1alpha1.SubscriptionUnitStatus {
 	subUnitStatus := &appv1alpha1.SubscriptionUnitStatus{}
 
@@ -336,234 +252,6 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 	if len(reasons) > 0 {
 		subUnitStatus.Reason = strings.Join(reasons, ", ")
 	}
-}
-
-func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subscription) map[string]*dplv1alpha1.Deployable {
-	allDpls := make(map[string]*dplv1alpha1.Deployable)
-
-	dplList := &dplv1alpha1.DeployableList{}
-
-	chNameSpace, chName, chType := r.GetChannelNamespaceType(sub)
-
-	dplNamespace := chNameSpace
-
-	if utils.IsGitChannel(chType) {
-		// If Git channel, deployables are created in the subscription namespace
-		dplNamespace = sub.Namespace
-	}
-
-	dplListOptions := &client.ListOptions{Namespace: dplNamespace}
-
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		matchLbls := sub.Spec.PackageFilter.LabelSelector.MatchLabels
-		matchLbls[chnv1alpha1.KeyChannel] = chName
-		matchLbls[chnv1alpha1.KeyChannelType] = chType
-		clSelector, err := subutil.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-
-		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err: ", err)
-			return nil
-		}
-
-		dplListOptions.LabelSelector = clSelector
-	} else {
-		// Handle deployables from multiple channels in the same namespace
-		subLabel := make(map[string]string)
-		subLabel[chnv1alpha1.KeyChannel] = chName
-		subLabel[chnv1alpha1.KeyChannelType] = chType
-
-		if utils.IsGitChannel(chType) {
-			subscriptionNameLabel := types.NamespacedName{
-				Name:      sub.Name,
-				Namespace: sub.Namespace,
-			}
-			subscriptionNameLabelStr := strings.ReplaceAll(subscriptionNameLabel.String(), "/", "-")
-
-			subLabel[appv1alpha1.LabelSubscriptionName] = subscriptionNameLabelStr
-		}
-
-		labelSelector := &metav1.LabelSelector{
-			MatchLabels: subLabel,
-		}
-		chSelector, err := subutil.ConvertLabels(labelSelector)
-
-		if err != nil {
-			klog.Error("Failed to set label selector. err: ", chSelector, " err: ", err)
-			return nil
-		}
-
-		dplListOptions.LabelSelector = chSelector
-	}
-
-	// Sleep so that all deployables are fully created
-	time.Sleep(3 * time.Second)
-
-	err := r.Client.List(context.TODO(), dplList, dplListOptions)
-
-	if err != nil {
-		klog.Error("Failed to list objects from sbuscription namespace ", sub.Namespace, " err: ", err)
-		return nil
-	}
-
-	klog.V(1).Info("Hub Subscription found Deployables:", len(dplList.Items))
-
-	for _, dpl := range dplList.Items {
-		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {
-			continue
-		}
-
-		dplkey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
-		allDpls[dplkey] = dpl.DeepCopy()
-	}
-
-	return allDpls
-}
-
-func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
-	dpltemplate := &unstructured.Unstructured{}
-
-	if dpl.Spec.Template != nil {
-		err := json.Unmarshal(dpl.Spec.Template.Raw, dpltemplate)
-		if err == nil {
-			dplPkgName := dpltemplate.GetName()
-			if sub.Spec.Package != "" && sub.Spec.Package != dplPkgName {
-				klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", dplPkgName)
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
-	dplanno := dpl.GetAnnotations()
-
-	if sub.Spec.PackageFilter != nil {
-		if dplanno == nil {
-			dplanno = make(map[string]string)
-		}
-
-		if !checkDplPackageName(sub, dpl) {
-			return false
-		}
-
-		annotations := sub.Spec.PackageFilter.Annotations
-
-		//append deployable template annotations to deployable annotations only if they don't exist in the deployable annotations
-		dpltemplate := &unstructured.Unstructured{}
-
-		if dpl.Spec.Template != nil {
-			err := json.Unmarshal(dpl.Spec.Template.Raw, dpltemplate)
-			if err == nil {
-				dplTemplateAnno := dpltemplate.GetAnnotations()
-				for k, v := range dplTemplateAnno {
-					if dplanno[k] == "" {
-						dplanno[k] = v
-					}
-				}
-			}
-		}
-
-		vdpl := dpl.GetAnnotations()[dplv1alpha1.AnnotationDeployableVersion]
-
-		klog.V(5).Info("checking annotations package filter: ", annotations)
-
-		if annotations != nil {
-			matched := true
-
-			for k, v := range annotations {
-				if dplanno[k] != v {
-					matched = false
-					break
-				}
-			}
-
-			if !matched {
-				return false
-			}
-		}
-
-		vsub := sub.Spec.PackageFilter.Version
-		if vsub != "" {
-			vmatch := subutil.SemverCheck(vsub, vdpl)
-			klog.V(5).Infof("version check is %v; subscription version filter condition is %v, deployable version is: %v", vmatch, vsub, vdpl)
-
-			if !vmatch {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alpha1.Subscription, targetSubDpl *dplv1alpha1.Deployable) error {
-	targetKey := types.NamespacedName{
-		Namespace: targetSubDpl.Namespace,
-		Name:      targetSubDpl.Name,
-	}
-
-	found := &dplv1alpha1.Deployable{}
-	err := r.Get(context.TODO(), targetKey, found)
-
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("Creating target Deployable - ", "namespace: ", targetSubDpl.Namespace, ", name: ", targetSubDpl.Name)
-		err = r.Create(context.TODO(), targetSubDpl)
-
-		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " created in the subscription namespace"
-		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
-
-		return err
-	} else if err != nil {
-		return err
-	}
-
-	orgTpl := &unstructured.Unstructured{}
-	err = json.Unmarshal(targetSubDpl.Spec.Template.Raw, orgTpl)
-
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall target subscription deployable template, err:", err, " |template: ", string(targetSubDpl.Spec.Template.Raw))
-		return err
-	}
-
-	fndTpl := &unstructured.Unstructured{}
-	err = json.Unmarshal(found.Spec.Template.Raw, fndTpl)
-
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall target found subscription deployable template, err:", err, " |template: ", string(found.Spec.Template.Raw))
-		return err
-	}
-
-	if !reflect.DeepEqual(orgTpl, fndTpl) || !reflect.DeepEqual(targetSubDpl.Spec.Overrides, found.Spec.Overrides) {
-		klog.V(5).Infof("Updating target Deployable. orig: %#v, found: %#v", targetSubDpl, found)
-
-		targetSubDpl.Spec.DeepCopyInto(&found.Spec)
-
-		foundanno := found.GetAnnotations()
-		if foundanno == nil {
-			foundanno = make(map[string]string)
-		}
-
-		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
-		foundanno[dplv1alpha1.AnnotationLocal] = "false"
-		found.SetAnnotations(foundanno)
-
-		klog.V(5).Info("Updating Deployable - ", "namespace: ", targetSubDpl.Namespace, " ,name: ", targetSubDpl.Name)
-
-		err = r.Update(context.TODO(), found)
-
-		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " updated in the subscription namespace"
-		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*awsutils.Handler, string, error) {

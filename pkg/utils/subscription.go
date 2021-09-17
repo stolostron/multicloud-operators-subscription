@@ -19,7 +19,6 @@ import (
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -28,7 +27,6 @@ import (
 
 	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
@@ -390,44 +388,6 @@ func isAnsibleStatusEqual(a, b appv1.AnsibleJobsStatus) bool {
 	return true
 }
 
-// DeployablePredicateFunctions filters status update
-var DeployablePredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newdpl := e.ObjectNew.(*dplv1.Deployable)
-		olddpl := e.ObjectOld.(*dplv1.Deployable)
-
-		return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
-	},
-
-	CreateFunc: func(e event.CreateEvent) bool {
-		newdpl := e.Object.(*dplv1.Deployable)
-
-		labels := newdpl.GetLabels()
-
-		// Git type subscription reconciliation deletes and recreates deployables.
-		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
-			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
-			return false
-		}
-
-		return true
-	},
-
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		dpl := e.Object.(*dplv1.Deployable)
-
-		labels := dpl.GetLabels()
-
-		// Git type subscription reconciliation deletes and recreates deployables.
-		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
-			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
-			return false
-		}
-
-		return true
-	},
-}
-
 // ChannelPredicateFunctions filters channel spec update
 var ChannelPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
@@ -737,90 +697,6 @@ func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname s
 	}
 
 	substatus.LastUpdateTime = metav1.Now()
-}
-
-// UpdateSubscriptionStatus based on error message, and propagate resource status
-// status - current object status
-// tplunit - new content of the current object
-// - nil:  success
-// - others: failed, with error message in reason
-func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}, deletePkg bool) error {
-	klog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
-
-	if tplunit == nil {
-		return nil
-	}
-
-	sub := &appv1.Subscription{}
-	subkey := GetHostSubscriptionFromObject(tplunit)
-
-	if subkey == nil {
-		klog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
-		return nil
-	}
-
-	err := statusClient.Get(context.TODO(), *subkey, sub)
-
-	if err != nil {
-		// for all errors including not found return
-		klog.Info("Failed to get subscription object ", *subkey, " to set status, error:", err)
-		return err
-	}
-
-	dplkey := GetHostDeployableFromObject(tplunit)
-	if dplkey == nil {
-		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
-		klog.Info(errmsg)
-
-		return errors.New(errmsg)
-	}
-
-	newStatus := sub.Status.DeepCopy()
-
-	if deletePkg {
-		DeleteInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
-	} else {
-		err = SetInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
-		if err != nil {
-			klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
-			return err
-		}
-	}
-
-	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		newStatus.DeepCopyInto(&sub.Status)
-		sub.Status.LastUpdateTime = metav1.Now()
-
-		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
-			// want to print out the error log before leave
-			klog.Errorf("Failed to update subscription status. sub: %v/%v, err: %v", sub.GetNamespace(), sub.GetName(), err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func SkipOrUpdateSubscriptionStatus(clt client.Client, oldSub *appv1.Subscription) error {
-	curSub := &appv1.Subscription{}
-
-	if err := clt.Get(context.TODO(), types.NamespacedName{Name: oldSub.GetName(), Namespace: oldSub.GetNamespace()}, oldSub); err != nil {
-		return err
-	}
-
-	oldStatus := &oldSub.Status
-	upStatus := &curSub.Status
-
-	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
-		oldSub.Status = *upStatus
-		oldSub.Status.LastUpdateTime = metav1.Now()
-
-		if err := clt.Status().Update(context.TODO(), oldSub); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages

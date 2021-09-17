@@ -44,7 +44,7 @@ func ConvertLabels(labelSelector *metav1.LabelSelector) (labels.Selector, error)
 	return labels.Everything(), nil
 }
 
-// CheckAndInstallCRD checks if deployable belongs to this cluster
+// CheckAndInstallCRD checks if placementrule belongs to this cluster
 // managed cluster annotation matches or no managed cluster annotation (local)
 func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 	var err error

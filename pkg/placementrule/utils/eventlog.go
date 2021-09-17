@@ -76,7 +76,7 @@ func NewEventRecorder(cfg *rest.Config, scheme *apiruntime.Scheme) (*EventRecord
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: reccs.CoreV1().Events("")})
 
-	rec.EventRecorder = eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "deployable"})
+	rec.EventRecorder = eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "placementrule"})
 
 	return rec, nil
 }

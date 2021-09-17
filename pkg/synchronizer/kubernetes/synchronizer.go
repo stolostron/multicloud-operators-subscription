@@ -346,7 +346,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(origUnit, *tplown, sync.SynchronizerID) {
 		// If the subscription is created by a subscription admin and reconcile option exists,
 		// we can update the resource even if it is not owned by this subscription.
-		// These subscription annotations are passed down to deployable payload by the subscribers.
+		// These subscription annotations are passed down payload by the subscribers.
 		// When we update other owner's resources, make sure these annnotations along with other
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
@@ -387,7 +387,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	// If subscription-admin chooses replace option, keep the typical annotations we add. Subscription takes over the resources.
 	// When the subscription is removed, the resources will be removed too.
 	if overwrite && merge {
-		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
+		// If overwriting someone else's resource, remove annotations like hosting subscription... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
 		newobj = utils.RemoveSubOwnerRef(newobj)
 	}

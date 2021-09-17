@@ -33,7 +33,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
 
@@ -48,10 +47,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	dplv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	rHelper "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/controller/helmrelease"
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/utils"
@@ -60,7 +57,6 @@ import (
 const (
 	sep                = ","
 	sepRes             = "/"
-	deployableParent   = "deployable"
 	helmChartParent    = "helmchart"
 	objectBucketParent = "object"
 	hookParent         = "hook"
@@ -134,7 +130,7 @@ func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease)
 }
 
 type resourceUnit struct {
-	// it should be deployable or helmchart
+	// it should be helmchart
 	parentType string
 	// for helm resource, it will prefix with this when doing dry-run
 	namePrefix string
@@ -211,53 +207,6 @@ func getAdditionValue(obj runtime.Object) int {
 	}
 
 	return -1
-}
-
-// generate resource string from a deployable map
-func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable, parentType string) (string, error) {
-	res := []string{}
-
-	for _, dpl := range allDpls {
-		tpl, err := GetDeployableTemplateAsUnstructrure(dpl)
-		if err != nil {
-			return "", gerr.Wrap(err, "deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
-		}
-
-		rUnit := resourceUnit{
-			parentType: parentType,
-			namePrefix: "",
-			name:       tpl.GetName(),
-			namespace:  tpl.GetNamespace(),
-			kind:       tpl.GetKind(),
-			addition:   processAddition(tpl),
-		}
-
-		res = append(res, rUnit.String())
-	}
-
-	return strings.Join(res, sep), nil
-}
-
-func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable, parentType string) bool {
-	subanno := sub.GetAnnotations()
-	if len(subanno) == 0 {
-		subanno = make(map[string]string)
-	}
-
-	expectTopo, err := updateResourceListViaDeployableMap(allDpls, parentType)
-	if err != nil {
-		klog.Errorf("failed to get the resource info for subscription %v, err: %v", ObjectString(sub), err)
-		return false
-	}
-
-	if subanno[subv1.AnnotationTopo] != expectTopo {
-		subanno[subv1.AnnotationTopo] = expectTopo
-		sub.SetAnnotations(subanno)
-
-		return true
-	}
-
-	return false
 }
 
 //downloadChart downloads the chart
@@ -412,25 +361,6 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 	}
 
 	return nil, fmt.Errorf("fail to start a manager to generate the resource list")
-}
-
-func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.Unstructured, error) {
-	if dpl == nil || dpl.Spec.Template == nil {
-		return nil, gerr.New("nil deployable skip conversion")
-	}
-
-	out := &unstructured.Unstructured{}
-
-	b, err := dpl.Spec.Template.MarshalJSON()
-	if err != nil {
-		return nil, gerr.Wrap(err, "failed to convert template object to raw")
-	}
-
-	if err := json.Unmarshal(b, out); err != nil {
-		return nil, gerr.Wrap(err, "failed to convert template raw to unstructured")
-	}
-
-	return out, nil
 }
 
 func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {
