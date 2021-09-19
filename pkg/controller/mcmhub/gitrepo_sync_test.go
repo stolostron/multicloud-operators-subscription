@@ -59,7 +59,7 @@ var (
 	}
 )
 
-func TestUpdateGitDeployablesAnnotation(t *testing.T) {
+func TestGetGitResources(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -86,7 +86,7 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.
-	ret, err := rec.UpdateGitDeployablesAnnotation(githubsub)
+	ret, err := rec.GetGitResources(githubsub)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(ret).To(gomega.BeFalse())
 
@@ -95,22 +95,9 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	ret, err = rec.UpdateGitDeployablesAnnotation(githubsub)
+	ret, err = rec.GetGitResources(githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(ret).To(gomega.BeTrue())
-
-	time.Sleep(2 * time.Second)
-
-	subDeployables := rec.getSubscriptionDeployables(githubsub)
-	// To align with 3 new test yaml resources being added to test/github repo in #331 :-)
-	g.Expect(len(subDeployables)).To(gomega.Equal(42))
-
-	rec.deleteSubscriptionDeployables(githubsub)
-
-	time.Sleep(2 * time.Second)
-
-	subDeployables = rec.getSubscriptionDeployables(githubsub)
-	g.Expect(len(subDeployables)).To(gomega.Equal(0))
 
 	err = c.Delete(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())

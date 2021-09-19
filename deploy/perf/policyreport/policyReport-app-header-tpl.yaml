@@ -1,0 +1,14 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: <APPSUB-NS>
+---
+apiVersion: wgpolicyk8s.io/v1alpha2
+kind: PolicyReport
+metadata:
+  labels:
+    apps.open-cluster-management.io/app: <APPSUB-NAME>
+  name: <APPSUB-NAME>-policyreport-appsub-status
+  namespace: <APPSUB-NS>
+results:

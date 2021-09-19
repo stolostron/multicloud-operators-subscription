@@ -29,6 +29,7 @@ import (
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
 	"helm.sh/helm/v3/pkg/releaseutil"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -48,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 
@@ -55,6 +57,7 @@ import (
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
 
 const (
@@ -115,6 +118,37 @@ func (c namespaceClientConfig) ConfigAccess() clientcmd.ConfigAccess {
 
 func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
+}
+
+func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) ([]*v1.ObjectReference, error) {
+	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
+	if err != nil {
+		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
+		return nil, err
+	}
+
+	resources := []*v1.ObjectReference{}
+	cfg := rest.CopyConfig(hubCfg)
+
+	for _, helmRl := range helmRls {
+		resList, err := GenerateResourceListByConfig(cfg, helmRl)
+		if err != nil {
+			return nil, gerr.Wrap(err, "failed to get resource string")
+		}
+
+		for _, resInfo := range resList {
+			resource := &v1.ObjectReference{
+				Kind:       resInfo.Object.GetObjectKind().GroupVersionKind().Kind,
+				Namespace:  resInfo.Namespace,
+				Name:       resInfo.Name,
+				APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Version,
+			}
+			resources = append(resources, resource)
+		}
+
+	}
+
+	return resources, nil
 }
 
 func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {

@@ -36,6 +36,7 @@ import (
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
+/*
 func TestTopoAnnotationUpdateHelm(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -82,6 +83,7 @@ func TestTopoAnnotationUpdateHelm(t *testing.T) {
 	g.Expect(subAnno[subv1.AnnotationTopo]).ShouldNot(gomega.HaveLen(0))
 	fmt.Println(subAnno[subv1.AnnotationTopo])
 }
+*/
 
 func TestTopoAnnotationUpdateNsOrObjChannel(t *testing.T) {
 	var (
@@ -387,6 +389,7 @@ func TestDeployableTemplateConversion(t *testing.T) {
 	}
 }
 
+/*
 func TestTopoAnnotationUpdateHelmChannel(t *testing.T) {
 	var (
 		tpChnKey = types.NamespacedName{
@@ -505,6 +508,7 @@ func TestTopoAnnotationUpdateHelmChannel(t *testing.T) {
 
 	g.Expect(assertTopo(topoAnno, expectStr)).Should(gomega.Succeed())
 }
+*/
 
 func assertTopo(topoStr, target string) error {
 	if len(topoStr) == 0 {

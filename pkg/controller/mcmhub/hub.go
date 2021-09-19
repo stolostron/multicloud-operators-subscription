@@ -26,6 +26,7 @@ import (
 
 	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -38,13 +39,12 @@ import (
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via manifestWork
@@ -92,6 +92,27 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	klog.Infof("subscription: %v/%v", sub.GetNamespace(), sub.GetName())
+
+	var resources []*v1.ObjectReference
+
+	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
+	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
+		resources, err = r.GetGitResources(sub)
+	case chnv1alpha1.ChannelTypeHelmRepo:
+		resources, err = getHelmTopoResources(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
+	case chnv1alpha1.ChannelTypeObjectBucket:
+		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, objectBucketParent)
+	}
+
+	if err != nil {
+		klog.Error(err, "Error creating resource list")
+		return err
+	}
+
+	if err := r.createAppPolicyReport(sub, resources); err != nil {
+		klog.Error(err, "Error creating app policy report")
+		return err
+	}
 
 	err = r.PropagateAppSubManifestWork(sub)
 
@@ -339,227 +360,81 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 	}
 }
 
-func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subscription) map[string]*dplv1alpha1.Deployable {
-	allDpls := make(map[string]*dplv1alpha1.Deployable)
+func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference) error {
+	policyReport := &policyReportV1alpha2.PolicyReport{}
+	policyReport.Name = sub.Name + "-policyreport-appsub-status"
+	policyReport.Namespace = sub.Namespace
 
-	dplList := &dplv1alpha1.DeployableList{}
-
-	chNameSpace, chName, chType := r.GetChannelNamespaceType(sub)
-
-	dplNamespace := chNameSpace
-
-	if utils.IsGitChannel(chType) {
-		// If Git channel, deployables are created in the subscription namespace
-		dplNamespace = sub.Namespace
+	policyReportFound := true
+	if err := r.Get(context.TODO(),
+		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
+		if apierrors.IsNotFound(err) {
+			policyReportFound = false
+		} else {
+			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
 	}
 
-	dplListOptions := &client.ListOptions{Namespace: dplNamespace}
+	if !policyReportFound {
+		klog.V(1).Infof("App policy report: %v/%v not found, create it.", policyReport.Namespace, policyReport.Name)
 
-	if sub.Spec.PackageFilter != nil && sub.Spec.PackageFilter.LabelSelector != nil {
-		matchLbls := sub.Spec.PackageFilter.LabelSelector.MatchLabels
-		matchLbls[chnv1alpha1.KeyChannel] = chName
-		matchLbls[chnv1alpha1.KeyChannelType] = chType
-		clSelector, err := dplutils.ConvertLabels(sub.Spec.PackageFilter.LabelSelector)
-
-		if err != nil {
-			klog.Error("Failed to set label selector of subscrption:", sub.Spec.PackageFilter.LabelSelector, " err: ", err)
-			return nil
+		policyReport.Labels = map[string]string{
+			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", sub.Namespace+"."+sub.Name),
 		}
 
-		dplListOptions.LabelSelector = clSelector
+		results := []*policyReportV1alpha2.PolicyReportResult{}
+		result := &policyReportV1alpha2.PolicyReportResult{
+			Source:    sub.Namespace + "/" + sub.Name,
+			Policy:    "APPSUB_RESOURCE_LIST",
+			Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+			Result:    "pass",
+			Subjects:  resources,
+		}
+		results = append(results, result)
+		policyReport.Results = results
+
+		if err := r.Create(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
 	} else {
-		// Handle deployables from multiple channels in the same namespace
-		subLabel := make(map[string]string)
-		subLabel[chnv1alpha1.KeyChannel] = chName
-		subLabel[chnv1alpha1.KeyChannelType] = chType
+		klog.V(1).Infof("App policy report found: %v/%v, update it.", policyReport.Namespace, policyReport.Name)
 
-		if utils.IsGitChannel(chType) {
-			subscriptionNameLabel := types.NamespacedName{
-				Name:      sub.Name,
-				Namespace: sub.Namespace,
+		var resourceListResult *policyReportV1alpha2.PolicyReportResult
+		for _, result := range policyReport.Results {
+			if result.Policy == "APPSUB_RESOURCE_LIST" {
+				resourceListResult = result
+				break
 			}
-			subscriptionNameLabelStr := strings.ReplaceAll(subscriptionNameLabel.String(), "/", "-")
-
-			subLabel[appv1alpha1.LabelSubscriptionName] = subscriptionNameLabelStr
 		}
 
-		labelSelector := &metav1.LabelSelector{
-			MatchLabels: subLabel,
-		}
-		chSelector, err := dplutils.ConvertLabels(labelSelector)
+		// Update resource list
+		if resourceListResult != nil && reflect.DeepEqual(resourceListResult, resources) {
+			klog.V(1).Infof("App policy report(%v/%v) resource list unchanged.", policyReport.Namespace, policyReport.Name)
 
-		if err != nil {
-			klog.Error("Failed to set label selector. err: ", chSelector, " err: ", err)
 			return nil
 		}
 
-		dplListOptions.LabelSelector = chSelector
-	}
-
-	// Sleep so that all deployables are fully created
-	time.Sleep(3 * time.Second)
-
-	err := r.Client.List(context.TODO(), dplList, dplListOptions)
-
-	if err != nil {
-		klog.Error("Failed to list objects from sbuscription namespace ", sub.Namespace, " err: ", err)
-		return nil
-	}
-
-	klog.V(1).Info("Hub Subscription found Deployables:", len(dplList.Items))
-
-	for _, dpl := range dplList.Items {
-		if !r.checkDeployableBySubcriptionPackageFilter(sub, dpl) {
-			continue
-		}
-
-		dplkey := types.NamespacedName{Name: dpl.Name, Namespace: dpl.Namespace}.String()
-		allDpls[dplkey] = dpl.DeepCopy()
-	}
-
-	return allDpls
-}
-
-func checkDplPackageName(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
-	dpltemplate := &unstructured.Unstructured{}
-
-	if dpl.Spec.Template != nil {
-		err := json.Unmarshal(dpl.Spec.Template.Raw, dpltemplate)
-		if err == nil {
-			dplPkgName := dpltemplate.GetName()
-			if sub.Spec.Package != "" && sub.Spec.Package != dplPkgName {
-				klog.Info("Name does not match, skiping:", sub.Spec.Package, "|", dplPkgName)
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func (r *ReconcileSubscription) checkDeployableBySubcriptionPackageFilter(sub *appv1alpha1.Subscription, dpl dplv1alpha1.Deployable) bool {
-	dplanno := dpl.GetAnnotations()
-
-	if sub.Spec.PackageFilter != nil {
-		if dplanno == nil {
-			dplanno = make(map[string]string)
-		}
-
-		if !checkDplPackageName(sub, dpl) {
-			return false
-		}
-
-		annotations := sub.Spec.PackageFilter.Annotations
-
-		//append deployable template annotations to deployable annotations only if they don't exist in the deployable annotations
-		dpltemplate := &unstructured.Unstructured{}
-
-		if dpl.Spec.Template != nil {
-			err := json.Unmarshal(dpl.Spec.Template.Raw, dpltemplate)
-			if err == nil {
-				dplTemplateAnno := dpltemplate.GetAnnotations()
-				for k, v := range dplTemplateAnno {
-					if dplanno[k] == "" {
-						dplanno[k] = v
-					}
-				}
-			}
-		}
-
-		vdpl := dpl.GetAnnotations()[dplv1alpha1.AnnotationDeployableVersion]
-
-		klog.V(5).Info("checking annotations package filter: ", annotations)
-
-		if annotations != nil {
-			matched := true
-
-			for k, v := range annotations {
-				if dplanno[k] != v {
-					matched = false
-					break
-				}
+		if resourceListResult == nil {
+			if policyReport.Results == nil {
+				policyReport.Results = []*policyReportV1alpha2.PolicyReportResult{}
 			}
 
-			if !matched {
-				return false
+			result := &policyReportV1alpha2.PolicyReportResult{
+				Source:    sub.Namespace + "/" + sub.Name,
+				Policy:    "APPSUB_RESOURCE_LIST",
+				Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+				Result:    "pass",
+				Subjects:  resources,
 			}
+			policyReport.Results = append(policyReport.Results, result)
+		} else {
+			resourceListResult.Subjects = resources
 		}
 
-		vsub := sub.Spec.PackageFilter.Version
-		if vsub != "" {
-			vmatch := subutil.SemverCheck(vsub, vdpl)
-			klog.V(5).Infof("version check is %v; subscription version filter condition is %v, deployable version is: %v", vmatch, vsub, vdpl)
-
-			if !vmatch {
-				return false
-			}
-		}
-	}
-
-	return true
-}
-
-func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alpha1.Subscription, targetSubDpl *dplv1alpha1.Deployable) error {
-	targetKey := types.NamespacedName{
-		Namespace: targetSubDpl.Namespace,
-		Name:      targetSubDpl.Name,
-	}
-
-	found := &dplv1alpha1.Deployable{}
-	err := r.Get(context.TODO(), targetKey, found)
-
-	if err != nil && apierrors.IsNotFound(err) {
-		klog.Info("Creating target Deployable - ", "namespace: ", targetSubDpl.Namespace, ", name: ", targetSubDpl.Name)
-		err = r.Create(context.TODO(), targetSubDpl)
-
-		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " created in the subscription namespace"
-		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
-
-		return err
-	} else if err != nil {
-		return err
-	}
-
-	orgTpl := &unstructured.Unstructured{}
-	err = json.Unmarshal(targetSubDpl.Spec.Template.Raw, orgTpl)
-
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall target subscription deployable template, err:", err, " |template: ", string(targetSubDpl.Spec.Template.Raw))
-		return err
-	}
-
-	fndTpl := &unstructured.Unstructured{}
-	err = json.Unmarshal(found.Spec.Template.Raw, fndTpl)
-
-	if err != nil {
-		klog.V(5).Info("Error in unmarshall target found subscription deployable template, err:", err, " |template: ", string(found.Spec.Template.Raw))
-		return err
-	}
-
-	if !reflect.DeepEqual(orgTpl, fndTpl) || !reflect.DeepEqual(targetSubDpl.Spec.Overrides, found.Spec.Overrides) {
-		klog.V(5).Infof("Updating target Deployable. orig: %#v, found: %#v", targetSubDpl, found)
-
-		targetSubDpl.Spec.DeepCopyInto(&found.Spec)
-
-		foundanno := found.GetAnnotations()
-		if foundanno == nil {
-			foundanno = make(map[string]string)
-		}
-
-		foundanno[dplv1alpha1.AnnotationIsGenerated] = "true"
-		foundanno[dplv1alpha1.AnnotationLocal] = "false"
-		found.SetAnnotations(foundanno)
-
-		klog.V(5).Info("Updating Deployable - ", "namespace: ", targetSubDpl.Namespace, " ,name: ", targetSubDpl.Name)
-
-		err = r.Update(context.TODO(), found)
-
-		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " updated in the subscription namespace"
-		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
-
-		if err != nil {
+		if err := r.Update(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in updating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
 			return err
 		}
 	}
@@ -648,6 +523,78 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	return awshandler, bucket, nil
 }
 
-func generateDplNameFromKey(key string) string {
-	return strings.ReplaceAll(key, "/", "-")
+func (r *ReconcileSubscription) getObjectBucketResources(
+	sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel, parentType string) ([]*v1.ObjectReference, error) {
+	awsHandler, bucket, err := r.initObjectStore(channel)
+	if err != nil {
+		klog.Error(err, "Unable to access object store: ")
+
+		if secondaryChannel != nil {
+			klog.Infof("trying the secondary channel %s", secondaryChannel.Name)
+			// Try with secondary channel
+			awsHandler, bucket, err = r.initObjectStore(secondaryChannel)
+
+			if err != nil {
+				klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+				return nil, err
+			}
+		} else {
+			klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+			return nil, err
+		}
+	}
+
+	var folderName *string
+
+	annotations := sub.GetAnnotations()
+	bucketPath := annotations[appv1.AnnotationBucketPath]
+
+	if bucketPath != "" {
+		folderName = &bucketPath
+	}
+
+	keys, err := awsHandler.List(bucket, folderName)
+	klog.V(5).Infof("object keys: %v", keys)
+
+	if err != nil {
+		klog.Error("Failed to list objects in bucket ", bucket)
+
+		return nil, err
+	}
+
+	// converting template from object store to resource
+	resources := []*v1.ObjectReference{}
+	for _, key := range keys {
+		tplb, err := awsHandler.Get(bucket, key)
+		if err != nil {
+			klog.Error("Failed to get object ", key, " in bucket ", bucket)
+
+			return nil, err
+		}
+
+		// skip empty body object store
+		if len(tplb.Content) == 0 {
+			continue
+		}
+
+		template := &unstructured.Unstructured{}
+		err = yaml.Unmarshal(tplb.Content, template)
+
+		if err != nil {
+			klog.V(5).Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
+			continue
+		}
+
+		resource := &v1.ObjectReference{
+			Kind:       template.GetKind(),
+			Namespace:  template.GetNamespace(),
+			Name:       template.GetName(),
+			APIVersion: template.GetAPIVersion(),
+		}
+		resources = append(resources, resource)
+	}
+
+	return resources, nil
 }

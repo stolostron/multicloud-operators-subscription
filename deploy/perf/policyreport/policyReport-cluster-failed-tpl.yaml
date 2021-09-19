@@ -1,0 +1,3 @@
+- source: <APPSUB-NS>/<APPSUB-NAME>
+  policy: APPSUB_FAILURE
+  result: fail
