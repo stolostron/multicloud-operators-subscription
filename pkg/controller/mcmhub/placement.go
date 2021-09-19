@@ -19,9 +19,9 @@ import (
 	"strings"
 
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	placementv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	placementutils "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/utils"
+	placementv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appSubV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	placementutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/placementrule/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"

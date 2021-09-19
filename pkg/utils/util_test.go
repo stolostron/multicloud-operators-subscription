@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -132,34 +131,11 @@ var (
 			Name:      cmn,
 			Namespace: cmns,
 			Annotations: map[string]string{
-				dplv1alpha1.AnnotationHosting:        hostdplkey.String(),
-				dplv1alpha1.AnnotationSubscription:   hostsubkey.String(),
-				dplv1alpha1.AnnotationManagedCluster: hostclkey.String(),
-				appv1alpha1.AnnotationSyncSource:     "testsource-" + hostsubkey.String(),
+				appv1alpha1.AnnotationSyncSource: "testsource-" + hostsubkey.String(),
 			},
 		},
 	}
 )
-
-func TestAnnotations(t *testing.T) {
-	cl := GetClusterFromResourceObject(cfgmap)
-
-	if !reflect.DeepEqual(*cl, hostclkey) {
-		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostclkey, cl)
-	}
-
-	dplkey := GetHostDeployableFromObject(cfgmap)
-
-	if !reflect.DeepEqual(*dplkey, hostdplkey) {
-		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostdplkey, *dplkey)
-	}
-
-	subkey := GetHostSubscriptionFromObject(cfgmap)
-
-	if !reflect.DeepEqual(*subkey, hostsubkey) {
-		t.Errorf("Failed to get cluster from object .\n\tExpect:%v\n\tResult:%v", hostsubkey, *subkey)
-	}
-}
 
 func TestValidateK8sLabel(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)

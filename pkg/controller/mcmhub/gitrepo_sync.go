@@ -33,6 +33,7 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -102,6 +103,10 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.
 			}
 
 			setCommitID(sub, commit)
+
+			// Check and add cluster-admin annotation for multi-namepsace application
+			r.AddClusterAdminAnnotation(sub)
+
 		} else {
 			klog.Infof("The Git commit has not changed since the last reconcile. last: %s, new: %s", annotations[appv1.AnnotationGitCommit], commit)
 		}
@@ -173,6 +178,34 @@ func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.
 	}
 
 	return indexFile, nil
+}
+
+func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, chn, secondChn *chnv1.Channel) string {
+	idxFile, err := getGitChart(sub, utils.GetLocalGitFolder(sub), getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub))
+	if err != nil {
+		klog.Error(err.Error())
+		return ""
+	}
+
+	_ = idxFile
+
+	if len(idxFile.Entries) != 0 {
+		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, secondChn, sub, idxFile)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		res, err := generateResrouceList(r.cfg, rls)
+		if err != nil {
+			klog.Error(err.Error())
+			return ""
+		}
+
+		return res
+	}
+
+	return ""
 }
 
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) ([]*v1.ObjectReference, error) {

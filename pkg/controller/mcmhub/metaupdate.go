@@ -34,7 +34,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
 
@@ -50,20 +49,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 
-	rHelper "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
-	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+
+	rHelper "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/controller/helmrelease"
+	rUtils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/utils"
 )
 
 const (
 	sep                = ","
 	sepRes             = "/"
-	deployableParent   = "deployable"
 	helmChartParent    = "helmchart"
 	objectBucketParent = "object"
 	hookParent         = "hook"
@@ -120,37 +117,6 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) ([]*v1.ObjectReference, error) {
-	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
-	if err != nil {
-		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
-		return nil, err
-	}
-
-	resources := []*v1.ObjectReference{}
-	cfg := rest.CopyConfig(hubCfg)
-
-	for _, helmRl := range helmRls {
-		resList, err := GenerateResourceListByConfig(cfg, helmRl)
-		if err != nil {
-			return nil, gerr.Wrap(err, "failed to get resource string")
-		}
-
-		for _, resInfo := range resList {
-			resource := &v1.ObjectReference{
-				Kind:       resInfo.Object.GetObjectKind().GroupVersionKind().Kind,
-				Namespace:  resInfo.Namespace,
-				Name:       resInfo.Name,
-				APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Version,
-			}
-			resources = append(resources, resource)
-		}
-
-	}
-
-	return resources, nil
-}
-
 func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {
 	res := make([]string, 0)
 	cfg := rest.CopyConfig(hubCfg)
@@ -168,7 +134,7 @@ func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease)
 }
 
 type resourceUnit struct {
-	// it should be deployable or helmchart
+	// it should be helmchart
 	parentType string
 	// for helm resource, it will prefix with this when doing dry-run
 	namePrefix string
@@ -247,53 +213,6 @@ func getAdditionValue(obj runtime.Object) int {
 	return -1
 }
 
-// generate resource string from a deployable map
-func updateResourceListViaDeployableMap(allDpls map[string]*dplv1.Deployable, parentType string) (string, error) {
-	res := []string{}
-
-	for _, dpl := range allDpls {
-		tpl, err := GetDeployableTemplateAsUnstructrure(dpl)
-		if err != nil {
-			return "", gerr.Wrap(err, "deployable can't convert to unstructured.Unstructured, can lead to incorrect resource list")
-		}
-
-		rUnit := resourceUnit{
-			parentType: parentType,
-			namePrefix: "",
-			name:       tpl.GetName(),
-			namespace:  tpl.GetNamespace(),
-			kind:       tpl.GetKind(),
-			addition:   processAddition(tpl),
-		}
-
-		res = append(res, rUnit.String())
-	}
-
-	return strings.Join(res, sep), nil
-}
-
-func extracResourceListFromDeployables(sub *appv1.Subscription, allDpls map[string]*dplv1.Deployable, parentType string) bool {
-	subanno := sub.GetAnnotations()
-	if len(subanno) == 0 {
-		subanno = make(map[string]string)
-	}
-
-	expectTopo, err := updateResourceListViaDeployableMap(allDpls, parentType)
-	if err != nil {
-		klog.Errorf("failed to get the resource info for subscription %v, err: %v", ObjectString(sub), err)
-		return false
-	}
-
-	if subanno[subv1.AnnotationTopo] != expectTopo {
-		subanno[subv1.AnnotationTopo] = expectTopo
-		sub.SetAnnotations(subanno)
-
-		return true
-	}
-
-	return false
-}
-
 //downloadChart downloads the chart
 func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, error) {
 	configMap, err := rUtils.GetConfigMap(client, s.Namespace, s.Repo.ConfigMapRef)
@@ -326,6 +245,36 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 	}
 
 	return chartDir, nil
+}
+
+func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) ([]*v1.ObjectReference, error) {
+	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
+	if err != nil {
+		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
+		return nil, err
+	}
+
+	resources := []*v1.ObjectReference{}
+	cfg := rest.CopyConfig(hubCfg)
+
+	for _, helmRl := range helmRls {
+		resList, err := GenerateResourceListByConfig(cfg, helmRl)
+		if err != nil {
+			return nil, gerr.Wrap(err, "failed to get resource string")
+		}
+
+		for _, resInfo := range resList {
+			resource := &v1.ObjectReference{
+				Kind:       resInfo.Object.GetObjectKind().GroupVersionKind().Kind,
+				Namespace:  resInfo.Namespace,
+				Name:       resInfo.Name,
+				APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Version,
+			}
+			resources = append(resources, resource)
+		}
+	}
+
+	return resources, nil
 }
 
 //generateResourceList generates the resource list for given HelmRelease
@@ -446,25 +395,6 @@ func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (k
 	}
 
 	return nil, fmt.Errorf("fail to start a manager to generate the resource list")
-}
-
-func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.Unstructured, error) {
-	if dpl == nil || dpl.Spec.Template == nil {
-		return nil, gerr.New("nil deployable skip conversion")
-	}
-
-	out := &unstructured.Unstructured{}
-
-	b, err := dpl.Spec.Template.MarshalJSON()
-	if err != nil {
-		return nil, gerr.Wrap(err, "failed to convert template object to raw")
-	}
-
-	if err := json.Unmarshal(b, out); err != nil {
-		return nil, gerr.Wrap(err, "failed to convert template raw to unstructured")
-	}
-
-	return out, nil
 }
 
 func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {

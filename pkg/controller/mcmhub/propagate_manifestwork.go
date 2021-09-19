@@ -21,12 +21,11 @@ import (
 	"strings"
 
 	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
-	placementV1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	placementV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appSubV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	coreV1 "k8s.io/api/core/v1"
-	rbac "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -36,8 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var manifestClusterRoleString string
-var manifestClusterRoleBindingString string
 var manifestNSString string
 var manifestAppsubString string
 
@@ -123,18 +120,6 @@ func (r *ReconcileSubscription) propagateManifestWorks(clusters []ManageClusters
 	var err error
 
 	hosting := types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}
-
-	// prepare dependent clusterrole manifest, will get it removed once foundataion set it up by default
-	manifestClusterRoleString, err = prepareManifestWorkClusterRole(hosting)
-	if err != nil {
-		return nil, err
-	}
-
-	// prepare dependent clustrolebinding manifest, will get it removed once foundataion set it up by default
-	manifestClusterRoleBindingString, err = prepareManifestWorkClusterRoleBinding(hosting)
-	if err != nil {
-		return nil, err
-	}
 
 	// prepare appsub namespace manifest
 	manifestNSString, err = prepareManifestWorkNS(instance.GetNamespace(), hosting)
@@ -258,16 +243,6 @@ func (r *ReconcileSubscription) setLocalManifestWork(cluster ManageClusters, hos
 	localManifestWork.Spec.Workload.Manifests = []manifestWorkV1.Manifest{
 		{
 			RawExtension: runtime.RawExtension{
-				Raw: []byte(manifestClusterRoleString),
-			},
-		},
-		{
-			RawExtension: runtime.RawExtension{
-				Raw: []byte(manifestClusterRoleBindingString),
-			},
-		},
-		{
-			RawExtension: runtime.RawExtension{
 				Raw: []byte(manifestNSString),
 			},
 		},
@@ -358,81 +333,6 @@ func prepareManifestWorkNS(appsubNS string, hosting types.NamespacedName) (strin
 	}
 
 	return string(manifestNSByte), nil
-}
-
-func prepareManifestWorkClusterRole(hosting types.NamespacedName) (string, error) {
-	var err error
-
-	appSubClusterRole := &rbac.ClusterRole{
-		TypeMeta: metaV1.TypeMeta{
-			Kind:       "ClusterRole",
-			APIVersion: "rbac.authorization.k8s.io/v1",
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Name: "appsub-subscription",
-			Annotations: map[string]string{
-				appSubV1.AnnotationHosting: hosting.String(),
-			},
-		},
-		Rules: []rbac.PolicyRule{
-			{
-				Verbs:     []string{"*"},
-				APIGroups: []string{"apps.open-cluster-management.io"},
-				Resources: []string{"subscriptions"},
-			},
-		},
-	}
-
-	klog.V(1).Infof("new local appSubClusterRole: %#v", appSubClusterRole)
-
-	manifestClusterRoleByte, err := json.Marshal(appSubClusterRole)
-	if err != nil {
-		klog.Info("Error in mashalling appSubClusterRole obj ", err)
-		return "", err
-	}
-
-	klog.V(1).Infof("new local appSubClusterRole 2: %#v", string(manifestClusterRoleByte))
-
-	return string(manifestClusterRoleByte), nil
-}
-
-func prepareManifestWorkClusterRoleBinding(hosting types.NamespacedName) (string, error) {
-	var err error
-
-	appSubClusterRoleBinding := &rbac.ClusterRoleBinding{
-		TypeMeta: metaV1.TypeMeta{
-			Kind:       "ClusterRoleBinding",
-			APIVersion: "rbac.authorization.k8s.io/v1",
-		},
-		ObjectMeta: metaV1.ObjectMeta{
-			Name: "appsub-subscription",
-			Annotations: map[string]string{
-				appSubV1.AnnotationHosting: hosting.String(),
-			},
-		},
-		RoleRef: rbac.RoleRef{
-			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     "appsub-subscription",
-		},
-		Subjects: []rbac.Subject{
-			{
-				APIGroup: "rbac.authorization.k8s.io",
-				Kind:     "User",
-				Name:     "system:serviceaccount:open-cluster-management-agent:klusterlet-work-sa",
-			},
-		},
-	}
-
-	klog.V(1).Infof("new local appSubClusterRoleBinding: %#v", appSubClusterRoleBinding)
-
-	manifestClusterRoleBindingByte, err := json.Marshal(appSubClusterRoleBinding)
-	if err != nil {
-		klog.Info("Error in mashalling appSubClusterRoleBinding obj ", err)
-		return "", err
-	}
-
-	return string(manifestClusterRoleBindingByte), nil
 }
 
 func (r *ReconcileSubscription) cleanupManifestWork(appsub types.NamespacedName) error {

@@ -41,8 +41,7 @@ import (
 	"github.com/go-logr/logr"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	plrv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -322,16 +321,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// in hub, watch the deployable created by the subscription
-	err = c.Watch(
-		&source.Kind{Type: &dplv1.Deployable{}},
-		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
-		utils.DeployablePredicateFunctions)
-
-	if err != nil {
-		return err
-	}
-
 	// in hub, watch for channel changes
 	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
@@ -440,31 +429,6 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			Kind: "ClusterRole",
 			Name: appv1.SubscriptionAdmin,
 		},
-	}
-}
-
-func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
-	// Get propagation status from the subscription deployable
-	hubdpl := &dplv1.Deployable{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
-
-	if err == nil {
-		sub.Status.Reason = hubdpl.Status.Reason
-
-		// the sub.Status.Message is aggregated over the doMCMHubReconcile
-		if sub.Status.Message == "" {
-			sub.Status.Message = hubdpl.Status.Message
-		}
-
-		if hubdpl.Status.Phase == dplv1.DeployableFailed {
-			sub.Status.Phase = appv1.SubscriptionPropagationFailed
-		} else if hubdpl.Status.Phase == dplv1.DeployableUnknown {
-			sub.Status.Phase = appv1.SubscriptionUnknown
-		} else {
-			sub.Status.Phase = appv1.SubscriptionPropagated
-		}
-	} else {
-		klog.Error(err)
 	}
 }
 

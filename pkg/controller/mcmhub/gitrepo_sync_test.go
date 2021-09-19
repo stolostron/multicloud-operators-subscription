@@ -99,6 +99,8 @@ func TestGetGitResources(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(ret).To(gomega.BeTrue())
 
+	time.Sleep(2 * time.Second)
+
 	err = c.Delete(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }

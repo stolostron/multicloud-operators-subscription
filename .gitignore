@@ -1,10 +1,9 @@
 # Temporary Build Files
 test_tmp
-build/_output
+**/_output
 build/_test
 build-harness
 build-harness-extensions
-deploy/perf/_output
 deploy/perf/tests
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 ### Emacs ###
