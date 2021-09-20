@@ -30,9 +30,33 @@ metadata:
   namespace: ch-ns
   labels:
     name: ns-sub
+  annotations: 
+    apps.open-cluster-management.io/deployables: "true"
 data:
   AccessKeyID: YWRtaW4=
   SecretAccessKey: cGFzc3dvcmRhZG1pbg==
+--- 
+apiVersion: apps.open-cluster-management.io/v1
+kind: Deployable
+metadata: 
+  name: payload-cfg-namespace-channel
+  labels:
+    name: ns-sub
+    apps.open-cluster-management.io/channel: ns
+    apps.open-cluster-management.io/channel-type: Namespace
+  annotations: 
+    apps.open-cluster-management.io/is-local-deployable: "false"
+  namespace: default
+spec: 
+  channels: 
+  - ns
+  template: 
+    apiVersion: v1
+    data: 
+      database: mongodb
+    kind: ConfigMap
+    metadata: 
+      name: cfg-from-ch-qa
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Channel

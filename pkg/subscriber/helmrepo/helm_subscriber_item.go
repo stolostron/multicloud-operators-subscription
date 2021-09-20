@@ -32,7 +32,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
@@ -606,7 +606,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
 		}
 
-		if err := hrsi.synchronizer.ProcessSubResources(hostkey, resources, nil, nil, false); err != nil {
+		if err := hrsi.synchronizer.ProcessSubResources(hostkey, resources); err != nil {
 			klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
 			doErr = err
 		}

@@ -35,8 +35,7 @@ type SyncSource interface {
 	GetLocalClient() client.Client
 	GetRemoteClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
-	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit,
-		map[string]map[string]string, map[string]map[string]string, bool) error
+	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit) error
 	PurgeAllSubscribedResources(types.NamespacedName) error
 }
 

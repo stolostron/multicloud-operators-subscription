@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
+	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
 	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 )
@@ -70,9 +72,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	//append helmreleases.apps.open-cluster-management.io to scheme
+	if err = releaseapis.AddToScheme(mgr.GetScheme()); err != nil {
+		klog.Error("unable add helmreleases.apps.open-cluster-management.io APIs to scheme: ", err)
+		os.Exit(1)
+	}
+
 	//append subscriptions.apps.open-cluster-management.io to scheme
 	if err = subapis.AddToScheme(mgr.GetScheme()); err != nil {
 		klog.Error("unable add subscriptions.apps.open-cluster-management.io APIs to scheme: ", err)
+		os.Exit(1)
+	}
+
+	//append deployables.apps.open-cluster-management.io to scheme
+	if err = dplapis.AddToScheme(mgr.GetScheme()); err != nil {
+		klog.Error("unable add deployables.apps.open-cluster-management.io APIs to scheme: ", err)
 		os.Exit(1)
 	}
 
@@ -80,13 +94,15 @@ func main() {
 	_, err = crdx.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), "multiclusterhubs.operator.open-cluster-management.io", v1.GetOptions{})
 
 	if err != nil && kerrors.IsNotFound(err) {
-		klog.Info("This is not ACM hub cluster. Deleting helmrelease CRDs.")
+		klog.Info("This is not ACM hub cluster. Deleting helmrelease and deployable CRDs.")
 
 		// handle helmrelease crd
 		utils.DeleteHelmReleaseCRD(runtimeClient, crdx)
 
+		// handle deployable crd
+		utils.DeleteDeployableCRD(runtimeClient, crdx)
 	} else {
-		klog.Info("This is ACM hub cluster. Skip deleting helmrelease CRDs.")
+		klog.Info("This is ACM hub cluster. Skip deleting helmrelease and deployable CRDs.")
 	}
 
 	// handle subscription crd

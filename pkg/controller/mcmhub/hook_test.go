@@ -26,8 +26,8 @@ import (
 	. "github.com/onsi/gomega"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -189,6 +189,65 @@ var _ = Describe("multiple reconcile signal of the same subscription instance sp
 		Consistently(waitForAnsibleJobs, specTimeOut, pullInterval).Should(Succeed())
 	})
 })
+
+/*func UpdateHostDeployableStatus(clt client.Client, sKey types.NamespacedName, tPhase dplv1.DeployablePhase) error {
+	hubdpl := &dplv1.Deployable{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sKey.Name + "-deployable",
+			Namespace: sKey.Namespace,
+		},
+		Spec: dplv1.DeployableSpec{
+			Template: &runtime.RawExtension{
+				Object: &corev1.ConfigMap{},
+			},
+		},
+	}
+
+	t := &dplv1.Deployable{}
+
+	hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
+
+	if err := clt.Get(context.TODO(), hubdplKey, t); err != nil {
+		return nil
+	}
+
+	t.Status.Phase = tPhase
+
+	return clt.Status().Update(context.TODO(), t.DeepCopy())
+}
+
+func ManagedClusterUpdateHubStatus(clt client.Client, subKey types.NamespacedName, tPhase subv1.SubscriptionPhase) error {
+	a := &subv1.Subscription{}
+	ctx := context.TODO()
+
+	if err := clt.Get(ctx, subKey, a); err != nil {
+		return err
+	}
+
+	statusTS := metav1.Now()
+	a.Status.LastUpdateTime = statusTS
+	a.Status.Phase = subv1.SubscriptionPropagated
+	a.Status.Statuses = subv1.SubscriptionClusterStatusMap{
+		"spoke": &subv1.SubscriptionPerClusterStatus{
+			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
+				"pkg1": {
+					Phase:          tPhase,
+					LastUpdateTime: statusTS,
+				},
+			},
+		},
+	}
+
+	return clt.Status().Update(ctx, a)
+}
+
+func waitForHostDeployable(clt client.Client, subKey types.NamespacedName) error {
+	t := &dplv1.Deployable{}
+	hostDplKey := types.NamespacedName{Name: fmt.Sprintf("%s-deployable", subKey.Name),
+		Namespace: subKey.Namespace}
+
+	return clt.Get(context.TODO(), hostDplKey, t)
+}*/
 
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() error {
 	return func() error {

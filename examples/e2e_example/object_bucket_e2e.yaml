@@ -24,6 +24,26 @@ spec:
       name: obj-sub
 --- 
 apiVersion: apps.open-cluster-management.io/v1
+kind: Deployable
+metadata: 
+  name: payload-cfg-obj-channel
+  annotations: 
+    apps.open-cluster-management.io/is-local-deployable: "false"
+  namespace: default
+  labels:
+    name: obj-sub
+spec: 
+  channels: 
+  - deva
+  template: 
+    apiVersion: v1
+    data: 
+      database: mongodb
+    kind: ConfigMap
+    metadata: 
+      name: cfg-from-ch-qa
+---
+apiVersion: apps.open-cluster-management.io/v1
 kind: Channel
 metadata:
   name: deva

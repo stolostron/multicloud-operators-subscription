@@ -318,15 +318,26 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	if len(ghsi.resources) == 0 && !ghsi.successful {
 		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
+
+			statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+			if statusErr != nil {
+				klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
+
+				time.Sleep(2 * time.Second)
+
+				statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
+
+				if statusErr2 != nil {
+					klog.Error("Failed to update subscription status with the error. again")
+				}
+			}
 		}
 
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
 
-	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
-
-	if err := ghsi.synchronizer.ProcessSubResources(hostkey, ghsi.resources,
-		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
+	if err := ghsi.synchronizer.ProcessSubResources(hostkey, ghsi.resources); err != nil {
 		klog.Error(err)
 
 		ghsi.successful = false

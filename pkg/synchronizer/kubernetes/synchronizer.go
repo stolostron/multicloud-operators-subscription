@@ -16,7 +16,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
-	errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -172,8 +172,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 	return nil
 }
 
-func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit,
-	allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit) error {
 	// meaning clean up all the resource from a source:host
 	if len(resources) == 0 {
 		return sync.PurgeAllSubscribedResources(hostSub)
@@ -220,7 +219,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 
 		nri := sync.DynamicClient.Resource(pkgGVR)
 
-		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR), allowlist, denyList, isAdmin)
+		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR))
 
 		if err != nil {
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
@@ -346,7 +345,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(origUnit, *tplown, sync.SynchronizerID) {
 		// If the subscription is created by a subscription admin and reconcile option exists,
 		// we can update the resource even if it is not owned by this subscription.
-		// These subscription annotations are passed down payload by the subscribers.
+		// These subscription annotations are passed down to deployable payload by the subscribers.
 		// When we update other owner's resources, make sure these annnotations along with other
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
@@ -387,7 +386,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	// If subscription-admin chooses replace option, keep the typical annotations we add. Subscription takes over the resources.
 	// When the subscription is removed, the resources will be removed too.
 	if overwrite && merge {
-		// If overwriting someone else's resource, remove annotations like hosting subscription... etc
+		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
 		newobj = utils.RemoveSubOwnerRef(newobj)
 	}
@@ -477,7 +476,7 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 }
 
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	resource ResourceUnit, specialResource bool, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	resource ResourceUnit, specialResource bool) error {
 	tplunit := resource.Resource
 	klog.Infof("Applying template: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
 
@@ -490,24 +489,6 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 
 	if !utils.AllowApplyTemplate(sync.LocalClient, tplunit) {
 		klog.Infof("Applying template is paused: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
-
-		return nil
-	}
-
-	if utils.IsResourceDenied(*tplunit, denyList, isAdmin) {
-		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
-			tplunit.GetAPIVersion(), tplunit.GetKind())
-
-		klog.Info(denyError.Error())
-
-		return nil
-	}
-
-	if !utils.IsResourceAllowed(*tplunit, allowlist, isAdmin) {
-		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
-			tplunit.GetAPIVersion(), tplunit.GetKind())
-
-		klog.Info(denyError.Error())
 
 		return nil
 	}

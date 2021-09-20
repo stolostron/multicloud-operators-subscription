@@ -13,6 +13,22 @@ spec:
     pathname: dev2
 ---
 apiVersion: apps.open-cluster-management.io/v1
+kind: Deployable
+metadata:
+  annotations:
+    apps.open-cluster-management.io/is-local-deployable: "false"
+  name: sample-cr-configmap
+  namespace: dev2
+spec:
+  template:
+    apiVersion: v1
+    kind: ConfigMap
+    metadata:
+      namespace: default
+    data:
+      purpose: for test
+---
+apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: sub-configmap

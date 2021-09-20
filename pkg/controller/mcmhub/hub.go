@@ -38,9 +38,11 @@ import (
 	"github.com/ghodss/yaml"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
@@ -219,6 +221,83 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 	}
 
 	return strconv.FormatInt(chobj.Generation, 10), nil
+}
+
+func (r *ReconcileSubscription) updateSubscriptionStatus(sub *appv1alpha1.Subscription, found *dplv1alpha1.Deployable, chn *chnv1alpha1.Channel) error {
+	r.logger.Info(fmt.Sprintf("entry doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
+	defer r.logger.Info(fmt.Sprintf("exit doMCMHubReconcile:updateSubscriptionStatus %s", PrintHelper(sub)))
+
+	newsubstatus := appv1alpha1.SubscriptionStatus{}
+
+	newsubstatus.AnsibleJobsStatus = *sub.Status.AnsibleJobsStatus.DeepCopy()
+
+	newsubstatus.Phase = appv1alpha1.SubscriptionPropagated
+	newsubstatus.Message = ""
+	newsubstatus.Reason = ""
+
+	msg := ""
+
+	if found.Status.Phase == dplv1alpha1.DeployableFailed {
+		newsubstatus.Statuses = nil
+	} else {
+		newsubstatus.Statuses = make(map[string]*appv1alpha1.SubscriptionPerClusterStatus)
+
+		for cluster, cstatus := range found.Status.PropagatedStatus {
+			clusterSubStatus := &appv1alpha1.SubscriptionPerClusterStatus{}
+			subPkgStatus := make(map[string]*appv1alpha1.SubscriptionUnitStatus)
+
+			if cstatus.ResourceStatus != nil {
+				mcsubstatus := &appv1alpha1.SubscriptionStatus{}
+				err := json.Unmarshal(cstatus.ResourceStatus.Raw, mcsubstatus)
+				if err != nil {
+					klog.Infof("Failed to unmashall ResourceStatus from target cluster: %v, in deployable: %v/%v", cluster, found.GetNamespace(), found.GetName())
+					return err
+				}
+
+				if msg == "" {
+					msg = fmt.Sprintf("%s:%s", cluster, mcsubstatus.Message)
+				} else {
+					msg += fmt.Sprintf(",%s:%s", cluster, mcsubstatus.Message)
+				}
+
+				//get status per package if exist, for namespace/objectStore/helmRepo channel subscription status
+				for _, lcStatus := range mcsubstatus.Statuses {
+					for pkg, pkgStatus := range lcStatus.SubscriptionPackageStatus {
+						subPkgStatus[pkg] = getStatusPerPackage(pkgStatus, chn)
+					}
+				}
+
+				//if no status per package, apply status.<per cluster>.resourceStatus, for github channel subscription status
+				if len(subPkgStatus) == 0 {
+					subUnitStatus := &appv1alpha1.SubscriptionUnitStatus{}
+					subUnitStatus.LastUpdateTime = mcsubstatus.LastUpdateTime
+					subUnitStatus.Phase = mcsubstatus.Phase
+					subUnitStatus.Message = mcsubstatus.Message
+					subUnitStatus.Reason = mcsubstatus.Reason
+
+					subPkgStatus["/"] = subUnitStatus
+				}
+			}
+
+			clusterSubStatus.SubscriptionPackageStatus = subPkgStatus
+
+			newsubstatus.Statuses[cluster] = clusterSubStatus
+		}
+	}
+
+	newsubstatus.LastUpdateTime = sub.Status.LastUpdateTime
+	klog.V(5).Info("Check status for ", sub.Namespace, "/", sub.Name, " with ", newsubstatus)
+	newsubstatus.Message = msg
+
+	if !utils.IsEqualSubScriptionStatus(&sub.Status, &newsubstatus) {
+		klog.V(1).Infof("check subscription status sub: %v/%v, substatus: %#v, newsubstatus: %#v",
+			sub.Namespace, sub.Name, sub.Status, newsubstatus)
+
+		//perserve the Ansiblejob status
+		newsubstatus.DeepCopyInto(&sub.Status)
+	}
+
+	return nil
 }
 
 func getStatusPerPackage(pkgStatus *appv1alpha1.SubscriptionUnitStatus, chn *chnv1alpha1.Channel) *appv1alpha1.SubscriptionUnitStatus {

@@ -44,8 +44,10 @@ type ReconcileAppSubSummary struct {
 }
 
 type AppSubClusterFailStatus struct {
-	Cluster string
-	Phase   string
+	Cluster   string
+	Phase     string
+	Message   string
+	Timestamp metav1.Timestamp
 }
 
 // appsub status per cluster.
@@ -157,8 +159,10 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 
 		if result.Policy == "APPSUB_FAILURE" {
 			cs := AppSubClusterFailStatus{
-				Cluster: cluster,
-				Phase:   string(result.Result),
+				Cluster:   cluster,
+				Phase:     string(result.Result),
+				Message:   result.Description,
+				Timestamp: result.Timestamp,
 			}
 
 			if clusterStatus, ok := appSubClusterFailStatusMap[result.Source]; ok {
@@ -273,9 +277,11 @@ func (r *ReconcileAppSubSummary) newAppPolicyReport(appsubNs, appsubName string,
 
 	for _, ClustersFailStatus := range clustersFailStatus.Clusters {
 		newPolicyReportResult := &policyReportV1alpha2.PolicyReportResult{
-			Policy: "APPSUB_FAILURE",
-			Source: ClustersFailStatus.Cluster,
-			Result: policyReportV1alpha2.PolicyResult("fail"),
+			Policy:      "APPSUB_FAILURE",
+			Source:      ClustersFailStatus.Cluster,
+			Description: ClustersFailStatus.Message,
+			Result:      policyReportV1alpha2.PolicyResult("fail"),
+			Timestamp:   ClustersFailStatus.Timestamp,
 		}
 		newPolicyReportResults = append(newPolicyReportResults, newPolicyReportResult)
 	}

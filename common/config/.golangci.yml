@@ -23,8 +23,6 @@ run:
   skip-files:
     - ".*\\.pb\\.go"
     - ".*\\.gen\\.go"
-    - ".*.helmrelease.*\\.go"
-    - ".*.ansiblejob.*\\.go"
 
 linters:
   enable-all: true
@@ -51,7 +49,6 @@ linters:
     - gofumpt
     - nestif
     - ineffassign
-    - unused
   fast: false
 
 linters-settings:
