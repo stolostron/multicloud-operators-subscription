@@ -299,13 +299,13 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 	err = yaml.Unmarshal(data, template)
 
 	if err != nil {
-		klog.Warning("Processing local deployable with error template:", helmRelease, err)
+		klog.Warning("Error while processing helmrelease with template:", helmRelease.Name, err)
 	}
 
 	template, err = OverrideTemplate(template, overrides.ClusterOverrides)
 
 	if err != nil {
-		klog.Error("Failed to apply override for instance: ")
+		klog.Error("Failed to apply override for instance: ", helmRelease.Name, err)
 
 		return err
 	}
@@ -357,7 +357,7 @@ func PkgToReleaseCRName(sub *appv1.Subscription, packageName string) (string, er
 	return releaseCRName, nil
 }
 
-func CreateHelmCRDeployable(
+func CreateHelmCRManifest(
 	repoURL string,
 	packageName string,
 	chartVersions repo.ChartVersions,

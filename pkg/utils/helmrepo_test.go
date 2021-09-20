@@ -282,7 +282,7 @@ persistence:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func TestCreateHelmCRDeployable(t *testing.T) {
+func TestCreateHelmCRManifest(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
@@ -319,14 +319,14 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err := CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
 	dplName1 := dpl.GetName()
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
@@ -342,13 +342,13 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
 	dplName2 := dpl.GetName()
 
-	// Test that the deployable names are the same for the same charts with different versions
+	// Test that the manifest names are the same for the same charts with different versions
 	g.Expect(dplName1).To(gomega.Equal(dplName2))
 }
 

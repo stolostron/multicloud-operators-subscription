@@ -33,7 +33,7 @@ import (
 	"k8s.io/klog"
 )
 
-// CheckAndInstallCRD checks if deployable belongs to this cluster
+// CheckAndInstallCRD checks if subscription belongs to this cluster
 // managed cluster annotation matches or no managed cluster annotation (local)
 func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 	var err error

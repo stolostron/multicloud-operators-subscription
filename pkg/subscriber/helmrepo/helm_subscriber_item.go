@@ -585,11 +585,11 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
-		dpl, err := utils.CreateHelmCRDeployable(
+		dpl, err := utils.CreateHelmCRManifest(
 			hrsi.Channel.Spec.Pathname, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.SecondaryChannel, hrsi.Subscription)
 
 		if err != nil {
-			klog.Error("failed to create a helmrelease CR deployable, err: ", err)
+			klog.Error("failed to create a helmrelease CR manifest, err: ", err)
 
 			doErr = err
 
@@ -607,7 +607,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 		}
 
 		if err := hrsi.synchronizer.ProcessSubResources(hostkey, resources, nil, nil, false); err != nil {
-			klog.Warningf("failed to put helm deployables to cache (will retry), err: %v", err)
+			klog.Warningf("failed to put helm manifest to cache (will retry), err: %v", err)
 			doErr = err
 		}
 	}

@@ -326,11 +326,11 @@ func (obsi *SubscriberItem) doSubscription() {
 
 	resources := make([]kubesynchronizer.ResourceUnit, 0)
 
-	// track if there's any error when doSubscribeDeployable, if there's any, then we should retry this
+	// track if there's any error when doSubscribeManifest, if there's any, then we should retry this
 	var doErr error
 
 	for _, tpl := range tpls {
-		resource, err := obsi.doSubscribeDeployable(&tpl)
+		resource, err := obsi.doSubscribeManifest(&tpl)
 
 		if err != nil {
 			klog.Errorf("object bucket failed to package deployable, err: %v", err)
@@ -362,7 +362,7 @@ func (obsi *SubscriberItem) doSubscription() {
 	obsi.successful = true
 }
 
-func (obsi *SubscriberItem) doSubscribeDeployable(template *unstructured.Unstructured) (*kubesynchronizer.ResourceUnit, error) {
+func (obsi *SubscriberItem) doSubscribeManifest(template *unstructured.Unstructured) (*kubesynchronizer.ResourceUnit, error) {
 	tplName := template.GetName()
 	// Set app label
 	utils.SetPartOfLabel(obsi.SubscriberItem.Subscription, template)

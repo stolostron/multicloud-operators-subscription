@@ -319,7 +319,7 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	outF := []metav1.ManagedFieldsEntry{}
 
 	out.SetManagedFields(outF)
-	// we don't actually care about the status, when create a deployable for
+	// we don't actually care about the status, when create a manifestwork for
 	// given subscription
 
 	return out
@@ -1289,7 +1289,7 @@ func isSameUnstructured(obj1, obj2 *unstructured.Unstructured) bool {
 	return equality.Semantic.DeepEqual(obj1Copy.Object, obj2Copy.Object)
 }
 
-// GetHostDeployableFromObject return nil if no host is found
+// IsHostingAppsub return true if contains hosting annotation
 func IsHostingAppsub(appsub *appv1.Subscription) bool {
 	if appsub == nil {
 		return false

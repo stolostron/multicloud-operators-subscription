@@ -26,7 +26,7 @@ import (
 	appsubv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
-// PrepareOverrides returns the overridemap for given deployable instance.
+// PrepareOverrides returns the overridemap for given subscription instance.
 func PrepareOverrides(cluster types.NamespacedName, appsub *appsubv1.Subscription) ([]appsubv1.ClusterOverride, error) {
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()

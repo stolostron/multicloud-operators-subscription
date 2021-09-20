@@ -48,7 +48,7 @@ type kubeResourceMetadata struct {
 	Namespace string `yaml:"namespace"`
 }
 
-// UpdateGitDeployablesAnnotation clones the git repo and regenerate deployables and update annotation if needed
+// GetGitResources clones the git repo and regenerate deployables and update annotation if needed
 func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.ObjectReference, error) {
 	var objRefList []*v1.ObjectReference
 	origsub := &appv1.Subscription{}
@@ -78,7 +78,7 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.
 		}
 
 		subKey := types.NamespacedName{Name: sub.GetName(), Namespace: sub.GetNamespace()}
-		// Compare the commit to the Git repo and update deployables only if the commit has changed
+		// Compare the commit to the Git repo and update manifests only if the commit has changed
 		// If subscription does not have commit annotation, it needs to be generated in this block.
 		oldCommit := getCommitID(sub)
 
@@ -272,7 +272,7 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 
 func (r *ReconcileSubscription) subscribeResources(chn *chnv1.Channel, sub *appv1.Subscription,
 	rscFiles []string, baseDir string, objRefMap map[v1.ObjectReference]*v1.ObjectReference) error {
-	// sync kube resource deployables
+	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 

@@ -314,7 +314,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
-	// Update the host deployable status accordingly and quit.
+	// Update the host subscription status accordingly and quit.
 	if len(ghsi.resources) == 0 && !ghsi.successful {
 		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
@@ -409,7 +409,7 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 }
 
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
-	// sync kube resource deployables
+	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
@@ -628,7 +628,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 			}
 
 			if !matched {
-				errMsg = "Failed to pass annotation check to deployable " + rsc.GetName()
+				errMsg = "Failed to pass annotation check to manifest " + rsc.GetName()
 
 				return errMsg
 			}
@@ -642,11 +642,11 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 	for packageName, chartVersions := range indexFile.Entries {
 		klog.V(1).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		helmReleaseCR, err := utils.CreateHelmCRDeployable(
+		helmReleaseCR, err := utils.CreateHelmCRManifest(
 			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription)
 
 		if err != nil {
-			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
+			klog.Error("Failed to create a helmrelease CR manifest, err: ", err)
 
 			return err
 		}
