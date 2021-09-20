@@ -19,12 +19,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
+	"time"
 
 	gerr "github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -37,6 +42,7 @@ import (
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via manifestWork
@@ -84,6 +90,27 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	klog.Infof("subscription: %v/%v", sub.GetNamespace(), sub.GetName())
+
+	var resources []*v1.ObjectReference
+
+	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
+	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
+		resources, err = r.GetGitResources(sub)
+	case chnv1alpha1.ChannelTypeHelmRepo:
+		resources, err = getHelmTopoResources(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
+	case chnv1alpha1.ChannelTypeObjectBucket:
+		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, objectBucketParent)
+	}
+
+	if err != nil {
+		klog.Error(err, "Error creating resource list")
+		return err
+	}
+
+	if err := r.createAppPolicyReport(sub, resources); err != nil {
+		klog.Error(err, "Error creating app policy report")
+		return err
+	}
 
 	err = r.PropagateAppSubManifestWork(sub)
 
@@ -254,6 +281,88 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 	}
 }
 
+func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference) error {
+	policyReport := &policyReportV1alpha2.PolicyReport{}
+	policyReport.Name = sub.Name + "-policyreport-appsub-status"
+	policyReport.Namespace = sub.Namespace
+
+	policyReportFound := true
+	if err := r.Get(context.TODO(),
+		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
+		if apierrors.IsNotFound(err) {
+			policyReportFound = false
+		} else {
+			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
+	}
+
+	if !policyReportFound {
+		klog.V(1).Infof("App policy report: %v/%v not found, create it.", policyReport.Namespace, policyReport.Name)
+
+		policyReport.Labels = map[string]string{
+			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", sub.Namespace+"."+sub.Name),
+		}
+
+		results := []*policyReportV1alpha2.PolicyReportResult{}
+		result := &policyReportV1alpha2.PolicyReportResult{
+			Source:    sub.Namespace + "/" + sub.Name,
+			Policy:    "APPSUB_RESOURCE_LIST",
+			Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+			Result:    "pass",
+			Subjects:  resources,
+		}
+		results = append(results, result)
+		policyReport.Results = results
+
+		if err := r.Create(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
+	} else if resources != nil {
+		klog.V(1).Infof("App policy report found: %v/%v, update it.", policyReport.Namespace, policyReport.Name)
+
+		var resourceListResult *policyReportV1alpha2.PolicyReportResult
+		for _, result := range policyReport.Results {
+			if result.Policy == "APPSUB_RESOURCE_LIST" {
+				resourceListResult = result
+				break
+			}
+		}
+
+		// Update resource list
+		if resourceListResult != nil && reflect.DeepEqual(resourceListResult, resources) {
+			klog.V(1).Infof("App policy report(%v/%v) resource list unchanged.", policyReport.Namespace, policyReport.Name)
+
+			return nil
+		}
+
+		if resourceListResult == nil {
+			if policyReport.Results == nil {
+				policyReport.Results = []*policyReportV1alpha2.PolicyReportResult{}
+			}
+
+			result := &policyReportV1alpha2.PolicyReportResult{
+				Source:    sub.Namespace + "/" + sub.Name,
+				Policy:    "APPSUB_RESOURCE_LIST",
+				Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
+				Result:    "pass",
+				Subjects:  resources,
+			}
+			policyReport.Results = append(policyReport.Results, result)
+		} else {
+			resourceListResult.Subjects = resources
+		}
+
+		if err := r.Update(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in updating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*awsutils.Handler, string, error) {
 	var err error
 
@@ -335,6 +444,78 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	return awshandler, bucket, nil
 }
 
-func generateDplNameFromKey(key string) string {
-	return strings.ReplaceAll(key, "/", "-")
+func (r *ReconcileSubscription) getObjectBucketResources(
+	sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel, parentType string) ([]*v1.ObjectReference, error) {
+	awsHandler, bucket, err := r.initObjectStore(channel)
+	if err != nil {
+		klog.Error(err, "Unable to access object store: ")
+
+		if secondaryChannel != nil {
+			klog.Infof("trying the secondary channel %s", secondaryChannel.Name)
+			// Try with secondary channel
+			awsHandler, bucket, err = r.initObjectStore(secondaryChannel)
+
+			if err != nil {
+				klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+				return nil, err
+			}
+		} else {
+			klog.Error(err, "Unable to access object store with channel ", channel.Name)
+
+			return nil, err
+		}
+	}
+
+	var folderName *string
+
+	annotations := sub.GetAnnotations()
+	bucketPath := annotations[appv1.AnnotationBucketPath]
+
+	if bucketPath != "" {
+		folderName = &bucketPath
+	}
+
+	keys, err := awsHandler.List(bucket, folderName)
+	klog.V(5).Infof("object keys: %v", keys)
+
+	if err != nil {
+		klog.Error("Failed to list objects in bucket ", bucket)
+
+		return nil, err
+	}
+
+	// converting template from object store to resource
+	resources := []*v1.ObjectReference{}
+	for _, key := range keys {
+		tplb, err := awsHandler.Get(bucket, key)
+		if err != nil {
+			klog.Error("Failed to get object ", key, " in bucket ", bucket)
+
+			return nil, err
+		}
+
+		// skip empty body object store
+		if len(tplb.Content) == 0 {
+			continue
+		}
+
+		template := &unstructured.Unstructured{}
+		err = yaml.Unmarshal(tplb.Content, template)
+
+		if err != nil {
+			klog.V(5).Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
+			continue
+		}
+
+		resource := &v1.ObjectReference{
+			Kind:       template.GetKind(),
+			Namespace:  template.GetNamespace(),
+			Name:       template.GetName(),
+			APIVersion: template.GetAPIVersion(),
+		}
+		resources = append(resources, resource)
+	}
+
+	return resources, nil
 }

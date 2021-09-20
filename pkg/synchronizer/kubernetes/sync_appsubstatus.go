@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -23,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 /*
@@ -110,25 +112,10 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.Cluster, newUnitStatus)
 			klog.Infof("Creating new appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
 
-			// Skip creation of appsubpackagestatus on appSub NS if on local-cluster
-			if !isLocalCluster {
-				if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
-					klog.Errorf("Error in creating on managed cluster, appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
-					return err
-				}
-			}
-
-			// Sync to hub, except for standalone
-			if !sync.standalone {
-				klog.Infof("Sync appSubPackageStatus:%v/%v to hub", pkgstatus.Namespace, pkgstatus.Name)
-				hubPkgstatus := pkgstatus.DeepCopy()
-				hubPkgstatus.Namespace = appsubClusterStatus.Cluster
-				hubPkgstatus.ResourceVersion = ""
-
-				if err := sync.RemoteClient.Create(context.TODO(), hubPkgstatus); err != nil {
-					klog.Errorf("Error in creating on hub, appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.Cluster, pkgstatusName, err)
-					return err
-				}
+			// Create appsubpackagestatus on appSub NS
+			if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
+				klog.Errorf("Error in creating on managed cluster, appsubpackagestatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
+				return err
 			}
 		} else {
 			klog.Infof("Update existing appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
@@ -177,38 +164,47 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 
 			// If all packages are removed - delete appsubpackagestatus
 			if len(newUnitStatus) == 0 {
-				// No appsubpackagestatus on appSub NS on local-cluster - skip
-				if !isLocalCluster {
-					klog.V(1).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-					if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
-						klog.Errorf("Error delete from managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
-						return err
-					}
+				if isLocalCluster {
+					pkgstatus.Namespace = appsubClusterStatus.Cluster
 				}
 
-				klog.V(1).Infof("Delete from hub cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster, sync.standalone); err != nil {
+				klog.V(1).Infof("Delete  appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
+					klog.Errorf("Error delete appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
+					return err
+				}
+
+				klog.V(1).Infof("Delete result from cluster policy report:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				if err := deletePolicyReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
+					appsubName, appsubClusterStatus.Cluster, sync.standalone, appsubClusterStatus.SubscriptionPackageStatus); err != nil {
 					return err
 				}
 
 				return nil
 			}
 
-			// No appsubpackagestatus on appSub NS on local-cluster - skip
-			if !isLocalCluster {
-				klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-				pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
-				if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
-					klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
-					return err
-				}
-			}
-
-			// Update appsubpackagestatus from hub
-			if err := updateAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster,
-				appsubName, appsubClusterStatus.AppSub.Namespace, newUnitStatus, sync.standalone); err != nil {
+			klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+			pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
+			if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
+				klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
 				return err
 			}
+
+		}
+
+		// Check if there are any package failures
+		deployFailed := false
+		for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
+			if v1alpha1.PackagePhase(resource.Phase) == v1alpha1.PackageDeployFailed {
+				deployFailed = true
+				break
+			}
+		}
+
+		// Update result in cluster policy report
+		if err := updatePolicyReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
+			appsubName, appsubClusterStatus.Cluster, deployFailed, sync.standalone, appsubClusterStatus.SubscriptionPackageStatus); err != nil {
+			return err
 		}
 	}
 
@@ -232,19 +228,21 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			}
 		}
 
+		if isLocalCluster {
+			pkgstatus.Namespace = appsubClusterStatus.Cluster
+		}
+
 		if len(failedUnitStatuses) == 0 {
 			if foundPkgStatus {
-				// No appsubpackagestatus on appSub NS on local-cluster - skip
-				if !isLocalCluster {
-					klog.V(1).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-					if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
-						klog.Errorf("Error delete from managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
-						return err
-					}
+				klog.V(1).Infof("Delete from managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
+					klog.Errorf("Error delete from managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
+					return err
 				}
 
-				// Delete appsubpackagestatus from hub
-				if err := deleteAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster, sync.standalone); err != nil {
+				klog.V(1).Infof("Delete result from cluster policy report:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				if err := deletePolicyReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
+					appsubName, appsubClusterStatus.Cluster, sync.standalone, appsubClusterStatus.SubscriptionPackageStatus); err != nil {
 					return err
 				}
 			}
@@ -255,19 +253,25 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				// TODO: appsubpackagestatus doesn't exist - recreate it?
 				klog.Infof("appSubPackageStatus already deleted, ignore update")
 			} else {
-				// No appsubpackagestatus on appSub NS on local-cluster - skip
-				if !isLocalCluster {
-					klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
-					pkgstatus.Statuses.SubscriptionPackageStatus = failedUnitStatuses
-					if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
-						klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
-						return err
+				klog.V(1).Infof("Update on managed cluster, appsubpackagestatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				pkgstatus.Statuses.SubscriptionPackageStatus = failedUnitStatuses
+				if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
+					klog.Errorf("Error in updating on managed cluster, appsubpackagestatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
+					return err
+				}
+
+				// Check if there are any package failures
+				deployFailed := false
+				for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
+					if v1alpha1.PackagePhase(resource.Phase) == v1alpha1.PackageDeployFailed {
+						deployFailed = true
+						break
 					}
 				}
 
-				// Update appsubpackagestatus from hub
-				if err := updateAppSubPackageStatusOnHub(sync.RemoteClient, pkgstatusName, appsubClusterStatus.Cluster,
-					appsubName, appsubClusterStatus.AppSub.Namespace, failedUnitStatuses, sync.standalone); err != nil {
+				// Update result in cluster policy report
+				if err := updatePolicyReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
+					appsubName, appsubClusterStatus.Cluster, deployFailed, sync.standalone, appsubClusterStatus.SubscriptionPackageStatus); err != nil {
 					return err
 				}
 			}
@@ -294,72 +298,214 @@ func buildAppSubPackageStatus(statusName, statusNs, appsubName, appsubNs, cluste
 	return pkgstatus
 }
 
-func updateAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs, appsubName, appsubNs string, unitStatuses []v1alpha1.SubscriptionUnitStatus, standalone bool) error {
+func updatePolicyReportResult(rClient client.Client, appsubNs, appsubName, clusterPolicyReportNs string, deployFailed, standalone bool, appsubUnitStatus []SubscriptionUnitStatus) error {
+	// For managed clusters, get cluster policy reports, for standalone get app policy report
+	var policyReport *policyReportV1alpha2.PolicyReport
+	var err error
 	if standalone {
-		klog.V(2).Infof("Skip update on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
-		return nil
+		policyReport, err = getAppPolicyReport(rClient, appsubNs, appsubName, appsubUnitStatus)
+		if err != nil {
+			klog.Errorf("Error getting app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
+	} else {
+		policyReport, err = getClusterPolicyReport(rClient, appsubNs, appsubName, clusterPolicyReportNs, true)
+		if err != nil {
+			klog.Errorf("Error getting cluster policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
 	}
 
-	klog.V(1).Infof("Update on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
+	// Update result in policy report
+	prResultFoundIndex := -1
+	prResultSource := appsubNs + "/" + appsubName
+	for i, result := range policyReport.Results {
+		if result.Source == prResultSource && result.Policy == "APPSUB_FAILURE" {
+			prResultFoundIndex = i
+			break
+		}
+	}
+	klog.V(1).Infof("Update policy report: %v/%v, resultIndex:%v", policyReport.Namespace, policyReport.Name, prResultFoundIndex)
 
-	hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
-	if err := rClient.Get(context.TODO(),
-		client.ObjectKey{Name: pkgstatusName, Namespace: pkgstatusNs}, hubPkgStatus); err != nil {
-
-		// appsubpackagestatus doesn't exist on the hub - create it
-		if errors.IsNotFound(err) {
-			klog.V(1).Infof("appsubpackagestatus:%v/%v not found on hub, creating...", pkgstatusNs, pkgstatusName)
-
-			hubPkgStatus := buildAppSubPackageStatus(pkgstatusName, pkgstatusNs,
-				appsubName, appsubNs, pkgstatusNs, unitStatuses)
-
-			if err := rClient.Create(context.TODO(), hubPkgStatus); err != nil {
-				klog.Errorf("Error in creating on hub, appsubpackagestatus:%v/%v, err:%v", pkgstatusNs, pkgstatusName, err)
-				return err
-			}
-
+	// deploy failed and found result, or deploy success and not found result
+	if (prResultFoundIndex >= 0) == deployFailed {
+		// Only for standalone successful deployments that needs "pass" count updated in the summary
+		// No update needed for all others
+		if !standalone || deployFailed || policyReport.Summary.Pass == 1 {
 			return nil
 		}
-
-		return err
 	}
 
-	// Update appsubpackagestatus on the hub
-	hubPkgStatus.Statuses.SubscriptionPackageStatus = unitStatuses
-	if err := rClient.Update(context.TODO(), hubPkgStatus); err != nil {
-		klog.Errorf("Error in updating on hub, appsubpackagestatus:%v/%v, err:%v", hubPkgStatus.Namespace, hubPkgStatus.Name, err)
+	if prResultFoundIndex < 0 && deployFailed {
+		// Deploy failed but result not in policy report - add it
+		klog.V(1).Infof("Add result (source:%v) to policy report", prResultSource)
+
+		prFailedResult := &policyReportV1alpha2.PolicyReportResult{
+			Source:    prResultSource,
+			Policy:    "APPSUB_FAILURE",
+			Result:    "fail",
+			Timestamp: metaV1.Timestamp{Seconds: time.Now().Unix()},
+		}
+		policyReport.Results = append(policyReport.Results, prFailedResult)
+	} else if prResultFoundIndex >= 0 && !deployFailed {
+		// Deploy success but result found policy report - remove it
+		klog.V(1).Infof("Delete result (source:%v) from policy report", prResultSource)
+
+		policyReport.Results = append(policyReport.Results[:prResultFoundIndex], policyReport.Results[prResultFoundIndex+1:]...)
+	}
+
+	// Update summary for app policy report only
+	if standalone {
+		if deployFailed {
+			policyReport.Summary.Fail = 1
+			policyReport.Summary.Pass = 0
+		} else {
+			policyReport.Summary.Fail = 0
+			policyReport.Summary.Pass = 1
+		}
+	}
+
+	if err := rClient.Update(context.TODO(), policyReport); err != nil {
+		klog.Errorf("Error in updating on hub, policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
 		return err
 	}
 
 	return nil
 }
 
-func deleteAppSubPackageStatusOnHub(rClient client.Client, pkgstatusName, pkgstatusNs string, standalone bool) error {
+func deletePolicyReportResult(rClient client.Client, appsubNs, appsubName, clusterPolicyReportNs string, standalone bool, appsubUnitStatus []SubscriptionUnitStatus) error {
+	source := appsubNs + "/" + appsubName
+	klog.V(1).Infof("Delete policy report result, Namespace:%v, source:%v", clusterPolicyReportNs, source)
+
+	// For managed clusters, get cluster policy reports, for standalone get app policy report
+	var policyReport *policyReportV1alpha2.PolicyReport
+	var err error
 	if standalone {
-		klog.V(2).Infof("Skip delete on hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
-		return nil
-	}
-
-	klog.V(1).Infof("Delete from hub, appsubpackagestatus:%v/%v", pkgstatusNs, pkgstatusName)
-
-	hubPkgStatus := &v1alpha1.SubscriptionPackageStatus{}
-	if err := rClient.Get(context.TODO(),
-		client.ObjectKey{Name: pkgstatusName,
-			Namespace: pkgstatusNs}, hubPkgStatus); err != nil {
-
-		if errors.IsNotFound(err) {
-			// hub appsubpackagestatus is already deleted - ignore
-			klog.V(1).Infof("appsubpackagestatus:%v/%v not found on hub, may be deleted already", pkgstatusNs, pkgstatusName)
-			return nil
+		policyReport, err = getAppPolicyReport(rClient, appsubNs, appsubName, appsubUnitStatus)
+		if err != nil {
+			klog.Errorf("Error getting app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
 		}
-
-		return err
+	} else {
+		policyReport, err = getClusterPolicyReport(rClient, appsubNs, appsubName, clusterPolicyReportNs, false)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				klog.Infof("Cluster policyReport not found:%v/%v, skip deleting policy report result source:%v", policyReport.Namespace, policyReport.Name, source)
+				return nil
+			} else {
+				klog.Errorf("Error getting cluster policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+				return err
+			}
+		}
 	}
 
-	if err := rClient.Delete(context.TODO(), hubPkgStatus); err != nil {
-		klog.Errorf("Error delete from hub, appsubpackagestatus:%v/%v, err:%v", pkgstatusNs, pkgstatusName, err)
-		return err
+	// Find the corresponding result from the policy report and remove it if it exists
+	prResultFoundIndex := -1
+	for i, result := range policyReport.Results {
+		if result.Source == source && result.Policy == "APPSUB_FAILURE" {
+			prResultFoundIndex = i
+			break
+		}
+	}
+	klog.V(1).Infof("Update policy report: %v/%v, resultIndex:%v", policyReport.Namespace, policyReport.Name, prResultFoundIndex)
+
+	if prResultFoundIndex >= 0 {
+		policyReport.Results = append(policyReport.Results[:prResultFoundIndex], policyReport.Results[prResultFoundIndex+1:]...)
+		if err := rClient.Update(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in updating on hub, policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return err
+		}
+	} else {
+		klog.V(2).Infof("result (source:%v) not found in policyReport, no update required to cluster policy", source)
 	}
 
 	return nil
+}
+
+func getClusterPolicyReport(rClient client.Client, appsubNs, appsubName, clusterPolicyReportNs string, create bool) (*policyReportV1alpha2.PolicyReport, error) {
+	policyReport := &policyReportV1alpha2.PolicyReport{}
+	policyReport.Namespace = clusterPolicyReportNs
+	policyReport.Name = "policyreport-appsub-status"
+	klog.V(1).Infof("Get cluster policy report: %v/%v", policyReport.Namespace, policyReport.Name)
+
+	if err := rClient.Get(context.TODO(),
+		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
+		if errors.IsNotFound(err) {
+			if create {
+				klog.V(1).Infof("Policy report: %v/%v not found, create it.", policyReport.Namespace, policyReport.Name)
+
+				labels := map[string]string{
+					"apps.open-cluster-management.io/cluster": "true",
+				}
+				policyReport.Labels = labels
+
+				if err := rClient.Create(context.TODO(), policyReport); err != nil {
+					klog.Errorf("Error in creating on hub, policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+					return policyReport, err
+				}
+			} else {
+				return policyReport, err
+			}
+		} else {
+			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return policyReport, err
+		}
+	}
+
+	return policyReport, nil
+}
+
+func getAppPolicyReport(rClient client.Client, appsubNs, appsubName string, appsubUnitStatus []SubscriptionUnitStatus) (*policyReportV1alpha2.PolicyReport, error) {
+	policyReport := &policyReportV1alpha2.PolicyReport{}
+	policyReport.Name = "policyreport-app-" + appsubName
+	policyReport.Namespace = appsubNs
+
+	policyReportFound := true
+	if err := rClient.Get(context.TODO(),
+		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
+		if errors.IsNotFound(err) {
+			policyReportFound = false
+		} else {
+			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return policyReport, err
+		}
+	}
+
+	if !policyReportFound {
+		klog.V(1).Infof("App policy report: %v/%v not found, create it.", policyReport.Namespace, policyReport.Name)
+
+		policyReport.Labels = map[string]string{
+			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", appsubNs+"."+appsubName),
+		}
+
+		// Add resource list
+		resources := []*v1.ObjectReference{}
+		for _, sus := range appsubUnitStatus {
+			resource := &v1.ObjectReference{
+				Kind:       sus.Kind,
+				Namespace:  sus.Namespace,
+				Name:       sus.Name,
+				APIVersion: sus.ApiVersion,
+			}
+			resources = append(resources, resource)
+		}
+
+		results := []*policyReportV1alpha2.PolicyReportResult{}
+		result := &policyReportV1alpha2.PolicyReportResult{
+			Source:    appsubNs + "/" + appsubName,
+			Policy:    "APPSUB_RESOURCE_LIST",
+			Timestamp: metaV1.Timestamp{Seconds: time.Now().Unix()},
+			Result:    "pass",
+			Subjects:  resources,
+		}
+		results = append(results, result)
+		policyReport.Results = results
+
+		if err := rClient.Create(context.TODO(), policyReport); err != nil {
+			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			return policyReport, err
+		}
+	}
+
+	return policyReport, nil
 }
