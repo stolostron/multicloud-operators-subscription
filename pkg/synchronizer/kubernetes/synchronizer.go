@@ -415,8 +415,6 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[st
 					}
 				}
 			}
-		} else {
-			klog.Errorf("kind template with key %v not found", resourceKey)
 		}
 	}
 }

@@ -68,28 +68,29 @@ var (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1.SubscriberItem
-	crdsAndNamespaceFiles []string
-	rbacFiles             []string
-	otherFiles            []string
-	repoRoot              string
-	commitID              string
-	reconcileRate         string
-	desiredCommit         string
-	desiredTag            string
-	syncTime              string
-	stopch                chan struct{}
-	syncinterval          int
-	count                 int
-	synchronizer          SyncSource
-	chartDirs             map[string]string
-	kustomizeDirs         map[string]string
-	resources             []kubesynchronizer.DplUnit
-	indexFile             *repo.IndexFile
-	webhookEnabled        bool
-	successful            bool
-	clusterAdmin          bool
-	userID                string
-	userGroup             string
+	crdsAndNamespaceFiles  []string
+	rbacFiles              []string
+	otherFiles             []string
+	repoRoot               string
+	commitID               string
+	reconcileRate          string
+	desiredCommit          string
+	desiredTag             string
+	syncTime               string
+	stopch                 chan struct{}
+	syncinterval           int
+	count                  int
+	synchronizer           SyncSource
+	chartDirs              map[string]string
+	kustomizeDirs          map[string]string
+	resources              []kubesynchronizer.DplUnit
+	indexFile              *repo.IndexFile
+	webhookEnabled         bool
+	successful             bool
+	clusterAdmin           bool
+	currentNamespaceScoped bool
+	userID                 string
+	userGroup              string
 }
 
 type kubeResource struct {
@@ -544,7 +545,13 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 			klog.Info("cluster-admin is true.")
 
 			if rsc.GetNamespace() != "" {
-				klog.Info("Using resource's original namespace. Resource namespace is " + rsc.GetNamespace())
+				if ghsi.currentNamespaceScoped {
+					// If current-namespace-scoped annotation is true, deploy resources into subscription's namespace
+					klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
+					rsc.SetNamespace(ghsi.Subscription.Namespace)
+				} else {
+					klog.Info("Using resource's original namespace. Resource namespace is " + rsc.GetNamespace())
+				}
 			} else {
 				klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
 				rsc.SetNamespace(ghsi.Subscription.Namespace)
