@@ -1,6 +1,6 @@
 #! /bin/bash
 
-APPSUB_TOTAL=300
+APPSUB_TOTAL=60
 
 generateAppSubYaml () {
     APPSUB_NUM=1

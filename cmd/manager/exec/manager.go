@@ -42,6 +42,7 @@ import (
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -128,6 +129,11 @@ func RunManager() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+		klog.Error(err, "")
+		os.Exit(1)
+	}
+
+	if err := policyReportV1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
