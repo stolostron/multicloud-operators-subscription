@@ -180,7 +180,17 @@ func ifUpdateGitSubscriptionAnnotation(origsub, newsub *appv1.Subscription) bool
 		return true
 	}
 
-	// 4. compare topo annoation
+	// 4. compare cluster-admin annoation
+	origNamespaceScoped, origok := origanno[appv1.AnnotationCurrentNamespaceScoped]
+	newNamespaceScoped, newok := newanno[appv1.AnnotationCurrentNamespaceScoped]
+
+	if (!origok && newok) || (origok && !newok) || origNamespaceScoped != newNamespaceScoped {
+		klog.V(1).Infof("different Git Subscription current-namespace-scoped annotations. origNamespaceScoped: %v, newNamespaceScoped: %v",
+			origNamespaceScoped, newNamespaceScoped)
+		return true
+	}
+
+	// 5. compare topo annoation
 	if ifUpdateAnnotation(origanno, newanno, appv1.AnnotationTopo) {
 		return true
 	}

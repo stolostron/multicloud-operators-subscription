@@ -86,6 +86,8 @@ var (
 	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
 	// AnnotationBucketPath defines s3 object bucket subfolder path
 	AnnotationBucketPath = SchemeGroupVersion.Group + "/bucket-path"
+	// AnnotationCurrentNamespaceScoped specifies to deloy resources into subscription namespace
+	AnnotationCurrentNamespaceScoped = SchemeGroupVersion.Group + "/current-namespace-scoped"
 )
 
 const (
