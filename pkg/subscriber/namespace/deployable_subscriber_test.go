@@ -140,6 +140,8 @@ var _ = Describe("default deployable should be reconciled", func() {
 		Expect(k8sClient.Get(context.TODO(), workloadkey, cfgmap)).To(HaveOccurred())
 		Expect(k8sClient.Get(context.TODO(), defaultworkloadkey, cfgmap)).To(HaveOccurred())
 
-		Expect(k8sClient.Delete(context.TODO(), ns)).Should(Succeed())
+		defer func() {
+			Expect(k8sClient.Delete(context.TODO(), ns)).Should(Succeed())
+		}()
 	})
 })
