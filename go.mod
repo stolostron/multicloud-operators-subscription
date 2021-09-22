@@ -20,7 +20,7 @@ require (
 	github.com/open-cluster-management/multicloud-operators-channel v1.2.4-0-20210817-0d8714a
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.4-0-20210816-f9fe854
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20210816-699e5
-	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.4-0-20210823-3c187e8
+	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.4-0-20210823-a494067
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
@@ -42,9 +42,6 @@ require (
 )
 
 replace (
-	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
-	github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
 	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.5.0
 	k8s.io/client-go => k8s.io/client-go v0.21.1
-
 )
