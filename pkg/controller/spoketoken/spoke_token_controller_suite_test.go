@@ -31,7 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
 
 var cfg *rest.Config

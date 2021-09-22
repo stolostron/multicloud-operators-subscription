@@ -48,14 +48,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 
-	rHelper "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/controller/helmrelease"
-	rUtils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/utils"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+
+	rHelper "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/controller/helmrelease"
+	rUtils "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/utils"
 )
 
 const (

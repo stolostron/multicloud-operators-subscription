@@ -23,14 +23,14 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
 
 var cfg *rest.Config

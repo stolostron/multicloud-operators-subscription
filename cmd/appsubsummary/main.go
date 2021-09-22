@@ -17,9 +17,9 @@ package main
 import (
 	"flag"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/cmd/appsubsummary/exec"
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
+	"open-cluster-management.io/multicloud-operators-subscription/cmd/appsubsummary/exec"
 )
 
 func main() {

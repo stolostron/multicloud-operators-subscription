@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	v1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"k8s.io/apimachinery/pkg/types"
+	v1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 

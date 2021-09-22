@@ -25,7 +25,7 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1.Subscription": schema_pkg_apis_apps_v1_Subscription(ref),
+		"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1.Subscription": schema_pkg_apis_apps_v1_Subscription(ref),
 	}
 }
 
@@ -57,18 +57,18 @@ func schema_pkg_apis_apps_v1_Subscription(ref common.ReferenceCallback) common.O
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionSpec"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionStatus"),
+							Ref: ref("open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionSpec", "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionSpec", "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1.SubscriptionStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }

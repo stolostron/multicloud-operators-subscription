@@ -18,13 +18,13 @@ import (
 	"context"
 	"strings"
 
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	placementv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appSubV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	placementutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/placementrule/utils"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	placementv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appSubV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

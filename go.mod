@@ -1,4 +1,4 @@
-module github.com/open-cluster-management/multicloud-operators-subscription
+module open-cluster-management.io/multicloud-operators-subscription
 
 go 1.16
 
@@ -15,8 +15,6 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
-	github.com/open-cluster-management/api v0.0.0-20210513122330-d76f10481f05
-	github.com/open-cluster-management/multicloud-operators-channel v1.2.4-0-20210817-0d8714a
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
 	github.com/operator-framework/operator-lib v0.5.0
 	github.com/pkg/errors v0.9.1
@@ -35,14 +33,15 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
+	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
+	open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d
+	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210706131628-9125c762b9f9
+	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
 	sigs.k8s.io/wg-policy-prototypes v0.0.0-20210823142600-b09c9bb01d4c
 )
 
-replace (
-	github.com/docker/distribution => github.com/docker/distribution v0.0.0-20191216044856-a8371794149d
-	github.com/docker/docker => github.com/moby/moby v17.12.0-ce-rc1.0.20200618181300-9dc6525e6118+incompatible
-	k8s.io/client-go => k8s.io/client-go v0.21.1
+replace k8s.io/client-go => k8s.io/client-go v0.21.1
 
-)
+// replace open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.4-0-20210817-0d8714a

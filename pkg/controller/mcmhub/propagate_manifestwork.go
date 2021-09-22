@@ -20,11 +20,6 @@ import (
 	"fmt"
 	"strings"
 
-	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
-	placementV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appSubV1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
+	placementV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appSubV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

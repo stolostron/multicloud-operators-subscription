@@ -29,8 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
 
 var cfg *rest.Config

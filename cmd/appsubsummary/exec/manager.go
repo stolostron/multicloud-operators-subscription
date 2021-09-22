@@ -18,10 +18,10 @@ import (
 	"fmt"
 	"os"
 
-	appsubapi "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"

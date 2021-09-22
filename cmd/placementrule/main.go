@@ -24,7 +24,7 @@ import (
 
 	"k8s.io/klog"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/cmd/placementrule/exec"
+	"open-cluster-management.io/multicloud-operators-subscription/cmd/placementrule/exec"
 )
 
 func main() {
