@@ -32,7 +32,7 @@ var (
 	message    = "Failed to deploy to cluster"
 )
 
-func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
+func TestAppSubPropagationFailedPolicyReport(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.
@@ -55,7 +55,7 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	g.Expect(CreatePropagatioFailedAppSubPackageStatus(c, cluster, true, appSubNs, appSubName, message)).NotTo(gomega.HaveOccurred())
+	g.Expect(CreateFailedPolicyReportResult(c, cluster, appSubNs, appSubName, message)).NotTo(gomega.HaveOccurred())
 
 	time.Sleep(1 * time.Second)
 

@@ -130,9 +130,9 @@ func (r *ReconcileSubscription) propagateManifestWorks(clusters []ManageClusters
 		if err != nil {
 			klog.Errorf("Error in propagating to cluster: %v, error:%v", cluster.Cluster, err)
 
-			err = utils.CreatePropagatioFailedAppSubPackageStatus(r.Client, cluster.Cluster, cluster.IsLocalCluster, instance.Namespace, instance.Name, err.Error())
+			err = utils.CreateFailedPolicyReportResult(r.Client, cluster.Cluster, instance.Namespace, instance.Name, err.Error())
 			if err != nil {
-				klog.Error("Error create appsubpackagestatus: ", err)
+				klog.Error("Error create cluster policy report: ", err)
 			}
 		}
 	}
