@@ -806,7 +806,7 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationBucketPath] = origsubanno[appv1alpha1.AnnotationBucketPath]
 	}
 
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") {
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") && r.AddClusterAdminAnnotation(sub) {
 		subepanno[appv1alpha1.AnnotationClusterAdmin] = origsubanno[appv1alpha1.AnnotationClusterAdmin]
 	}
 

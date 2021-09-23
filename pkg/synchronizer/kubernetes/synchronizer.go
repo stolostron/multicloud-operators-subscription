@@ -406,6 +406,12 @@ func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[st
 				} else {
 					denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
 						tplunit.GetAPIVersion(), tplunit.GetKind())
+
+					if !isAdmin {
+						denyError = fmt.Errorf("not deployed by a subscription admin. the resource apiVersion: %s kind: %s is not deployed",
+							tplunit.GetAPIVersion(), tplunit.GetKind())
+					}
+
 					klog.Info(denyError.Error())
 
 					err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)

@@ -135,11 +135,15 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
+	} else {
+		ghssubitem.clusterAdmin = false
 	}
 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationCurrentNamespaceScoped], "true") {
 		klog.Info("CurrentNamespaceScoped enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.currentNamespaceScoped = true
+	} else {
+		ghssubitem.currentNamespaceScoped = false
 	}
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
