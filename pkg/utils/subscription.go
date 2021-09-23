@@ -898,7 +898,7 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
 	// If subscription-admin, honor the allow list
 	if isAdmin {
-		// If allow list is empty, all resources are allowed for deploy except the policy
+		// If allow list is empty, all resources are allowed for deploy
 		if len(allowlist) == 0 {
 			return true
 		}
@@ -916,7 +916,7 @@ func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
 	// If subscription-admin, honor the deny list
 	if isAdmin {
-		// If deny list is empty, all resources are NOT denied except the policy
+		// If deny list is empty, all resources are NOT denied
 		if len(denyList) == 0 {
 			return false
 		}
