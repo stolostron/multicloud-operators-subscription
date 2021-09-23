@@ -38,7 +38,7 @@ import (
 var manifestNSString string
 var manifestAppsubString string
 
-func (r *ReconcileSubscription) PropagateAppSubManifestWork(instance *appSubV1.Subscription) error {
+func (r *ReconcileSubscription) PropagateAppSubManifestWork(instance *appSubV1.Subscription, clusters []ManageClusters) error {
 	// try to find all children manifestworks
 	children, err := r.getManifestWorkFamily(instance)
 
@@ -54,14 +54,6 @@ func (r *ReconcileSubscription) PropagateAppSubManifestWork(instance *appSubV1.S
 	}
 
 	klog.V(1).Infof("expiredManifestWorkmap: %#v", expiredManifestWorkmap)
-
-	// Generate appsub manifestwork for managed clusters
-	clusters, err := r.getClustersByPlacement(instance)
-
-	if err != nil {
-		klog.Error("Error in getting clusters:", err)
-		return err
-	}
 
 	// propagate template
 	expiredManifestWorkmap, err = r.propagateManifestWorks(clusters, instance, expiredManifestWorkmap)

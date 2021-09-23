@@ -122,6 +122,8 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 		return nil
 	}
 
+	klog.Infof("cluster PolicyReport Count: %v", clusterPolicyReportCount)
+
 	PrintMemUsage("Initialize AppSub Map.")
 
 	// create a map for containing all appsub status per cluster. key is appsub name
@@ -137,7 +139,7 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 
 	PrintMemUsage("AppSub Map generated.")
 
-	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap, clusterPolicyReportCount)
+	r.createOrUpdateAppSubPolicyReport(appSubClusterFailStatusMap)
 
 	runtime.GC()
 
@@ -174,8 +176,10 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubPolicyReportPe
 }
 
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
-	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus, clusterCount int) {
+	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
 	// Find existing policyReport for app - can assume it exists for now
+
+	klog.Infof("appSub Cluster FailStatus Map Count: %v", len(appSubClusterFailStatusMap))
 
 	for appsub, clustersFailStatus := range appSubClusterFailStatusMap {
 		appsubNs, appsubName := utils.ParseNamespacedName(appsub)
@@ -198,6 +202,8 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubPolicyReport(
 				continue
 			}
 		}
+
+		clusterCount := appsubPolicyReport.Summary.Pass + appsubPolicyReport.Summary.Fail
 
 		// Find and keep appsub resource list from original policy report
 		policyReportResult := &v1alpha2.PolicyReportResult{}

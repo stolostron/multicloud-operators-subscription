@@ -104,15 +104,26 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	if err != nil {
 		klog.Error(err, "Error creating resource list")
+
 		return err
 	}
 
-	if err := r.createAppPolicyReport(sub, resources); err != nil {
+	// get all managed clusters
+	clusters, err := r.getClustersByPlacement(sub)
+
+	if err != nil {
+		klog.Error("Error in getting clusters:", err)
+
+		return err
+	}
+
+	if err := r.createAppPolicyReport(sub, resources, len(clusters)); err != nil {
 		klog.Error(err, "Error creating app policy report")
+
 		return err
 	}
 
-	err = r.PropagateAppSubManifestWork(sub)
+	err = r.PropagateAppSubManifestWork(sub, clusters)
 
 	return err
 }
@@ -281,18 +292,21 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 	}
 }
 
-func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference) error {
+func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
+	clusterCount int) error {
 	policyReport := &policyReportV1alpha2.PolicyReport{}
 	policyReport.Name = sub.Name + "-policyreport-appsub-status"
 	policyReport.Namespace = sub.Namespace
 
 	policyReportFound := true
+
 	if err := r.Get(context.TODO(),
 		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
 		if apierrors.IsNotFound(err) {
 			policyReportFound = false
 		} else {
 			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+
 			return err
 		}
 	}
@@ -315,8 +329,13 @@ func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscript
 		results = append(results, result)
 		policyReport.Results = results
 
+		//initialize placementrule cluster count as the pass count
+		policyReport.Summary.Pass = clusterCount
+		policyReport.Summary.Fail = 0
+
 		if err := r.Create(context.TODO(), policyReport); err != nil {
 			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+
 			return err
 		}
 	} else if resources != nil {
@@ -354,8 +373,13 @@ func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscript
 			resourceListResult.Subjects = resources
 		}
 
+		//reset placementrule cluster count as the pass count
+		policyReport.Summary.Pass = clusterCount
+		policyReport.Summary.Fail = 0
+
 		if err := r.Update(context.TODO(), policyReport); err != nil {
 			klog.Errorf("Error in updating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+
 			return err
 		}
 	}
