@@ -110,28 +110,28 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 
 	klog.Infof("Prepare to purge all resources deployed by the appsub: %v", hostSub.String())
 
-	appSubPackageStatus := &appSubStatusV1alpha1.SubscriptionPackageStatus{}
+	appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
 
-	pkgstatusName := hostSub.Name
-	packagestatusNs := hostSub.Namespace
+	appsubStatusName := hostSub.Name
+	appsubStatusNs := hostSub.Namespace
 
-	// Handle appsubpackagestatus on local-cluster
+	// Handle appsubstatus on local-cluster
 	if sync.hub && !sync.standalone {
-		if strings.HasSuffix(pkgstatusName, "-local") {
-			pkgstatusName = pkgstatusName[:len(pkgstatusName)-6]
+		if strings.HasSuffix(appsubStatusName, "-local") {
+			appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
 		}
 
-		packagestatusNs = sync.SynchronizerID.Name
+		appsubStatusNs = sync.SynchronizerID.Name
 	}
 
-	appSubPackageStatusKey := types.NamespacedName{
-		Name:      hostSub.Namespace + "." + pkgstatusName,
-		Namespace: packagestatusNs,
+	appSubStatusKey := types.NamespacedName{
+		Name:      hostSub.Namespace + "." + appsubStatusName,
+		Namespace: appsubStatusNs,
 	}
 
-	if err := sync.LocalClient.Get(context.TODO(), appSubPackageStatusKey, appSubPackageStatus); err != nil {
+	if err := sync.LocalClient.Get(context.TODO(), appSubStatusKey, appSubStatus); err != nil {
 		if errors.IsNotFound(err) {
-			klog.Infof("appSubPackageStatus not found, %s/%s", appSubPackageStatusKey.Namespace, appSubPackageStatusKey.Name)
+			klog.Infof("appSubStatus not found, %s/%s", appSubStatusKey.Namespace, appSubStatusKey.Name)
 
 			return nil
 		}
@@ -139,7 +139,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 
 	appSubUnitStatuses := []SubscriptionUnitStatus{}
 
-	for _, pkgStatus := range appSubPackageStatus.Statuses.SubscriptionPackageStatus {
+	for _, pkgStatus := range appSubStatus.Statuses.SubscriptionStatus {
 		appSubUnitStatus := SubscriptionUnitStatus{}
 		appSubUnitStatus.ApiVersion = pkgStatus.ApiVersion
 		appSubUnitStatus.Kind = pkgStatus.Kind

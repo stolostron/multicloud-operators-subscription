@@ -40,7 +40,7 @@ func CreatePropagatioFailedAppSubPackageStatus(statusClient client.Client, clust
 }
 
 func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatusNs, appSubNs, appSubName string, packagesStatuses []v1alpha1.SubscriptionUnitStatus) error {
-	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
+	pkgstatus := &v1alpha1.SubscriptionStatus{}
 
 	// Check if appsubpackagestatus already exists
 	listopts := &client.ListOptions{}
@@ -59,7 +59,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatu
 
 	listopts.LabelSelector = psLabels
 	listopts.Namespace = packageStatusNs
-	pkgstatusList := &v1alpha1.SubscriptionPackageStatusList{}
+	pkgstatusList := &v1alpha1.SubscriptionStatusList{}
 
 	err = statusClient.List(context.TODO(), pkgstatusList, listopts)
 	if err != nil {
@@ -71,7 +71,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatu
 	if len(pkgstatusList.Items) > 0 {
 		// appsubpackagestatus already exists - only update package statuses
 		pkgstatus = &pkgstatusList.Items[0]
-		pkgstatus.Statuses.SubscriptionPackageStatus = packagesStatuses
+		pkgstatus.Statuses.SubscriptionStatus = packagesStatuses
 
 		klog.Infof("Updating appsubpackagestatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
 
@@ -96,7 +96,7 @@ func CreateAppSubPackageStatus(statusClient client.Client, cluster, packageStatu
 	}
 	pkgstatus.Labels = labels
 
-	pkgstatus.Statuses.SubscriptionPackageStatus = packagesStatuses
+	pkgstatus.Statuses.SubscriptionStatus = packagesStatuses
 
 	err = statusClient.Create(context.TODO(), pkgstatus)
 	if err != nil {

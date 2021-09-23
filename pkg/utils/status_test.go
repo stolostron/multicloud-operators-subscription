@@ -63,12 +63,12 @@ func TestAppSubPropagationFailedPackageStatus(t *testing.T) {
 		Name:      appSubName,
 		Namespace: cluster,
 	}
-	pkgstatus := &v1alpha1.SubscriptionPackageStatus{}
+	pkgstatus := &v1alpha1.SubscriptionStatus{}
 	g.Expect(c.Get(context.TODO(), pkgKey, pkgstatus)).NotTo(gomega.HaveOccurred())
 	g.Expect(pkgstatus.Namespace).To(gomega.Equal(cluster))
-	g.Expect(len(pkgstatus.Statuses.SubscriptionPackageStatus)).To(gomega.Equal(1))
+	g.Expect(len(pkgstatus.Statuses.SubscriptionStatus)).To(gomega.Equal(1))
 
-	pkgFailStatus := pkgstatus.Statuses.SubscriptionPackageStatus[0]
+	pkgFailStatus := pkgstatus.Statuses.SubscriptionStatus[0]
 	g.Expect(pkgFailStatus.Phase).To(gomega.Equal(v1alpha1.PackagePropagationFailed))
 	g.Expect(pkgFailStatus.Message).To(gomega.Equal(message))
 

@@ -377,7 +377,7 @@ func (r *ReconcileSubscription) cleanupManifestWork(appsub types.NamespacedName)
 }
 
 func (r *ReconcileSubscription) cleanupAppSubStatus(appsub *appSubV1.Subscription, manifestWorkNS string) error {
-	managedSubPackageStatusList := &appSubStatusV1alpha1.SubscriptionPackageStatusList{}
+	managedSubPackageStatusList := &appSubStatusV1alpha1.SubscriptionStatusList{}
 	listopts := &client.ListOptions{}
 
 	managedSubStatusSelector := &metaV1.LabelSelector{

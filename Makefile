@@ -124,14 +124,12 @@ test:
 build:
 	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
-	@common/scripts/gobuild.sh build/_output/bin/appsubpackagestatus ./cmd/appsubstatus
 	@common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
 
 local:
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
-	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubstatus ./cmd/appsubstatus
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
 
@@ -181,7 +179,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen

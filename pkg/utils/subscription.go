@@ -29,7 +29,6 @@ import (
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
@@ -126,84 +125,6 @@ var AppSubSummaryPredicateFunc = predicate.Funcs{
 
 		var clusterLabel string
 		clusterLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
-		if !ok || clusterLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-			return false
-		}
-
-		klog.Infof("managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-		return true
-	},
-}
-
-var AppSubPackageStatusPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		klog.Info("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
-		var hostingAppSubLabel string
-		_, oldOK := e.ObjectOld.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		hostingAppSubLabel, newOK := e.ObjectNew.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !oldOK || !newOK || hostingAppSubLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
-				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
-			return false
-		}
-
-		var clusterLabel string
-		_, oldOK = e.ObjectOld.GetLabels()["apps.open-cluster-management.io/cluster"]
-		clusterLabel, newOK = e.ObjectNew.GetLabels()["apps.open-cluster-management.io/cluster"]
-
-		if !oldOK || !newOK || clusterLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
-				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
-			return false
-		}
-
-		oldAppSubStatus, ok := e.ObjectOld.(*appSubStatusV1alpha1.SubscriptionPackageStatus)
-		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.ObjectOld.GetNamespace(), e.ObjectOld.GetName())
-			return false
-		}
-
-		newAppSubStatus, ok := e.ObjectNew.(*appSubStatusV1alpha1.SubscriptionPackageStatus)
-		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
-			return false
-		}
-
-		return !reflect.DeepEqual(oldAppSubStatus.Statuses.SubscriptionPackageStatus, newAppSubStatus.Statuses.SubscriptionPackageStatus)
-	},
-	CreateFunc: func(e event.CreateEvent) bool {
-		klog.Info("CreateFunc oldlabels:", e.Object.GetLabels())
-		var hostingAppSubLabel string
-		hostingAppSubLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-
-		if !ok || hostingAppSubLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-			return false
-		}
-
-		var clusterLabel string
-		clusterLabel, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
-
-		if !ok || clusterLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-			return false
-		}
-
-		klog.V(1).Infof("New managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-		return true
-	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		klog.Info("DeleteFunc oldlabels:", e.Object.GetLabels())
-		var hostingAppSubLabel string
-		hostingAppSubLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/hosting-subscription"]
-		if !ok || hostingAppSubLabel == "" {
-			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
-			return false
-		}
-
-		var clusterLabel string
-		clusterLabel, ok = e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
 		if !ok || clusterLabel == "" {
 			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 			return false

@@ -21,29 +21,9 @@ import (
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope="Namespaced"
-// +kubebuilder:resource:shortName=appsubsummarystatus
-// SubscriptionPackageStatus defines a summary of the status of package deployments on the clusters
-type SubscriptionSummaryStatus struct {
-	metav1.TypeMeta   `json:",inline"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
-
-	Summary SubscriptionSummary `json:"summary,omitempty"`
-}
-
-// +kubebuilder:object:root=true
-// SubscriptionSummaryStatusList contains a list of SubscriptionSummaryStatus.
-type SubscriptionSummaryStatusList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SubscriptionSummaryStatus `json:"items"`
-}
-
-// +kubebuilder:object:root=true
-// +kubebuilder:subresource:status
-// +kubebuilder:resource:scope="Namespaced"
-// +kubebuilder:resource:shortName=appsubpackagestatus
-// SubscriptionPackageStatus defines the status of package deployments
-type SubscriptionPackageStatus struct {
+// +kubebuilder:resource:shortName=appsubstatus
+// SubscriptionStatus defines the status of package deployments
+type SubscriptionStatus struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
@@ -52,33 +32,16 @@ type SubscriptionPackageStatus struct {
 }
 
 // +kubebuilder:object:root=true
-// SubscriptionPackagetatusList contains a list of SubscriptionPackageStatus.
-type SubscriptionPackageStatusList struct {
+// SubscriptionStatusList contains a list of SubscriptionStatus.
+type SubscriptionStatusList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []SubscriptionPackageStatus `json:"items"`
-}
-
-//SubscriptionSummary contains a ClusterSummary of packages that deployed successfully,
-// failed to deploy, or failed to propagate
-type SubscriptionSummary struct {
-	// A ClusterSummary of packages that deployed successfully
-	DeployedSummary ClusterSummary `json:"deployed,omitempty"`
-	// A ClusterSummary of packages that failed to deployed
-	DeployFailedSummary ClusterSummary `json:"deployFailed,omitempty"`
-	// A ClusterSummary of packages that failed to propagate
-	PropagationFailedSummary ClusterSummary `json:"propagationFailed,omitempty"`
-}
-
-// ClusterSummary defines status of a package deployment.
-type ClusterSummary struct {
-	Count    int      `json:"count,omitempty"`
-	Clusters []string `json:"clusters,omitempty"`
+	Items           []SubscriptionStatus `json:"items"`
 }
 
 // SubscriptionClusterStatusMap defines the status of packages in a cluster.
 type SubscriptionClusterStatusMap struct {
-	SubscriptionPackageStatus []SubscriptionUnitStatus `json:"packages,omitempty"`
+	SubscriptionStatus []SubscriptionUnitStatus `json:"packages,omitempty"`
 }
 
 // SubscriptionUnitStatus defines status of a package deployment.
@@ -107,6 +70,5 @@ const (
 )
 
 func init() {
-	SchemeBuilder.Register(&SubscriptionSummaryStatus{}, &SubscriptionSummaryStatusList{},
-		&SubscriptionPackageStatus{}, &SubscriptionPackageStatusList{})
+	SchemeBuilder.Register(&SubscriptionStatus{}, &SubscriptionStatusList{})
 }
