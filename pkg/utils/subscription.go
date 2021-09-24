@@ -834,35 +834,29 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 // IsResourceAllowed checks if the resource is on application subscription's allow list. The allow list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
-	// Policy is not allowed by default
-	allowed := resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
-
 	// If subscription-admin, honor the allow list
 	if isAdmin {
-		// If allow list is empty, all resources are allowed for deploy except the policy
+		// If allow list is empty, all resources are allowed for deploy
 		if len(allowlist) == 0 {
-			return allowed
+			return true
 		}
 
 		return (allowlist[resource.GetAPIVersion()][resource.GetKind()] != "" ||
 			allowlist[resource.GetAPIVersion()]["*"] != "")
 	}
 
-	// If not subscription-admin, ignore the allow list
-	return allowed
+	// If not subscription-admin, ignore the allow list and don't allow policy
+	return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
 }
 
 // IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
 // if the subscription is created by subscription-admin user.
 func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
-	// Policy is denied by default
-	denied := resource.GetAPIVersion() == "policy.open-cluster-management.io/v1"
-
 	// If subscription-admin, honor the deny list
 	if isAdmin {
-		// If deny list is empty, all resources are NOT denied except the policy
+		// If deny list is empty, all resources are NOT denied
 		if len(denyList) == 0 {
-			return denied
+			return false
 		}
 
 		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
@@ -870,7 +864,7 @@ func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]ma
 	}
 
 	// If not subscription-admin, ignore the deny list
-	return denied
+	return false
 }
 
 // GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.

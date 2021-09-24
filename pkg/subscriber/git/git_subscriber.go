@@ -136,6 +136,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
+	} else {
+		ghssubitem.clusterAdmin = false
 	}
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
