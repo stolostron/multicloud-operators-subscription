@@ -49,7 +49,7 @@ type kubeResourceMetadata struct {
 }
 
 // GetGitResources clones the git repo and regenerate deployables and update annotation if needed
-func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.ObjectReference, error) {
+func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription, isAdmin bool) ([]*v1.ObjectReference, error) {
 	var objRefList []*v1.ObjectReference
 	origsub := &appv1.Subscription{}
 	sub.DeepCopyInto(origsub)
@@ -94,9 +94,6 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.
 
 			baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
 			resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub)
-
-			// Check and add cluster-admin annotation for multi-namepsace application
-			isAdmin := r.AddClusterAdminAnnotation(sub)
 
 			objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir, isAdmin)
 			if err != nil {

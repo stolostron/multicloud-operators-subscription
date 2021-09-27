@@ -92,15 +92,18 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	klog.Infof("subscription: %v/%v", sub.GetNamespace(), sub.GetName())
 
+	// Check and add cluster-admin annotation for multi-namepsace application
+	isAdmin := r.AddClusterAdminAnnotation(sub)
+
 	var resources []*v1.ObjectReference
 
 	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
-		resources, err = r.GetGitResources(sub)
+		resources, err = r.GetGitResources(sub, isAdmin)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		resources, err = getHelmTopoResources(r.Client, r.cfg, primaryChannel, secondaryChannel, sub)
+		resources, err = getHelmTopoResources(r.Client, r.cfg, primaryChannel, secondaryChannel, sub, isAdmin)
 	case chnv1alpha1.ChannelTypeObjectBucket:
-		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, objectBucketParent)
+		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, objectBucketParent, isAdmin)
 	}
 
 	if err != nil {
@@ -473,8 +476,8 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	return awshandler, bucket, nil
 }
 
-func (r *ReconcileSubscription) getObjectBucketResources(
-	sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel, parentType string) ([]*v1.ObjectReference, error) {
+func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel,
+	parentType string, isAdmin bool) ([]*v1.ObjectReference, error) {
 	awsHandler, bucket, err := r.initObjectStore(channel)
 	if err != nil {
 		klog.Error(err, "Unable to access object store: ")
@@ -543,6 +546,21 @@ func (r *ReconcileSubscription) getObjectBucketResources(
 			Name:       template.GetName(),
 			APIVersion: template.GetAPIVersion(),
 		}
+
+		// No need to save the namespace object to the resource list of the appsub
+		if resource.Kind == "Namespace" {
+			continue
+		}
+
+		// respect object customized namespace if the appsub user is subscription admin, or apply it to appsub namespace
+		if isAdmin {
+			if resource.Namespace == "" {
+				resource.Namespace = sub.Namespace
+			}
+		} else {
+			resource.Namespace = sub.Namespace
+		}
+
 		resources = append(resources, resource)
 	}
 

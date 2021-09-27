@@ -247,7 +247,8 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 	return chartDir, nil
 }
 
-func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) ([]*v1.ObjectReference, error) {
+func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel,
+	sub *subv1.Subscription, isAdmin bool) ([]*v1.ObjectReference, error) {
 	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
 	if err != nil {
 		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
@@ -270,6 +271,21 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 				Name:       resInfo.Name,
 				APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Version,
 			}
+
+			// No need to save the namespace object to the resource list of the appsub
+			if resource.Kind == "Namespace" {
+				continue
+			}
+
+			// respect object customized namespace if the appsub user is subscription admin, or apply it to appsub namespace
+			if isAdmin {
+				if resource.Namespace == "" {
+					resource.Namespace = sub.Namespace
+				}
+			} else {
+				resource.Namespace = sub.Namespace
+			}
+
 			resources = append(resources, resource)
 		}
 	}
