@@ -95,7 +95,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 				Name:           resource.Name,
 				ApiVersion:     resource.ApiVersion,
 				Kind:           resource.Kind,
-				Namespace:      appsubClusterStatus.AppSub.Namespace,
+				Namespace:      resource.Namespace,
 				Phase:          v1alpha1.PackagePhase(resource.Phase),
 				Message:        resource.Message,
 				LastUpdateTime: metaV1.Time{Time: time.Now()},

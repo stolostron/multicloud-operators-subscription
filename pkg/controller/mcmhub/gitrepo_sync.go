@@ -95,17 +95,16 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription) ([]*v1.
 			baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
 			resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub)
 
-			objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir)
+			// Check and add cluster-admin annotation for multi-namepsace application
+			isAdmin := r.AddClusterAdminAnnotation(sub)
+
+			objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir, isAdmin)
 			if err != nil {
 				klog.Error(err.Error())
 				return nil, err
 			}
 
 			setCommitID(sub, commit)
-
-			// Check and add cluster-admin annotation for multi-namepsace application
-			r.AddClusterAdminAnnotation(sub)
-
 		} else {
 			klog.Infof("The Git commit has not changed since the last reconcile. last: %s, new: %s", annotations[appv1.AnnotationGitCommit], commit)
 			return nil, nil
@@ -208,11 +207,13 @@ func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, c
 	return ""
 }
 
-func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription, localRepoRoot, subPath, baseDir string) ([]*v1.ObjectReference, error) {
+func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription,
+	localRepoRoot, subPath, baseDir string, isAdmin bool) ([]*v1.ObjectReference, error) {
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(localRepoRoot, subPath)
 
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
+
 		return nil, err
 	}
 
@@ -222,6 +223,7 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 	if err != nil {
 		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
 		klog.Error(err, "Failed to generate helm index file.")
+
 		return nil, err
 	}
 
@@ -263,7 +265,22 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 
 	// Get list of object references from the map
 	objRefList := []*v1.ObjectReference{}
+
 	for _, value := range objRefMap {
+		// No need to save the namespace object to the resource list of the appsub
+		if value.Kind == "Namespace" {
+			continue
+		}
+
+		// respect object customized namespace if the appsub user is subscription admin, or apply it to appsub namespace
+		if isAdmin {
+			if value.Namespace == "" {
+				value.Namespace = sub.Namespace
+			}
+		} else {
+			value.Namespace = sub.Namespace
+		}
+
 		objRefList = append(objRefList, value)
 	}
 

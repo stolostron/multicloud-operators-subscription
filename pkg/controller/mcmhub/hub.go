@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -333,6 +334,9 @@ func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscript
 		policyReport.Summary.Pass = clusterCount
 		policyReport.Summary.Fail = 0
 
+		policyReport.SetOwnerReferences([]metav1.OwnerReference{
+			*metav1.NewControllerRef(sub, schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Subscription"})})
+
 		if err := r.Create(context.TODO(), policyReport); err != nil {
 			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
 
@@ -345,6 +349,7 @@ func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscript
 		for _, result := range policyReport.Results {
 			if result.Policy == "APPSUB_RESOURCE_LIST" {
 				resourceListResult = result
+
 				break
 			}
 		}
