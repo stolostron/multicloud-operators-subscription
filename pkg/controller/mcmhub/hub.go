@@ -639,6 +639,8 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subep.Generation = 1
 	subep.SelfLink = ""
 
+	subep.OwnerReferences = nil
+
 	subepanno := r.updateSubAnnotations(sub)
 
 	if rootSub == nil {
