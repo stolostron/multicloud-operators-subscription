@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -256,6 +258,7 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 		return nil, err
 	}
 
+	var errMsgs []string
 	resources := []*v1.ObjectReference{}
 	cfg := rest.CopyConfig(hubCfg)
 
@@ -266,6 +269,12 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 		}
 
 		for _, resInfo := range resList {
+			errs := validation.IsDNS1123Subdomain(resInfo.Name)
+			if len(errs) > 0 {
+				errs = append([]string{fmt.Sprintf("Invalid %s name '%s'", resInfo.Object.GetObjectKind().GroupVersionKind().Kind, resInfo.Name)}, errs...)
+				errMsgs = append(errMsgs, strings.Join(errs, ","))
+			}
+
 			resource := &v1.ObjectReference{
 				Kind:       resInfo.Object.GetObjectKind().GroupVersionKind().Kind,
 				Namespace:  resInfo.Namespace,
@@ -289,6 +298,10 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 
 			resources = append(resources, resource)
 		}
+	}
+
+	if len(errMsgs) > 0 {
+		return resources, errors.New(strings.Join(errMsgs, ","))
 	}
 
 	return resources, nil

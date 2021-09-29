@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -52,7 +53,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	substr := fmt.Sprintf("%v/%v", sub.GetNamespace(), sub.GetName())
 	klog.V(1).Infof("entry doMCMHubReconcile %v", substr)
 
-	defer klog.V(1).Infof("exix doMCMHubReconcile %v", substr)
+	defer klog.V(1).Infof("exit doMCMHubReconcile %v", substr)
 
 	// TO-DO: need to implement the new appsub rolling update with no deployable dependency
 
@@ -519,6 +520,7 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscr
 	}
 
 	// converting template from object store to resource
+	var errMsgs []string
 	resources := []*v1.ObjectReference{}
 	for _, key := range keys {
 		tplb, err := awsHandler.Get(bucket, key)
@@ -539,6 +541,12 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscr
 		if err != nil {
 			klog.V(5).Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
 			continue
+		}
+
+		errs := validation.IsDNS1123Subdomain(template.GetName())
+		if len(errs) > 0 {
+			errs = append([]string{fmt.Sprintf("Invalid %s name '%s'", template.GetKind(), template.GetName())}, errs...)
+			errMsgs = append(errMsgs, strings.Join(errs, ","))
 		}
 
 		resource := &v1.ObjectReference{
@@ -563,6 +571,10 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscr
 		}
 
 		resources = append(resources, resource)
+	}
+
+	if len(errMsgs) > 0 {
+		return resources, errors.New(strings.Join(errMsgs, ","))
 	}
 
 	return resources, nil

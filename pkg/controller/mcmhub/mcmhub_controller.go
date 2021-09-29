@@ -573,6 +573,11 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
 			returnErr = err
+		} else {
+			// Clear prev reconcile errors
+			instance.Status.Phase = appv1.SubscriptionPropagated
+			instance.Status.Message = ""
+			instance.Status.Reason = ""
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
