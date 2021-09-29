@@ -19,7 +19,6 @@ import (
 	"io"
 	"strings"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/helmrelease/internal/util/k8sutil"
 	"github.com/operator-framework/operator-lib/handler"
 	"helm.sh/helm/v3/pkg/kube"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -33,6 +32,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/internal/util/k8sutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 

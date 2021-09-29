@@ -15,7 +15,7 @@
 package synchronizer
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 func init() {

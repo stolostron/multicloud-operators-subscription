@@ -25,15 +25,16 @@ import (
 	"sync"
 	"time"
 
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

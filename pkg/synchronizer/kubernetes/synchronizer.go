@@ -26,9 +26,9 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
 
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appSubStatusV1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema.GroupVersionResource, bool, error) {

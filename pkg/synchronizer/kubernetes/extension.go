@@ -23,8 +23,8 @@ import (
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 // SubscriptionExtension provides default extension settings

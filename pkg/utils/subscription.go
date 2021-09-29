@@ -25,10 +25,11 @@ import (
 	"strings"
 	"time"
 
-	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	plrv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
+	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"

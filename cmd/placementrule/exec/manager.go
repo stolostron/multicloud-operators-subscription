@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/placementrule/controller"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"

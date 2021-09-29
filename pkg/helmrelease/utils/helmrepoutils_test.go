@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 )
 
 var (

@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/placementrule/controller/placementrule"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller/placementrule"
 )
 
 func init() {

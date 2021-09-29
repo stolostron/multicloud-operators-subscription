@@ -31,17 +31,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	manifestWorkV1 "github.com/open-cluster-management/api/work/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
-	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	addonframeworkmgr "open-cluster-management.io/addon-framework/pkg/addonmanager"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
+	agentaddon "open-cluster-management.io/multicloud-operators-subscription/pkg/addonmanager"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
+	leasectrl "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/subscription"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
@@ -75,7 +77,7 @@ func RunManager() {
 		// for standalone subcription pod
 		leaderElectionID = "multicloud-operators-standalone-subscription-leader.open-cluster-management.io"
 		metricsPort = 8389
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// for managed cluster pod appmgr. It could run on hub if hub is self-managed cluster
 		metricsPort = 8388
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
@@ -104,8 +106,7 @@ func RunManager() {
 
 	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
-		Name:      Options.ClusterName,
-		Namespace: Options.ClusterNamespace,
+		Name: Options.ClusterName,
 	}
 
 	// generate config to hub cluster
@@ -138,7 +139,7 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	if !Options.Standalone && Options.ClusterName == "" && Options.ClusterNamespace == "" {
+	if !Options.Standalone && Options.ClusterName == "" {
 		// Setup managedCluster Scheme for manager
 		if err := spokeClusterV1.AddToScheme(mgr.GetScheme()); err != nil {
 			klog.Error(err, "")
@@ -162,7 +163,7 @@ func RunManager() {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
 			os.Exit(1)
 		}
-	} else if !strings.EqualFold(Options.ClusterName, "") && !strings.EqualFold(Options.ClusterNamespace, "") {
+	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {
 			klog.Error(err, "")
@@ -206,6 +207,38 @@ func RunManager() {
 	sig := signals.SetupSignalHandler()
 
 	klog.Info("Starting the Cmd.")
+
+	// Start addon manager
+	if !Options.Standalone && Options.ClusterName == "" && Options.DeployAgent {
+		kubeClient, err := kubernetes.NewForConfig(cfg)
+		if err != nil {
+			klog.Error("Failed to setup kube client, error:", err)
+			os.Exit(1)
+		}
+
+		adddonmgr, err := addonframeworkmgr.New(cfg)
+
+		if err != nil {
+			klog.Error("Failed to setup addon manager, error:", err)
+			os.Exit(1)
+		}
+
+		addon := agentaddon.NewAgent(Options.AgentImage, kubeClient)
+
+		if err := adddonmgr.AddAgent(addon); err != nil {
+			klog.Error("Failed to add addon to addon manager, error:", err)
+			os.Exit(1)
+		}
+
+		go func() {
+			<-mgr.Elected()
+
+			if err := adddonmgr.Start(sig); err != nil {
+				klog.Error("Failed to start addon manager, error:", err)
+				os.Exit(1)
+			}
+		}()
+	}
 
 	// Start the Cmd
 	if err := mgr.Start(sig); err != nil {

@@ -15,10 +15,10 @@
 package apis
 
 import (
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	helmrelease "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
-	placementrule "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
-	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	helmrelease "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	placementrule "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	v1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 func init() {

@@ -15,7 +15,7 @@
 package subscriber
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
 
 func init() {

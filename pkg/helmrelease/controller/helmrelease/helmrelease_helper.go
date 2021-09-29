@@ -23,7 +23,6 @@ import (
 
 	"helm.sh/helm/v3/pkg/action"
 
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,6 +30,7 @@ import (
 	"k8s.io/client-go/discovery"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/klog"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 
 	"helm.sh/helm/v3/pkg/chartutil"
 	rspb "helm.sh/helm/v3/pkg/release"

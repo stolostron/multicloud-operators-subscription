@@ -24,9 +24,9 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/kustomize/api/filesys"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustomizetypes "sigs.k8s.io/kustomize/api/types"

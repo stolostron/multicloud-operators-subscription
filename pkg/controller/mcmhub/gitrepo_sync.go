@@ -30,11 +30,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 type kubeResource struct {
