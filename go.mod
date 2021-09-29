@@ -36,12 +36,12 @@ require (
 	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
 	open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d
 	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210706131628-9125c762b9f9
-	rsc.io/letsencrypt v0.0.3 // indirect
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
 	sigs.k8s.io/wg-policy-prototypes v0.0.0-20210823142600-b09c9bb01d4c
 )
 
-replace k8s.io/client-go => k8s.io/client-go v0.21.1
-
-// replace open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.4-0-20210817-0d8714a
+replace (
+	k8s.io/client-go => k8s.io/client-go v0.21.1
+	open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20210929-257bd5a
+)
