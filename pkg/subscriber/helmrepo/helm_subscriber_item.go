@@ -57,6 +57,7 @@ type SubscriberItem struct {
 	syncinterval  int
 	success       bool
 	synchronizer  SyncSource
+	clusterAdmin  bool
 }
 
 var (
@@ -586,7 +587,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 		klog.Infof("chart: %s\n%v", packageName, chartVersions)
 
 		dpl, err := utils.CreateHelmCRManifest(
-			hrsi.Channel.Spec.Pathname, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.SecondaryChannel, hrsi.Subscription)
+			hrsi.Channel.Spec.Pathname, packageName, chartVersions, hrsi.synchronizer.GetLocalClient(), hrsi.Channel, hrsi.SecondaryChannel, hrsi.Subscription, hrsi.clusterAdmin)
 
 		if err != nil {
 			klog.Error("failed to create a helmrelease CR manifest, err: ", err)

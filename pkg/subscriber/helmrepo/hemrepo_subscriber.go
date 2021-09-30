@@ -118,6 +118,11 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	subAnnotations := hrssubitem.Subscription.GetAnnotations()
 
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", hrssubitem.Subscription.Name)
+		hrssubitem.clusterAdmin = true
+	}
+
 	hrssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
 	hrssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 

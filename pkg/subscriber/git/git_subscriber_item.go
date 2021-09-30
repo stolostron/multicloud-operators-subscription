@@ -643,7 +643,7 @@ func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err 
 		klog.V(1).Infof("chart: %s\n%v", packageName, chartVersions)
 
 		helmReleaseCR, err := utils.CreateHelmCRManifest(
-			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription)
+			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription, ghsi.clusterAdmin)
 
 		if err != nil {
 			klog.Error("Failed to create a helmrelease CR manifest, err: ", err)

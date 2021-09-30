@@ -365,7 +365,8 @@ func CreateHelmCRManifest(
 	client client.Client,
 	channel *chnv1.Channel,
 	secondaryChannel *chnv1.Channel,
-	sub *appv1.Subscription) (*unstructured.Unstructured, error) {
+	sub *appv1.Subscription,
+	clusterAdmin bool) (*unstructured.Unstructured, error) {
 	releaseCRName, err := PkgToReleaseCRName(sub, packageName)
 	if err != nil {
 		return nil, err
@@ -421,6 +422,19 @@ func CreateHelmCRManifest(
 	hrLbls := AddPartOfLabel(sub, helmRelease.Labels)
 	if hrLbls != nil {
 		helmRelease.Labels = hrLbls
+	}
+
+	if clusterAdmin {
+		klog.Info("cluster-admin is true.")
+
+		rscAnnotations := helmRelease.GetAnnotations()
+
+		if rscAnnotations == nil {
+			rscAnnotations = make(map[string]string)
+		}
+
+		rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
+		helmRelease.SetAnnotations(rscAnnotations)
 	}
 
 	helmReleaseRaw, err := json.Marshal(helmRelease)

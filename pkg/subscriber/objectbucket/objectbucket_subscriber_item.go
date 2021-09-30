@@ -446,7 +446,19 @@ func (obsi *SubscriberItem) doSubscribeManifest(template *unstructured.Unstructu
 		template.SetAnnotations(rscAnnotations)
 	}
 
-	template.SetNamespace(obsi.Subscription.Namespace)
+	if obsi.clusterAdmin {
+		klog.Info("cluster-admin is true.")
+
+		if template.GetNamespace() != "" {
+			klog.Info("Using resource's original namespace. Resource namespace is " + template.GetNamespace())
+		} else {
+			klog.Info("Setting it to subscription namespace " + obsi.Subscription.Namespace)
+			template.SetNamespace(obsi.Subscription.Namespace)
+		}
+	} else {
+		klog.Info("No cluster-admin. Setting it to subscription namespace " + obsi.Subscription.Namespace)
+		template.SetNamespace(obsi.Subscription.Namespace)
+	}
 
 	resource := &kubesynchronizer.ResourceUnit{Resource: template, Gvk: validgvk}
 
