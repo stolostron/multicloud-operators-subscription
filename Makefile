@@ -111,6 +111,7 @@ test: ensure-kubebuilder-tools
 
 deploy-standalone:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
 	kubectl apply -f deploy/hub-common
 	kubectl apply -f deploy/standalone
 
@@ -121,6 +122,7 @@ deploy-ocm:
 
 deploy-hub:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
 	kubectl apply -f deploy/hub-common
 	kubectl apply -f deploy/hub
 

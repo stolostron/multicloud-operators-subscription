@@ -52,9 +52,14 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
 
 */
 
-func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus SubscriptionClusterStatus) error {
+func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus SubscriptionClusterStatus, skipOrphanDelete *bool) error {
 	klog.Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
 		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
+
+	skipOrphanDel := false
+	if skipOrphanDelete != nil {
+		skipOrphanDel = *skipOrphanDelete
+	}
 
 	// Get existing appsubstatus on managed cluster, if it exists
 	isLocalCluster := sync.hub && !sync.standalone
@@ -119,45 +124,47 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 		} else {
 			klog.Infof("Update existing appsubstatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
 
-			// Update existing appsubstatus - only update subscription unit statuses
-			oldUnitStatuses := pkgstatus.Statuses.SubscriptionStatus
+			if !skipOrphanDel {
+				// Update existing appsubstatus - only update subscription unit statuses
+				oldUnitStatuses := pkgstatus.Statuses.SubscriptionStatus
 
-			// Find unit status to be deleted - exist previously but not in the new unit status
-			deleteUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
-			for _, oldResource := range oldUnitStatuses {
+				// Find unit status to be deleted - exist previously but not in the new unit status
+				deleteUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
+				for _, oldResource := range oldUnitStatuses {
 
-				found := false
-				for _, newResource := range newUnitStatus {
-					if oldResource.Name == newResource.Name &&
-						oldResource.Namespace == newResource.Namespace &&
-						oldResource.Kind == newResource.Kind &&
-						oldResource.ApiVersion == newResource.ApiVersion {
+					found := false
+					for _, newResource := range newUnitStatus {
+						if oldResource.Name == newResource.Name &&
+							oldResource.Namespace == newResource.Namespace &&
+							oldResource.Kind == newResource.Kind &&
+							oldResource.ApiVersion == newResource.ApiVersion {
 
-						found = true
-						break
+							found = true
+							break
+						}
+					}
+
+					if !found {
+						deleteUnitStatuses = append(deleteUnitStatuses, oldResource)
 					}
 				}
 
-				if !found {
-					deleteUnitStatuses = append(deleteUnitStatuses, oldResource)
-				}
-			}
+				for _, resource := range deleteUnitStatuses {
+					klog.Infof("Delete subscription unit kind:%v resource:%v/%v", resource.Kind, resource.Namespace, resource.Name)
 
-			for _, resource := range deleteUnitStatuses {
-				klog.Infof("Delete subscription unit kind:%v resource:%v/%v", resource.Kind, resource.Namespace, resource.Name)
+					hostSub := types.NamespacedName{
+						Namespace: appsubClusterStatus.AppSub.Namespace,
+						Name:      appsubName,
+					}
+					if err := sync.DeleteSingleSubscribedResource(hostSub, resource); err != nil {
+						klog.Errorf("Error deleting subscription resource:%v", err)
 
-				hostSub := types.NamespacedName{
-					Namespace: appsubClusterStatus.AppSub.Namespace,
-					Name:      appsubName,
-				}
-				if err := sync.DeleteSingleSubscribedResource(hostSub, resource); err != nil {
-					klog.Errorf("Error deleting subscription resource:%v", err)
+						failedUnitStatus := resource.DeepCopy()
+						failedUnitStatus.Phase = v1alpha1.PackageDeployFailed
+						failedUnitStatus.Message = err.Error()
 
-					failedUnitStatus := resource.DeepCopy()
-					failedUnitStatus.Phase = v1alpha1.PackageDeployFailed
-					failedUnitStatus.Message = err.Error()
-
-					newUnitStatus = append(newUnitStatus, *failedUnitStatus)
+						newUnitStatus = append(newUnitStatus, *failedUnitStatus)
+					}
 				}
 			}
 
@@ -167,7 +174,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 					pkgstatus.Namespace = appsubClusterStatus.Cluster
 				}
 
-				klog.V(1).Infof("Delete  appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+				klog.V(1).Infof("Delete appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 				if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
 					klog.Errorf("Error delete appsubstatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
 					return err

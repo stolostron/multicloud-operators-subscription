@@ -57,21 +57,22 @@ type SubscriptionClusterStatus struct {
 
 // KubeSynchronizer handles resources to a kube endpoint.
 type KubeSynchronizer struct {
-	Interval           int
-	localCachedClient  *cachedClient
-	remoteCachedClient *cachedClient
-	LocalClient        client.Client
-	RemoteClient       client.Client
-	localConfig        *rest.Config
-	hub                bool
-	standalone         bool
-	DynamicClient      dynamic.Interface
-	RestMapper         meta.RESTMapper
-	kmtx               sync.Mutex            // lock the kubeResource
-	SynchronizerID     *types.NamespacedName // managed cluster Namespaced name
-	Extension          Extension
-	eventrecorder      *utils.EventRecorder
-	dmtx               sync.Mutex //this lock protect the dynamicFactory and stopCh
+	Interval               int
+	localCachedClient      *cachedClient
+	remoteCachedClient     *cachedClient
+	LocalClient            client.Client
+	RemoteClient           client.Client
+	localConfig            *rest.Config
+	hub                    bool
+	standalone             bool
+	DynamicClient          dynamic.Interface
+	RestMapper             meta.RESTMapper
+	kmtx                   sync.Mutex            // lock the kubeResource
+	SynchronizerID         *types.NamespacedName // managed cluster Namespaced name
+	Extension              Extension
+	eventrecorder          *utils.EventRecorder
+	dmtx                   sync.Mutex //this lock protect the dynamicFactory and stopCh
+	SkipAppSubStatusResDel bool       // used by helm subscriber to skip resource delete based on AppSubStatus
 }
 
 var (
