@@ -1410,9 +1410,12 @@ func (r *ReconcileSubscription) updateObjectBucketAnnotation(
 		allDpls[dplkey] = dpl
 	}
 
+	// Check and add cluster-admin annotation for multi-namepsace application
+	updated := r.AddClusterAdminAnnotation(sub)
+
 	topoFlag := extracResourceListFromDeployables(sub, allDpls, parentType)
 
-	return topoFlag, nil
+	return (updated || topoFlag), nil
 }
 
 func generateDplNameFromKey(key string) string {
