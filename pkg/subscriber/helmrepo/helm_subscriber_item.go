@@ -433,6 +433,12 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 		return nil, "", err
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		klog.Errorf("http request %s failed: status %s", cleanRepoURL, resp.Status)
+
+		return nil, "", fmt.Errorf("http request %s failed: status %s", cleanRepoURL, resp.Status)
+	}
+
 	klog.V(5).Info("Get succeeded: ", cleanRepoURL)
 
 	body, err := ioutil.ReadAll(resp.Body)

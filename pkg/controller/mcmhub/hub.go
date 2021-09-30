@@ -72,10 +72,10 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	if (primaryChannel != nil && secondaryChannel != nil) &&
 		(primaryChannel.Spec.Type != secondaryChannel.Spec.Type) {
-		klog.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+		klog.Errorf("the type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
 			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
 
-		newError := fmt.Errorf("he type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
+		newError := fmt.Errorf("the type of primary and secondary channels is different. primary channel type: %s, secondary channel type: %s",
 			primaryChannel.Spec.Type, secondaryChannel.Spec.Type)
 
 		return newError

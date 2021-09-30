@@ -545,57 +545,67 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "local placement and remote placement rule cannot be used together"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
-		if err := r.hubGitOps.RegisterBranch(instance); err != nil {
-			logger.Error(err, "failed to initialize Git connection")
-			preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
+		primaryChannel, _, err := r.getChannel(instance)
 
-			passedBranchRegistration = false
-
+		if err != nil {
+			klog.Errorf("Failed to find a channel for subscription: %s", instance.GetName())
 			return reconcile.Result{}, nil
 		}
 
-		// register will skip the failed clone repo
-		if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
-			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
-			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
+		// This block is only for Git subscription
+		if strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGit) ||
+			strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGitHub) {
+			if err := r.hubGitOps.RegisterBranch(instance); err != nil {
+				logger.Error(err, "failed to initialize Git connection")
+				preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
 
-			passedPrehook = false
+				passedBranchRegistration = false
 
-			return reconcile.Result{}, nil
-		}
+				return reconcile.Result{}, nil
+			}
 
-		if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
-			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
-
-			//if it's registered
-			if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
-				logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+			// register will skip the failed clone repo
+			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
+				logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+				preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
 				passedPrehook = false
 
 				return reconcile.Result{}, nil
 			}
 
-			//if it's registered
-			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
-			if !b || err != nil {
-				// used for use the status update
-				_ = preErr
+			if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+				preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
-				r.overridePrehookTopoAnnotation(instance)
+				//if it's registered
+				if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+					logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
-				if err != nil {
-					logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+					passedPrehook = false
+
 					return reconcile.Result{}, nil
 				}
 
-				result.RequeueAfter = r.hookRequeueInterval
-				passedPrehook = false
+				//if it's registered
+				b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+				if !b || err != nil {
+					// used for use the status update
+					_ = preErr
 
-				return result, nil
+					r.overridePrehookTopoAnnotation(instance)
+
+					if err != nil {
+						logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+						return reconcile.Result{}, nil
+					}
+
+					result.RequeueAfter = r.hookRequeueInterval
+					passedPrehook = false
+
+					return result, nil
+				}
 			}
 		}
-
 		//changes will be added to instance
 		err = r.doMCMHubReconcile(instance)
 
