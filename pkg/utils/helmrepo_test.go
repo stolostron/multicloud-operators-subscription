@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"helm.sh/helm/v3/pkg/repo"
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,6 +100,46 @@ func TestGenerateHelmIndexFile(t *testing.T) {
 	indexFile, err := GenerateHelmIndexFile(githubsub, "../..", chartDirs)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(indexFile.Entries)).To(gomega.Equal(2))
+}
+
+func TestConfigMapSecretRefsInHelmRelease(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	chartDirs := make(map[string]string)
+	chartDirs["../../test/github/helmcharts/chart1/"] = "../../test/github/helmcharts/chart1/"
+	chartDirs["../../test/github/helmcharts/chart2/"] = "../../test/github/helmcharts/chart2/"
+
+	indexFile, err := GenerateHelmIndexFile(githubsub, "../..", chartDirs)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(indexFile.Entries)).To(gomega.Equal(2))
+
+	time.Sleep(3 * time.Second)
+
+	githubchnNew := githubchn.DeepCopy()
+
+	githubchnNew.Spec.ConfigMapRef = &corev1.ObjectReference{Name: "channel-configmap"}
+	githubchnNew.Spec.SecretRef = &corev1.ObjectReference{Name: "channel-secret"}
+
+	githubsub.UID = "dummyuid"
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchnNew, nil, githubsub)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(helmrelease).NotTo(gomega.BeNil())
+
+	g.Expect(helmrelease.Repo.ConfigMapRef.Namespace).To(gomega.Equal(githubchnNew.Namespace))
+	g.Expect(helmrelease.Repo.SecretRef.Namespace).To(gomega.Equal(githubchnNew.Namespace))
 }
 
 func TestCreateOrUpdateHelmChart(t *testing.T) {
