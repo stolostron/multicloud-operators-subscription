@@ -106,7 +106,8 @@ func RunManager() {
 
 	// id is the namespacedname of this cluster in hub
 	var id = &types.NamespacedName{
-		Name: Options.ClusterName,
+		Name:      Options.ClusterName,
+		Namespace: Options.ClusterName,
 	}
 
 	// generate config to hub cluster
