@@ -35,6 +35,7 @@ import (
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -46,7 +47,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
+	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 const (
@@ -58,12 +61,22 @@ const (
 // Add creates a new HelmRelease Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
 func Add(mgr manager.Manager) error {
-	return add(mgr, newReconciler(mgr))
+	synchronizer := kubesynchronizer.GetDefaultSynchronizer()
+
+	if synchronizer == nil {
+		err := fmt.Errorf("failed to get default synchronizer for HelmRelease controller")
+		klog.Error(err)
+
+		return err
+	}
+
+	return add(mgr, newReconciler(mgr, synchronizer))
 }
 
 // newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileHelmRelease{mgr}
+func newReconciler(mgr manager.Manager, synchronizer *kubesynchronizer.KubeSynchronizer) reconcile.Reconciler {
+
+	return &ReconcileHelmRelease{mgr, synchronizer}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -104,6 +117,7 @@ var _ reconcile.Reconciler = &ReconcileHelmRelease{}
 // ReconcileHelmRelease reconciles a HelmRelease object
 type ReconcileHelmRelease struct {
 	manager.Manager
+	synchronizer *kubesynchronizer.KubeSynchronizer
 }
 
 // Reconcile reads that state of the cluster for a HelmRelease object and makes changes based on the state read
@@ -406,6 +420,10 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			helmreleaseNsn(instance), " ", err)
 	}
 
+	if installedRelease != nil && installedRelease.Manifest != "" && instance.OwnerReferences != nil {
+		r.populateAppSubStatus(installedRelease.Manifest, instance, manager)
+	}
+
 	return reconcile.Result{}, err
 }
 
@@ -478,6 +496,10 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 	if err != nil {
 		klog.Error("Failed to update resource status for HelmRelease ",
 			helmreleaseNsn(instance), " ", err)
+	}
+
+	if upgradedRelease != nil && upgradedRelease.Manifest != "" && instance.OwnerReferences != nil {
+		r.populateAppSubStatus(upgradedRelease.Manifest, instance, manager)
 	}
 
 	return reconcile.Result{}, err
@@ -673,6 +695,50 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 	}
 
 	return reconcile.Result{}, err
+}
+
+func (r *ReconcileHelmRelease) populateAppSubStatus(
+	manifest string, instance *appv1.HelmRelease, manager helmoperator.Manager) {
+	for _, hrOwner := range instance.OwnerReferences {
+		if hrOwner.Kind == "Subscription" {
+
+			caps, err := GetCapabilities(manager.GetActionConfig())
+			if err != nil {
+				klog.Error("Failed to get capabilities ", helmreleaseNsn(instance), " ", err)
+			} else {
+
+				manifests := releaseutil.SplitManifests(manifest)
+				_, files, err := releaseutil.SortManifests(manifests, caps.APIVersions, releaseutil.InstallOrder)
+				if err != nil {
+					klog.Error("Failed to sort manifest ", helmreleaseNsn(instance), " ", err)
+				} else {
+					appSubUnitStatuses := []kubesynchronizer.SubscriptionUnitStatus{}
+
+					for _, file := range files {
+						appSubUnitStatus := kubesynchronizer.SubscriptionUnitStatus{}
+						appSubUnitStatus.ApiVersion = file.Head.Version
+						appSubUnitStatus.Kind = file.Head.Kind
+						appSubUnitStatus.Name = file.Head.Metadata.Name
+						appSubUnitStatus.Namespace = instance.Namespace
+
+						appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+						appSubUnitStatus.Message = ""
+						appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+					}
+
+					appsubClusterStatus := kubesynchronizer.SubscriptionClusterStatus{
+						Cluster:                   r.synchronizer.SynchronizerID.Name,
+						AppSub:                    types.NamespacedName{Name: hrOwner.Name, Namespace: instance.GetNamespace()},
+						Action:                    "APPLY",
+						SubscriptionPackageStatus: appSubUnitStatuses,
+					}
+
+					skipOrphanDelete := true
+					r.synchronizer.SyncAppsubClusterStatus(appsubClusterStatus, &skipOrphanDelete)
+				}
+			}
+		}
+	}
 }
 
 func helmreleaseNsn(hr *appv1.HelmRelease) string {

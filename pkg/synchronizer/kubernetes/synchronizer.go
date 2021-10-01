@@ -139,25 +139,29 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 
 	appSubUnitStatuses := []SubscriptionUnitStatus{}
 
-	for _, pkgStatus := range appSubStatus.Statuses.SubscriptionStatus {
-		appSubUnitStatus := SubscriptionUnitStatus{}
-		appSubUnitStatus.ApiVersion = pkgStatus.ApiVersion
-		appSubUnitStatus.Kind = pkgStatus.Kind
-		appSubUnitStatus.Name = pkgStatus.Name
-		appSubUnitStatus.Namespace = pkgStatus.Namespace
+	if sync.SkipAppSubStatusResDel {
+		klog.Info("SkipAppSubStatusResDel enabled for ", hostSub.Namespace, "/", hostSub.Name)
+	} else {
+		for _, pkgStatus := range appSubStatus.Statuses.SubscriptionStatus {
+			appSubUnitStatus := SubscriptionUnitStatus{}
+			appSubUnitStatus.ApiVersion = pkgStatus.ApiVersion
+			appSubUnitStatus.Kind = pkgStatus.Kind
+			appSubUnitStatus.Name = pkgStatus.Name
+			appSubUnitStatus.Namespace = pkgStatus.Namespace
 
-		err := sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
-		if err != nil {
-			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
-			appSubUnitStatus.Message = err.Error()
+			err := sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+			if err != nil {
+				appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+				appSubUnitStatus.Message = err.Error()
+				appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+				continue
+			}
+
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+			appSubUnitStatus.Message = ""
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
-
-			continue
 		}
-
-		appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
-		appSubUnitStatus.Message = ""
-		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 	}
 
 	appsubClusterStatus := SubscriptionClusterStatus{
@@ -167,7 +171,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	sync.SyncAppsubClusterStatus(appsubClusterStatus)
+	sync.SyncAppsubClusterStatus(appsubClusterStatus, nil)
 
 	return nil
 }
@@ -245,7 +249,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	sync.SyncAppsubClusterStatus(appsubClusterStatus)
+	sync.SyncAppsubClusterStatus(appsubClusterStatus, nil)
 
 	sync.kmtx.Unlock()
 

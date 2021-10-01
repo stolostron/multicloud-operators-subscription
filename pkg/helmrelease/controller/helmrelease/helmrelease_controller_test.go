@@ -55,6 +55,7 @@ func TestReconcile(t *testing.T) {
 
 	rec := &ReconcileHelmRelease{
 		mgr,
+		nil,
 	}
 
 	t.Log("Setup test reconcile")
