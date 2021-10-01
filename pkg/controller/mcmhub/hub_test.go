@@ -21,6 +21,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -29,6 +30,20 @@ import (
 )
 
 var (
+	subLongName = &appv1.Subscription{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Subscription",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "a-very-very-very-very-very-very-very-very-very-very-very-long-name-appsub",
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: appv1.SubscriptionSpec{
+			Channel: sharedkey.String(),
+		},
+	}
+
 	subYAMLStr = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -172,11 +187,14 @@ func TestPrepareDeployableForSubscription(t *testing.T) {
 	annotations[appv1.AnnotationWebhookEventCount] = "1"
 	annotations[appv1.AnnotationGitBranch] = "branch1"
 	annotations[appv1.AnnotationGitPath] = "test/github"
-	githubsub.SetAnnotations(annotations)
+	subLongName.SetAnnotations(annotations)
 
-	subDpl, err := rec.prepareDeployableForSubscription(githubsub, nil)
+	subDpl, err := rec.prepareDeployableForSubscription(subLongName, nil)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(subDpl).NotTo(gomega.BeNil())
+	// subscription deployable name cannot exceed 63 charaters because it will be used as a label
+	// by deployable controller. A label cannot exceed 63 charaters
+	g.Expect(len(subDpl.Name)).To(gomega.Equal(63))
 }
 
 func TestUpdateSubscriptionToTarget(t *testing.T) {
