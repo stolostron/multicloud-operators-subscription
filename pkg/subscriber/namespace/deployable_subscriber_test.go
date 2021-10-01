@@ -114,7 +114,6 @@ var (
 var _ = Describe("default deployable should be reconciled", func() {
 	It("should reconcile on deployable add/update/delete event", func() {
 		// prepare default channel
-		ns := chns.DeepCopy()
 		dpl := chdpl.DeepCopy()
 		dpldft := defaultchdpl.DeepCopy()
 		// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
@@ -139,9 +138,5 @@ var _ = Describe("default deployable should be reconciled", func() {
 		time.Sleep(k8swait)
 		Expect(k8sClient.Get(context.TODO(), workloadkey, cfgmap)).To(HaveOccurred())
 		Expect(k8sClient.Get(context.TODO(), defaultworkloadkey, cfgmap)).To(HaveOccurred())
-
-		defer func() {
-			Expect(k8sClient.Delete(context.TODO(), ns)).Should(Succeed())
-		}()
 	})
 })
