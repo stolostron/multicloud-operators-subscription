@@ -718,7 +718,9 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 			APIVersion: "apps.open-cluster-management.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      sub.Name + "-deployable",
+			// deployable name can be longer than 63 characters because it is applicationName + -subscription-n-deployable.
+			// Deployable name is used by deployable controller to create a label.
+			Name:      utils.TrimLabelLast63Chars(sub.Name + "-deployable"),
 			Namespace: sub.Namespace,
 			Labels: map[string]string{
 				dplv1alpha1.LabelSubscriptionPause: labelPause,
@@ -1046,7 +1048,8 @@ func (r *ReconcileSubscription) getSubscriptionDeployables(sub *appv1alpha1.Subs
 			}
 			subscriptionNameLabelStr := strings.ReplaceAll(subscriptionNameLabel.String(), "/", "-")
 
-			subLabel[appv1alpha1.LabelSubscriptionName] = subscriptionNameLabelStr
+			// subscription name can be longer than 63 characters because it is applicationName + -subscription-n. A label cannot exceed 63 chars.
+			subLabel[appv1alpha1.LabelSubscriptionName] = utils.TrimLabelLast63Chars(subscriptionNameLabelStr)
 		}
 
 		labelSelector := &metav1.LabelSelector{

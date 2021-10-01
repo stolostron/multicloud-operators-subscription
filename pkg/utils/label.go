@@ -96,3 +96,12 @@ func ValidateK8sLabel(s string) string {
 
 	return s[start:stop]
 }
+
+// TrimLabelLast63Chars returns the last 63 characters of the input string
+func TrimLabelLast63Chars(s string) string {
+	if len(s) > 63 {
+		s = s[len(s)-63:]
+	}
+
+	return s
+}
