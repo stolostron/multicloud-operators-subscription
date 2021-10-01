@@ -102,15 +102,6 @@ var (
 	}
 )
 
-var (
-	chns = &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      id.Namespace,
-			Namespace: id.Namespace,
-		},
-	}
-)
-
 var _ = Describe("default deployable should be reconciled", func() {
 	It("should reconcile on deployable add/update/delete event", func() {
 		// prepare default channel
