@@ -1,33 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: multicloud-operators-subscription
+  name: multicluster-operators-subscription
   namespace: open-cluster-management-agent-addon
   labels:
-    name: multicloud-operators-subscription
+    name: multicluster-operators-subscription
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicloud-operators-subscription
+      name: multicluster-operators-subscription
   template:
     metadata:
       labels:
-        name: multicloud-operators-subscription
+        name: multicluster-operators-subscription
     spec:
-      serviceAccountName: multicloud-operators
+      serviceAccountName: multicluster-operators
       volumes:
       - name: klusterlet-config
         secret:
           defaultMode: 420
           secretName: application-manager-hub-kubeconfig
       containers:
-        - name: multicloud-operators-subscription
-          image: quay.io/open-cluster-management/multicloud-operators-subscription:latest
+        - name: multicluster-operators-subscription
+          image: quay.io/open-cluster-management/multicluster-operators-subscription:latest
           ports:
           - containerPort: 8443
           command:
-          - /usr/local/bin/multicloud-operators-subscription
+          - /usr/local/bin/multicluster-operators-subscription
           - --alsologtostderr
           - --cluster-name=managed_cluster_name # cluster1
           - --hub-cluster-configfile=/var/run/klusterlet/kubeconfig
@@ -39,7 +39,9 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "multicloud-operators-subscription"
+              value: "multicluster-operators-subscription"
+            - name: DEPLOYMENT_LABEL
+              value: "multicluster-operators-subscription"
           resources:
               requests:
                 cpu: 100m

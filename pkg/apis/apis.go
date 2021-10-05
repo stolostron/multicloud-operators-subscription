@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	chnapis "open-cluster-management.io/multicloud-operators-channel/pkg/apis"
 )
 
@@ -29,6 +30,11 @@ func AddToScheme(s *runtime.Scheme) error {
 	err := chnapis.AddToSchemes.AddToScheme(s)
 	if err != nil {
 		klog.Error("Failed to add channel to scheme ")
+		return err
+	}
+
+	err = spokeClusterV1.AddToScheme(s)
+	if err != nil {
 		return err
 	}
 
