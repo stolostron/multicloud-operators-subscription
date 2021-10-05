@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
@@ -72,6 +73,9 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(cfg).ToNot(BeNil())
 
 	err = apis.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = policyReportV1alpha2.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})

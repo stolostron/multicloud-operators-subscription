@@ -238,7 +238,7 @@ var _ = Describe("github subscriber reconcile logic", func() {
 
 		// Test kube resource with package filter having some matching labels
 		errMsg = subitem.checkFilters(rsc)
-		Expect(errMsg).To(Equal("Failed to pass annotation check to deployable " + rsc.GetName()))
+		Expect(errMsg).To(Equal("Failed to pass annotation check to manifest " + rsc.GetName()))
 
 	})
 })
@@ -295,10 +295,11 @@ var _ = Describe("test subscribe invalid resource", func() {
 		subitem.Channel = githubchn
 		subitem.synchronizer = defaultSubscriber.synchronizer
 
-		// Test subscribing an invalid kubernetes resource
+		// Test subscribing an invalid kubernetes resource,
+		// By new design, even if the GVK is not valid, function subscribeResource here doesn't return error.
+		// So the invalid resource will go ahead to get deployed, where the error will be recorded in the final subscription status.
 		_, _, err := subitem.subscribeResource([]byte(invalidRsc))
-		Expect(err).To(HaveOccurred())
-
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should clone the target repo", func() {
