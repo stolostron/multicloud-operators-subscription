@@ -43,5 +43,5 @@ require (
 
 replace (
 	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.5.0
-	k8s.io/client-go => k8s.io/client-go v0.21.1
+	k8s.io/client-go => k8s.io/client-go v0.21.3
 )
