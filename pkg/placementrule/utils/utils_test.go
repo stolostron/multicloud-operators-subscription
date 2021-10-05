@@ -108,7 +108,7 @@ func TestLocal(t *testing.T) {
 func TestLoadCRD(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	g.Expect(CheckAndInstallCRD(cfg, "../../deploy/crds/apps.open-cluster-management.io_placementrules_crd.yaml")).NotTo(gomega.HaveOccurred())
+	g.Expect(CheckAndInstallCRD(cfg, "../../../deploy/crds/apps.open-cluster-management.io_subscriptions_crd_v1.yaml")).NotTo(gomega.HaveOccurred())
 }
 
 func TestEventRecorder(t *testing.T) {

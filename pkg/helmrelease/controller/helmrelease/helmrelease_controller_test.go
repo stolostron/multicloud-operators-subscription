@@ -29,6 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 var (
@@ -49,6 +50,13 @@ func TestReconcile(t *testing.T) {
 		MetricsBindAddress: "0",
 		LeaderElection:     false,
 	})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	syncId := types.NamespacedName{
+		Namespace: "default",
+		Name:      "default",
+	}
+	err = kubesynchronizer.Add(mgr, cfg, &syncId, 0, true, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c := mgr.GetClient()

@@ -87,18 +87,16 @@ func TestGetGitResources(t *testing.T) {
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.
-	ret, err := rec.GetGitResources(githubsub)
+	_, err = rec.GetGitResources(githubsub, false)
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(ret).To(gomega.BeFalse())
 
 	err = c.Create(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	time.Sleep(2 * time.Second)
 
-	ret, err = rec.GetGitResources(githubsub)
+	_, err = rec.GetGitResources(githubsub, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(ret).To(gomega.BeTrue())
 
 	time.Sleep(2 * time.Second)
 

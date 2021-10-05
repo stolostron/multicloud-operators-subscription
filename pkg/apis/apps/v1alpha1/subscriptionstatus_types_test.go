@@ -52,7 +52,7 @@ var (
 		},
 	}
 
-	pkgStatus = &SubscriptionPackageStatus{
+	pkgStatus = &SubscriptionStatus{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "SubscriptionPackageStatus",
 			APIVersion: "apps.open-cluster-management.io/v1alpha1",
@@ -62,46 +62,16 @@ var (
 			Namespace: pkgKey.Namespace,
 		},
 		Statuses: SubscriptionClusterStatusMap{
-			SubscriptionPackageStatus: []SubscriptionUnitStatus{*saStatus},
-		},
-	}
-
-	summaryKey = types.NamespacedName{
-		Name:      "testsummarystatus",
-		Namespace: "default",
-	}
-
-	summaryStatus = &SubscriptionSummaryStatus{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "SubscriptionSummaryStatus",
-			APIVersion: "apps.open-cluster-management.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      summaryKey.Name,
-			Namespace: summaryKey.Namespace,
-		},
-		Summary: SubscriptionSummary{
-			DeployedSummary: ClusterSummary{
-				Count:    1,
-				Clusters: []string{"cluster1"},
-			},
-			DeployFailedSummary: ClusterSummary{
-				Count:    1,
-				Clusters: []string{"cluster2"},
-			},
-			PropagationFailedSummary: ClusterSummary{
-				Count:    1,
-				Clusters: []string{"cluster3"},
-			},
+			SubscriptionStatus: []SubscriptionUnitStatus{*saStatus},
 		},
 	}
 )
 
-func TestAppSubPackageStatus(t *testing.T) {
+func TestAppSubStatus(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Create and Get
-	fetched := &SubscriptionPackageStatus{}
+	fetched := &SubscriptionStatus{}
 
 	created := pkgStatus.DeepCopy()
 	g.Expect(c.Create(context.TODO(), created)).NotTo(gomega.HaveOccurred())
@@ -111,7 +81,7 @@ func TestAppSubPackageStatus(t *testing.T) {
 
 	// Test Updating the Labels
 	updated := fetched.DeepCopy()
-	updated.Statuses.SubscriptionPackageStatus = append(updated.Statuses.SubscriptionPackageStatus, *crStatus)
+	updated.Statuses.SubscriptionStatus = append(updated.Statuses.SubscriptionStatus, *crStatus)
 
 	g.Expect(c.Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), pkgKey, fetched)).NotTo(gomega.HaveOccurred())
@@ -120,30 +90,4 @@ func TestAppSubPackageStatus(t *testing.T) {
 	// Test Delete
 	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), pkgKey, fetched)).To(gomega.HaveOccurred())
-}
-
-func TestAppSubSummaryStatus(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-
-	// Test Create and Get
-	fetched := &SubscriptionSummaryStatus{}
-
-	created := summaryStatus.DeepCopy()
-	g.Expect(c.Create(context.TODO(), created)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Get(context.TODO(), summaryKey, fetched)).NotTo(gomega.HaveOccurred())
-
-	g.Expect(fetched).To(gomega.Equal(created))
-
-	// Test Updating the Labels
-	updated := fetched.DeepCopy()
-	updated.Summary.DeployedSummary.Clusters = append(updated.Summary.DeployedSummary.Clusters, "cluster5")
-	updated.Summary.DeployedSummary.Count = 2
-
-	g.Expect(c.Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Get(context.TODO(), summaryKey, fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(fetched).To(gomega.Equal(updated))
-
-	// Test Delete
-	g.Expect(c.Delete(context.TODO(), fetched)).NotTo(gomega.HaveOccurred())
-	g.Expect(c.Get(context.TODO(), summaryKey, fetched)).To(gomega.HaveOccurred())
 }

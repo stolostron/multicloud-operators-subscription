@@ -428,7 +428,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 				if err != nil {
 					// Ignore if it does not have apiVersion or kind fields in the YAML
-					klog.Info("Invalid kube resources. err: %v ", err)
+					klog.Infof("Invalid kube resources. err: %v ", err)
 
 					continue
 				}
