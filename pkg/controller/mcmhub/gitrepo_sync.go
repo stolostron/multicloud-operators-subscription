@@ -600,7 +600,7 @@ func (r *ReconcileSubscription) createDeployable(
 	dplLabels[chnv1.KeyChannel] = chn.Name
 	dplLabels[chnv1.KeyChannelType] = string(chn.Spec.Type)
 	// subscription name can be longer than 63 characters because it is applicationName + -subscription-n. A label cannot exceed 63 chars.
-	dplLabels[appv1.LabelSubscriptionName] = utils.TrimLabelLast63Chars(subscriptionNameLabelStr)
+	dplLabels[appv1.LabelSubscriptionName] = utils.ValidateK8sLabel(utils.TrimLabelLast63Chars(subscriptionNameLabelStr))
 	dpl.SetLabels(dplLabels)
 
 	dpl.Spec.Template = &runtime.RawExtension{}
