@@ -194,7 +194,8 @@ func TestPrepareDeployableForSubscription(t *testing.T) {
 	g.Expect(subDpl).NotTo(gomega.BeNil())
 	// subscription deployable name cannot exceed 63 charaters because it will be used as a label
 	// by deployable controller. A label cannot exceed 63 charaters
-	g.Expect(len(subDpl.Name)).To(gomega.Equal(63))
+	// 63 but the leading - character gets removed to be a valid k8s name
+	g.Expect(len(subDpl.Name)).To(gomega.Equal(62))
 }
 
 func TestUpdateSubscriptionToTarget(t *testing.T) {
