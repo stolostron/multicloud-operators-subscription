@@ -36,6 +36,7 @@ import (
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 const (
@@ -209,10 +210,11 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 
 var _ = Describe("given a subscription pointing to a git path without hook folders", func() {
 	var (
-		ctx    = context.TODO()
-		testNs = "normal-sub"
-		subKey = types.NamespacedName{Name: "t-sub", Namespace: testNs}
-		chnKey = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+		ctx                = context.TODO()
+		testNs             = "normal-sub"
+		subKey             = types.NamespacedName{Name: "t-sub", Namespace: testNs}
+		chnKey             = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+		appPolicyReportKey = types.NamespacedName{Name: subKey.Name + "-policyreport-appsub-status", Namespace: testNs}
 
 		chnIns = &chnv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
@@ -247,7 +249,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 		}
 	)
 
-	It("should download the git to local and add deployables annotations to subscription", func() {
+	It("should download the git to local and create app policyreport", func() {
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
@@ -262,13 +264,15 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			if err := k8sClt.Get(ctx, subKey, u); err != nil {
 				return fmt.Errorf("failed to get subscription %s, err: %s", subKey, err.Error())
 			}
-			fmt.Printf("izhang ======  u = %+v\n", u)
 
-			an := u.GetAnnotations()
+			fmt.Printf("subscription= %+v\n", u)
 
-			if getCommitID(u) == "" || an[subv1.AnnotationDeployables] == "" || an[subv1.AnnotationTopo] == "" {
-				return fmt.Errorf("failed to get the commitID, deployables or topo annotation")
+			policyReport := &policyReportV1alpha2.PolicyReport{}
+			if err := k8sClt.Get(ctx, appPolicyReportKey, policyReport); err != nil {
+				return fmt.Errorf("failed to get the appsub policyReport %s, err: %s", appPolicyReportKey, err.Error())
 			}
+
+			fmt.Printf("policyReport= %+v\n", policyReport)
 
 			return nil
 		}

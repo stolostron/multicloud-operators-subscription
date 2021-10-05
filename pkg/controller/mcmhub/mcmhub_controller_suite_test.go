@@ -36,6 +36,7 @@ import (
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 var cfg *rest.Config
@@ -52,6 +53,7 @@ func TestMain(m *testing.M) {
 	ansiblejob.AddToScheme(scheme.Scheme)
 	apis.AddToScheme(scheme.Scheme)
 	spokeClusterV1.AddToScheme(scheme.Scheme)
+	policyReportV1alpha2.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {

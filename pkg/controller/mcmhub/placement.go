@@ -41,6 +41,10 @@ func (r *ReconcileSubscription) getClustersByPlacement(instance *appSubV1.Subscr
 
 	var err error
 
+	if instance.Spec.Placement == nil {
+		return clusters, nil
+	}
+
 	// Top priority: placementRef, ignore others
 	// Next priority: clusterNames, ignore selector
 	// Bottomline: Use label selector
