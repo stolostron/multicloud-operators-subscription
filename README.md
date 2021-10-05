@@ -32,9 +32,9 @@ Deploy the subscription operator.
 $ git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
 $ cd multicloud-operators-subscription
 $ make deploy-standalone
-$ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
+$ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-multicloud-operators-subscription   1/1     1            1           21m
+multicluster-operators-subscription   1/1     1            1           21m
 ```
 
 Create a Helm channel and subscribe to it.
@@ -69,10 +69,10 @@ Deploy the subscription operator on the _hub_ cluster.
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
 $ clusteradm install addons --names application-manager
-$ kubectl -n open-cluster-management get deploy  multicloud-operators-subscription
+$ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-multicloud-operators-subscription   1/1     1            1           25s
-$ kubectl -n open-cluster-management wait deploy multicloud-operators-subscription --for condition=available
+multicluster-operators-subscription   1/1     1            1           25s
+$ kubectl -n open-cluster-management wait deploy multicluster-operators-subscription --for condition=available
 ```
 
 ### Add-on Deployment
@@ -95,9 +95,9 @@ Check the the subscription add-on deployment on the _managed_ cluster.
 
 ```shell
 $ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
-$ kubectl -n open-cluster-management-agent-addon get deploy multicloud-operators-subscription
+$ kubectl -n open-cluster-management-agent-addon get deploy multicluster-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-multicloud-operators-subscription   1/1     1            1           103s
+multicluster-operators-subscription   1/1     1            1           103s
 ```
 
 ### What is next
