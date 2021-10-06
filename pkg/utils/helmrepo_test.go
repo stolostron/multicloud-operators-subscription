@@ -320,14 +320,14 @@ func TestCreateHelmCRManifest(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, err := CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err := CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
 	dplName1 := dpl.GetName()
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
@@ -343,7 +343,7 @@ func TestCreateHelmCRManifest(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 

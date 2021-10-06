@@ -88,5 +88,5 @@ func TestObjectSubscriber(t *testing.T) {
 	// connect to a fake object store, should expect connection failure now.
 	err = defaultSubscriber.SubscribeItem(subitem)
 
-	g.Expect(err).Should(gomega.HaveOccurred())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }

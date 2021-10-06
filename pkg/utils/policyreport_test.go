@@ -20,9 +20,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/types"
-	v1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 var (
@@ -37,6 +36,8 @@ func TestAppSubPropagationFailedPolicyReport(t *testing.T) {
 
 	// Setup the Manager and Controller.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	policyReportV1alpha2.AddToScheme(mgr.GetScheme())
+
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -59,18 +60,16 @@ func TestAppSubPropagationFailedPolicyReport(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	pkgKey := types.NamespacedName{
-		Name:      appSubName,
-		Namespace: cluster,
+	policyReport, err := getClusterPolicyReport(c, appSubNs, appSubName, cluster, false)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	prResultFoundIndex := -1
+	prResultSource := appSubNs + "/" + appSubName
+	for i, result := range policyReport.Results {
+		if result.Source == prResultSource && result.Policy == "APPSUB_FAILURE" {
+			prResultFoundIndex = i
+			break
+		}
 	}
-	pkgstatus := &v1alpha1.SubscriptionStatus{}
-	g.Expect(c.Get(context.TODO(), pkgKey, pkgstatus)).NotTo(gomega.HaveOccurred())
-	g.Expect(pkgstatus.Namespace).To(gomega.Equal(cluster))
-	g.Expect(len(pkgstatus.Statuses.SubscriptionStatus)).To(gomega.Equal(1))
-
-	pkgFailStatus := pkgstatus.Statuses.SubscriptionStatus[0]
-	g.Expect(pkgFailStatus.Phase).To(gomega.Equal(v1alpha1.PackagePropagationFailed))
-	g.Expect(pkgFailStatus.Message).To(gomega.Equal(message))
-
-	g.Expect(c.Delete(context.TODO(), pkgstatus)).NotTo(gomega.HaveOccurred())
+	g.Expect(prResultFoundIndex).Should(gomega.Equal(0))
 }
