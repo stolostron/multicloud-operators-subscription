@@ -43,5 +43,5 @@ require (
 
 replace (
 	k8s.io/client-go => k8s.io/client-go v0.21.3
-	open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20210930-0dfb749
+	open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20211006-96596e6
 )
