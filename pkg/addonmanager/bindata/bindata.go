@@ -5,6 +5,7 @@
 // deploy/managed-common/apps.open-cluster-management.io_subscriptions_crd_v1.yaml
 // deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml
 // deploy/managed-common/clusterrole.yaml
+// deploy/managed-common/clusterrole2.yaml
 // deploy/managed-common/clusterrole_binding.yaml
 // deploy/managed-common/service.yaml
 // deploy/managed-common/service_account.yaml
@@ -100,7 +101,7 @@ func deployManagedCommonAppsOpenClusterManagementIo_helmreleases_crdYaml() (*ass
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_helmreleases_crd.yaml", size: 16964, mode: os.FileMode(436), modTime: time.Unix(1633457964, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_helmreleases_crd.yaml", size: 16964, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -120,7 +121,7 @@ func deployManagedCommonAppsOpenClusterManagementIo_placementrules_crdYaml() (*a
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_placementrules_crd.yaml", size: 11152, mode: os.FileMode(436), modTime: time.Unix(1633457964, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_placementrules_crd.yaml", size: 11152, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -140,7 +141,7 @@ func deployManagedCommonAppsOpenClusterManagementIo_subscriptions_crd_v1Yaml() (
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_subscriptions_crd_v1.yaml", size: 25629, mode: os.FileMode(436), modTime: time.Unix(1633438988, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_subscriptions_crd_v1.yaml", size: 25629, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -160,7 +161,7 @@ func deployManagedCommonAppsOpenClusterManagementIo_subscriptionstatuses_crd_v1a
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml", size: 2634, mode: os.FileMode(436), modTime: time.Unix(1633457964, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml", size: 2634, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -180,7 +181,27 @@ func deployManagedCommonClusterroleYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/clusterrole.yaml", size: 172, mode: os.FileMode(436), modTime: time.Unix(1633460310, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/clusterrole.yaml", size: 172, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
+	a := &asset{bytes: bytes, info: info}
+	return a, nil
+}
+
+var _deployManagedCommonClusterrole2Yaml = []byte("\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff\x7c\x8e\xb1\x4e\x43\x31\x0c\x45\x77\x7f\x85\xd5\xa5\x12\x52\x82\xd8\x50\x56\x06\x76\x06\x76\xe7\xd5\x7a\x58\x4d\xe2\xc8\x76\x3a\xf0\xf5\xe8\xd1\x4a\x6c\x8c\x96\xef\xb9\xe7\xd2\x94\x4f\x36\x17\x1d\x05\xad\xd2\x96\x69\xc5\x97\x9a\x7c\x53\x88\x8e\x7c\x7d\xf5\x2c\xfa\x7c\x7b\x81\xab\x8c\x4b\xc1\xb7\xb6\x3c\xd8\x3e\xb4\x31\x74\x0e\xba\x50\x50\x01\xc4\x41\x9d\x0b\xd2\xbe\x1b\xef\x14\x9c\x68\x4e\x5f\x35\xd1\xa5\xcb\x00\xc4\x46\x95\x9b\x1f\x41\xfc\xc7\xf2\x87\x87\xde\xd1\x82\xa7\xb0\xc5\x27\xb0\xd5\xd8\x0b\x24\xa4\x29\xef\xa6\x6b\xfe\x96\x1d\xe7\xf4\xac\x93\x47\xda\xee\xcb\x52\xa7\x41\x3b\x77\x1e\x91\x45\x01\xd1\xd8\x75\xd9\xc6\x0f\xc0\x57\xf5\xcd\x64\x1e\x5e\x07\xc4\x1b\x5b\x7d\xbc\xce\x4f\x67\xf8\x09\x00\x00\xff\xff\xd2\x32\x61\x56\x0f\x01\x00\x00")
+
+func deployManagedCommonClusterrole2YamlBytes() ([]byte, error) {
+	return bindataRead(
+		_deployManagedCommonClusterrole2Yaml,
+		"deploy/managed-common/clusterrole2.yaml",
+	)
+}
+
+func deployManagedCommonClusterrole2Yaml() (*asset, error) {
+	bytes, err := deployManagedCommonClusterrole2YamlBytes()
+	if err != nil {
+		return nil, err
+	}
+
+	info := bindataFileInfo{name: "deploy/managed-common/clusterrole2.yaml", size: 271, mode: os.FileMode(436), modTime: time.Unix(1633529095, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -200,7 +221,7 @@ func deployManagedCommonClusterrole_bindingYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/clusterrole_binding.yaml", size: 330, mode: os.FileMode(436), modTime: time.Unix(1633460307, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/clusterrole_binding.yaml", size: 330, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -220,7 +241,7 @@ func deployManagedCommonServiceYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/service.yaml", size: 357, mode: os.FileMode(436), modTime: time.Unix(1633460316, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/service.yaml", size: 357, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -240,7 +261,7 @@ func deployManagedCommonService_accountYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed-common/service_account.yaml", size: 126, mode: os.FileMode(436), modTime: time.Unix(1633460313, 0)}
+	info := bindataFileInfo{name: "deploy/managed-common/service_account.yaml", size: 126, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -260,7 +281,7 @@ func deployManagedOperatorYaml() (*asset, error) {
 		return nil, err
 	}
 
-	info := bindataFileInfo{name: "deploy/managed/operator.yaml", size: 1646, mode: os.FileMode(436), modTime: time.Unix(1633460300, 0)}
+	info := bindataFileInfo{name: "deploy/managed/operator.yaml", size: 1646, mode: os.FileMode(436), modTime: time.Unix(1633467816, 0)}
 	a := &asset{bytes: bytes, info: info}
 	return a, nil
 }
@@ -322,6 +343,7 @@ var _bindata = map[string]func() (*asset, error){
 	"deploy/managed-common/apps.open-cluster-management.io_subscriptions_crd_v1.yaml":              deployManagedCommonAppsOpenClusterManagementIo_subscriptions_crd_v1Yaml,
 	"deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml": deployManagedCommonAppsOpenClusterManagementIo_subscriptionstatuses_crd_v1alpha1Yaml,
 	"deploy/managed-common/clusterrole.yaml":                                                       deployManagedCommonClusterroleYaml,
+	"deploy/managed-common/clusterrole2.yaml":                                                      deployManagedCommonClusterrole2Yaml,
 	"deploy/managed-common/clusterrole_binding.yaml":                                               deployManagedCommonClusterrole_bindingYaml,
 	"deploy/managed-common/service.yaml":                                                           deployManagedCommonServiceYaml,
 	"deploy/managed-common/service_account.yaml":                                                   deployManagedCommonService_accountYaml,
@@ -379,6 +401,7 @@ var _bintree = &bintree{nil, map[string]*bintree{
 			"apps.open-cluster-management.io_subscriptions_crd_v1.yaml":              &bintree{deployManagedCommonAppsOpenClusterManagementIo_subscriptions_crd_v1Yaml, map[string]*bintree{}},
 			"apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml": &bintree{deployManagedCommonAppsOpenClusterManagementIo_subscriptionstatuses_crd_v1alpha1Yaml, map[string]*bintree{}},
 			"clusterrole.yaml":                                                       &bintree{deployManagedCommonClusterroleYaml, map[string]*bintree{}},
+			"clusterrole2.yaml":                                                      &bintree{deployManagedCommonClusterrole2Yaml, map[string]*bintree{}},
 			"clusterrole_binding.yaml":                                               &bintree{deployManagedCommonClusterrole_bindingYaml, map[string]*bintree{}},
 			"service.yaml":                                                           &bintree{deployManagedCommonServiceYaml, map[string]*bintree{}},
 			"service_account.yaml":                                                   &bintree{deployManagedCommonService_accountYaml, map[string]*bintree{}},

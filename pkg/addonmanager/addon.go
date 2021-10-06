@@ -35,6 +35,7 @@ var (
 		"deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml",
 		"deploy/managed-common/clusterrole_binding.yaml",
 		"deploy/managed-common/clusterrole.yaml",
+		"deploy/managed-common/clusterrole2.yaml",
 		"deploy/managed-common/service_account.yaml",
 		"deploy/managed-common/service.yaml",
 	}
