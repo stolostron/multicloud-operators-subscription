@@ -34,6 +34,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -154,6 +155,11 @@ func NewHookGit(clt client.Client, ops ...HubGitOption) *HubGitOps {
 func (h *HubGitOps) Start(ctx context.Context) error {
 	h.logger.Info("entry StartGitWatch")
 	defer h.logger.Info("exit StartGitWatch")
+
+	err := CreateSubscriptionAdminRBAC(h.clt)
+	if err != nil {
+		klog.Error(err, "failed create subscriberitem admin RBAC")
+	}
 
 	go wait.UntilWithContext(ctx, h.GitWatch, h.watcherInterval)
 
