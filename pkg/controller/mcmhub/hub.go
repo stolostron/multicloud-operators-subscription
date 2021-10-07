@@ -810,7 +810,7 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 		subepanno[appv1alpha1.AnnotationBucketPath] = origsubanno[appv1alpha1.AnnotationBucketPath]
 	}
 
-	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") && r.AddClusterAdminAnnotation(sub) {
+	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationClusterAdmin], "") {
 		subepanno[appv1alpha1.AnnotationClusterAdmin] = origsubanno[appv1alpha1.AnnotationClusterAdmin]
 	}
 
@@ -841,6 +841,9 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appv1alpha1.Subscripti
 	if !strings.EqualFold(origsubanno[appv1alpha1.AnnotationManualReconcileTime], "") {
 		subepanno[appv1alpha1.AnnotationManualReconcileTime] = origsubanno[appv1alpha1.AnnotationManualReconcileTime]
 	}
+
+	// This is to verify cluster-admin annotation
+	r.AddClusterAdminAnnotation(sub)
 
 	// Add annotation for git path and branch
 	// It is recommended to define Git path and branch in subscription annotations but
