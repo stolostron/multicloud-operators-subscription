@@ -1281,7 +1281,7 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 		}
 
 		if err := clt.Get(context.TODO(), chncmkey, configMap); err != nil {
-			klog.Warning("failed to get reference configmap from channel ", err)
+			klog.Warningf("failed to get reference configmap from channel err: %v, chnseckey: %v", err, chncmkey)
 		} else {
 			cm = configMap
 		}

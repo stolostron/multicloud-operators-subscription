@@ -180,6 +180,55 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	var err error
 
+	//Update the secret and config map
+	if hrsi.Channel != nil {
+		sec, cm := utils.FetchChannelReferences(hrsi.synchronizer.GetRemoteNonCachedClient(), *hrsi.Channel)
+		if sec != nil {
+			klog.Info("Updated channel secret for ", hrsi.Subscription.Name)
+			hrsi.ChannelSecret = sec
+
+			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
+
+			if err := utils.ListAndDeployReferredObject(hrsi.synchronizer.GetLocalNonCachedClient(), hrsi.Subscription, gvk, hrsi.ChannelSecret); err != nil {
+				klog.Warning("can't deploy reference secret %v for subscription %v", hrsi.ChannelSecret.GetName(), hrsi.Subscription.GetName())
+			}
+		}
+		if cm != nil {
+			klog.Info("Updated channel configmap for ", hrsi.Subscription.Name)
+			hrsi.ChannelConfigMap = cm
+
+			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
+
+			if err := utils.ListAndDeployReferredObject(hrsi.synchronizer.GetLocalNonCachedClient(), hrsi.Subscription, gvk, hrsi.ChannelConfigMap); err != nil {
+				klog.Warning("can't deploy reference configmap %v for subscription %v", hrsi.ChannelConfigMap.GetName(), hrsi.Subscription.GetName())
+			}
+		}
+	}
+
+	if hrsi.SecondaryChannel != nil {
+		sec, cm := utils.FetchChannelReferences(hrsi.synchronizer.GetRemoteNonCachedClient(), *hrsi.SecondaryChannel)
+		if sec != nil {
+			klog.Info("Updated secondary channel secret for ", hrsi.Subscription.Name)
+			hrsi.SecondaryChannelSecret = sec
+
+			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
+
+			if err := utils.ListAndDeployReferredObject(hrsi.synchronizer.GetLocalNonCachedClient(), hrsi.Subscription, gvk, hrsi.SecondaryChannelSecret); err != nil {
+				klog.Warning("can't deploy reference secondary secret %v for subscription %v", hrsi.SecondaryChannelSecret.GetName(), hrsi.Subscription.GetName())
+			}
+		}
+		if cm != nil {
+			klog.Info("Updated channel configmap for ", hrsi.Subscription.Name)
+			hrsi.SecondaryChannelConfigMap = cm
+
+			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
+
+			if err := utils.ListAndDeployReferredObject(hrsi.synchronizer.GetLocalNonCachedClient(), hrsi.Subscription, gvk, hrsi.SecondaryChannelConfigMap); err != nil {
+				klog.Warning("can't deploy reference secondary configmap %v for subscription %v", hrsi.SecondaryChannelConfigMap.GetName(), hrsi.Subscription.GetName())
+			}
+		}
+	}
+
 	indexFile, hash, err = hrsi.getRepoInfo(true) // true for using primary channel
 
 	if err != nil {

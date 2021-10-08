@@ -61,6 +61,7 @@ type KubeSynchronizer struct {
 	localCachedClient      *cachedClient
 	remoteCachedClient     *cachedClient
 	LocalClient            client.Client
+	LocalNonCachedClient   client.Client
 	RemoteClient           client.Client
 	RemoteNonCachedClient  client.Client
 	localConfig            *rest.Config
@@ -142,6 +143,14 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 
 	s.LocalClient = s.localCachedClient.clt
 
+	// set up non chanced local client
+	s.LocalNonCachedClient, err = client.New(config, client.Options{})
+	if err != nil {
+		klog.Error("Failed to generate client to local cluster with error: ", err)
+
+		return nil, err
+	}
+
 	s.RemoteClient = s.LocalClient
 	if remoteConfig != nil {
 		s.remoteCachedClient, err = newCachedClient(remoteConfig, syncid)
@@ -157,7 +166,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 	// set up non chanced hub client
 	s.RemoteNonCachedClient, err = client.New(remoteConfig, client.Options{})
 	if err != nil {
-		klog.Error("Failed to generate client to hub cluster with error:", err)
+		klog.Error("Failed to generate client to hub cluster with error: ", err)
 
 		return nil, err
 	}
@@ -218,6 +227,10 @@ func (sync *KubeSynchronizer) GetInterval() int {
 
 func (sync *KubeSynchronizer) GetLocalClient() client.Client {
 	return sync.LocalClient
+}
+
+func (sync *KubeSynchronizer) GetLocalNonCachedClient() client.Client {
+	return sync.LocalNonCachedClient
 }
 
 func (sync *KubeSynchronizer) GetRemoteClient() client.Client {

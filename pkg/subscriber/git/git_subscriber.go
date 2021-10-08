@@ -37,6 +37,7 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
+	GetLocalNonCachedClient() client.Client
 	GetRemoteClient() client.Client
 	GetRemoteNonCachedClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
