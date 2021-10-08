@@ -62,6 +62,7 @@ type KubeSynchronizer struct {
 	remoteCachedClient     *cachedClient
 	LocalClient            client.Client
 	RemoteClient           client.Client
+	RemoteNonCachedClient  client.Client
 	localConfig            *rest.Config
 	hub                    bool
 	standalone             bool
@@ -153,6 +154,14 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		s.RemoteClient = s.remoteCachedClient.clt
 	}
 
+	// set up non chanced hub client
+	s.RemoteNonCachedClient, err = client.New(remoteConfig, client.Options{})
+	if err != nil {
+		klog.Error("Failed to generate client to hub cluster with error:", err)
+
+		return nil, err
+	}
+
 	defaultExtension.localClient = s.LocalClient
 	defaultExtension.remoteClient = s.RemoteClient
 
@@ -213,4 +222,8 @@ func (sync *KubeSynchronizer) GetLocalClient() client.Client {
 
 func (sync *KubeSynchronizer) GetRemoteClient() client.Client {
 	return sync.RemoteClient
+}
+
+func (sync *KubeSynchronizer) GetRemoteNonCachedClient() client.Client {
+	return sync.RemoteNonCachedClient
 }

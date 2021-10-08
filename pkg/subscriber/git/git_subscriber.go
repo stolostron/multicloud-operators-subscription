@@ -38,6 +38,7 @@ type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
 	GetRemoteClient() client.Client
+	GetRemoteNonCachedClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
 	ProcessSubResources(types.NamespacedName, []kubesynchronizer.ResourceUnit,
 		map[string]map[string]string, map[string]map[string]string, bool) error

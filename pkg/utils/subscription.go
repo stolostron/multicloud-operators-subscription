@@ -1262,7 +1262,7 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 		}
 
 		if err := clt.Get(context.TODO(), chnseckey, secret); err != nil {
-			klog.Warning("failed to get reference secret from channel ", err)
+			klog.Warningf("failed to get reference secret from channel err: %v, chnseckey: %v", err, chnseckey)
 		} else {
 			sec = secret
 		}

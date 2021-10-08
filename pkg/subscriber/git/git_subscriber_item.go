@@ -201,7 +201,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	//Update the secret and config map
 	if ghsi.Channel != nil {
-		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteClient(), *ghsi.Channel)
+		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.Channel)
 		if sec != nil {
 			klog.Info("Updated channel secret for ", ghsi.Subscription.Name)
 			ghsi.ChannelSecret = sec
@@ -225,7 +225,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	if ghsi.SecondaryChannel != nil {
-		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteClient(), *ghsi.SecondaryChannel)
+		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.SecondaryChannel)
 		if sec != nil {
 			klog.Info("Updated secondary channel secret for ", ghsi.Subscription.Name)
 			ghsi.SecondaryChannelSecret = sec
