@@ -270,48 +270,56 @@ func (obsi *SubscriberItem) doSubscription() {
 	if obsi.Channel != nil {
 		sec, cm := utils.FetchChannelReferences(obsi.synchronizer.GetRemoteNonCachedClient(), *obsi.Channel)
 		if sec != nil {
-			klog.Info("Updated channel secret for ", obsi.Subscription.Name)
-			obsi.ChannelSecret = sec
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription, gvk, obsi.ChannelSecret); err != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
 				klog.Warning("can't deploy reference secret %v for subscription %v", obsi.ChannelSecret.GetName(), obsi.Subscription.GetName())
 			}
 		}
+
 		if cm != nil {
-			klog.Info("Updated channel configmap for ", obsi.Subscription.Name)
-			obsi.ChannelConfigMap = cm
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription, gvk, obsi.ChannelConfigMap); err != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
 				klog.Warning("can't deploy reference configmap %v for subscription %v", obsi.ChannelConfigMap.GetName(), obsi.Subscription.GetName())
 			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(obsi.synchronizer.GetLocalNonCachedClient(), *obsi.Channel)
+		if sec != nil {
+			klog.V(1).Info("updated in memory channel secret for ", obsi.Subscription.Name)
+			obsi.ChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory channel configmap for ", obsi.Subscription.Name)
+			obsi.ChannelConfigMap = cm
 		}
 	}
 
 	if obsi.SecondaryChannel != nil {
 		sec, cm := utils.FetchChannelReferences(obsi.synchronizer.GetRemoteNonCachedClient(), *obsi.SecondaryChannel)
 		if sec != nil {
-			klog.Info("Updated secondary channel secret for ", obsi.Subscription.Name)
-			obsi.SecondaryChannelSecret = sec
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription, gvk, obsi.SecondaryChannelSecret); err != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
 				klog.Warning("can't deploy reference secondary secret %v for subscription %v", obsi.SecondaryChannelSecret.GetName(), obsi.Subscription.GetName())
 			}
 		}
+
 		if cm != nil {
-			klog.Info("Updated channel configmap for ", obsi.Subscription.Name)
-			obsi.SecondaryChannelConfigMap = cm
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription, gvk, obsi.SecondaryChannelConfigMap); err != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
 				klog.Warning("can't deploy reference secondary configmap %v for subscription %v", obsi.SecondaryChannelConfigMap.GetName(), obsi.Subscription.GetName())
 			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(obsi.synchronizer.GetLocalNonCachedClient(), *obsi.SecondaryChannel)
+		if sec != nil {
+			klog.Info("updated in memory secondary channel secret for ", obsi.Subscription.Name)
+			obsi.SecondaryChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory secondary channel configmap for ", obsi.Subscription.Name)
+			obsi.SecondaryChannelConfigMap = cm
 		}
 	}
 

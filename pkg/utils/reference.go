@@ -97,18 +97,26 @@ func ListAndDeployReferredObject(clt client.Client, instance *appv1.Subscription
 				urerf.SetResourceVersion("")
 				urerf.SetUID(t)
 
-				err := clt.Update(context.TODO(), urerf)
-				if err != nil {
-					return err
+				if !isEqualObjectsDataOwnersLabels(u, urerf) {
+					err := clt.Update(context.TODO(), urerf)
+					if err != nil {
+						return err
+					}
+
+					klog.V(1).Info("reference object updated via client ", urerf.GetName())
 				}
 			} else {
 				u.SetLabels(lb)
 				newOwers := addObjectOwnedBySub(u, instance)
 				u.SetOwnerReferences(newOwers)
 
-				err := clt.Update(context.TODO(), u)
-				if err != nil {
-					return err
+				if !isEqualObjectsDataOwnersLabels(obj.DeepCopy(), u) {
+					err := clt.Update(context.TODO(), u)
+					if err != nil {
+						return err
+					}
+
+					klog.V(1).Info("reference object updated via client ", u.GetName())
 				}
 			}
 
@@ -265,4 +273,29 @@ func deleteSubFromObjectOwnersByName(obj referredObject, subname string) []metav
 	}
 
 	return newOwners
+}
+
+func isEqualObjectsDataOwnersLabels(existingObject *unstructured.Unstructured, referObject referredObject) bool {
+	if !reflect.DeepEqual(existingObject.GetOwnerReferences(), referObject.GetOwnerReferences()) {
+		return false
+	}
+
+	if !reflect.DeepEqual(existingObject.GetLabels(), referObject.GetLabels()) {
+		return false
+	}
+
+	oldData := existingObject.Object["data"]
+
+	newObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(referObject)
+	if err != nil {
+		klog.Error("failed to convert reference object to unstructure ", err)
+
+		return false
+	}
+
+	if newData := newObj["data"]; !reflect.DeepEqual(oldData, newData) {
+		return false
+	}
+
+	return true
 }

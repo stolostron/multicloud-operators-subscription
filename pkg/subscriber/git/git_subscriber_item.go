@@ -203,48 +203,56 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	if ghsi.Channel != nil {
 		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.Channel)
 		if sec != nil {
-			klog.Info("Updated channel secret for ", ghsi.Subscription.Name)
-			ghsi.ChannelSecret = sec
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription, gvk, ghsi.ChannelSecret); err != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
 				klog.Warning("can't deploy reference secret %v for subscription %v", ghsi.ChannelSecret.GetName(), ghsi.Subscription.GetName())
 			}
 		}
+
 		if cm != nil {
-			klog.Info("Updated channel configmap for ", ghsi.Subscription.Name)
-			ghsi.ChannelConfigMap = cm
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription, gvk, ghsi.ChannelConfigMap); err != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
 				klog.Warning("can't deploy reference configmap %v for subscription %v", ghsi.ChannelConfigMap.GetName(), ghsi.Subscription.GetName())
 			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(ghsi.synchronizer.GetLocalNonCachedClient(), *ghsi.Channel)
+		if sec != nil {
+			klog.V(1).Info("updated in memory channel secret for ", ghsi.Subscription.Name)
+			ghsi.ChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory channel configmap for ", ghsi.Subscription.Name)
+			ghsi.ChannelConfigMap = cm
 		}
 	}
 
 	if ghsi.SecondaryChannel != nil {
 		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.SecondaryChannel)
 		if sec != nil {
-			klog.Info("Updated secondary channel secret for ", ghsi.Subscription.Name)
-			ghsi.SecondaryChannelSecret = sec
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription, gvk, ghsi.SecondaryChannelSecret); err != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
 				klog.Warning("can't deploy reference secondary secret %v for subscription %v", ghsi.SecondaryChannelSecret.GetName(), ghsi.Subscription.GetName())
 			}
 		}
+
 		if cm != nil {
-			klog.Info("Updated channel configmap for ", ghsi.Subscription.Name)
-			ghsi.SecondaryChannelConfigMap = cm
-
-			gvk := schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}
-
-			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription, gvk, ghsi.SecondaryChannelConfigMap); err != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
 				klog.Warning("can't deploy reference secondary configmap %v for subscription %v", ghsi.SecondaryChannelConfigMap.GetName(), ghsi.Subscription.GetName())
 			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(ghsi.synchronizer.GetLocalNonCachedClient(), *ghsi.SecondaryChannel)
+		if sec != nil {
+			klog.Info("updated in memory secondary channel secret for ", ghsi.Subscription.Name)
+			ghsi.SecondaryChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory secondary channel configmap for ", ghsi.Subscription.Name)
+			ghsi.SecondaryChannelConfigMap = cm
 		}
 	}
 

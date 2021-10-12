@@ -161,14 +161,14 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		}
 
 		s.RemoteClient = s.remoteCachedClient.clt
-	}
 
-	// set up non chanced hub client
-	s.RemoteNonCachedClient, err = client.New(remoteConfig, client.Options{})
-	if err != nil {
-		klog.Error("Failed to generate client to hub cluster with error: ", err)
+		// set up non chanced hub client
+		s.RemoteNonCachedClient, err = client.New(remoteConfig, client.Options{})
+		if err != nil {
+			klog.Error("Failed to generate client to hub cluster with error: ", err)
 
-		return nil, err
+			return nil, err
+		}
 	}
 
 	defaultExtension.localClient = s.LocalClient
