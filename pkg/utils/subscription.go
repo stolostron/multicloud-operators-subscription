@@ -1246,3 +1246,46 @@ func ParseNamespacedName(namespacedName string) (string, string) {
 
 	return parsedstr[0], parsedstr[1]
 }
+
+// FetchChannelReferences best-effort to return the channel secret and configmap if they exist
+func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.Secret, cm *corev1.ConfigMap) {
+	if chn.Spec.SecretRef != nil {
+		secret := &corev1.Secret{}
+
+		chnseckey := types.NamespacedName{
+			Name:      chn.Spec.SecretRef.Name,
+			Namespace: chn.GetNamespace(),
+		}
+
+		if chn.Spec.SecretRef.Namespace != "" {
+			chnseckey.Namespace = chn.Spec.SecretRef.Namespace
+		}
+
+		if err := clt.Get(context.TODO(), chnseckey, secret); err != nil {
+			klog.Warningf("failed to get reference secret from channel err: %v, chnseckey: %v", err, chnseckey)
+		} else {
+			sec = secret
+		}
+	}
+
+	if chn.Spec.ConfigMapRef != nil {
+		configMap := &corev1.ConfigMap{}
+
+		chncmkey := types.NamespacedName{
+			Name:      chn.Spec.ConfigMapRef.Name,
+			Namespace: chn.GetNamespace(),
+		}
+
+		if chn.Spec.ConfigMapRef.Namespace != "" {
+			chncmkey.Namespace = chn.Spec.ConfigMapRef.Namespace
+		}
+
+		if err := clt.Get(context.TODO(), chncmkey, configMap); err != nil {
+			klog.Warningf("failed to get reference configmap from channel err: %v, chnseckey: %v", err, chncmkey)
+		} else {
+			cm = configMap
+		}
+	}
+
+	return sec, cm
+}
