@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/open-cluster-management/builder:go1.16-linux AS plugin-builder
-ENV POLICY_GENERATOR_TAG=v1.1.0
+ENV POLICY_GENERATOR_TAG=v1.2.0
 
 WORKDIR /policy-generator
 RUN curl -L -o "policy-generator-plugin.tar.gz" \
