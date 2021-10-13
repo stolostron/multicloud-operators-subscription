@@ -47,6 +47,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
@@ -733,8 +734,19 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 						SubscriptionPackageStatus: appSubUnitStatuses,
 					}
 
+					// get the parent appsub
+					appsub := &appsubv1.Subscription{}
+					appsubKey := types.NamespacedName{
+						Namespace: instance.GetNamespace(),
+						Name:      hrOwner.Name,
+					}
+					err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
+					if err != nil {
+						klog.Infof("failed to get parent appsub, err: %v", err)
+					}
+
 					skipOrphanDelete := true
-					r.synchronizer.SyncAppsubClusterStatus(appsubClusterStatus, &skipOrphanDelete)
+					r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
 				}
 			}
 		}

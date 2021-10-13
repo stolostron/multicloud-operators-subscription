@@ -872,11 +872,11 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 		encodedUserIdentity := strings.Trim(annotations[appv1.AnnotationUserIdentity], "")
 
 		if encodedUserGroup != "" {
-			userGroups = base64StringDecode(encodedUserGroup)
+			userGroups = Base64StringDecode(encodedUserGroup)
 		}
 
 		if encodedUserIdentity != "" {
-			userIdentity = base64StringDecode(encodedUserIdentity)
+			userIdentity = Base64StringDecode(encodedUserIdentity)
 		}
 
 		if annotations[appv1.AnnotationHosting] != "" {
@@ -960,7 +960,7 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 	return isUserSubAdmin
 }
 
-func base64StringDecode(encodedStr string) string {
+func Base64StringDecode(encodedStr string) string {
 	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
 	if err != nil {
 		klog.Error("Failed to base64 decode")

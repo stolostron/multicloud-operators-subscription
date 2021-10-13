@@ -22,7 +22,10 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	v1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+
 	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
@@ -52,7 +55,8 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
 
 */
 
-func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus SubscriptionClusterStatus, skipOrphanDelete *bool) error {
+func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription,
+	appsubClusterStatus SubscriptionClusterStatus, skipOrphanDelete *bool) error {
 	klog.Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
 		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
 
@@ -73,8 +77,6 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			appsubName = appsubName[:len(appsubName)-6]
 			pkgstatusName = pkgstatusNs + "." + appsubName
 		}
-
-		pkgstatusNs = appsubClusterStatus.Cluster
 	}
 
 	pkgstatus := &v1alpha1.SubscriptionStatus{}
@@ -86,6 +88,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 		if errors.IsNotFound(err) {
 			foundPkgStatus = false
 		} else {
+			klog.Errorf("failed to get package status, err: %v", err)
 			return err
 		}
 	}
@@ -111,6 +114,10 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 		klog.V(2).Infof("Subscription unit statuses:%v", newUnitStatus)
 
 		if !foundPkgStatus {
+			if appsub != nil {
+				sync.recordAppSubStatusEvents(appsub, "Create", newUnitStatus)
+			}
+
 			// Create new appsubstatus
 			pkgstatus = buildAppSubStatus(pkgstatusName, pkgstatusNs, appsubName,
 				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.Cluster, newUnitStatus)
@@ -190,6 +197,11 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 			}
 
 			klog.V(1).Infof("Update on managed cluster, appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+
+			if appsub != nil {
+				sync.recordAppSubStatusEvents(appsub, "Update", newUnitStatus)
+			}
+
 			pkgstatus.Statuses.SubscriptionStatus = newUnitStatus
 			if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
 				klog.Errorf("Error in updating on managed cluster, appsubstatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatusName, err)
@@ -218,7 +230,20 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 		klog.Infof("Delete existing appsubstatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
 
 		failedUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
+		newUnitStatus := []v1alpha1.SubscriptionUnitStatus{}
+
 		for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
+			uS := &v1alpha1.SubscriptionUnitStatus{
+				Name:           resource.Name,
+				ApiVersion:     resource.ApiVersion,
+				Kind:           resource.Kind,
+				Namespace:      resource.Namespace,
+				Phase:          v1alpha1.PackagePhase(resource.Phase),
+				Message:        resource.Message,
+				LastUpdateTime: metaV1.Time{Time: time.Now()},
+			}
+			newUnitStatus = append(newUnitStatus, *uS)
+
 			if resource.Phase == string(v1alpha1.PackageDeployFailed) {
 				uS := &v1alpha1.SubscriptionUnitStatus{
 					Name:      resource.Name,
@@ -232,6 +257,10 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 
 				failedUnitStatuses = append(failedUnitStatuses, *uS)
 			}
+		}
+
+		if appsub != nil {
+			sync.recordAppSubStatusEvents(appsub, "Delete", newUnitStatus)
 		}
 
 		if isLocalCluster {
@@ -287,6 +316,29 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsubClusterStatus Subscr
 	return nil
 }
 
+func (sync *KubeSynchronizer) recordAppSubStatusEvents(appsub *appv1.Subscription, action string,
+	pkgStatuses []v1alpha1.SubscriptionUnitStatus) {
+
+	curUser := ""
+
+	if encodedUser, ok := appsub.GetAnnotations()[appv1.AnnotationUserIdentity]; ok {
+		curUser = utils.Base64StringDecode(encodedUser)
+	}
+
+	packageStatuses := fmt.Sprintf("AppSub: '%s/%s'; User: '%s'; Action: '%s'; ", appsub.Namespace, appsub.Name, curUser, action)
+	packageStatuses = packageStatuses + "PackageStatus: 'Name|Namespace|Apiversion|Kind|Phase|Message|LastUpdateTime"
+
+	for _, resource := range pkgStatuses {
+		pkgmsg := fmt.Sprintf(",%s|%s|%s|%s|%s|%s|%s", resource.Name, resource.Namespace,
+			resource.ApiVersion, resource.Kind, resource.Phase, resource.Message, resource.LastUpdateTime.Format("2006-01-02 15:04:05"))
+		packageStatuses = packageStatuses + pkgmsg
+	}
+
+	packageStatuses = packageStatuses + "'"
+
+	sync.eventrecorder.RecordEvent(appsub, action, packageStatuses, nil)
+}
+
 func buildAppSubStatus(statusName, statusNs, appsubName, appsubNs, cluster string,
 	unitStatuses []v1alpha1.SubscriptionUnitStatus) *v1alpha1.SubscriptionStatus {
 
@@ -309,7 +361,7 @@ func updatePolicyReportResult(rClient client.Client, appsubNs, appsubName, clust
 	var policyReport *policyReportV1alpha2.PolicyReport
 	var err error
 	if standalone {
-		klog.V(2).Infof("Standalone appsub, skip create/update of policy report")
+		klog.Infof("Standalone appsub, skip create/update of policy report")
 		return nil
 	} else {
 		policyReport, err = getClusterPolicyReport(rClient, appsubNs, appsubName, clusterPolicyReportNs, true)

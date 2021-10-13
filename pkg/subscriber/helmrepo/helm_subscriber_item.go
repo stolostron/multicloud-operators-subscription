@@ -578,8 +578,6 @@ func hashKey(b []byte) string {
 func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 	var doErr error
 
-	hostkey := types.NamespacedName{Name: hrsi.Subscription.Name, Namespace: hrsi.Subscription.Namespace}
-
 	resources := make([]kubesynchronizer.ResourceUnit, 0)
 
 	//Loop on all packages selected by the subscription
@@ -607,7 +605,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
 		}
 
-		if err := hrsi.synchronizer.ProcessSubResources(hostkey, resources, nil, nil, false); err != nil {
+		if err := hrsi.synchronizer.ProcessSubResources(hrsi.Subscription, resources, nil, nil, false); err != nil {
 			klog.Warningf("failed to put helm manifest to cache (will retry), err: %v", err)
 			doErr = err
 		}

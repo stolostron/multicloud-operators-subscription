@@ -23,7 +23,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
@@ -322,8 +321,6 @@ func (obsi *SubscriberItem) doSubscription() {
 		tpls = append(tpls, *tpl)
 	}
 
-	hostkey := types.NamespacedName{Name: obsi.Subscription.Name, Namespace: obsi.Subscription.Namespace}
-
 	resources := make([]kubesynchronizer.ResourceUnit, 0)
 
 	// track if there's any error when doSubscribeManifest, if there's any, then we should retry this
@@ -345,7 +342,7 @@ func (obsi *SubscriberItem) doSubscription() {
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*obsi.Subscription)
 
-	if err := obsi.synchronizer.ProcessSubResources(hostkey, resources, allowedGroupResources, deniedGroupResources, false); err != nil {
+	if err := obsi.synchronizer.ProcessSubResources(obsi.Subscription, resources, allowedGroupResources, deniedGroupResources, false); err != nil {
 		klog.Error(err)
 
 		obsi.successful = false

@@ -104,9 +104,14 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 }
 
 // PurgeSubscribedResources purge all resources deployed by the appsub.
-func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.NamespacedName) error {
+func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Subscription) error {
 	sync.kmtx.Lock()
 	defer sync.kmtx.Unlock()
+
+	hostSub := types.NamespacedName{
+		Namespace: appsub.GetNamespace(),
+		Name:      appsub.GetName(),
+	}
 
 	klog.Infof("Prepare to purge all resources deployed by the appsub: %v", hostSub.String())
 
@@ -171,16 +176,20 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(hostSub types.Namespac
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	sync.SyncAppsubClusterStatus(appsubClusterStatus, nil)
+	sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
 
 	return nil
 }
 
-func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, resources []ResourceUnit,
+func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscription, resources []ResourceUnit,
 	allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	hostSub := types.NamespacedName{
+		Namespace: appsub.GetNamespace(),
+		Name:      appsub.GetName(),
+	}
 	// meaning clean up all the resource from a source:host
 	if len(resources) == 0 {
-		return sync.PurgeAllSubscribedResources(hostSub)
+		return sync.PurgeAllSubscribedResources(appsub)
 	}
 
 	// handle orphan resource
@@ -249,7 +258,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(hostSub types.NamespacedName, 
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	sync.SyncAppsubClusterStatus(appsubClusterStatus, nil)
+	sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
 
 	sync.kmtx.Unlock()
 
@@ -299,8 +308,6 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 				Version: "v1",
 				Kind:    "Namespace",
 			})
-			sync.eventrecorder.RecordEvent(nsus, "CreateNamespace",
-				"Synchronizer created namespace "+ns.Name+" for resource "+tplunit.GetName(), err)
 
 			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
 				Version:  "v1",
@@ -321,8 +328,6 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	}
 
 	obj.SetGroupVersionKind(tplunit.GroupVersionKind())
-	sync.eventrecorder.RecordEvent(obj, "CreateResource",
-		"Synchronizer created resource "+tplunit.GetName()+" of gvk:"+obj.GroupVersionKind().String(), err)
 
 	if err != nil {
 		klog.Error("Failed to update host status with error: ", err)

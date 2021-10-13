@@ -15,6 +15,8 @@
 package kubernetes
 
 import (
+	"context"
+	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,6 +28,8 @@ import (
 	crdapis "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -33,6 +37,7 @@ import (
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 const (
@@ -73,6 +78,8 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(apis.AddToScheme(scheme.Scheme)).Should(Succeed())
 	Expect(crdapis.AddToScheme(scheme.Scheme)).Should(Succeed())
 
+	Expect(policyReportV1alpha2.AddToScheme(scheme.Scheme)).Should(Succeed())
+
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
@@ -83,6 +90,13 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
+
+	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	close(done)
 }, StartTimeout)

@@ -325,7 +325,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
 
-	if err := ghsi.synchronizer.ProcessSubResources(hostkey, ghsi.resources,
+	if err := ghsi.synchronizer.ProcessSubResources(ghsi.Subscription, ghsi.resources,
 		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
 		klog.Error(err)
 
