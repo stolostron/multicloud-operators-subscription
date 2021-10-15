@@ -271,14 +271,14 @@ func (obsi *SubscriberItem) doSubscription() {
 		if sec != nil {
 			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
-				klog.Warning("can't deploy reference secret %v for subscription %v", obsi.ChannelSecret.GetName(), obsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secret %v for subscription %v", obsi.ChannelSecret.GetName(), obsi.Subscription.GetName())
 			}
 		}
 
 		if cm != nil {
 			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
-				klog.Warning("can't deploy reference configmap %v for subscription %v", obsi.ChannelConfigMap.GetName(), obsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference configmap %v for subscription %v", obsi.ChannelConfigMap.GetName(), obsi.Subscription.GetName())
 			}
 		}
 
@@ -299,14 +299,14 @@ func (obsi *SubscriberItem) doSubscription() {
 		if sec != nil {
 			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
-				klog.Warning("can't deploy reference secondary secret %v for subscription %v", obsi.SecondaryChannelSecret.GetName(), obsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secondary secret %v for subscription %v", obsi.SecondaryChannelSecret.GetName(), obsi.Subscription.GetName())
 			}
 		}
 
 		if cm != nil {
 			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
-				klog.Warning("can't deploy reference secondary configmap %v for subscription %v", obsi.SecondaryChannelConfigMap.GetName(), obsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secondary configmap %v for subscription %v", obsi.SecondaryChannelConfigMap.GetName(), obsi.Subscription.GetName())
 			}
 		}
 

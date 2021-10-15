@@ -37,7 +37,6 @@ import (
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 const (
@@ -78,8 +77,6 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(apis.AddToScheme(scheme.Scheme)).Should(Succeed())
 	Expect(crdapis.AddToScheme(scheme.Scheme)).Should(Succeed())
 	Expect(appsubReportV1alpha1.AddToScheme(scheme.Scheme)).Should(Succeed())
-
-	Expect(policyReportV1alpha2.AddToScheme(scheme.Scheme)).Should(Succeed())
 
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())

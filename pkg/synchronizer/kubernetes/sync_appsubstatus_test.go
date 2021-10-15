@@ -91,7 +91,7 @@ var _ = Describe("test create/update/delete appsub status for standalone", func(
 		// Check appsubstatus exiss and no appsub report in appsub NS
 		appsubName := appsubClusterStatus.AppSub.Name
 		pkgstatusNs := appsubClusterStatus.AppSub.Namespace
-		pkgstatusName := pkgstatusNs + "." + appsubName
+		pkgstatusName := appsubName
 
 		pkgstatuses := &v1alpha1.SubscriptionStatusList{}
 		listopts := &client.ListOptions{Namespace: pkgstatusNs}
@@ -187,7 +187,7 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		// Check appsubstatus exiss and no appsub report in appsub NS
 		appsubName := appsubClusterStatus.AppSub.Name
 		pkgstatusNs := appsubClusterStatus.AppSub.Namespace
-		pkgstatusName := pkgstatusNs + "." + appsubName
+		pkgstatusName := appsubName
 
 		pkgstatuses := &v1alpha1.SubscriptionStatusList{}
 		listopts := &client.ListOptions{Namespace: pkgstatusNs}
@@ -196,11 +196,12 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		Expect(len(pkgstatuses.Items)).To(gomega.Equal(1))
 		Expect(pkgstatuses.Items[0].Name).To(gomega.Equal(pkgstatusName))
 
-		// Cluster appsub report is created but no failure
+		// Cluster appsub report is created with a deployed result
 		cAppsubReport := &appsubReportV1alpha1.SubscriptionReport{}
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(cAppsubReport.Results)).To(gomega.Equal(0))
+		Expect(len(cAppsubReport.Results)).To(gomega.Equal(1))
+		Expect(cAppsubReport.Results[0].Result).To(gomega.Equal(appsubReportV1alpha1.SubscriptionResult("deployed")))
 
 		// Update to add a failed subscription unit status
 		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus2)
@@ -225,6 +226,7 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(cAppsubReport.Results)).To(gomega.Equal(1))
+		Expect(cAppsubReport.Results[0].Result).To(gomega.Equal(appsubReportV1alpha1.SubscriptionResult("failed")))
 
 		// Update to change phase of failed subscription unit status to deployed
 		appSubUnitStatus2.Phase = string(appSubStatusV1alpha1.PackageDeployed)
@@ -251,7 +253,8 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(cAppsubReport.Results)).To(gomega.Equal(0))
+		Expect(len(cAppsubReport.Results)).To(gomega.Equal(1))
+		Expect(cAppsubReport.Results[0].Result).To(gomega.Equal(appsubReportV1alpha1.SubscriptionResult("deployed")))
 
 		// Delete
 		rmAppsubClusterStatus := SubscriptionClusterStatus{
@@ -271,7 +274,7 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		Expect(len(pkgstatuses.Items)).To(gomega.Equal(0))
 
 		// clean up cluster policy report after the test. Or it could fail the first standalone test if the test is done ealier
-		err = k8sClient.Delete(context.TODO(), cPolicyReport)
+		err = k8sClient.Delete(context.TODO(), cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
 	})
 })

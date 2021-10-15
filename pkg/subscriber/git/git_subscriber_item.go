@@ -205,14 +205,14 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		if sec != nil {
 			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
-				klog.Warning("can't deploy reference secret %v for subscription %v", ghsi.ChannelSecret.GetName(), ghsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secret %v for subscription %v", ghsi.ChannelSecret.GetName(), ghsi.Subscription.GetName())
 			}
 		}
 
 		if cm != nil {
 			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
-				klog.Warning("can't deploy reference configmap %v for subscription %v", ghsi.ChannelConfigMap.GetName(), ghsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference configmap %v for subscription %v", ghsi.ChannelConfigMap.GetName(), ghsi.Subscription.GetName())
 			}
 		}
 
@@ -233,14 +233,14 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		if sec != nil {
 			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
-				klog.Warning("can't deploy reference secondary secret %v for subscription %v", ghsi.SecondaryChannelSecret.GetName(), ghsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secondary secret %v for subscription %v", ghsi.SecondaryChannelSecret.GetName(), ghsi.Subscription.GetName())
 			}
 		}
 
 		if cm != nil {
 			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
 				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
-				klog.Warning("can't deploy reference secondary configmap %v for subscription %v", ghsi.SecondaryChannelConfigMap.GetName(), ghsi.Subscription.GetName())
+				klog.Warningf("can't deploy reference secondary configmap %v for subscription %v", ghsi.SecondaryChannelConfigMap.GetName(), ghsi.Subscription.GetName())
 			}
 		}
 
