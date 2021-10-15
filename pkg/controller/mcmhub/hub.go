@@ -44,8 +44,8 @@ import (
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubreportv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	awsutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/aws"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via manifestWork
@@ -123,8 +123,8 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		return err
 	}
 
-	if err := r.createAppPolicyReport(sub, resources, len(clusters)); err != nil {
-		klog.Error(err, "Error creating app policy report")
+	if err := r.createAppAppsubReport(sub, resources, len(clusters)); err != nil {
+		klog.Error(err, "Error creating app appsubReport")
 
 		return err
 	}
@@ -298,97 +298,80 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 	}
 }
 
-func (r *ReconcileSubscription) createAppPolicyReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
+func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
 	clusterCount int) error {
-	policyReport := &policyReportV1alpha2.PolicyReport{}
-	policyReport.Name = sub.Name + "-policyreport-appsub-status"
-	policyReport.Namespace = sub.Namespace
+	appsubReport := &appsubreportv1alpha1.SubscriptionReport{}
+	appsubReport.Name = sub.Name
+	appsubReport.Namespace = sub.Namespace
+	appsubReport.Resources = resources
+	appsubReport.ReportType = "Application"
 
-	policyReportFound := true
+	appsubReportFound := true
 
 	if err := r.Get(context.TODO(),
-		client.ObjectKey{Name: policyReport.Name, Namespace: policyReport.Namespace}, policyReport); err != nil {
+		client.ObjectKey{Name: appsubReport.Name, Namespace: appsubReport.Namespace}, appsubReport); err != nil {
 		if apierrors.IsNotFound(err) {
-			policyReportFound = false
+			appsubReportFound = false
 		} else {
-			klog.Errorf("Error getting policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+			klog.Errorf("Error getting AppsubReport:%v/%v, err:%v", appsubReport.Namespace, appsubReport.Name, err)
 
 			return err
 		}
 	}
 
-	if !policyReportFound {
-		klog.V(1).Infof("App policy report: %v/%v not found, create it.", policyReport.Namespace, policyReport.Name)
+	if !appsubReportFound {
+		klog.V(1).Infof("App appsubReport: %v/%v not found, create it.", appsubReport.Namespace, appsubReport.Name)
 
-		policyReport.Labels = map[string]string{
+		appsubReport.Labels = map[string]string{
 			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", sub.Namespace+"."+sub.Name),
 		}
 
-		results := []*policyReportV1alpha2.PolicyReportResult{}
-		result := &policyReportV1alpha2.PolicyReportResult{
+		results := []*appsubreportv1alpha1.SubscriptionReportResult{}
+		result := &appsubreportv1alpha1.SubscriptionReportResult{
 			Source:    sub.Namespace + "/" + sub.Name,
-			Policy:    "APPSUB_RESOURCE_LIST",
 			Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
-			Result:    "pass",
-			Subjects:  resources,
+			Result:    "deployed",
 		}
 		results = append(results, result)
-		policyReport.Results = results
+		appsubReport.Results = results
 
 		//initialize placementrule cluster count as the pass count
-		policyReport.Summary.Pass = clusterCount
-		policyReport.Summary.Fail = 0
+		appsubReport.Summary.Deployed = 0
+		appsubReport.Summary.Failed = 0
+		appsubReport.Summary.PropagationFailed = 0
+		appsubReport.Summary.InProgress = clusterCount
+		appsubReport.Summary.Total = clusterCount
 
-		policyReport.SetOwnerReferences([]metav1.OwnerReference{
+		appsubReport.SetOwnerReferences([]metav1.OwnerReference{
 			*metav1.NewControllerRef(sub, schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Subscription"})})
 
-		if err := r.Create(context.TODO(), policyReport); err != nil {
-			klog.Errorf("Error in creating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+		if err := r.Create(context.TODO(), appsubReport); err != nil {
+			klog.Errorf("Error in creating app AppsubReport:%v/%v, err:%v", appsubReport.Namespace, appsubReport.Name, err)
 
 			return err
 		}
 	} else if resources != nil {
-		klog.V(1).Infof("App policy report found: %v/%v, update it.", policyReport.Namespace, policyReport.Name)
-
-		var resourceListResult *policyReportV1alpha2.PolicyReportResult
-		for _, result := range policyReport.Results {
-			if result.Policy == "APPSUB_RESOURCE_LIST" {
-				resourceListResult = result
-
-				break
-			}
-		}
+		klog.V(1).Infof("App appsubReport found: %v/%v, update it.", appsubReport.Namespace, appsubReport.Name)
 
 		// Update resource list
-		if resourceListResult != nil && reflect.DeepEqual(resourceListResult, resources) {
-			klog.V(1).Infof("App policy report(%v/%v) resource list unchanged.", policyReport.Namespace, policyReport.Name)
+		resourceList := appsubReport.Resources
+		if resourceList != nil && reflect.DeepEqual(resourceList, resources) {
+			klog.V(1).Infof("App appsubReport(%v/%v) resource list unchanged.", appsubReport.Namespace, appsubReport.Name)
 
 			return nil
 		}
 
-		if resourceListResult == nil {
-			if policyReport.Results == nil {
-				policyReport.Results = []*policyReportV1alpha2.PolicyReportResult{}
-			}
-
-			result := &policyReportV1alpha2.PolicyReportResult{
-				Source:    sub.Namespace + "/" + sub.Name,
-				Policy:    "APPSUB_RESOURCE_LIST",
-				Timestamp: metav1.Timestamp{Seconds: time.Now().Unix()},
-				Result:    "pass",
-				Subjects:  resources,
-			}
-			policyReport.Results = append(policyReport.Results, result)
-		} else {
-			resourceListResult.Subjects = resources
-		}
+		appsubReport.Resources = resources
 
 		//reset placementrule cluster count as the pass count
-		policyReport.Summary.Pass = clusterCount
-		policyReport.Summary.Fail = 0
+		appsubReport.Summary.Deployed = 0
+		appsubReport.Summary.Failed = 0
+		appsubReport.Summary.PropagationFailed = 0
+		appsubReport.Summary.InProgress = clusterCount
+		appsubReport.Summary.Total = clusterCount
 
-		if err := r.Update(context.TODO(), policyReport); err != nil {
-			klog.Errorf("Error in updating app policyReport:%v/%v, err:%v", policyReport.Namespace, policyReport.Name, err)
+		if err := r.Update(context.TODO(), appsubReport); err != nil {
+			klog.Errorf("Error in updating app AppsubReport:%v/%v, err:%v", appsubReport.Namespace, appsubReport.Name, err)
 
 			return err
 		}

@@ -28,10 +28,10 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -82,7 +82,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = spokeClusterV1.AddToScheme(k8sManager.GetScheme())
 	Expect(err).NotTo(HaveOccurred())
 
-	err = policyReportV1alpha2.AddToScheme(k8sManager.GetScheme())
+	err = appsubReportV1alpha1.AddToScheme(k8sManager.GetScheme())
 	Expect(err).NotTo(HaveOccurred())
 
 	cloneFunc := func(*utils.GitCloneOption) (string, error) {

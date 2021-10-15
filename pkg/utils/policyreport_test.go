@@ -20,8 +20,8 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 var (
@@ -31,12 +31,12 @@ var (
 	message    = "Failed to deploy to cluster"
 )
 
-func TestAppSubPropagationFailedPolicyReport(t *testing.T) {
+func TestAppSubPropagationFailedAppsubReport(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Setup the Manager and Controller.
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	policyReportV1alpha2.AddToScheme(mgr.GetScheme())
+	appsubReportV1alpha1.AddToScheme(mgr.GetScheme())
 
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -56,17 +56,17 @@ func TestAppSubPropagationFailedPolicyReport(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	g.Expect(CreateFailedPolicyReportResult(c, cluster, appSubNs, appSubName, message)).NotTo(gomega.HaveOccurred())
+	g.Expect(CreateFailedAppsubReportResult(c, cluster, appSubNs, appSubName, message)).NotTo(gomega.HaveOccurred())
 
 	time.Sleep(1 * time.Second)
 
-	policyReport, err := getClusterPolicyReport(c, appSubNs, appSubName, cluster, false)
+	appsubReport, err := getClusterAppsubReport(c, appSubNs, appSubName, cluster, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	prResultFoundIndex := -1
 	prResultSource := appSubNs + "/" + appSubName
-	for i, result := range policyReport.Results {
-		if result.Source == prResultSource && result.Policy == "APPSUB_FAILURE" {
+	for i, result := range appsubReport.Results {
+		if result.Source == prResultSource {
 			prResultFoundIndex = i
 			break
 		}

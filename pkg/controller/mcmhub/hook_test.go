@@ -35,8 +35,8 @@ import (
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 const (
@@ -210,11 +210,11 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 
 var _ = Describe("given a subscription pointing to a git path without hook folders", func() {
 	var (
-		ctx                = context.TODO()
-		testNs             = "normal-sub"
-		subKey             = types.NamespacedName{Name: "t-sub", Namespace: testNs}
-		chnKey             = types.NamespacedName{Name: "t-chn", Namespace: testNs}
-		appPolicyReportKey = types.NamespacedName{Name: subKey.Name + "-policyreport-appsub-status", Namespace: testNs}
+		ctx             = context.TODO()
+		testNs          = "normal-sub"
+		subKey          = types.NamespacedName{Name: "t-sub", Namespace: testNs}
+		chnKey          = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+		appsubReportKey = types.NamespacedName{Name: subKey.Name, Namespace: testNs}
 
 		chnIns = &chnv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
@@ -249,7 +249,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 		}
 	)
 
-	It("should download the git to local and create app policyreport", func() {
+	It("should download the git to local and create app AppsubReport", func() {
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
@@ -267,12 +267,12 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 
 			fmt.Printf("subscription= %+v\n", u)
 
-			policyReport := &policyReportV1alpha2.PolicyReport{}
-			if err := k8sClt.Get(ctx, appPolicyReportKey, policyReport); err != nil {
-				return fmt.Errorf("failed to get the appsub policyReport %s, err: %s", appPolicyReportKey, err.Error())
+			appsubReport := &appsubReportV1alpha1.SubscriptionReport{}
+			if err := k8sClt.Get(ctx, appsubReportKey, appsubReport); err != nil {
+				return fmt.Errorf("failed to get the appsub AppsubReport %s, err: %s", appsubReportKey, err.Error())
 			}
 
-			fmt.Printf("policyReport= %+v\n", policyReport)
+			fmt.Printf("AppsubReport= %+v\n", appsubReport)
 
 			return nil
 		}

@@ -15,6 +15,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -69,6 +70,101 @@ const (
 	PackagePropagationFailed PackagePhase = "PropagationFailed"
 )
 
+type SubscriptionReportSummary struct {
+
+	// Deployed provides the count of subscriptions that deployed successfully
+	// +optional
+	Deployed int `json:"deployed"`
+
+	// InProgress provides the count of subscriptions that are in the process of being deployed
+	// +optional
+	InProgress int `json:"inProgress"`
+
+	// Failed provides the count of subscriptions that failed to deploy
+	// +optional
+	Failed int `json:"failed"`
+
+	// PropagationFailed provides the count of subscriptions that failed to propagate to a managed cluster
+	// +optional
+	PropagationFailed int `json:"propagationFailed"`
+
+	// Total provides the count of all managed clusters the subscription is deployed to
+	// +optional
+	Total int `json:"total"`
+}
+
+// SubscriptionResult has one of the following values:
+//   - deployed: the subscription deployed successfully
+//   - failed: the subscription failed to deploy
+//   - propagationFailed: the subscription failed to propagate
+//
+// +kubebuilder:validation:Enum=deployed;failed;propagationFailed
+type SubscriptionResult string
+
+// SubscriptionReportResult provides the result for an individual subscription
+type SubscriptionReportResult struct {
+
+	// Source is an identifier for the subscription
+	// +optional
+	Source string `json:"source"`
+
+	// Timestamp indicates the time the result was found
+	Timestamp metav1.Timestamp `json:"timestamp,omitempty"`
+
+	// Result indicates the outcome of the subscription deployment
+	Result SubscriptionResult `json:"result,omitempty"`
+}
+
+// SubscriptionReportType has one of the following values:
+//   - Application: an appsub across all managed clusters
+//   - Cluster: all appsubs on a managed cluster
+//
+// +kubebuilder:validation:Enum=Application;Cluster
+type SubscriptionReportType string
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:printcolumn:name="Kind",type=string,JSONPath=`.scope.kind`,priority=1
+// +kubebuilder:printcolumn:name="Name",type=string,JSONPath=`.scope.name`,priority=1
+// +kubebuilder:printcolumn:name="Deployed",type=integer,JSONPath=`.summary.deployed`
+// +kubebuilder:printcolumn:name="InProgress",type=integer,JSONPath=`.summary.inProgress`
+// +kubebuilder:printcolumn:name="Failed",type=integer,JSONPath=`.summary.failed`
+// +kubebuilder:printcolumn:name="PropagationFailed",type=integer,JSONPath=`.summary.propagationFailed`
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:resource:shortName=appsubreport
+
+// SubscriptionReport is the Schema for the subscriptionreports API
+type SubscriptionReport struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	// ReportType is the name or identifier of the type of report
+	ReportType SubscriptionReportType `json:"reportType"`
+
+	// SubscriptionReportSummary provides a summary of results
+	// +optional
+	Summary SubscriptionReportSummary `json:"summary,omitempty"`
+
+	// SubscriptionReportResult provides result details
+	// +optional
+	Results []*SubscriptionReportResult `json:"results,omitempty"`
+
+	// Resources is an optional reference to the subscription resources
+	// +optional
+	Resources []*corev1.ObjectReference `json:"resources,omitempty"`
+}
+
+// SubscriptionReportList contains a list of SubscriptionReport
+// +kubebuilder:object:root=true
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type SubscriptionReportList struct {
+	metav1.TypeMeta `json:",inline"`
+	metav1.ListMeta `json:"metadata,omitempty"`
+	Items           []SubscriptionReport `json:"items"`
+}
+
 func init() {
 	SchemeBuilder.Register(&SubscriptionStatus{}, &SubscriptionStatusList{})
+	SchemeBuilder.Register(&SubscriptionReport{}, &SubscriptionReportList{})
 }

@@ -30,7 +30,7 @@ import (
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -93,13 +93,13 @@ var AppSubSummaryPredicateFunc = predicate.Funcs{
 			return false
 		}
 
-		oldAppSubSummary, ok := e.ObjectOld.(*policyReportV1alpha2.PolicyReport)
+		oldAppSubSummary, ok := e.ObjectOld.(*appsubReportV1alpha1.SubscriptionReport)
 		if !ok {
 			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.ObjectOld.GetNamespace(), e.ObjectOld.GetName())
 			return false
 		}
 
-		newAppSubSummary, ok := e.ObjectNew.(*policyReportV1alpha2.PolicyReport)
+		newAppSubSummary, ok := e.ObjectNew.(*appsubReportV1alpha1.SubscriptionReport)
 		if !ok {
 			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
 			return false

@@ -25,9 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	v1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 var (
@@ -56,7 +56,7 @@ var (
 )
 
 var _ = Describe("test create/update/delete appsub status for standalone", func() {
-	It("No cluster policy report created, only appsubstatus created in appsub NS", func() {
+	It("No cluster appsubReport created, only appsubstatus created in appsub NS", func() {
 		appSubUnitStatuses := []SubscriptionUnitStatus{}
 		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus1)
 		appsubClusterStatus := SubscriptionClusterStatus{
@@ -88,7 +88,7 @@ var _ = Describe("test create/update/delete appsub status for standalone", func(
 
 		time.Sleep(4 * time.Second)
 
-		// Check appsubstatus exiss and no policy report in appsub NS
+		// Check appsubstatus exiss and no appsub report in appsub NS
 		appsubName := appsubClusterStatus.AppSub.Name
 		pkgstatusNs := appsubClusterStatus.AppSub.Namespace
 		pkgstatusName := pkgstatusNs + "." + appsubName
@@ -101,9 +101,9 @@ var _ = Describe("test create/update/delete appsub status for standalone", func(
 		Expect(pkgstatuses.Items[0].Name).To(gomega.Equal(pkgstatusName))
 		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(gomega.Equal(1))
 
-		// No cluster policy report is created
-		policyReport := &policyReportV1alpha2.PolicyReport{}
-		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "policyreport-appsub-status", Namespace: appsubClusterStatus.Cluster}, policyReport)
+		// No cluster appsub report is created
+		appsubReport := &appSubStatusV1alpha1.SubscriptionReport{}
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, appsubReport)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.IsNotFound(err)).To(gomega.BeTrue())
 
@@ -151,7 +151,7 @@ var _ = Describe("test create/update/delete appsub status for standalone", func(
 })
 
 var _ = Describe("test create/update/delete appsub status for managed cluster", func() {
-	It("Test policy reports and appsubstatus on a managed cluster", func() {
+	It("Test appsubReports and appsubstatus on a managed cluster", func() {
 		appSubUnitStatuses := []SubscriptionUnitStatus{}
 		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus1)
 
@@ -184,7 +184,7 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 
 		time.Sleep(4 * time.Second)
 
-		// Check appsubstatus exiss and no policy report in appsub NS
+		// Check appsubstatus exiss and no appsub report in appsub NS
 		appsubName := appsubClusterStatus.AppSub.Name
 		pkgstatusNs := appsubClusterStatus.AppSub.Namespace
 		pkgstatusName := pkgstatusNs + "." + appsubName
@@ -196,11 +196,11 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		Expect(len(pkgstatuses.Items)).To(gomega.Equal(1))
 		Expect(pkgstatuses.Items[0].Name).To(gomega.Equal(pkgstatusName))
 
-		// Cluster policy report is created but no failure
-		cPolicyReport := &policyReportV1alpha2.PolicyReport{}
-		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "policyreport-appsub-status", Namespace: appsubClusterStatus.Cluster}, cPolicyReport)
+		// Cluster appsub report is created but no failure
+		cAppsubReport := &appsubReportV1alpha1.SubscriptionReport{}
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(cPolicyReport.Results)).To(gomega.Equal(0))
+		Expect(len(cAppsubReport.Results)).To(gomega.Equal(0))
 
 		// Update to add a failed subscription unit status
 		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus2)
@@ -222,9 +222,9 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		Expect(pkgstatuses.Items[0].Name).To(gomega.Equal(pkgstatusName))
 		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(gomega.Equal(2))
 
-		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "policyreport-appsub-status", Namespace: appsubClusterStatus.Cluster}, cPolicyReport)
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(cPolicyReport.Results)).To(gomega.Equal(1))
+		Expect(len(cAppsubReport.Results)).To(gomega.Equal(1))
 
 		// Update to change phase of failed subscription unit status to deployed
 		appSubUnitStatus2.Phase = string(appSubStatusV1alpha1.PackageDeployed)
@@ -249,9 +249,9 @@ var _ = Describe("test create/update/delete appsub status for managed cluster", 
 		Expect(pkgstatuses.Items[0].Name).To(gomega.Equal(pkgstatusName))
 		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(gomega.Equal(2))
 
-		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: "policyreport-appsub-status", Namespace: appsubClusterStatus.Cluster}, cPolicyReport)
+		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(len(cPolicyReport.Results)).To(gomega.Equal(0))
+		Expect(len(cAppsubReport.Results)).To(gomega.Equal(0))
 
 		// Delete
 		rmAppsubClusterStatus := SubscriptionClusterStatus{

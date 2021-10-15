@@ -44,7 +44,6 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -135,11 +134,6 @@ func RunManager() {
 		os.Exit(1)
 	}
 
-	if err := policyReportV1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
-		klog.Error(err, "")
-		os.Exit(1)
-	}
-
 	if !Options.Standalone && Options.ClusterName == "" {
 		// Setup managedCluster Scheme for manager
 		if err := spokeClusterV1.AddToScheme(mgr.GetScheme()); err != nil {
@@ -160,10 +154,12 @@ func RunManager() {
 		}
 
 		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
-			klog.Error("Failed to initialize WebHook listener with error:", err)
-			os.Exit(1)
-		}
+		/*
+			if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
+				klog.Error("Failed to initialize WebHook listener with error:", err)
+				os.Exit(1)
+			}
+		*/
 	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// Setup ocinfrav1 Scheme for manager
 		if err := ocinfrav1.AddToScheme(mgr.GetScheme()); err != nil {

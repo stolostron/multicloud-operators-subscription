@@ -22,6 +22,7 @@ import (
 type SubscriptionCMDOptions struct {
 	MetricsAddr           string
 	ClusterName           string
+	ClusterNamespace      string
 	HubConfigFilePathName string
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
@@ -65,6 +66,13 @@ func ProcessFlags() {
 		"cluster-name",
 		Options.ClusterName,
 		"Name of this endpoint.",
+	)
+
+	flag.StringVar(
+		&Options.ClusterNamespace,
+		"cluster-namespace",
+		Options.ClusterNamespace,
+		"Cluster Namespace of this endpoint in hub.",
 	)
 
 	flag.IntVar(

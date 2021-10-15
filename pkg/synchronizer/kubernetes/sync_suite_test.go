@@ -16,7 +16,6 @@ package kubernetes
 
 import (
 	"context"
-	"log"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,11 +24,12 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	corev1 "k8s.io/api/core/v1"
 	crdapis "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -77,6 +77,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	Expect(apis.AddToScheme(scheme.Scheme)).Should(Succeed())
 	Expect(crdapis.AddToScheme(scheme.Scheme)).Should(Succeed())
+	Expect(appsubReportV1alpha1.AddToScheme(scheme.Scheme)).Should(Succeed())
 
 	Expect(policyReportV1alpha2.AddToScheme(scheme.Scheme)).Should(Succeed())
 
@@ -92,11 +93,12 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(k8sClient).ToNot(BeNil())
 
 	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{Name: "cluster1"},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+		ObjectMeta: metav1.ObjectMeta{Name: "appsub-ns-1"}})
+	Expect(err).NotTo(HaveOccurred())
+
+	err = k8sClient.Create(context.TODO(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "cluster1"}})
+	Expect(err).NotTo(HaveOccurred())
 
 	close(done)
 }, StartTimeout)
