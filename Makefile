@@ -43,16 +43,15 @@ FINDFILES=find . \( -path ./.git -o -path ./.github \) -prune -o -type f
 XARGS = xargs -0 ${XARGS_FLAGS}
 CLEANXARGS = xargs ${XARGS_FLAGS}
 
-IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 REGISTRY = quay.io/open-cluster-management
-VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
-IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG):$(VERSION)
+VERSION = latest
+IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
 
 .PHONY: build
 
 build:
-	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 	@common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
@@ -60,7 +59,7 @@ build:
 .PHONY: local
 
 local:
-	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
@@ -69,7 +68,6 @@ local:
 
 build-images: build
 	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
-	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 .PHONY: lint
 
