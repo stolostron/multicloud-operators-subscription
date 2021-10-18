@@ -1,0 +1,5 @@
+- result: <CLUSTER-STATUS>
+  source: <APPSUB-NS>/<APPSUB-NAME>
+  timestamp:
+    nanos: 0
+    seconds: 1634137362

@@ -24,7 +24,6 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
-	policyReportV1alpha2 "sigs.k8s.io/wg-policy-prototypes/policy-report/pkg/api/wgpolicyk8s.io/v1alpha2"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -65,11 +64,6 @@ func RunManager() {
 
 	// Setup Scheme for all resources
 	if err := appsubapi.AddToScheme(mgr.GetScheme()); err != nil {
-		klog.Error(err, "")
-		os.Exit(1)
-	}
-
-	if err := policyReportV1alpha2.AddToScheme(mgr.GetScheme()); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}
