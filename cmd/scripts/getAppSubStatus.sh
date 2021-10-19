@@ -82,10 +82,10 @@ metadata:
 spec:
   scope:
     apiGroup: apps.open-cluster-management.io
-    kind: SubscriptionPackageStatus
+    kind: SubscriptionStatus
     version: v1alpha1
-    resource: subscriptionpackagestatuses
-    name: ${appNs}.${appName}
+    resource: subscriptionstatuses
+    name: ${appName}
     namespace: ${appNs}
 EOF
 

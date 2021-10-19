@@ -38,7 +38,6 @@ require (
 	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210706131628-9125c762b9f9
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
-	sigs.k8s.io/wg-policy-prototypes v0.0.0-20210823142600-b09c9bb01d4c
 )
 
 replace (

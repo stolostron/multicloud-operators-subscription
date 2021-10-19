@@ -120,10 +120,14 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	if err != nil {
 		klog.Error("Error in getting clusters:", err)
 
+		if err := r.createAppAppsubReport(sub, resources, 1, 1); err != nil {
+			klog.Error(err, "Error creating app appsubReport")
+		}
+
 		return err
 	}
 
-	if err := r.createAppAppsubReport(sub, resources, len(clusters)); err != nil {
+	if err := r.createAppAppsubReport(sub, resources, 0, len(clusters)); err != nil {
 		klog.Error(err, "Error creating app appsubReport")
 
 		return err
@@ -299,12 +303,16 @@ func setHelmSubUnitStatus(pkgResourceStatus *runtime.RawExtension, subUnitStatus
 }
 
 func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
-	clusterCount int) error {
-	appsubReport := &appsubreportv1alpha1.SubscriptionReport{}
-	appsubReport.Name = sub.Name
-	appsubReport.Namespace = sub.Namespace
-	appsubReport.Resources = resources
-	appsubReport.ReportType = "Application"
+	propagationFailedCount, clusterCount int) error {
+	appsubReport := &appsubreportv1alpha1.SubscriptionReport{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sub.Name,
+			Namespace: sub.Namespace,
+		},
+		Resources:  resources,
+		ReportType: "Application",
+	}
 
 	appsubReportFound := true
 
@@ -338,9 +346,14 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 		//initialize placementrule cluster count as the pass count
 		appsubReport.Summary.Deployed = 0
 		appsubReport.Summary.Failed = 0
-		appsubReport.Summary.PropagationFailed = 0
-		appsubReport.Summary.InProgress = clusterCount
+		appsubReport.Summary.PropagationFailed = propagationFailedCount
 		appsubReport.Summary.Total = clusterCount
+
+		if propagationFailedCount > 0 {
+			appsubReport.Summary.InProgress = 0
+		} else {
+			appsubReport.Summary.InProgress = clusterCount
+		}
 
 		appsubReport.SetOwnerReferences([]metav1.OwnerReference{
 			*metav1.NewControllerRef(sub, schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Version: "v1", Kind: "Subscription"})})
@@ -350,7 +363,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 
 			return err
 		}
-	} else if resources != nil {
+	} else {
 		klog.V(1).Infof("App appsubReport found: %v/%v, update it.", appsubReport.Namespace, appsubReport.Name)
 
 		// Update resource list
@@ -364,10 +377,13 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 		appsubReport.Resources = resources
 
 		//reset placementrule cluster count as the pass count
-		appsubReport.Summary.Deployed = 0
-		appsubReport.Summary.Failed = 0
-		appsubReport.Summary.PropagationFailed = 0
-		appsubReport.Summary.InProgress = clusterCount
+		if propagationFailedCount > 0 {
+			appsubReport.Summary.InProgress = 0
+		} else {
+			appsubReport.Summary.InProgress = clusterCount
+		}
+
+		appsubReport.Summary.PropagationFailed = propagationFailedCount
 		appsubReport.Summary.Total = clusterCount
 
 		if err := r.Update(context.TODO(), appsubReport); err != nil {

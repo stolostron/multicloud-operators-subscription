@@ -42,14 +42,17 @@ type ReconcileAppSubSummary struct {
 	Interval int
 }
 
-type AppSubClusterFailStatus struct {
+type AppSubClusterStatus struct {
 	Cluster string
 	Phase   string
 }
 
-// appsub status per cluster.
-type AppSubClustersFailStatus struct {
-	Clusters []AppSubClusterFailStatus
+// appsub cluster statuses per appsub.
+type AppSubClustersStatus struct {
+	Clusters          []AppSubClusterStatus
+	Deployed          int
+	Failed            int
+	PropagationFailed int
 }
 
 // ClusterSorter sorts appsubreport results by source name.
@@ -126,10 +129,10 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 	PrintMemUsage("Initialize AppSub Map.")
 
 	// create a map for containing all appsub status per cluster. key is appsub name
-	appSubClusterFailStatusMap := make(map[string]AppSubClustersFailStatus)
+	appSubClusterStatusMap := make(map[string]AppSubClustersStatus)
 
 	for _, appsubReportPerCluster := range appsubReportClusterList.Items {
-		r.UpdateAppSubMapsPerCluster(appsubReportPerCluster, appSubClusterFailStatusMap)
+		r.UpdateAppSubMapsPerCluster(appsubReportPerCluster, appSubClusterStatusMap)
 	}
 
 	appsubReportClusterList = nil
@@ -138,7 +141,7 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 
 	PrintMemUsage("AppSub Map generated.")
 
-	r.createOrUpdateAppSubReport(appSubClusterFailStatusMap)
+	r.createOrUpdateAppSubReport(appSubClusterStatusMap)
 
 	runtime.GC()
 
@@ -146,7 +149,7 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 }
 
 func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubReportPerCluster appsubReportV1alpha1.SubscriptionReport,
-	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
+	appSubClusterStatusMap map[string]AppSubClustersStatus) {
 	cluster := appsubReportPerCluster.Namespace
 
 	for _, result := range appsubReportPerCluster.Results {
@@ -156,31 +159,46 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubReportPerClust
 			continue
 		}
 
-		if result.Result == "failed" {
-			cs := AppSubClusterFailStatus{
-				Cluster: cluster,
-				Phase:   string(result.Result),
+		cs := AppSubClusterStatus{
+			Cluster: cluster,
+			Phase:   string(result.Result),
+		}
+
+		if clusterStatus, ok := appSubClusterStatusMap[result.Source]; ok {
+			if cs.Phase == "failed" {
+				clusterStatus.Failed++
+			} else if cs.Phase == "deployed" {
+				clusterStatus.Deployed++
+			} else if cs.Phase == "propagationFailed" {
+				clusterStatus.PropagationFailed++
 			}
 
-			if clusterStatus, ok := appSubClusterFailStatusMap[result.Source]; ok {
-				clusterStatus.Clusters = append(clusterStatus.Clusters, cs)
-				appSubClusterFailStatusMap[result.Source] = clusterStatus
-			} else {
-				newClusterStatus := AppSubClustersFailStatus{}
-				newClusterStatus.Clusters = append(newClusterStatus.Clusters, cs)
-				appSubClusterFailStatusMap[result.Source] = newClusterStatus
+			clusterStatus.Clusters = append(clusterStatus.Clusters, cs)
+			appSubClusterStatusMap[result.Source] = clusterStatus
+		} else {
+			newClusterStatus := AppSubClustersStatus{}
+
+			if cs.Phase == "failed" {
+				newClusterStatus.Failed = 1
+			} else if cs.Phase == "deployed" {
+				newClusterStatus.Deployed = 1
+			} else if cs.Phase == "propagationFailed" {
+				newClusterStatus.PropagationFailed = 1
 			}
+
+			newClusterStatus.Clusters = append(newClusterStatus.Clusters, cs)
+			appSubClusterStatusMap[result.Source] = newClusterStatus
 		}
 	}
 }
 
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubReport(
-	appSubClusterFailStatusMap map[string]AppSubClustersFailStatus) {
+	appSubClusterStatusMap map[string]AppSubClustersStatus) {
 	// Find existing appSubReport for app - can assume it exists for now
 
-	klog.Infof("appSub Cluster FailStatus Map Count: %v", len(appSubClusterFailStatusMap))
+	klog.Infof("appSub Cluster FailStatus Map Count: %v", len(appSubClusterStatusMap))
 
-	for appsub, clustersFailStatus := range appSubClusterFailStatusMap {
+	for appsub, clustersStatus := range appSubClusterStatusMap {
 		appsubNs, appsubName := utils.ParseNamespacedName(appsub)
 		if appsubName == "" && appsubNs == "" {
 			continue
@@ -202,12 +220,12 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubReport(
 			}
 		}
 
-		clusterCount := appsubReport.Summary.Deployed + appsubReport.Summary.Failed
-
 		// Find and keep appsub resource list from original appsubReport
 		appsubResources := appsubReport.Resources
 
-		newAppsubReport := r.newAppSubReport(appsubNs, appsubName, appsubResources, clustersFailStatus, clusterCount)
+		appsubSummary := appsubReport.Summary
+
+		newAppsubReport := r.newAppSubReport(appsubNs, appsubName, appsubResources, appsubSummary, clustersStatus)
 
 		origAppsubReport := appsubReport.DeepCopy()
 
@@ -255,16 +273,22 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubReport(
 }
 
 func (r *ReconcileAppSubSummary) newAppSubReport(appsubNs, appsubName string,
-	appsubResourceList []*corev1.ObjectReference,
-	clustersFailStatus AppSubClustersFailStatus, clusterCount int) *appsubReportV1alpha1.SubscriptionReport {
+	appsubResourceList []*corev1.ObjectReference, appsubSummary appsubReportV1alpha1.SubscriptionReportSummary,
+	clustersStatus AppSubClustersStatus) *appsubReportV1alpha1.SubscriptionReport {
 	newAppsubReportResults := []*appsubReportV1alpha1.SubscriptionReportResult{}
 
-	for _, ClustersFailStatus := range clustersFailStatus.Clusters {
+	for _, ClusterStatus := range clustersStatus.Clusters {
 		newAppsubReportResult := &appsubReportV1alpha1.SubscriptionReportResult{
-			Source: ClustersFailStatus.Cluster,
-			Result: appsubReportV1alpha1.SubscriptionResult("failed"),
+			Source: ClusterStatus.Cluster,
+			Result: appsubReportV1alpha1.SubscriptionResult(ClusterStatus.Phase),
 		}
 		newAppsubReportResults = append(newAppsubReportResults, newAppsubReportResult)
+	}
+
+	inProgressCount := appsubSummary.Total - clustersStatus.PropagationFailed - clustersStatus.Deployed - clustersStatus.Failed
+	if inProgressCount < 0 {
+		klog.Warningf("inProgress Count < 0, inProgressCount: %v", inProgressCount)
+		inProgressCount = 0
 	}
 
 	newAppsubReport := &appsubReportV1alpha1.SubscriptionReport{
@@ -284,9 +308,11 @@ func (r *ReconcileAppSubSummary) newAppSubReport(appsubNs, appsubName string,
 		Results:    newAppsubReportResults,
 		Summary: appsubReportV1alpha1.SubscriptionReportSummary{
 			// TODO: Have to get total cluster count for app from appsub?
-			Deployed:          clusterCount - len(clustersFailStatus.Clusters),
-			Failed:            len(clustersFailStatus.Clusters),
-			PropagationFailed: 0,
+			Deployed:          clustersStatus.Deployed,
+			Failed:            clustersStatus.Failed,
+			PropagationFailed: clustersStatus.PropagationFailed,
+			Total:             appsubSummary.Total,
+			InProgress:        inProgressCount,
 		},
 	}
 
