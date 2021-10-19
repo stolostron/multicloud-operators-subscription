@@ -29,6 +29,7 @@ import (
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -36,7 +37,7 @@ func checkGitRegCommit(tbranch string) func() error {
 	return func() error {
 		rr := gitOps.GetRepoRecords()
 
-		branchInfo := rr[ansibleGitURL].branchs[tbranch]
+		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[tbranch]
 		if strings.EqualFold(branchInfo.lastCommitID, defaultCommit) {
 			return nil
 		}
@@ -85,7 +86,7 @@ var _ = PDescribe("hub git ops", func() {
 				Namespace: chnKey.Namespace,
 			},
 			Spec: chnv1.ChannelSpec{
-				Pathname: ansibleGitURL,
+				Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar(),
 				Type:     chnv1.ChannelTypeGit,
 			},
 		}
@@ -135,11 +136,11 @@ var _ = PDescribe("hub git ops", func() {
 
 		sr := gitOps.GetSubRecords()
 
-		Expect(sr[subKey]).Should(Equal(ansibleGitURL))
+		Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr := gitOps.GetRepoRecords()
 
-		branchInfo := rr[ansibleGitURL].branchs[testBranch]
+		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 
 		Eventually(checkGitRegCommit(testBranch), pullInterval*3, pullInterval).Should(Succeed())
@@ -151,7 +152,7 @@ var _ = PDescribe("hub git ops", func() {
 
 		rr = gitOps.GetRepoRecords()
 
-		Expect(rr).ShouldNot(HaveKey(ansibleGitURL))
+		Expect(rr).ShouldNot(HaveKey("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 		Expect(rr).Should(HaveLen(0))
 	})
 
@@ -188,12 +189,12 @@ var _ = PDescribe("hub git ops", func() {
 
 		sr := gitOps.GetSubRecords()
 
-		Expect(sr[subKey]).Should(Equal(ansibleGitURL))
-		Expect(sr[sub2Key]).Should(Equal(ansibleGitURL))
+		Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
+		Expect(sr[sub2Key]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr := gitOps.GetRepoRecords()
 
-		branchInfo := rr[ansibleGitURL].branchs[testBranch]
+		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 		Expect(branchInfo.registeredSub).Should(HaveKey(sub2Key))
@@ -203,11 +204,11 @@ var _ = PDescribe("hub git ops", func() {
 		sr = gitOps.GetSubRecords()
 
 		Expect(sr).ShouldNot(HaveKey(subKey))
-		Expect(sr[sub2Key]).Should(Equal(ansibleGitURL))
+		Expect(sr[sub2Key]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr = gitOps.GetRepoRecords()
 
-		branchInfo = rr[ansibleGitURL].branchs[testBranch]
+		branchInfo = rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 		Expect(branchInfo.registeredSub).ShouldNot(HaveKey(subKey))
 		Expect(branchInfo.registeredSub).Should(HaveKey(sub2Key))
 		Expect(branchInfo.registeredSub).Should(HaveLen(1))
@@ -239,11 +240,11 @@ var _ = PDescribe("hub git ops", func() {
 
 		sr := gitOps.GetSubRecords()
 
-		Expect(sr[subKey]).Should(Equal(ansibleGitURL))
+		Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr := gitOps.GetRepoRecords()
 
-		branchInfo := rr[ansibleGitURL].branchs[testBranch]
+		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 		//Expect(branchInfo.lastCommitID).Should(Equal(defaultCommit))
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 
@@ -259,7 +260,7 @@ var _ = PDescribe("hub git ops", func() {
 
 				rr := gitOps.GetRepoRecords()
 
-				branchInfo := rr[ansibleGitURL].branchs[testBranch]
+				branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 
 				if !strings.EqualFold(branchInfo.lastCommitID, defaultCommit) {
 					return fmt.Errorf("subscription commit is not updated in git registry")
@@ -343,15 +344,15 @@ var _ = PDescribe("hub git ops", func() {
 
 		sr := gitOps.GetSubRecords()
 
-		Expect(sr[subKey]).Should(Equal(ansibleGitURL))
-		Expect(sr[sub2Key]).Should(Equal(ansibleGitURL))
+		Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
+		Expect(sr[sub2Key]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr := gitOps.GetRepoRecords()
 
-		branchInfo := rr[ansibleGitURL].branchs[testBranch]
+		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 
-		branchInfo2 := rr[ansibleGitURL].branchs[testBranch2]
+		branchInfo2 := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch2]
 		Expect(branchInfo2.registeredSub).Should(HaveKey(sub2Key))
 
 		Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
@@ -359,11 +360,11 @@ var _ = PDescribe("hub git ops", func() {
 		sr = gitOps.GetSubRecords()
 
 		Expect(sr).ShouldNot(HaveKey(subKey))
-		Expect(sr[sub2Key]).Should(Equal(ansibleGitURL))
+		Expect(sr[sub2Key]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 
 		rr = gitOps.GetRepoRecords()
 
-		branchInfo2 = rr[ansibleGitURL].branchs[testBranch2]
+		branchInfo2 = rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch2]
 		Expect(branchInfo2.registeredSub).Should(HaveKey(sub2Key))
 
 		Eventually(checkGitRegCommit(testBranch2), specTimeOut, pullInterval).Should(Succeed())

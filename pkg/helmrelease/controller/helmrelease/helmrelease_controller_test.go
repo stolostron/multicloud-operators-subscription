@@ -30,6 +30,7 @@ import (
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -100,7 +101,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -200,7 +201,7 @@ func TestReconcile(t *testing.T) {
 	g.Expect(len(instanceResp.Status.Conditions)).To(gomega.Equal(2))
 	g.Expect(instanceResp.Status.Conditions[1].Reason).To(gomega.Equal(appv1.ReasonUpgradeSuccessful))
 
-	instanceResp.Repo.Source.GitHub.Urls[0] = "https://github.com/open-cluster-management/multicloud-operators-subscription-release-wrongurl.git"
+	instanceResp.Repo.Source.GitHub.Urls[0] = "https://" + testutils.GetTestGitRepoURLFromEnvVar() + "-release-wrongurl.git"
 
 	err = c.Delete(context.TODO(), instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -228,7 +229,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "wrong path",
 					Branch:    "main",
 				},
@@ -271,7 +272,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "wrong path",
 					Branch:    "main",
 				},
@@ -314,7 +315,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git/wrongurl"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git/wrongurl"},
 					ChartPath: "testhr/github/nginx-chart",
 					Branch:    "main",
 				},
@@ -322,7 +323,7 @@ func TestReconcile(t *testing.T) {
 			AltSource: &appv1.AltSource{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/nginx-chart",
 					Branch:    "main",
 				},
@@ -366,7 +367,7 @@ func TestReconcile(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -402,7 +403,7 @@ func TestReconcile(t *testing.T) {
 	g.Expect(instanceResp.Status.DeployedRelease).NotTo(gomega.BeNil())
 	g.Expect(instanceResp.Repo.Version).Should(gomega.Equal("3-0.1.0"))
 
-	instanceResp.Repo.Source.HelmRepo.Urls[0] = "https://github.com/open-cluster-management/multicloud-operators-subscription-release-wrongurl"
+	instanceResp.Repo.Source.HelmRepo.Urls[0] = "https://" + testutils.GetTestGitRepoURLFromEnvVar() + "-release-wrongurl"
 
 	err = c.Delete(context.TODO(), instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
@@ -430,7 +431,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
-					Urls: []string{"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/wrongurl"},
+					Urls: []string{"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/wrongurl"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -471,13 +472,13 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
-					Urls: []string{"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/wrongurl"},
+					Urls: []string{"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/wrongurl"},
 				},
 			},
 			AltSource: &appv1.AltSource{
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
-					Urls: []string{"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
+					Urls: []string{"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -518,7 +519,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -576,7 +577,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -643,7 +644,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -691,7 +692,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -734,7 +735,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -764,7 +765,7 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -882,7 +883,7 @@ func Test_generateResourceListForGit(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-3",
 					Branch:    "main",
 				},
@@ -935,7 +936,7 @@ func Test_generateResourceListForHelm(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-3-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",

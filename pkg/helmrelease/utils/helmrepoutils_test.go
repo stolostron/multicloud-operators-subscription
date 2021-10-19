@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -152,7 +153,7 @@ func TestDownloadChartGitHub(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -182,7 +183,7 @@ func TestDownloadChartGit(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -213,7 +214,7 @@ func TestDownloadChartHelmRepo(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -246,7 +247,7 @@ func TestDownloadChartHelmRepoContainsInvalidURL(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz",
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz",
 						"https://badURL1"},
 				},
 			},
@@ -276,7 +277,7 @@ func TestDownloadChartHelmRepoContainsInvalidURL2(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{"https://badURL1",
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -329,7 +330,7 @@ func TestDownloadChartFromGitHub(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -359,7 +360,7 @@ func TestDownloadChartFromGit(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitSourceType,
 				Git: &appv1.Git{
-					Urls:      []string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"},
+					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
 					ChartPath: "testhr/github/subscription-release-test-1",
 					Branch:    "main",
 				},
@@ -390,7 +391,7 @@ func TestDownloadChartFromHelmRepoHTTP(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -423,7 +424,7 @@ func TestDownloadChartFromHelmRepoHTTPNoDigest(t *testing.T) {
 				SourceType: appv1.HelmRepoSourceType,
 				HelmRepo: &appv1.HelmRepo{
 					Urls: []string{
-						"https://raw.github.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
 				},
 			},
 			ChartName: "subscription-release-test-1",
@@ -515,7 +516,7 @@ func TestDownloadGitRepo(t *testing.T) {
 
 	destRepo := filepath.Join(dir, "test")
 	commitID, err := DownloadGitRepo(nil, nil, destRepo,
-		[]string{"https://github.com/open-cluster-management/multicloud-operators-subscription.git"}, "main", true)
+		[]string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "main", true)
 	assert.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(destRepo, "OWNERS"))
