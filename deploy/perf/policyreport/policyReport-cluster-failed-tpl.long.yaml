@@ -1,7 +1,0 @@
-- source: <APPSUB-NS>/<APPSUB-NAME>
-  policy: APPSUB_FAILURE
-  message: frontend:Timeout waiting for frontend process to start. See log /var/log/frontend.log for more details.;redis-slave:Failed to parse file /config/redis-slave.yaml. See log /var/log/redis-slave.log for more details.;redis-master:Failed to parse file /config/redis-master.yaml. See log for more details
-  result: fail
-  timestamp:
-    nanos: 0
-    seconds: 1629921632

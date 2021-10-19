@@ -38,4 +38,4 @@ summary:
   failed: 0
   inProgress: 0
   propagationFailed: 0
-  total: <CLUSTER-TOTAL>
+  clusters: <CLUSTER-TOTAL>
