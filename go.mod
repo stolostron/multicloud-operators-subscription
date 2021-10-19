@@ -35,12 +35,9 @@ require (
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
 	open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d
-	open-cluster-management.io/multicloud-operators-channel v0.0.0-20210706131628-9125c762b9f9
+	open-cluster-management.io/multicloud-operators-channel v0.4.1-0.20211019174739-f906eb7328a6
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
 )
 
-replace (
-	k8s.io/client-go => k8s.io/client-go v0.21.3
-	open-cluster-management.io/multicloud-operators-channel => github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20211006-96596e6
-)
+replace k8s.io/client-go => k8s.io/client-go v0.21.3

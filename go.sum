@@ -734,8 +734,6 @@ github.com/onsi/gomega v1.10.2/go.mod h1:iN09h71vgCQne3DLsj+A5owkum+a2tYe+TOCB1y
 github.com/onsi/gomega v1.13.0 h1:7lLHu94wT9Ij0o6EWWclhu0aOh32VxhkwEJvzuWPeak=
 github.com/onsi/gomega v1.13.0/go.mod h1:lRk9szgn8TxENtWd0Tp4c3wjlRfMTMH27I+3Je41yGY=
 github.com/op/go-logging v0.0.0-20160315200505-970db520ece7/go.mod h1:HzydrMdWErDVzsI23lYNej1Htcns9BCg93Dk0bBINWk=
-github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20211006-96596e6 h1:e95Ro3vHBjfYRSUtn2oX8+MkLHX19OW03rn/skggkxA=
-github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20211006-96596e6/go.mod h1:7WI7xQEkDCGoFO8vs+fybnj3b/ebSRlhrfHYmXFFaOk=
 github.com/opencontainers/go-digest v0.0.0-20170106003457-a6d0ee40d420/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v0.0.0-20180430190053-c9281466c8b2/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
 github.com/opencontainers/go-digest v1.0.0-rc1/go.mod h1:cMLVZDEM3+U2I4VmLI6N8jQYUd2OVphdqWwCJHrFt2s=
@@ -1496,6 +1494,8 @@ open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c/go
 open-cluster-management.io/api v0.0.0-20210607023841-cd164385e2bb/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
 open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d h1:r5gaLswoTczgxY6502WSI/I8BesWotg6dbQCUJTPflc=
 open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
+open-cluster-management.io/multicloud-operators-channel v0.4.1-0.20211019174739-f906eb7328a6 h1:oGYIREUst+DSsljiTBELiS6n5JlFtyycwJ0ME6YD2bE=
+open-cluster-management.io/multicloud-operators-channel v0.4.1-0.20211019174739-f906eb7328a6/go.mod h1:7WI7xQEkDCGoFO8vs+fybnj3b/ebSRlhrfHYmXFFaOk=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/letsencrypt v0.0.3 h1:H7xDfhkaFFSYEJlKeq38RwX2jYcnTeHuDQyT+mMNMwM=
 rsc.io/letsencrypt v0.0.3/go.mod h1:buyQKZ6IXrRnB7TdkHP0RyEybLx18HHyOSoTyoOLqNY=
