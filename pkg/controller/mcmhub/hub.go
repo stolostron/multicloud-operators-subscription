@@ -347,7 +347,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 		appsubReport.Summary.Deployed = 0
 		appsubReport.Summary.Failed = 0
 		appsubReport.Summary.PropagationFailed = propagationFailedCount
-		appsubReport.Summary.Total = clusterCount
+		appsubReport.Summary.Clusters = clusterCount
 
 		if propagationFailedCount > 0 {
 			appsubReport.Summary.InProgress = 0
@@ -384,7 +384,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 		}
 
 		appsubReport.Summary.PropagationFailed = propagationFailedCount
-		appsubReport.Summary.Total = clusterCount
+		appsubReport.Summary.Clusters = clusterCount
 
 		if err := r.Update(context.TODO(), appsubReport); err != nil {
 			klog.Errorf("Error in updating app AppsubReport:%v/%v, err:%v", appsubReport.Namespace, appsubReport.Name, err)

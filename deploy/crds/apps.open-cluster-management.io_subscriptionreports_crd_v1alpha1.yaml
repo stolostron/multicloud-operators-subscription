@@ -39,6 +39,9 @@ spec:
     - jsonPath: .summary.propagationFailed
       name: PropagationFailed
       type: integer
+    - jsonPath: .summary.clusters
+      name: Clusters
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -124,6 +127,9 @@ spec:
           summary:
             description: SubscriptionReportSummary provides a summary of results
             properties:
+              clusters:
+                description: Clusters provides the count of all managed clusters the subscription is deployed to
+                type: integer
               deployed:
                 description: Deployed provides the count of subscriptions that deployed successfully
                 type: integer
@@ -135,9 +141,6 @@ spec:
                 type: integer
               propagationFailed:
                 description: PropagationFailed provides the count of subscriptions that failed to propagate to a managed cluster
-                type: integer
-              total:
-                description: Total provides the count of all managed clusters the subscription is deployed to
                 type: integer
             type: object
         required:

@@ -88,9 +88,9 @@ type SubscriptionReportSummary struct {
 	// +optional
 	PropagationFailed int `json:"propagationFailed"`
 
-	// Total provides the count of all managed clusters the subscription is deployed to
+	// Clusters provides the count of all managed clusters the subscription is deployed to
 	// +optional
-	Total int `json:"total"`
+	Clusters int `json:"clusters"`
 }
 
 // SubscriptionResult has one of the following values:
@@ -131,6 +131,7 @@ type SubscriptionReportType string
 // +kubebuilder:printcolumn:name="InProgress",type=integer,JSONPath=`.summary.inProgress`
 // +kubebuilder:printcolumn:name="Failed",type=integer,JSONPath=`.summary.failed`
 // +kubebuilder:printcolumn:name="PropagationFailed",type=integer,JSONPath=`.summary.propagationFailed`
+// +kubebuilder:printcolumn:name="Clusters",type=integer,JSONPath=`.summary.clusters`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:shortName=appsubreport
 
