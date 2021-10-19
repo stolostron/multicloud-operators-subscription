@@ -31,6 +31,7 @@ import (
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const rsc1 = `apiVersion: v1
@@ -112,7 +113,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
 	githubsub = &appv1alpha1.Subscription{
