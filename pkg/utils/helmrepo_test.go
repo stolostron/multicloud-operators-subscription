@@ -49,7 +49,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "HelmRepo",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm",
+			Pathname: "https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm",
 		},
 	}
 
@@ -153,7 +153,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
+			"https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
 	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")

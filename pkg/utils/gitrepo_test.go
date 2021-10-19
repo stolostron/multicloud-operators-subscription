@@ -36,7 +36,6 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -52,7 +51,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
+			Pathname: "https://" + GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
 

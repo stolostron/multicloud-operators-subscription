@@ -36,12 +36,12 @@ import (
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	ansibleGitURL = "https://github.com/open-cluster-management/multicloud-operators-subscription"
-	pullInterval  = time.Second * 3
+	pullInterval = time.Second * 3
 )
 
 //Prehook should:
@@ -91,7 +91,7 @@ func newHookTest() *hookTest {
 			Namespace: chnKey.Namespace,
 		},
 		Spec: chnv1.ChannelSpec{
-			Pathname: ansibleGitURL,
+			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar(),
 			Type:     chnv1.ChannelTypeGit,
 		},
 	}
@@ -101,7 +101,7 @@ func newHookTest() *hookTest {
 			Name:      dSubKey.Name,
 			Namespace: dSubKey.Namespace,
 			Annotations: map[string]string{
-				subv1.AnnotationGitBranch: "master",
+				subv1.AnnotationGitBranch: "main",
 				subv1.AnnotationGitPath:   "test/hooks/ansible/pre-and-post",
 			},
 		},
@@ -222,7 +222,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 				Namespace: chnKey.Namespace,
 			},
 			Spec: chnv1.ChannelSpec{
-				Pathname: ansibleGitURL,
+				Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar(),
 				Type:     chnv1.ChannelTypeGit,
 			},
 		}
