@@ -363,7 +363,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 
 			return err
 		}
-	} else if resources != nil {
+	} else {
 		klog.V(1).Infof("App appsubReport found: %v/%v, update it.", appsubReport.Namespace, appsubReport.Name)
 
 		// Update resource list
@@ -377,6 +377,13 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 		appsubReport.Resources = resources
 
 		//reset placementrule cluster count as the pass count
+		if propagationFailedCount > 0 {
+			appsubReport.Summary.InProgress = 0
+		} else {
+			appsubReport.Summary.InProgress = clusterCount
+		}
+
+		appsubReport.Summary.PropagationFailed = propagationFailedCount
 		appsubReport.Summary.Total = clusterCount
 
 		if err := r.Update(context.TODO(), appsubReport); err != nil {
