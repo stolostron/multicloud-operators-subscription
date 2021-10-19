@@ -285,7 +285,7 @@ func (r *ReconcileAppSubSummary) newAppSubReport(appsubNs, appsubName string,
 		newAppsubReportResults = append(newAppsubReportResults, newAppsubReportResult)
 	}
 
-	inProgressCount := appsubSummary.Total - clustersStatus.PropagationFailed - clustersStatus.Deployed - clustersStatus.Failed
+	inProgressCount := appsubSummary.Clusters - clustersStatus.PropagationFailed - clustersStatus.Deployed - clustersStatus.Failed
 	if inProgressCount < 0 {
 		klog.Warningf("inProgress Count < 0, inProgressCount: %v", inProgressCount)
 		inProgressCount = 0
@@ -311,7 +311,7 @@ func (r *ReconcileAppSubSummary) newAppSubReport(appsubNs, appsubName string,
 			Deployed:          clustersStatus.Deployed,
 			Failed:            clustersStatus.Failed,
 			PropagationFailed: clustersStatus.PropagationFailed,
-			Total:             appsubSummary.Total,
+			Clusters:          appsubSummary.Clusters,
 			InProgress:        inProgressCount,
 		},
 	}
