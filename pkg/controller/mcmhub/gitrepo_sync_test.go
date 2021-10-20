@@ -54,6 +54,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: appv1.SubscriptionSpec{
 			Channel: sharedkey.String(),
@@ -85,6 +88,7 @@ func TestGetGitResources(t *testing.T) {
 
 	annotations := make(map[string]string)
 	annotations[appv1.AnnotationGitPath] = "test/github"
+	annotations[appv1.AnnotationGitBranch] = "main"
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.

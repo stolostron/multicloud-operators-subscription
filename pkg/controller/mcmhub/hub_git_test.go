@@ -326,7 +326,7 @@ var _ = PDescribe("hub git ops", func() {
 		sub2 := subIns.DeepCopy()
 		sub2Key := types.NamespacedName{Namespace: subKey.Namespace, Name: "2ndsub"}
 
-		testBranch2 := "release-2.1"
+		testBranch2 := "do-not-delete-test"
 		setBranch(sub2, testBranch2)
 
 		sub2.SetName(sub2Key.Name)

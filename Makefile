@@ -47,7 +47,7 @@ REGISTRY = quay.io/open-cluster-management
 VERSION = latest
 IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
-export TEST_GIT_REPO_URL = github.com/open-cluster-management-io/multicloud-operators-subscription
+export TEST_GIT_REPO_URL=github.com/open-cluster-management-io/multicloud-operators-subscription
 
 .PHONY: build
 
