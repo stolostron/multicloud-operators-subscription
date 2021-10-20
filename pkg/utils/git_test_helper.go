@@ -14,9 +14,7 @@
 
 package utils
 
-import (
-	"os"
-)
+import "os"
 
 func GetTestGitRepoURLFromEnvVar() string {
 	return os.Getenv("TEST_GIT_REPO_URL")

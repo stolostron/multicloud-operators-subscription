@@ -120,6 +120,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
@@ -305,6 +308,9 @@ var _ = Describe("test subscribe invalid resource", func() {
 
 	It("should clone the target repo", func() {
 		subitem := &SubscriberItem{}
+		subAnnotations := make(map[string]string)
+		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
+		githubsub.SetAnnotations(subAnnotations)
 		subitem.Subscription = githubsub
 		subitem.Channel = githubchn
 		subitem.synchronizer = defaultSubscriber.synchronizer
@@ -417,6 +423,7 @@ data:
 
 		subanno := make(map[string]string)
 		subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
+		subanno[appv1alpha1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subanno)
 
 		githubsub.Spec.Package = "chart1"
@@ -528,6 +535,7 @@ var _ = Describe("github subscriber reconcile options", func() {
 		subAnnotations := make(map[string]string)
 		subAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		subAnnotations[appv1.AnnotationResourceReconcileOption] = "merge"
+		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subAnnotations)
 		githubsub.Spec.PackageFilter = nil
 

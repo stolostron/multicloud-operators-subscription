@@ -1,4 +1,0 @@
-scope:
-  kind: cluster
-  name: <CLUSTER-NAME>
-  namespace: <CLUSTER-NAME>
