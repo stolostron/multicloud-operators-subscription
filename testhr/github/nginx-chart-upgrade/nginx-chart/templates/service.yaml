@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-service-upgrade
+  labels:
+    app: {{ template "guestbookapplication.name" . }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+    - port: 80
+  selector:
+    app: {{ template "guestbookapplication.name" . }}
+    release: {{ .Release.Name }}
