@@ -96,7 +96,8 @@ var _ = PDescribe("hub git ops", func() {
 				Name:      dSubKey.Name,
 				Namespace: dSubKey.Namespace,
 				Annotations: map[string]string{
-					subv1.AnnotationGitPath: "test/hooks/ansible/pre-and-post",
+					subv1.AnnotationGitPath:   "test/hooks/ansible/pre-and-post",
+					subv1.AnnotationGitBranch: "main",
 				},
 			},
 			Spec: subv1.SubscriptionSpec{

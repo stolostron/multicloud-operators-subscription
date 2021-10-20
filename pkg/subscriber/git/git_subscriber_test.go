@@ -110,6 +110,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "Git",
