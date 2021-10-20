@@ -198,11 +198,27 @@ func CreateOrUpdateHelmChart(
 			return nil, err
 		}
 
+		if secondaryChannel.Spec.ConfigMapRef != nil {
+			secondaryChannel.Spec.ConfigMapRef.Namespace = secondaryChannel.Namespace
+		}
+
+		if secondaryChannel.Spec.SecretRef != nil {
+			secondaryChannel.Spec.SecretRef.Namespace = secondaryChannel.Namespace
+		}
+
 		altSource.ConfigMapRef = secondaryChannel.Spec.ConfigMapRef
 		altSource.InsecureSkipVerify = secondaryChannel.Spec.InsecureSkipVerify
 		altSource.SecretRef = secondaryChannel.Spec.SecretRef
 
 		klog.Infof("Created altSource for helmRelease %s", releaseCRName)
+	}
+
+	if channel.Spec.ConfigMapRef != nil {
+		channel.Spec.ConfigMapRef.Namespace = channel.Namespace
+	}
+
+	if channel.Spec.SecretRef != nil {
+		channel.Spec.SecretRef.Namespace = channel.Namespace
 	}
 
 	err = client.Get(context.TODO(),
