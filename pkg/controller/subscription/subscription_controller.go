@@ -252,8 +252,11 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				if err != nil && errors.IsNotFound(err) {
 					klog.Infof("Host deployable %s is not found on the hub cluster. Remove subscription %s.", hostDeployableName, request.NamespacedName)
 
-					// Delete the subscription and let the next reconcile unsubscribe/delete resources.
-					err = r.Delete(context.TODO(), instance)
+					// Delete the subscription with background casecade delete
+					deletepolicy := metav1.DeletePropagationBackground
+					deleteOpts := &client.DeleteOptions{PropagationPolicy: &deletepolicy}
+
+					err = r.Delete(context.TODO(), instance, deleteOpts)
 
 					if err == nil {
 						klog.Infof("Removed subscription %s.", request.NamespacedName)
