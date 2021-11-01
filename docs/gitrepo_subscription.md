@@ -14,71 +14,9 @@ You can subscribe to public or enterprise Git repositories that contain Kubernet
 Ensure that you have a Kubernetes cluster and this subscription operator running.
 Ensure that you have a Kubernetes cluster that include a running instance of this subscription operator.
 
-## Subscribing to Kubernetes resources from a Git repository
-
-In the following example, you create a channel that connects to a Git repository and subscribes to a sample nginx deployment `examples/git-channel/sample-deployment.yaml` YAML file.
-
-1. Clone this `multicloud-operators-subscription` Git repository.
-1. Run the following command to create a `kuberesources`namespace:
-
-   ```shell
-   kubectl apply -f ./examples/git-channel/10-namespace.yaml
-   ```
-
-1. Run the following command to create a `sample-kube-resources-git` channel in the `kuberesources` namespace:
-
-   ```shell
-   kubectl apply -f ./examples/git-channel/11-channel.yaml
-   ```
-
-   The following YAML content is used to define this `sample-kube-resources-git` channel:
-
-   ```yaml
-   apiVersion: apps.open-cluster-management.io/v1
-   kind: Channel
-   metadata:
-     name: sample-kube-resources-git
-     namespace: kuberesources
-   spec:
-       type: Git
-       pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
-   ```
-
-   The value for the `pathname` field is the Git repository HTTPS URL.
-1. Run the following command to subscribe to the `sample-kube-resources-git` channel:
-
-   ```shell
-   kubectl apply -f ./examples/git-channel/12-subscription.yaml
-   ```
-
-   When you review the `./examples/git-channel/12-subscription.yaml` file, the subscription has the following annotations.
-
-   ```yaml
-    annotations:
-      apps.open-cluster-management.io/git-path: examples/git-channel
-      apps.open-cluster-management.io/git-branch: branch1
-   ```
-
-   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/git-channel` directory of the Git repository channel.
-
-   In `examples/git-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
-
-   The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
-1. Run the following command to place the subscribed resources onto the local cluster:
-
-   ```shell
-   kubectl patch subscriptions.apps.open-cluster-management.io sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
-   ```
-
-   After a couple of minutes, run the following command to check whether a `sample-nginx-deployment` deployment is created:
-
-   ```shell
-   kubectl get deployment --all-namespaces
-   ```
-
 ## Subscribing to a Helm chart from a public Git repository
 
-Use the following example to create a channel that connects to a public Git repository and subscribes to a MongoDB Helm chart.
+Use the following example to create a channel that connects to a public IBM Git repository and subscribes to a MongoDB Helm chart.
 
 1. Clone this `multicloud-operators-subscription` GitHub repository.
 1. In the root for your cloned repository, run the following command to create a namespace:
@@ -139,6 +77,68 @@ Use the following example to create a channel that connects to a public Git repo
 
    ```shell
    kubectl get deployments
+   ```
+
+## Subscribing to Kubernetes resources from a Git repository
+
+In the following example, you create a channel that connects to a Git repository and subscribes to a sample nginx deployment `examples/git-channel/sample-deployment.yaml` YAML file.
+
+1. Clone this `multicloud-operators-subscription` Git repository.
+1. Run the following command to create a `kuberesources`namespace:
+
+   ```shell
+   kubectl apply -f ./examples/git-channel/10-namespace.yaml
+   ```
+
+1. Run the following command to create a `sample-kube-resources-git` channel in the `kuberesources` namespace:
+
+   ```shell
+   kubectl apply -f ./examples/git-channel/11-channel.yaml
+   ```
+
+   The following YAML content is used to define this `sample-kube-resources-git` channel:
+
+   ```yaml
+   apiVersion: apps.open-cluster-management.io/v1
+   kind: Channel
+   metadata:
+     name: sample-kube-resources-git
+     namespace: kuberesources
+   spec:
+       type: Git
+       pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
+   ```
+
+   The value for the `pathname` field is the Git repository HTTPS URL.
+1. Run the following command to subscribe to the `sample-kube-resources-git` channel:
+
+   ```shell
+   kubectl apply -f ./examples/git-channel/12-subscription.yaml
+   ```
+
+   When you review the `./examples/git-channel/12-subscription.yaml` file, the subscription has the following annotations.
+
+   ```yaml
+    annotations:
+      apps.open-cluster-management.io/git-path: examples/git-channel
+      apps.open-cluster-management.io/git-branch: branch1
+   ```
+
+   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/git-channel` directory of the Git repository channel.
+
+   In `examples/git-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+
+   The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
+1. Run the following command to place the subscribed resources onto the local cluster:
+
+   ```shell
+   kubectl patch subscriptions.apps.open-cluster-management.io sample-kube-resources-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   ```
+
+   After a couple of minutes, run the following command to check whether a `sample-nginx-deployment` deployment is created:
+
+   ```shell
+   kubectl get deployment --all-namespaces
    ```
 
 ## Subscribing to a Helm chart from an enterprise Git repository that requires authentication
@@ -363,10 +363,10 @@ In order to configure webhook in a Git repository, you need a target webhook pay
 Create a route (ingress) to expose the subscription operator's webhook event listener service where `<operator namespace>` is the namespace where the subscription operator runs in.
 
   ```shell
-  oc create route passthrough --service=multicloud-operators-subscription -n <operator namespace>
+  oc create route passthrough --service=multicluster-operators-subscription -n <operator namespace>
   ```
 
-Then, use `oc get route multicloud-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
+Then, use `oc get route multicluster-operators-subscription -n <operator namespace>` command to find the externally-reachable hostname. The webhook payload URL is `https://<externally-reachable hostname>/webhook`.
 
 ### WebHook secret
 
@@ -406,3 +406,4 @@ oc annotate channel.apps.open-cluster-management.io <channel name> apps.open-clu
 ### Subscriptions of webhook-enabled channel
 
 No webhook specific configuration is needed in subscriptions.
+

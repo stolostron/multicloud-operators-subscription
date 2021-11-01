@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import (
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -27,12 +26,15 @@ import (
 	"time"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/apimachinery/pkg/api/equality"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -76,6 +78,62 @@ func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	klog.V(5).Info("Something we don't care changed")
 
 	return false
+}
+
+var AppSubSummaryPredicateFunc = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		klog.Info("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
+		var clusterLabel string
+		_, oldOK := e.ObjectOld.GetLabels()["apps.open-cluster-management.io/cluster"]
+		clusterLabel, newOK := e.ObjectNew.GetLabels()["apps.open-cluster-management.io/cluster"]
+
+		if !oldOK || !newOK || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus updated, old: %v/%v, new: %v/%v",
+				e.ObjectOld.GetNamespace(), e.ObjectOld.GetName(), e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+			return false
+		}
+
+		oldAppSubSummary, ok := e.ObjectOld.(*appsubReportV1alpha1.SubscriptionReport)
+		if !ok {
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.ObjectOld.GetNamespace(), e.ObjectOld.GetName())
+			return false
+		}
+
+		newAppSubSummary, ok := e.ObjectNew.(*appsubReportV1alpha1.SubscriptionReport)
+		if !ok {
+			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
+			return false
+		}
+
+		return !equality.Semantic.DeepEqual(oldAppSubSummary, newAppSubSummary)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		klog.Info("CreateFunc oldlabels:", e.Object.GetLabels())
+
+		var clusterLabel string
+		clusterLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+
+		if !ok || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+			return false
+		}
+
+		klog.V(1).Infof("New managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+		return true
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		klog.Info("DeleteFunc oldlabels:", e.Object.GetLabels())
+
+		var clusterLabel string
+		clusterLabel, ok := e.Object.GetLabels()["apps.open-cluster-management.io/cluster"]
+		if !ok || clusterLabel == "" {
+			klog.V(1).Infof("Not a managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+			return false
+		}
+
+		klog.Infof("managed cluster appSubPackageStatus deleted: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
+		return true
+	},
 }
 
 // SubscriptionPredicateFunctions filters status update
@@ -183,7 +241,7 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 	outF := []metav1.ManagedFieldsEntry{}
 
 	out.SetManagedFields(outF)
-	// we don't actually care about the status, when create a deployable for
+	// we don't actually care about the status, when create a manifestwork for
 	// given subscription
 
 	return out
@@ -250,44 +308,6 @@ func isAnsibleStatusEqual(a, b appv1.AnsibleJobsStatus) bool {
 	}
 
 	return true
-}
-
-// DeployablePredicateFunctions filters status update
-var DeployablePredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newdpl := e.ObjectNew.(*dplv1.Deployable)
-		olddpl := e.ObjectOld.(*dplv1.Deployable)
-
-		return !reflect.DeepEqual(newdpl.Status, olddpl.Status)
-	},
-
-	CreateFunc: func(e event.CreateEvent) bool {
-		newdpl := e.Object.(*dplv1.Deployable)
-
-		labels := newdpl.GetLabels()
-
-		// Git type subscription reconciliation deletes and recreates deployables.
-		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
-			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
-			return false
-		}
-
-		return true
-	},
-
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		dpl := e.Object.(*dplv1.Deployable)
-
-		labels := dpl.GetLabels()
-
-		// Git type subscription reconciliation deletes and recreates deployables.
-		if strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGitHub) ||
-			strings.EqualFold(labels[chnv1.KeyChannelType], chnv1.ChannelTypeGit) {
-			return false
-		}
-
-		return true
-	},
 }
 
 // ChannelPredicateFunctions filters channel spec update
@@ -387,23 +407,12 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 		return nil
 	}
 
-	sourcestr := objanno[appv1.AnnotationSyncSource]
+	sourcestr := objanno[appv1.AnnotationHosting]
 	if sourcestr == "" {
 		return nil
 	}
 
-	pos := strings.Index(sourcestr, "-")
-	if pos == -1 {
-		return nil
-	}
-
-	hosttr := sourcestr[pos+1:]
-
-	if hosttr == "" {
-		return nil
-	}
-
-	parsedstr := strings.Split(hosttr, "/")
+	parsedstr := strings.Split(sourcestr, "/")
 	if len(parsedstr) != 2 {
 		return nil
 	}
@@ -411,6 +420,20 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 	host := &types.NamespacedName{Name: parsedstr[1], Namespace: parsedstr[0]}
 
 	return host
+}
+
+// GetHostSubscriptionNSFromObject extract the appsub NS from the hosting-subscription label
+func GetHostSubscriptionNSFromObject(clusterNsManagedSubStatusName string) (string, string) {
+	if clusterNsManagedSubStatusName == "" {
+		return "", ""
+	}
+
+	parsedstr := strings.Split(clusterNsManagedSubStatusName, ".")
+	if len(parsedstr) != 2 {
+		return "", ""
+	}
+
+	return parsedstr[0], parsedstr[1]
 }
 
 // SetInClusterPackageStatus creates status strcuture and fill status
@@ -598,90 +621,6 @@ func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname s
 	substatus.LastUpdateTime = metav1.Now()
 }
 
-// UpdateSubscriptionStatus based on error message, and propagate resource status
-// status - current object status
-// tplunit - new content of the current object
-// - nil:  success
-// - others: failed, with error message in reason
-func UpdateSubscriptionStatus(statusClient client.Client, templateerr error, tplunit metav1.Object, status interface{}, deletePkg bool) error {
-	klog.V(10).Info("Trying to update subscription status:", templateerr, tplunit.GetNamespace(), "/", tplunit.GetName(), status)
-
-	if tplunit == nil {
-		return nil
-	}
-
-	sub := &appv1.Subscription{}
-	subkey := GetHostSubscriptionFromObject(tplunit)
-
-	if subkey == nil {
-		klog.Info("The template", tplunit.GetNamespace(), "/", tplunit.GetName(), " does not have hosting subscription", tplunit.GetAnnotations())
-		return nil
-	}
-
-	err := statusClient.Get(context.TODO(), *subkey, sub)
-
-	if err != nil {
-		// for all errors including not found return
-		klog.Info("Failed to get subscription object ", *subkey, " to set status, error:", err)
-		return err
-	}
-
-	dplkey := GetHostDeployableFromObject(tplunit)
-	if dplkey == nil {
-		errmsg := "Invalid status structure in subscription: " + sub.GetNamespace() + "/" + sub.Name + " nil hosting deployable"
-		klog.Info(errmsg)
-
-		return errors.New(errmsg)
-	}
-
-	newStatus := sub.Status.DeepCopy()
-
-	if deletePkg {
-		DeleteInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
-	} else {
-		err = SetInClusterPackageStatus(newStatus, dplkey.Name, templateerr, status)
-		if err != nil {
-			klog.Error("Failed to set package status for subscription: ", sub.Namespace+"/"+sub.Name, ". error: ", err)
-			return err
-		}
-	}
-
-	if isEmptySubscriptionStatus(newStatus) || !isEqualSubscriptionStatus(&sub.Status, newStatus) {
-		newStatus.DeepCopyInto(&sub.Status)
-		sub.Status.LastUpdateTime = metav1.Now()
-
-		if err := statusClient.Status().Update(context.TODO(), sub); err != nil {
-			// want to print out the error log before leave
-			klog.Errorf("Failed to update subscription status. sub: %v/%v, err: %v", sub.GetNamespace(), sub.GetName(), err)
-			return err
-		}
-	}
-
-	return nil
-}
-
-func SkipOrUpdateSubscriptionStatus(clt client.Client, oldSub *appv1.Subscription) error {
-	curSub := &appv1.Subscription{}
-
-	if err := clt.Get(context.TODO(), types.NamespacedName{Name: oldSub.GetName(), Namespace: oldSub.GetNamespace()}, oldSub); err != nil {
-		return err
-	}
-
-	oldStatus := &oldSub.Status
-	upStatus := &curSub.Status
-
-	if isEmptySubscriptionStatus(upStatus) || !isEqualSubscriptionStatus(oldStatus, upStatus) {
-		oldSub.Status = *upStatus
-		oldSub.Status.LastUpdateTime = metav1.Now()
-
-		if err := clt.Status().Update(context.TODO(), oldSub); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // ValidatePackagesInSubscriptionStatus validate the status struture for packages
 func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1.Subscription, pkgMap map[string]bool) error {
 	var err error
@@ -752,12 +691,12 @@ func OverrideResourceBySubscription(template *unstructured.Unstructured,
 	return OverrideTemplate(template, ovs)
 }
 
-func prepareOverrides(pkgName string, instance *appv1.Subscription) []dplv1.ClusterOverride {
+func prepareOverrides(pkgName string, instance *appv1.Subscription) []appv1.ClusterOverride {
 	if instance == nil || instance.Spec.PackageOverrides == nil {
 		return nil
 	}
 
-	var overrides []dplv1.ClusterOverride
+	var overrides []appv1.ClusterOverride
 
 	// go over clsuters to find matching override
 	for _, ov := range instance.Spec.PackageOverrides {
@@ -766,7 +705,7 @@ func prepareOverrides(pkgName string, instance *appv1.Subscription) []dplv1.Clus
 		}
 
 		for _, pov := range ov.PackageOverrides {
-			overrides = append(overrides, dplv1.ClusterOverride(pov))
+			overrides = append(overrides, appv1.ClusterOverride(pov))
 		}
 	}
 
@@ -893,6 +832,79 @@ func AllowApplyTemplate(localClient client.Client, template *unstructured.Unstru
 	return true
 }
 
+// IsResourceAllowed checks if the resource is on application subscription's allow list. The allow list is used only
+// if the subscription is created by subscription-admin user.
+func IsResourceAllowed(resource unstructured.Unstructured, allowlist map[string]map[string]string, isAdmin bool) bool {
+	// If subscription-admin, honor the allow list
+	if isAdmin {
+		// If allow list is empty, all resources are allowed for deploy
+		if len(allowlist) == 0 {
+			return true
+		}
+
+		return (allowlist[resource.GetAPIVersion()][resource.GetKind()] != "" ||
+			allowlist[resource.GetAPIVersion()]["*"] != "")
+	}
+
+	// If not subscription-admin, ignore the allow list and don't allow policy
+	return resource.GetAPIVersion() != "policy.open-cluster-management.io/v1"
+}
+
+// IsResourceDenied checks if the resource is on application subscription's deny list. The deny list is used only
+// if the subscription is created by subscription-admin user.
+func IsResourceDenied(resource unstructured.Unstructured, denyList map[string]map[string]string, isAdmin bool) bool {
+	// If subscription-admin, honor the deny list
+	if isAdmin {
+		// If deny list is empty, all resources are NOT denied
+		if len(denyList) == 0 {
+			return false
+		}
+
+		return (denyList[resource.GetAPIVersion()][resource.GetKind()] != "" ||
+			denyList[resource.GetAPIVersion()]["*"] != "")
+	}
+
+	// If not subscription-admin, ignore the deny list
+	return false
+}
+
+// GetAllowDenyLists returns subscription's allow and deny lists as maps. It returns empty map if there is no list.
+func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]string, map[string]map[string]string) {
+	allowedGroupResources := make(map[string]map[string]string)
+
+	if subscription.Spec.Allow != nil {
+		for _, allowGroup := range subscription.Spec.Allow {
+			for _, resource := range allowGroup.Kinds {
+				klog.Info("allowing to deploy resource " + allowGroup.APIVersion + "/" + resource)
+
+				if allowedGroupResources[allowGroup.APIVersion] == nil {
+					allowedGroupResources[allowGroup.APIVersion] = make(map[string]string)
+				}
+
+				allowedGroupResources[allowGroup.APIVersion][resource] = resource
+			}
+		}
+	}
+
+	deniedGroupResources := make(map[string]map[string]string)
+
+	if subscription.Spec.Deny != nil {
+		for _, denyGroup := range subscription.Spec.Deny {
+			for _, resource := range denyGroup.Kinds {
+				klog.Info("denying to deploy resource " + denyGroup.APIVersion + "/" + resource)
+
+				if deniedGroupResources[denyGroup.APIVersion] == nil {
+					deniedGroupResources[denyGroup.APIVersion] = make(map[string]string)
+				}
+
+				deniedGroupResources[denyGroup.APIVersion][resource] = resource
+			}
+		}
+	}
+
+	return allowedGroupResources, deniedGroupResources
+}
+
 //DeleteSubscriptionCRD deletes the Subscription CRD
 func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
 	sublist := &appv1.SubscriptionList{}
@@ -950,7 +962,7 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 		delete(objanno, appv1.AnnotationClusterAdmin)
 		delete(objanno, appv1.AnnotationHosting)
 		delete(objanno, appv1.AnnotationSyncSource)
-		delete(objanno, dplv1.AnnotationHosting)
+		delete(objanno, appv1.AnnotationHostingDeployable)
 		delete(objanno, appv1.AnnotationChannelType)
 	}
 
@@ -963,7 +975,7 @@ func RemoveSubAnnotations(obj *unstructured.Unstructured) *unstructured.Unstruct
 	return obj
 }
 
-// RemoveSubAnnotations removes RHACM specific owner reference from subscription
+// RemoveSubOwnerRef removes RHACM specific owner reference from subscription
 func RemoveSubOwnerRef(obj *unstructured.Unstructured) *unstructured.Unstructured {
 	ownerRefs := obj.GetOwnerReferences()
 	newOwnerRefs := []metav1.OwnerReference{}
@@ -1083,6 +1095,9 @@ func GetReconcileInterval(reconcileRate, chType string) (time.Duration, time.Dur
 		if strings.EqualFold(chType, chnv1.ChannelTypeHelmRepo) {
 			interval = 15 * time.Minute
 		}
+		if strings.EqualFold(chType, chnv1.ChannelTypeObjectBucket) {
+			interval = 15 * time.Minute
+		}
 		retryInterval = 90 * time.Second
 		retryCount = 1
 	} else if strings.EqualFold(reconcileRate, "high") {
@@ -1114,4 +1129,163 @@ func AddPartOfLabel(s *appv1.Subscription, m map[string]string) map[string]strin
 	}
 
 	return m
+}
+
+// CompareManifestWork compare two manifestWorks and return true if they are equal.
+func CompareManifestWork(oldManifestWork, newManifestWork *manifestWorkV1.ManifestWork) bool {
+	if len(oldManifestWork.Spec.Workload.Manifests) != len(newManifestWork.Spec.Workload.Manifests) {
+		klog.V(1).Infof("oldManifestWork length: %v, newManifestWork length: %v",
+			len(oldManifestWork.Spec.Workload.Manifests), len(newManifestWork.Spec.Workload.Manifests))
+		return false
+	}
+
+	for i := 0; i < len(oldManifestWork.Spec.Workload.Manifests); i++ {
+		oldManifest := &unstructured.Unstructured{}
+		newManifest := &unstructured.Unstructured{}
+
+		err := json.Unmarshal(oldManifestWork.Spec.Workload.Manifests[i].Raw, oldManifest)
+		if err != nil {
+			klog.Errorf("falied to unmarshal old manifestwork, err: %v", err)
+			return false
+		}
+
+		klog.V(1).Infof("=====\n oldManifest: %#v", oldManifest)
+
+		err = json.Unmarshal(newManifestWork.Spec.Workload.Manifests[i].Raw, newManifest)
+		if err != nil {
+			klog.Errorf("falied to unmarshal new manifestwork, err: %v", err)
+			return false
+		}
+
+		klog.V(1).Infof("=====\n newManifest: %#v", newManifest)
+
+		if !isSameUnstructured(oldManifest, newManifest) {
+			klog.V(1).Infof("old template: %#v, new template: %#v", oldManifest, newManifest)
+			return false
+		}
+	}
+
+	return true
+}
+
+// isSameUnstructured compares the two unstructured object.
+// The comparison ignores the metadata and status field, and check if the two objects are semantically equal.
+func isSameUnstructured(obj1, obj2 *unstructured.Unstructured) bool {
+	obj1Copy := obj1.DeepCopy()
+	obj2Copy := obj2.DeepCopy()
+
+	// Compare gvk, name, namespace at first
+	if obj1Copy.GroupVersionKind() != obj2Copy.GroupVersionKind() {
+		return false
+	}
+
+	if obj1Copy.GetName() != obj2Copy.GetName() {
+		return false
+	}
+
+	if obj1Copy.GetNamespace() != obj2Copy.GetNamespace() {
+		return false
+	}
+
+	// Compare label and annotations
+	if !equality.Semantic.DeepEqual(obj1Copy.GetLabels(), obj2Copy.GetLabels()) {
+		return false
+	}
+
+	if !equality.Semantic.DeepEqual(obj1Copy.GetAnnotations(), obj2Copy.GetAnnotations()) {
+		return false
+	}
+
+	// Compare semantically after removing metadata and status field
+	delete(obj1Copy.Object, "metadata")
+	delete(obj2Copy.Object, "metadata")
+	delete(obj1Copy.Object, "status")
+	delete(obj2Copy.Object, "status")
+
+	return equality.Semantic.DeepEqual(obj1Copy.Object, obj2Copy.Object)
+}
+
+// IsHostingAppsub return true if contains hosting annotation
+func IsHostingAppsub(appsub *appv1.Subscription) bool {
+	if appsub == nil {
+		return false
+	}
+
+	annotations := appsub.GetAnnotations()
+	if annotations == nil {
+		return false
+	}
+
+	_, ok := annotations[appv1.AnnotationHosting]
+
+	return ok
+}
+
+// ParseAPIVersion return group and version from a given apiVersion string
+func ParseAPIVersion(apiVersion string) (string, string) {
+	parsedstr := strings.Split(apiVersion, "/")
+	if len(parsedstr) == 1 {
+		return "", parsedstr[0]
+	}
+
+	if len(parsedstr) != 2 {
+		return "", ""
+	}
+
+	return parsedstr[0], parsedstr[1]
+}
+
+// ParseNamespacedName return namespace and name from a given "namespace/name" string
+func ParseNamespacedName(namespacedName string) (string, string) {
+	parsedstr := strings.Split(namespacedName, "/")
+
+	if len(parsedstr) != 2 {
+		klog.Infof("invalid namespacedName: %v", namespacedName)
+		return "", ""
+	}
+
+	return parsedstr[0], parsedstr[1]
+}
+
+// FetchChannelReferences best-effort to return the channel secret and configmap if they exist
+func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.Secret, cm *corev1.ConfigMap) {
+	if chn.Spec.SecretRef != nil {
+		secret := &corev1.Secret{}
+
+		chnseckey := types.NamespacedName{
+			Name:      chn.Spec.SecretRef.Name,
+			Namespace: chn.GetNamespace(),
+		}
+
+		if chn.Spec.SecretRef.Namespace != "" {
+			chnseckey.Namespace = chn.Spec.SecretRef.Namespace
+		}
+
+		if err := clt.Get(context.TODO(), chnseckey, secret); err != nil {
+			klog.Warningf("failed to get reference secret from channel err: %v, chnseckey: %v", err, chnseckey)
+		} else {
+			sec = secret
+		}
+	}
+
+	if chn.Spec.ConfigMapRef != nil {
+		configMap := &corev1.ConfigMap{}
+
+		chncmkey := types.NamespacedName{
+			Name:      chn.Spec.ConfigMapRef.Name,
+			Namespace: chn.GetNamespace(),
+		}
+
+		if chn.Spec.ConfigMapRef.Namespace != "" {
+			chncmkey.Namespace = chn.Spec.ConfigMapRef.Namespace
+		}
+
+		if err := clt.Get(context.TODO(), chncmkey, configMap); err != nil {
+			klog.Warningf("failed to get reference configmap from channel err: %v, chnseckey: %v", err, chncmkey)
+		} else {
+			cm = configMap
+		}
+	}
+
+	return sec, cm
 }

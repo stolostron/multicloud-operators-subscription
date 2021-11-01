@@ -22,12 +22,13 @@ import (
 	"testing"
 	"time"
 
+	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -69,7 +70,7 @@ func TestGitlabWebhookHandler(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -113,7 +114,7 @@ func TestGitlabWebhookHandler2(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -171,7 +172,7 @@ func TestGitlabWebhookHandler3(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -269,7 +270,7 @@ func TestWithWebhookSecret(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {

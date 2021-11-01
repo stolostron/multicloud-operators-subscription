@@ -22,6 +22,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"helm.sh/helm/v3/pkg/repo"
+	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -48,7 +50,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "HelmRepo",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm",
+			Pathname: "https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm",
 		},
 	}
 
@@ -100,6 +102,46 @@ func TestGenerateHelmIndexFile(t *testing.T) {
 	g.Expect(len(indexFile.Entries)).To(gomega.Equal(2))
 }
 
+func TestConfigMapSecretRefsInHelmRelease(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	chartDirs := make(map[string]string)
+	chartDirs["../../test/github/helmcharts/chart1/"] = "../../test/github/helmcharts/chart1/"
+	chartDirs["../../test/github/helmcharts/chart2/"] = "../../test/github/helmcharts/chart2/"
+
+	indexFile, err := GenerateHelmIndexFile(githubsub, "../..", chartDirs)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(len(indexFile.Entries)).To(gomega.Equal(2))
+
+	time.Sleep(3 * time.Second)
+
+	githubchnNew := githubchn.DeepCopy()
+
+	githubchnNew.Spec.ConfigMapRef = &corev1.ObjectReference{Name: "channel-configmap"}
+	githubchnNew.Spec.SecretRef = &corev1.ObjectReference{Name: "channel-secret"}
+
+	githubsub.UID = "dummyuid"
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchnNew, nil, githubsub)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(helmrelease).NotTo(gomega.BeNil())
+
+	g.Expect(helmrelease.Repo.ConfigMapRef.Namespace).To(gomega.Equal(githubchnNew.Namespace))
+	g.Expect(helmrelease.Repo.SecretRef.Namespace).To(gomega.Equal(githubchnNew.Namespace))
+}
+
 func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -108,7 +150,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -127,7 +169,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	time.Sleep(3 * time.Second)
 
 	githubsub.UID = "dummyuid"
-	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -137,7 +179,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	// Sleep to make sure the helm release is created in the test kube
 	time.Sleep(5 * time.Second)
 
-	helmrelease, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	helmrelease, err = CreateOrUpdateHelmChart("chart1", "chart1-1.0.0", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -147,12 +189,12 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	var relativeChartVersions []*repo.ChartVersion
 	relativeChartVersions = append(relativeChartVersions, &repo.ChartVersion{URLs: relativeUrls})
 
-	helmrelease, err = CreateOrUpdateHelmChart("my-app", "my-app-0.1.0", relativeChartVersions, c, helmchn, helmsub)
+	helmrelease, err = CreateOrUpdateHelmChart("my-app", "my-app-0.1.0", relativeChartVersions, c, helmchn, nil, helmsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
+			"https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
 	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")
@@ -160,7 +202,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	var fullChartVersions []*repo.ChartVersion
 	fullChartVersions = append(fullChartVersions, &repo.ChartVersion{URLs: fullUrls})
 
-	helmrelease, err = CreateOrUpdateHelmChart("nginx-ingress", "nginx-ingress-1.36.3", fullChartVersions, c, helmchn, helmsub)
+	helmrelease, err = CreateOrUpdateHelmChart("nginx-ingress", "nginx-ingress-1.36.3", fullChartVersions, c, helmchn, nil, helmsub)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
@@ -177,7 +219,7 @@ func TestCheckVersion(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -233,7 +275,7 @@ func TestOverride(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -274,7 +316,7 @@ persistence:
 	time.Sleep(3 * time.Second)
 
 	sub2.UID = "dummyuid"
-	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, sub2)
+	helmrelease, err := CreateOrUpdateHelmChart("chart1", "chart1-1.1.1", indexFile.Entries["chart1"], c, githubchn, nil, sub2)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 
@@ -282,7 +324,7 @@ persistence:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func TestCreateHelmCRDeployable(t *testing.T) {
+func TestCreateHelmCRManifest(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
@@ -290,7 +332,8 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
-	ctx, cancel := context.WithCancel(context.Background())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -318,14 +361,14 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err := CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
-	dplName1 := dpl.Name
+	dplName1 := dpl.GetName()
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
@@ -341,13 +384,13 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
-	dplName2 := dpl.Name
+	dplName2 := dpl.GetName()
 
-	// Test that the deployable names are the same for the same charts with different versions
+	// Test that the manifest names are the same for the same charts with different versions
 	g.Expect(dplName1).To(gomega.Equal(dplName2))
 }
 
@@ -359,7 +402,7 @@ func TestDeleteHelmReleaseCRD(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {

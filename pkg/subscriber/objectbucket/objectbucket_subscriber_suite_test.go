@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,8 +61,8 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(ctx)).NotTo(gomega.HaveOccurred())
+		wg.Done()
+		mgr.Start(ctx)
 	}()
 
 	return wg

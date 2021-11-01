@@ -210,7 +210,7 @@ func (r *ReconcileHelmRelease) hackMultiClusterHubRemoveCRDReferences(hr *appv1.
 func stripCRDs(bigFile string, c *action.Configuration) (string, bool, error) {
 	changed := false
 
-	caps, err := getCapabilities(c)
+	caps, err := GetCapabilities(c)
 	if err != nil {
 		return "", false, err
 	}
@@ -236,8 +236,8 @@ func stripCRDs(bigFile string, c *action.Configuration) (string, bool, error) {
 	return builder.String(), changed, nil
 }
 
-// capabilities builds a Capabilities from discovery information. Took from https://github.com/helm/helm/blob/v3.4.2/pkg/action/action.go
-func getCapabilities(c *action.Configuration) (*chartutil.Capabilities, error) {
+// GetCapabilities builds a Capabilities from discovery information. Took from https://github.com/helm/helm/blob/v3.4.2/pkg/action/action.go
+func GetCapabilities(c *action.Configuration) (*chartutil.Capabilities, error) {
 	if c.Capabilities != nil {
 		return c.Capabilities, nil
 	}

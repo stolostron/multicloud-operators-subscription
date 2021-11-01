@@ -1,4 +1,4 @@
-# Copyright 2019 The Kubernetes Authors.
+# Copyright 2021 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,23 +43,32 @@ FINDFILES=find . \( -path ./.git -o -path ./.github \) -prune -o -type f
 XARGS = xargs -0 ${XARGS_FLAGS}
 CLEANXARGS = xargs ${XARGS_FLAGS}
 
-IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 REGISTRY = quay.io/open-cluster-management
-VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
-IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG):$(VERSION)
+VERSION = latest
+IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
+export TEST_GIT_REPO_URL=github.com/open-cluster-management-io/multicloud-operators-subscription
 
 .PHONY: build
 
 build:
-	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+	@common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
+	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
+
+.PHONY: local
+
+local:
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
 
 .PHONY: build-images
 
 build-images: build
 	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
-	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 .PHONY: lint
 
@@ -95,12 +104,14 @@ go-bindata:
 	go install github.com/go-bindata/go-bindata/go-bindata
 
 test: ensure-kubebuilder-tools
+	@echo ${TEST_GIT_REPO_URL}
 	go test -timeout 300s -v ./pkg/... 
 
 .PHONY: deploy-standalone
 
 deploy-standalone:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
 	kubectl apply -f deploy/hub-common
 	kubectl apply -f deploy/standalone
 
@@ -111,6 +122,7 @@ deploy-ocm:
 
 deploy-hub:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
 	kubectl apply -f deploy/hub-common
 	kubectl apply -f deploy/hub
 
@@ -125,3 +137,48 @@ build-e2e:
 
 test-e2e: build-e2e deploy-ocm deploy-hub
 	./e2e.test -test.v -ginkgo.v
+
+
+############################################################
+# generate code and crd 
+############################################################
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
+
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=deploy/crds
+
+
+############################################################
+# run the e2e on a local kind
+############################################################
+export CONTAINER_NAME=e2e
+e2e: build build-images
+	build/run-e2e-tests.sh
+
+e2e-setup: e2e
+	build/set_up_e2e_local_dir.sh

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
@@ -30,16 +32,16 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	ansibleGitURL = "https://github.com/open-cluster-management/multicloud-operators-subscription"
-	pullInterval  = time.Second * 3
+	pullInterval = time.Second * 3
 )
 
 //Prehook should:
@@ -89,7 +91,7 @@ func newHookTest() *hookTest {
 			Namespace: chnKey.Namespace,
 		},
 		Spec: chnv1.ChannelSpec{
-			Pathname: ansibleGitURL,
+			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar(),
 			Type:     chnv1.ChannelTypeGit,
 		},
 	}
@@ -99,7 +101,7 @@ func newHookTest() *hookTest {
 			Name:      dSubKey.Name,
 			Namespace: dSubKey.Namespace,
 			Annotations: map[string]string{
-				subv1.AnnotationGitBranch: "master",
+				subv1.AnnotationGitBranch: "main",
 				subv1.AnnotationGitPath:   "test/hooks/ansible/pre-and-post",
 			},
 		},
@@ -190,65 +192,6 @@ var _ = Describe("multiple reconcile signal of the same subscription instance sp
 	})
 })
 
-/*func UpdateHostDeployableStatus(clt client.Client, sKey types.NamespacedName, tPhase dplv1.DeployablePhase) error {
-	hubdpl := &dplv1.Deployable{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      sKey.Name + "-deployable",
-			Namespace: sKey.Namespace,
-		},
-		Spec: dplv1.DeployableSpec{
-			Template: &runtime.RawExtension{
-				Object: &corev1.ConfigMap{},
-			},
-		},
-	}
-
-	t := &dplv1.Deployable{}
-
-	hubdplKey := types.NamespacedName{Name: hubdpl.GetName(), Namespace: hubdpl.GetNamespace()}
-
-	if err := clt.Get(context.TODO(), hubdplKey, t); err != nil {
-		return nil
-	}
-
-	t.Status.Phase = tPhase
-
-	return clt.Status().Update(context.TODO(), t.DeepCopy())
-}
-
-func ManagedClusterUpdateHubStatus(clt client.Client, subKey types.NamespacedName, tPhase subv1.SubscriptionPhase) error {
-	a := &subv1.Subscription{}
-	ctx := context.TODO()
-
-	if err := clt.Get(ctx, subKey, a); err != nil {
-		return err
-	}
-
-	statusTS := metav1.Now()
-	a.Status.LastUpdateTime = statusTS
-	a.Status.Phase = subv1.SubscriptionPropagated
-	a.Status.Statuses = subv1.SubscriptionClusterStatusMap{
-		"spoke": &subv1.SubscriptionPerClusterStatus{
-			SubscriptionPackageStatus: map[string]*subv1.SubscriptionUnitStatus{
-				"pkg1": {
-					Phase:          tPhase,
-					LastUpdateTime: statusTS,
-				},
-			},
-		},
-	}
-
-	return clt.Status().Update(ctx, a)
-}
-
-func waitForHostDeployable(clt client.Client, subKey types.NamespacedName) error {
-	t := &dplv1.Deployable{}
-	hostDplKey := types.NamespacedName{Name: fmt.Sprintf("%s-deployable", subKey.Name),
-		Namespace: subKey.Namespace}
-
-	return clt.Get(context.TODO(), hostDplKey, t)
-}*/
-
 func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() error {
 	return func() error {
 		pre := &ansiblejob.AnsibleJob{}
@@ -267,10 +210,11 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 
 var _ = Describe("given a subscription pointing to a git path without hook folders", func() {
 	var (
-		ctx    = context.TODO()
-		testNs = "normal-sub"
-		subKey = types.NamespacedName{Name: "t-sub", Namespace: testNs}
-		chnKey = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+		ctx             = context.TODO()
+		testNs          = "normal-sub"
+		subKey          = types.NamespacedName{Name: "t-sub", Namespace: testNs}
+		chnKey          = types.NamespacedName{Name: "t-chn", Namespace: testNs}
+		appsubReportKey = types.NamespacedName{Name: subKey.Name, Namespace: testNs}
 
 		chnIns = &chnv1.Channel{
 			ObjectMeta: metav1.ObjectMeta{
@@ -278,7 +222,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 				Namespace: chnKey.Namespace,
 			},
 			Spec: chnv1.ChannelSpec{
-				Pathname: ansibleGitURL,
+				Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar(),
 				Type:     chnv1.ChannelTypeGit,
 			},
 		}
@@ -305,7 +249,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 		}
 	)
 
-	It("should download the git to local and add deployables annotations to subscription", func() {
+	It("should download the git to local and create app AppsubReport", func() {
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
@@ -320,13 +264,15 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			if err := k8sClt.Get(ctx, subKey, u); err != nil {
 				return fmt.Errorf("failed to get subscription %s, err: %s", subKey, err.Error())
 			}
-			fmt.Printf("izhang ======  u = %+v\n", u)
 
-			an := u.GetAnnotations()
+			fmt.Printf("subscription= %+v\n", u)
 
-			if getCommitID(u) == "" || an[subv1.AnnotationDeployables] == "" || an[subv1.AnnotationTopo] == "" {
-				return fmt.Errorf("failed to get the commitID, deployables or topo annotation")
+			appsubReport := &appsubReportV1alpha1.SubscriptionReport{}
+			if err := k8sClt.Get(ctx, appsubReportKey, appsubReport); err != nil {
+				return fmt.Errorf("failed to get the appsub AppsubReport %s, err: %s", appsubReportKey, err.Error())
 			}
+
+			fmt.Printf("AppsubReport= %+v\n", appsubReport)
 
 			return nil
 		}

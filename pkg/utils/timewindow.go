@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -259,6 +259,11 @@ func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.
 
 	if len(slots) != 0 && len(rdays) == 0 {
 		return tillNextSlot(slots, uniCurTime)
+	}
+
+	if !rdays.isCurDayInDaysOfWeek(uniCurTime.Weekday()) {
+		// the current day is not suppose to be active so find the next available time
+		return timeLeftTillNextMidNight(uniCurTime) + tillNextSlotFromMidnight(slots, uniCurTime) + rdays.durationToNextRunableWeekday(slots, uniCurTime)
 	}
 
 	if rdays.durationToNextRunableWeekday(slots, uniCurTime) == 0 {

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,17 +21,20 @@ import (
 
 	"github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var c client.Client
+
+var id = types.NamespacedName{
+	Name:      "endpoint",
+	Namespace: "default",
+}
 
 var (
 	sharedkey = types.NamespacedName{
@@ -72,6 +75,8 @@ func TestObjectSubscriber(t *testing.T) {
 
 	c = mgr.GetClient()
 
+	g.Expect(Add(mgr, cfg, &id, 2, false, false)).NotTo(gomega.HaveOccurred())
+
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
@@ -80,24 +85,8 @@ func TestObjectSubscriber(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	Add(mgr, cfg, &sharedkey, 60)
-
 	// connect to a fake object store, should expect connection failure now.
 	err = defaultSubscriber.SubscribeItem(subitem)
 
-	g.Expect(err).Should(gomega.HaveOccurred())
-}
-
-func TestDoSubscribeDeployable(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	obsi := &SubscriberItem{}
-	dpl := &dplv1alpha1.Deployable{}
-
-	_, _, err := obsi.doSubscribeDeployable(dpl, nil, nil)
-	g.Expect(err).To(gomega.HaveOccurred())
-
-	dpl.Spec.Template = &runtime.RawExtension{}
-	dpl.Spec.Template.Raw = []byte{65, 65, 65}
-	_, _, err = obsi.doSubscribeDeployable(dpl, nil, nil)
-	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 }

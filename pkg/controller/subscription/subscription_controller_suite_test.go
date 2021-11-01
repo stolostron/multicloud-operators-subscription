@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@ package subscription
 
 import (
 	"context"
+	"log"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -53,22 +54,31 @@ func TestMain(m *testing.M) {
 		stdlog.Fatal(err)
 	}
 
+	var c client.Client
+
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "ns-sub"},
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	err = c.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-chn-namespace"},
 	})
 	if err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	err = c.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "test-sub-namespace"},
 	})
 	if err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	code := m.Run()
@@ -135,7 +145,7 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
+		wg.Done()
 		mgr.Start(ctx)
 	}()
 

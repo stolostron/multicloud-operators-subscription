@@ -1,0 +1,5 @@
+trustedRegistries:
+  - gcr.io
+  - docker.io
+  - quay.io
+  - registry.access.redhat.com

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package git
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -29,8 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const rsc1 = `apiVersion: v1
@@ -109,16 +110,22 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
 	githubsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
@@ -238,7 +245,7 @@ var _ = Describe("github subscriber reconcile logic", func() {
 
 		// Test kube resource with package filter having some matching labels
 		errMsg = subitem.checkFilters(rsc)
-		Expect(errMsg).To(Equal("Failed to pass annotation check to deployable " + rsc.GetName()))
+		Expect(errMsg).To(Equal("Failed to pass annotation check to manifest " + rsc.GetName()))
 
 	})
 })
@@ -295,14 +302,18 @@ var _ = Describe("test subscribe invalid resource", func() {
 		subitem.Channel = githubchn
 		subitem.synchronizer = defaultSubscriber.synchronizer
 
-		// Test subscribing an invalid kubernetes resource
+		// Test subscribing an invalid kubernetes resource,
+		// By new design, even if the GVK is not valid, function subscribeResource here doesn't return error.
+		// So the invalid resource will go ahead to get deployed, where the error will be recorded in the final subscription status.
 		_, _, err := subitem.subscribeResource([]byte(invalidRsc))
-		Expect(err).To(HaveOccurred())
-
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should clone the target repo", func() {
 		subitem := &SubscriberItem{}
+		subAnnotations := make(map[string]string)
+		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
+		githubsub.SetAnnotations(subAnnotations)
 		subitem.Subscription = githubsub
 		subitem.Channel = githubchn
 		subitem.synchronizer = defaultSubscriber.synchronizer
@@ -415,6 +426,7 @@ data:
 
 		subanno := make(map[string]string)
 		subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
+		subanno[appv1alpha1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subanno)
 
 		githubsub.Spec.Package = "chart1"
@@ -526,6 +538,7 @@ var _ = Describe("github subscriber reconcile options", func() {
 		subAnnotations := make(map[string]string)
 		subAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		subAnnotations[appv1.AnnotationResourceReconcileOption] = "merge"
+		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subAnnotations)
 		githubsub.Spec.PackageFilter = nil
 
@@ -542,11 +555,7 @@ metadata:
 data:
   path: test/github/helmcharts`
 
-		deployable, _, err := subitem.subscribeResource([]byte(configMapYAML))
-		Expect(err).NotTo(HaveOccurred())
-
-		resource := &unstructured.Unstructured{}
-		err = json.Unmarshal(deployable.Spec.Template.Raw, resource)
+		resource, _, err := subitem.subscribeResource([]byte(configMapYAML))
 		Expect(err).NotTo(HaveOccurred())
 
 		rscAnnotations := resource.GetAnnotations()

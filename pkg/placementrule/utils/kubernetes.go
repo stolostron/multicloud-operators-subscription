@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,7 +44,7 @@ func ConvertLabels(labelSelector *metav1.LabelSelector) (labels.Selector, error)
 	return labels.Everything(), nil
 }
 
-// CheckAndInstallCRD checks if deployable belongs to this cluster
+// CheckAndInstallCRD checks if placementrule belongs to this cluster
 // managed cluster annotation matches or no managed cluster annotation (local)
 func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 	var err error

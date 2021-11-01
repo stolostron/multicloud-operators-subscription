@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
@@ -86,6 +85,10 @@ var (
 	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
 	// AnnotationBucketPath defines s3 object bucket subfolder path
 	AnnotationBucketPath = SchemeGroupVersion.Group + "/bucket-path"
+	// AnnotationManagedCluster identifies this is a deployable for managed cluster
+	AnnotationManagedCluster = SchemeGroupVersion.Group + "/managed-cluster"
+	// AnnotationHostingDeployable sits in templated resource, gives name of hosting deployable, legacy annotation
+	AnnotationHostingDeployable = SchemeGroupVersion.Group + "/hosting-deployable"
 )
 
 const (
@@ -129,6 +132,12 @@ type Overrides struct {
 	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"` // To be added
 }
 
+// AllowDenyItem is a group resources allowed or denied for deployment
+type AllowDenyItem struct {
+	APIVersion string   `json:"apiVersion,omitempty"`
+	Kinds      []string `json:"kinds,omitempty"`
+}
+
 // TimeWindow defines a time window for subscription to run or be blocked
 type TimeWindow struct {
 	// active time window or not, if timewindow is active, then deploy will only applies during these windows
@@ -149,9 +158,23 @@ type HourRange struct {
 	End   string `json:"end,omitempty"`
 }
 
+// ClusterOverride describes rules for override
+type ClusterOverride struct {
+	runtime.RawExtension `json:",inline"`
+}
+
+// Overrides field in deployable
+type ClusterOverrides struct {
+	ClusterName string `json:"clusterName"`
+	//+kubebuilder:validation:MinItems=1
+	ClusterOverrides []ClusterOverride `json:"clusterOverrides"` // To be added
+}
+
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
+	// When fails to connect to the channel, connect to the secondary channel
+	SecondaryChannel string `json:"secondaryChannel"`
 	// To specify 1 package in channel
 	Package string `json:"name,omitempty"`
 	// To specify more than 1 package in channel
@@ -161,11 +184,13 @@ type SubscriptionSpec struct {
 	// For hub use only, to specify which clusters to go to
 	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
 	// for hub use only to specify the overrides when apply to clusters
-	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
+	Overrides []ClusterOverrides `json:"overrides,omitempty"`
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 	// +optional
 	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
+	Allow         []*AllowDenyItem        `json:"allow,omitempty"`
+	Deny          []*AllowDenyItem        `json:"deny,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription
@@ -280,11 +305,14 @@ type SubscriptionList struct {
 
 // SubscriberItem defines subscriber item to share subscribers with different channel types
 type SubscriberItem struct {
-	Subscription          *Subscription
-	SubscriptionConfigMap *corev1.ConfigMap
-	Channel               *chnv1alpha1.Channel
-	ChannelSecret         *corev1.Secret
-	ChannelConfigMap      *corev1.ConfigMap
+	Subscription              *Subscription
+	SubscriptionConfigMap     *corev1.ConfigMap
+	Channel                   *chnv1alpha1.Channel
+	ChannelSecret             *corev1.Secret
+	ChannelConfigMap          *corev1.ConfigMap
+	SecondaryChannel          *chnv1alpha1.Channel
+	SecondaryChannelSecret    *corev1.Secret
+	SecondaryChannelConfigMap *corev1.ConfigMap
 }
 
 // Subscriber efines common interface of different channel types

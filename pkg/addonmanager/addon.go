@@ -29,12 +29,13 @@ var (
 	genericCodecs    = serializer.NewCodecFactory(genericScheme)
 	genericCodec     = genericCodecs.UniversalDeserializer()
 	agentStaticFiles = []string{
-		"deploy/managed-common/apps.open-cluster-management.io_deployables_crd.yaml",
 		"deploy/managed-common/apps.open-cluster-management.io_helmreleases_crd.yaml",
-		"deploy/managed-common/apps.open-cluster-management.io_subscriptions.yaml",
+		"deploy/managed-common/apps.open-cluster-management.io_subscriptions_crd_v1.yaml",
 		"deploy/managed-common/apps.open-cluster-management.io_placementrules_crd.yaml",
+		"deploy/managed-common/apps.open-cluster-management.io_subscriptionstatuses_crd_v1alpha1.yaml",
 		"deploy/managed-common/clusterrole_binding.yaml",
 		"deploy/managed-common/clusterrole.yaml",
+		"deploy/managed-common/clusterrole2.yaml",
 		"deploy/managed-common/service_account.yaml",
 		"deploy/managed-common/service.yaml",
 	}

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -124,7 +124,7 @@ func IsReadyACMClusterRegistry(clReader client.Reader) bool {
 	err := clReader.List(context.TODO(), cllist, listopts)
 
 	if err == nil {
-		klog.Info("Cluster API service ready")
+		klog.Error("Cluster API service ready")
 		return true
 	}
 
@@ -135,12 +135,13 @@ func IsReadyACMClusterRegistry(clReader client.Reader) bool {
 
 // DetectClusterRegistry - Detect the ACM cluster API service every 10 seconds. the controller will be exited when it is ready
 // The controller will be auto restarted by the multicluster-operators-application deployment CR later.
-func DetectClusterRegistry(clReader client.Reader, s <-chan struct{}) {
+//nolint:unparam
+func DetectClusterRegistry(ctx context.Context, clReader client.Reader) {
 	if !IsReadyACMClusterRegistry(clReader) {
-		go wait.Until(func() {
+		go wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if IsReadyACMClusterRegistry(clReader) {
 				os.Exit(1)
 			}
-		}, time.Duration(10)*time.Second, s)
+		}, time.Duration(10)*time.Second)
 	}
 }

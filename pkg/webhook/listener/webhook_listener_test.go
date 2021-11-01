@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -62,7 +63,7 @@ func TestWebhookHandler(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -123,7 +124,7 @@ func TestWebhookHandler2(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -182,7 +183,7 @@ func TestWebhookHandler3(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -249,7 +250,7 @@ func TestUpdateSubscription(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -354,7 +355,7 @@ func TestValidateSecret(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -383,7 +384,7 @@ func TestValidateChannel(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -426,7 +427,7 @@ func TestServiceCreation(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {

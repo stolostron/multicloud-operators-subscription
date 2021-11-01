@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ func NewEventRecorder(cfg *rest.Config, scheme *apiruntime.Scheme) (*EventRecord
 	eventBroadcaster.StartLogging(klog.Infof)
 	eventBroadcaster.StartRecordingToSink(&typedcorev1.EventSinkImpl{Interface: reccs.CoreV1().Events("")})
 
-	rec.EventRecorder = eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "deployable"})
+	rec.EventRecorder = eventBroadcaster.NewRecorder(scheme, corev1.EventSource{Component: "placementrule"})
 
 	return rec, nil
 }

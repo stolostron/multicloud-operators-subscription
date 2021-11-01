@@ -117,13 +117,13 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 
 	appmgrsa := &corev1.ServiceAccount{}
 
-	err := r.Client.Get(ctx, request.NamespacedName, appmgrsa)
+	err := r.Client.Get(context.TODO(), request.NamespacedName, appmgrsa)
 
 	if err != nil {
 		if kerrors.IsNotFound(err) {
 			klog.Infof("%s is not found. Deleting the secret from the hub.", request.NamespacedName)
 
-			err := r.hubclient.Delete(ctx, r.prepareAgentTokenSecret(""))
+			err := r.hubclient.Delete(context.TODO(), r.prepareAgentTokenSecret(""))
 
 			if err != nil {
 				klog.Error("Failed to delete the secret from the hub.")

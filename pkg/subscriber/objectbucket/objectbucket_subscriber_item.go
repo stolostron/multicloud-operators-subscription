@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package objectbucket
 
 import (
-	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -23,17 +22,13 @@ import (
 	"github.com/ghodss/yaml"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
 
-	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-
-	dplpro "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	awsutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/aws"
@@ -45,38 +40,44 @@ var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-manageme
 type SubscriberItem struct {
 	appv1.SubscriberItem
 
-	bucket       string
-	objectStore  awsutils.ObjectStore
-	stopch       chan struct{}
-	successful   bool
-	syncinterval int
-	synchronizer SyncSource
+	reconcileRate string
+	syncTime      string
+	bucket        string
+	objectStore   awsutils.ObjectStore
+	stopch        chan struct{}
+	successful    bool
+	clusterAdmin  bool
+	syncinterval  int
+	synchronizer  SyncSource
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel.
-func (obsi *SubscriberItem) Start() error {
-	err := obsi.initObjectStore()
-
-	// If the new object store connection status (successful or failed) is different, return for updating the appsub status
-	// This will trigger another reconcile.
-	if !obsi.CompareOjbectStoreStatus(err) {
-		return err
-	}
-
-	// If the object bucket connection fails, stop the object bucket subscription
-	// At this stage, there is no app status phase change, no new reconcile will happen.
-	if err != nil {
-		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
-
-		return err
-	}
-
+func (obsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if obsi.stopch != nil {
-		return nil
+		if restart {
+			// restart this goroutine
+			klog.Info("Stopping object SubscriberItem: ", obsi.Subscription.Name)
+			obsi.Stop()
+		} else {
+			klog.Info("object SubscriberItem already started: ", obsi.Subscription.Name)
+
+			return
+		}
 	}
 
 	obsi.stopch = make(chan struct{})
+
+	loopPeriod, retryInterval, retries := utils.GetReconcileInterval(obsi.reconcileRate, chnv1.ChannelTypeObjectBucket)
+	klog.Infof("reconcileRate: %v, loopPeriod: %v, retryInterval: %v, retries: %v", obsi.reconcileRate, loopPeriod, retryInterval, retries)
+
+	if strings.EqualFold(obsi.reconcileRate, "off") {
+		klog.Infof("auto-reconcile is OFF")
+
+		obsi.doSubscriptionWithRetries(retryInterval, retries)
+
+		return
+	}
 
 	go wait.Until(func() {
 		tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
@@ -98,18 +99,8 @@ func (obsi *SubscriberItem) Start() error {
 			return
 		}
 
-		if !obsi.successful {
-			err := obsi.doSubscription()
-
-			if err != nil {
-				klog.Error("Object Bucket ", obsi.Subscription.Namespace, "/", obsi.Subscription.Name, "housekeeping failed with error: ", err)
-			} else {
-				obsi.successful = true
-			}
-		}
-	}, time.Duration(obsi.syncinterval)*time.Second, obsi.stopch)
-
-	return nil
+		obsi.doSubscriptionWithRetries(retryInterval, retries)
+	}, loopPeriod, obsi.stopch)
 }
 
 // Stop the subscriber.
@@ -135,18 +126,20 @@ func (obsi *SubscriberItem) CompareOjbectStoreStatus(initObjectStoreErr error) b
 	return false
 }
 
-func (obsi *SubscriberItem) initObjectStore() error {
-	var err error
+func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyID, secretAccessKey, region string, err error) {
+	channel := obsi.Channel
 
-	awshandler := &awsutils.Handler{}
+	if !primary {
+		channel = obsi.SecondaryChannel
+	}
 
-	pathName := obsi.Channel.Spec.Pathname
+	pathName := channel.Spec.Pathname
 
 	if pathName == "" {
-		errmsg := "Empty Pathname in channel " + obsi.Channel.Name
+		errmsg := "Empty Pathname in channel " + channel.Name
 		klog.Error(errmsg)
 
-		return errors.New(errmsg)
+		return "", "", "", "", errors.New(errmsg)
 	}
 
 	if strings.HasSuffix(pathName, "/") {
@@ -155,51 +148,62 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	}
 
 	loc := strings.LastIndex(pathName, "/")
-	endpoint := pathName[:loc]
+	endpoint = pathName[:loc]
 	obsi.bucket = pathName[loc+1:]
+	secret := obsi.ChannelSecret
 
-	accessKeyID := ""
-	secretAccessKey := ""
-	region := ""
+	if !primary {
+		secret = obsi.SecondaryChannelSecret
+	}
 
-	if obsi.ChannelSecret != nil {
-		err = yaml.Unmarshal(obsi.ChannelSecret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
+	if secret != nil {
+		err = yaml.Unmarshal(secret.Data[awsutils.SecretMapKeyAccessKeyID], &accessKeyID)
 		if err != nil {
 			klog.Error("Failed to unmashall accessKey from secret with error:", err)
 
-			return err
+			return "", "", "", "", err
 		}
 
-		err = yaml.Unmarshal(obsi.ChannelSecret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
+		err = yaml.Unmarshal(secret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
 		if err != nil {
 			klog.Error("Failed to unmashall secretaccessKey from secret with error:", err)
 
-			return err
+			return "", "", "", "", err
 		}
 
-		regionData := obsi.ChannelSecret.Data[awsutils.SecretMapKeyRegion]
+		regionData := secret.Data[awsutils.SecretMapKeyRegion]
 
 		if len(regionData) > 0 {
 			err = yaml.Unmarshal(regionData, &region)
 			if err != nil {
 				klog.Error("Failed to unmashall region from secret with error:", err)
 
-				return err
+				return "", "", "", "", err
 			}
 		}
+	}
+
+	return endpoint, accessKeyID, secretAccessKey, region, nil
+}
+
+func (obsi *SubscriberItem) getAwsHandler(primary bool) error {
+	awshandler := &awsutils.Handler{}
+
+	endpoint, accessKeyID, secretAccessKey, region, err := obsi.getChannelConfig(primary)
+
+	if err != nil {
+		return err
 	}
 
 	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
 
 	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
 		klog.Error(err, "unable initialize object store settings")
-
 		return err
 	}
 	// Check whether the connection is setup successfully
 	if err := awshandler.Exists(obsi.bucket); err != nil {
 		klog.Error(err, "Unable to access object store bucket ", obsi.bucket, " for channel ", obsi.Channel.Name)
-
 		return err
 	}
 
@@ -208,18 +212,115 @@ func (obsi *SubscriberItem) initObjectStore() error {
 	return nil
 }
 
-// In aws s3 bucket, key could contain folder name. e.g. subfolder1/configmap3.yaml
-// As a result, the hosting deployable annotation (NamespacedName) will be <namespace>/subfolder1/configmap3.yaml
-// The invalid hosting deployable annotation will break the synchronizer
+func (obsi *SubscriberItem) initObjectStore() error {
+	// Get AWS handler with the primary channel first
+	err := obsi.getAwsHandler(true)
 
-func generateDplNameFromKey(key string) string {
-	return strings.ReplaceAll(key, "/", "-")
+	if err != nil {
+		if obsi.SecondaryChannel == nil {
+			return err
+		}
+
+		klog.Warning("failed to connect with the primary channel, err: " + err.Error())
+		klog.Info("trying with the secondary channel")
+
+		err2 := obsi.getAwsHandler(false)
+
+		if err2 != nil {
+			klog.Error("failed to connect with the secondary channel, err: " + err2.Error())
+			return err2
+		}
+	}
+
+	return nil
 }
 
-func (obsi *SubscriberItem) doSubscription() error {
-	var dpls []*dplv1.Deployable
+func (obsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
+	obsi.doSubscription()
 
+	// If the initial subscription fails, retry.
+	n := 0
+
+	for n < retries {
+		if !obsi.successful {
+			time.Sleep(retryInterval)
+			klog.Infof("Re-try #%d: subcribing to the object bucket: %v", n+1, obsi.bucket)
+			obsi.doSubscription()
+			n++
+		} else {
+			break
+		}
+	}
+}
+
+func (obsi *SubscriberItem) doSubscription() {
 	var folderName *string
+
+	//Update the secret and config map
+	if obsi.Channel != nil {
+		sec, cm := utils.FetchChannelReferences(obsi.synchronizer.GetRemoteNonCachedClient(), *obsi.Channel)
+		if sec != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
+				klog.Warningf("can't deploy reference secret %v for subscription %v", obsi.ChannelSecret.GetName(), obsi.Subscription.GetName())
+			}
+		}
+
+		if cm != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
+				klog.Warningf("can't deploy reference configmap %v for subscription %v", obsi.ChannelConfigMap.GetName(), obsi.Subscription.GetName())
+			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(obsi.synchronizer.GetLocalNonCachedClient(), *obsi.Channel)
+		if sec != nil {
+			klog.V(1).Info("updated in memory channel secret for ", obsi.Subscription.Name)
+			obsi.ChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory channel configmap for ", obsi.Subscription.Name)
+			obsi.ChannelConfigMap = cm
+		}
+	}
+
+	if obsi.SecondaryChannel != nil {
+		sec, cm := utils.FetchChannelReferences(obsi.synchronizer.GetRemoteNonCachedClient(), *obsi.SecondaryChannel)
+		if sec != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
+				klog.Warningf("can't deploy reference secondary secret %v for subscription %v", obsi.SecondaryChannelSecret.GetName(), obsi.Subscription.GetName())
+			}
+		}
+
+		if cm != nil {
+			if err := utils.ListAndDeployReferredObject(obsi.synchronizer.GetLocalNonCachedClient(), obsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
+				klog.Warningf("can't deploy reference secondary configmap %v for subscription %v", obsi.SecondaryChannelConfigMap.GetName(), obsi.Subscription.GetName())
+			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(obsi.synchronizer.GetLocalNonCachedClient(), *obsi.SecondaryChannel)
+		if sec != nil {
+			klog.Info("updated in memory secondary channel secret for ", obsi.Subscription.Name)
+			obsi.SecondaryChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory secondary channel configmap for ", obsi.Subscription.Name)
+			obsi.SecondaryChannelConfigMap = cm
+		}
+	}
+
+	err := obsi.initObjectStore()
+
+	if err != nil {
+		klog.Errorf("Unable to initialize object store connection for subscription. sub: %v, channel: %v, err: %v ", obsi.Subscription.Name, obsi.Channel.Name, err)
+		obsi.successful = false
+
+		return
+	}
 
 	annotations := obsi.Subscription.GetAnnotations()
 	bucketPath := annotations[appv1.AnnotationBucketPath]
@@ -229,21 +330,25 @@ func (obsi *SubscriberItem) doSubscription() error {
 	}
 
 	keys, err := obsi.objectStore.List(obsi.bucket, folderName)
-	klog.V(5).Infof("object keys: %v", keys)
+	klog.Infof("object keys: %v", keys)
 
 	if err != nil {
 		klog.Error("Failed to list objects in bucket ", obsi.bucket)
+		obsi.successful = false
 
-		return err
+		return
 	}
+
+	tpls := []unstructured.Unstructured{}
 
 	// converting template from obeject store to DPL
 	for _, key := range keys {
 		tplb, err := obsi.objectStore.Get(obsi.bucket, key)
 		if err != nil {
 			klog.Error("Failed to get object ", key, " in bucket ", obsi.bucket)
+			obsi.successful = false
 
-			return err
+			return
 		}
 
 		// skip empty body object store
@@ -251,47 +356,26 @@ func (obsi *SubscriberItem) doSubscription() error {
 			continue
 		}
 
-		dpl := &dplv1.Deployable{}
-		dpl.Name = generateDplNameFromKey(key)
-		dpl.Namespace = obsi.bucket
-		dpl.Spec.Template = &runtime.RawExtension{}
-		dpl.GenerateName = tplb.GenerateName
-		verionAnno := map[string]string{dplv1.AnnotationDeployableVersion: tplb.Version}
-		dpl.SetAnnotations(verionAnno)
-		err = yaml.Unmarshal(tplb.Content, dpl.Spec.Template)
+		tpl := &unstructured.Unstructured{}
+		err = yaml.Unmarshal(tplb.Content, tpl)
 
 		if err != nil {
 			klog.Error("Failed to unmashall ", obsi.bucket, "/", key, " err:", err)
-			continue
+			obsi.successful = false
+
+			return
 		}
 
-		klog.V(5).Infof("Retived Dpl: %v", dpl)
-		dpls = append(dpls, dpl)
+		tpls = append(tpls, *tpl)
 	}
 
-	hostkey := types.NamespacedName{Name: obsi.Subscription.Name, Namespace: obsi.Subscription.Namespace}
-	syncsource := objectbucketsyncsource + hostkey.String()
-	// subscribed k8s resource
-	pkgMap := make(map[string]bool)
+	resources := make([]kubesynchronizer.ResourceUnit, 0)
 
-	var vsub = ""
-
-	if obsi.Subscription.Spec.PackageFilter != nil {
-		vsub = obsi.Subscription.Spec.PackageFilter.Version
-	}
-
-	versionMap := utils.GenerateVersionSet(dpls, vsub)
-
-	klog.V(5).Infof("dplversion map is %v", versionMap)
-
-	dplUnits := make([]kubesynchronizer.DplUnit, 0)
-
-	//track if there's any error when doSubscribeDeployable, if there's any,
-	//then we should retry this
+	// track if there's any error when doSubscribeManifest, if there's any, then we should retry this
 	var doErr error
 
-	for _, dpl := range dpls {
-		dpltosync, validgvk, err := obsi.doSubscribeDeployable(dpl.DeepCopy(), versionMap, pkgMap)
+	for _, tpl := range tpls {
+		resource, err := obsi.doSubscribeManifest(&tpl)
 
 		if err != nil {
 			klog.Errorf("object bucket failed to package deployable, err: %v", err)
@@ -301,59 +385,49 @@ func (obsi *SubscriberItem) doSubscription() error {
 			continue
 		}
 
-		unit := kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk}
-		dplUnits = append(dplUnits, unit)
+		resources = append(resources, *resource)
 	}
 
-	if err := dplpro.Units(obsi.Subscription, obsi.synchronizer, hostkey, syncsource, pkgMap, dplUnits); err != nil {
-		return err
+	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*obsi.Subscription)
+
+	if err := obsi.synchronizer.ProcessSubResources(obsi.Subscription, resources, allowedGroupResources, deniedGroupResources, false); err != nil {
+		klog.Error(err)
+
+		obsi.successful = false
+
+		return
 	}
 
-	return doErr
+	if doErr != nil {
+		obsi.successful = false
+
+		return
+	}
+
+	obsi.successful = true
 }
 
-func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
-	versionMap map[string]utils.VersionRep, pkgMap map[string]bool) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
-	var annotations map[string]string
-
-	template := &unstructured.Unstructured{}
-
-	if dpl.Spec.Template == nil {
-		errmsg := "Processing local deployable without template " + dpl.Name
-		klog.Warning(errmsg)
-
-		return nil, nil, errors.New(errmsg)
-	}
-
-	err := json.Unmarshal(dpl.Spec.Template.Raw, template)
-	if err != nil {
-		errmsg := "Processing local deployable " + dpl.Name + " with error template, err: " + err.Error()
-		klog.Warning(errmsg)
-
-		return nil, nil, errors.New(errmsg)
-	}
-
+func (obsi *SubscriberItem) doSubscribeManifest(template *unstructured.Unstructured) (*kubesynchronizer.ResourceUnit, error) {
+	tplName := template.GetName()
 	// Set app label
 	utils.SetPartOfLabel(obsi.SubscriberItem.Subscription, template)
 
 	if obsi.Subscription.Spec.PackageFilter != nil {
-		if obsi.Subscription.Spec.Package != "" && obsi.Subscription.Spec.Package != dpl.Name {
-			errmsg := "Name does not match, skiping:" + obsi.Subscription.Spec.Package + "|" + dpl.Name
-			klog.V(3).Info(errmsg)
+		if obsi.Subscription.Spec.Package != "" && obsi.Subscription.Spec.Package != tplName {
+			errmsg := "Name does not match, skiping:" + obsi.Subscription.Spec.Package + "|" + tplName
+			klog.Info(errmsg)
 
-			return nil, nil, errors.New(errmsg)
+			return nil, errors.New(errmsg)
 		}
 
 		if !utils.LabelChecker(obsi.Subscription.Spec.PackageFilter.LabelSelector, template.GetLabels()) {
-			errmsg := "Failed to pass label check to deployable " + dpl.Name
-			klog.V(3).Info(errmsg)
+			errmsg := "Failed to pass label check to deployable " + tplName
+			klog.Info(errmsg)
 
-			return nil, nil, errors.New(errmsg)
+			return nil, errors.New(errmsg)
 		}
 
-		klog.V(5).Info("checking annotations filter:", annotations)
-
-		annotations = obsi.Subscription.Spec.PackageFilter.Annotations
+		annotations := obsi.Subscription.Spec.PackageFilter.Annotations
 		if annotations != nil {
 			dplanno := template.GetAnnotations()
 			if dplanno == nil {
@@ -373,60 +447,31 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
 			}
 
 			if !matched {
-				errmsg := "Failed to pass annotation check to deployable " + dpl.Name
-				klog.V(3).Info(errmsg)
+				errmsg := "Failed to pass annotation check to deployable " + tplName
+				klog.Info(errmsg)
 
-				return nil, nil, errors.New(errmsg)
+				return nil, errors.New(errmsg)
 			}
 		}
 	}
 
-	if !utils.IsDeployableInVersionSet(versionMap, dpl) {
-		errmsg := "Failed to pass version check to deployable " + dpl.Name
-		klog.V(3).Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
-	}
-
-	template, err = utils.OverrideResourceBySubscription(template, dpl.GetName(), obsi.Subscription)
+	template, err := utils.OverrideResourceBySubscription(template, tplName, obsi.Subscription)
 	if err != nil {
-		pkgMap[dpl.GetName()] = true
-		errmsg := "Failed override package " + dpl.Name + " with error: " + err.Error()
-		err = utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpl.GetName(), err, nil)
+		errmsg := "Failed override package " + tplName + " with error: " + err.Error()
 
-		if err != nil {
-			errmsg += " and failed to set in cluster package status with error: " + err.Error()
-		}
+		klog.Info(errmsg)
 
-		klog.V(2).Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
+		return nil, errors.New(errmsg)
 	}
 
 	template.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: SubscriptionGVK.Version,
+		APIVersion: SubscriptionGVK.GroupVersion().String(),
 		Kind:       SubscriptionGVK.Kind,
 		Name:       obsi.Subscription.Name,
 		UID:        obsi.Subscription.UID,
 	}})
 
-	orggvk := template.GetObjectKind().GroupVersionKind()
-	validgvk := obsi.synchronizer.GetValidatedGVK(orggvk)
-
-	if validgvk == nil {
-		pkgMap[dpl.GetName()] = true
-		errmsg := "Resource " + orggvk.String() + " is not supported"
-		gvkerr := errors.New(errmsg)
-		err = utils.SetInClusterPackageStatus(&(obsi.Subscription.Status), dpl.GetName(), gvkerr, nil)
-
-		if err != nil {
-			errmsg += " and failed to set in cluster package status with error: " + err.Error()
-		}
-
-		klog.V(2).Info(errmsg)
-
-		return nil, nil, errors.New(errmsg)
-	}
+	validgvk := template.GetObjectKind().GroupVersionKind()
 
 	subAnnotations := obsi.Subscription.GetAnnotations()
 	if subAnnotations != nil {
@@ -446,21 +491,21 @@ func (obsi *SubscriberItem) doSubscribeDeployable(dpl *dplv1.Deployable,
 		template.SetAnnotations(rscAnnotations)
 	}
 
-	dpl.Spec.Template.Raw, err = json.Marshal(template)
+	if obsi.clusterAdmin {
+		klog.Info("cluster-admin is true.")
 
-	if err != nil {
-		klog.Warning("Mashaling template, got error:", err)
-
-		return nil, nil, err
+		if template.GetNamespace() != "" {
+			klog.Info("Using resource's original namespace. Resource namespace is " + template.GetNamespace())
+		} else {
+			klog.Info("Setting it to subscription namespace " + obsi.Subscription.Namespace)
+			template.SetNamespace(obsi.Subscription.Namespace)
+		}
+	} else {
+		klog.Info("No cluster-admin. Setting it to subscription namespace " + obsi.Subscription.Namespace)
+		template.SetNamespace(obsi.Subscription.Namespace)
 	}
 
-	//the registered dpl template will be deployed to the subscription namespace
-	dpl.Namespace = obsi.Subscription.Namespace
+	resource := &kubesynchronizer.ResourceUnit{Resource: template, Gvk: validgvk}
 
-	annotations = make(map[string]string)
-	annotations[dplv1.AnnotationLocal] = "true"
-
-	dpl.SetAnnotations(annotations)
-
-	return dpl, validgvk, nil
+	return resource, nil
 }

@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: multicluster-operators
+subjects:
+- kind: ServiceAccount
+  name: multicluster-operators
+  namespace: multicluster-operators
+roleRef:
+  kind: ClusterRole
+  name: multicluster-operators
+  apiGroup: rbac.authorization.k8s.io

@@ -27,12 +27,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 const (
 	RepoPushEvent          = "repo:push"
-	PullRequestMergedEvent = "pullrequest:fulfilled"
+	PullRequestMergedEvent = "pullrequest:fulfilled" // BitBucket cloud merged event
+	PrMergedEvent          = "pr:merged"             // BitBucket server merged event
 )
 
 type BitBucketPayload struct {
@@ -85,7 +87,8 @@ func (listener *WebhookListener) handleBitbucketWebhook(r *http.Request) error {
 		return err
 	}
 
-	if strings.EqualFold(event, RepoPushEvent) || strings.EqualFold(event, PullRequestMergedEvent) { // process only push or PR merge events
+	if strings.EqualFold(event, RepoPushEvent) || strings.EqualFold(event, PullRequestMergedEvent) ||
+		strings.EqualFold(event, PrMergedEvent) { // process only push or PR merge events
 		// Loop through all subscriptions
 		for _, sub := range subList.Items {
 			if !listener.processBitbucketEvent(sub, event, payload) {

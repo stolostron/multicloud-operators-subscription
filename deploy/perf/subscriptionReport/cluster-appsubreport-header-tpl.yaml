@@ -1,0 +1,10 @@
+---
+apiVersion: apps.open-cluster-management.io/v1alpha1
+kind: SubscriptionReport
+metadata:
+  labels:
+    apps.open-cluster-management.io/cluster: "true"
+  name: <CLUSTER>
+  namespace: <CLUSTER>
+reportType: Cluster
+results:

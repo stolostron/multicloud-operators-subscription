@@ -26,6 +26,7 @@ metadata:
   annotations: 
     apps.open-cluster-management.io/cluster-admin: "true"
     apps.open-cluster-management.io/github-path: test/e2e/github/nestedSubscription
+    apps.open-cluster-management.io/git-branch: main
 spec:
   channel: ch-git/git
   placement:

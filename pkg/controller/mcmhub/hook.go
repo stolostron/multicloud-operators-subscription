@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,17 +22,18 @@ import (
 	"sync"
 	"time"
 
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
-	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/placementrule"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -377,7 +378,7 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementD
 
 	if len(preJobs) != 0 || len(postJobs) != 0 {
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-		a.registry[subKey].lastSub = unmaskFakeCommiIDOnSubIns(subIns)
+		a.registry[subKey].lastSub = subIns
 	}
 
 	if len(preJobs) != 0 {
@@ -629,7 +630,7 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
 	logger.V(1).Info(fmt.Sprintf("job %s status: %v", PrintHelper(job), curStatus))
 
 	return strings.EqualFold(curStatus, JobCompleted)
@@ -637,7 +638,7 @@ func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 
 func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.Url, curStatus))
+	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
 	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
 
 	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||

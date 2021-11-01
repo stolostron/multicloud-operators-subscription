@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -33,6 +33,8 @@ import (
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
 	addonframeworkmgr "open-cluster-management.io/addon-framework/pkg/addonmanager"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	agentaddon "open-cluster-management.io/multicloud-operators-subscription/pkg/addonmanager"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
@@ -40,6 +42,7 @@ import (
 	leasectrl "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/subscription"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
 )
 
@@ -88,10 +91,11 @@ func RunManager() {
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:               operatorMetricsPort,
-		LeaderElection:     enableLeaderElection,
-		LeaderElectionID:   leaderElectionID,
+		MetricsBindAddress:         fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Port:                       operatorMetricsPort,
+		LeaderElection:             enableLeaderElection,
+		LeaderElectionID:           leaderElectionID,
+		LeaderElectionResourceLock: "configmaps",
 	})
 
 	if err != nil {
@@ -131,6 +135,18 @@ func RunManager() {
 	}
 
 	if !Options.Standalone && Options.ClusterName == "" {
+		// Setup managedCluster Scheme for manager
+		if err := spokeClusterV1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
+		// Setup manifestWork Scheme for manager
+		if err := manifestWorkV1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")
@@ -228,20 +244,24 @@ func RunManager() {
 
 func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.NamespacedName, standalone bool) error {
 	// Setup Synchronizer
-	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	isHub := utils.IsHub(mgr.GetConfig())
+	if err := synchronizer.AddToManager(mgr, hubconfig, id, Options.SyncInterval, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize synchronizer with error:", err)
+
 		return err
 	}
 
 	// Setup Subscribers
-	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval); err != nil {
+	if err := subscriber.AddToManager(mgr, hubconfig, id, Options.SyncInterval, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize subscriber with error:", err)
+
 		return err
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr, hubconfig, id, standalone); err != nil {
+	if err := controller.AddToManager(mgr, hubconfig, id, isHub, standalone); err != nil {
 		klog.Error("Failed to initialize controller with error:", err)
+
 		return err
 	}
 
@@ -249,6 +269,7 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 		// Setup Webhook listner
 		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)
+
 			return err
 		}
 	}

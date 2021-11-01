@@ -51,7 +51,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://" + GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
 
@@ -244,18 +244,18 @@ func TestGetChannelSecret(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
-
-	defer func() {
-		cancel()
-		mgrStopped.Wait()
-	}()
 
 	c = mgr.GetClient()
 	g.Expect(c).ToNot(gomega.BeNil())
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
 
 	// Test with a fake authentication secret but correct data keys in the secret
 	chnSecret := &corev1.Secret{}
@@ -316,18 +316,18 @@ func TestKustomizeOverrideString(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
-
-	defer func() {
-		cancel()
-		mgrStopped.Wait()
-	}()
 
 	c = mgr.GetClient()
 	g.Expect(c).ToNot(gomega.BeNil())
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
 
 	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -388,18 +388,18 @@ func TestKustomizeOverrideYAML(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
-
-	defer func() {
-		cancel()
-		mgrStopped.Wait()
-	}()
 
 	c = mgr.GetClient()
 	g.Expect(c).ToNot(gomega.BeNil())
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
 
 	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
@@ -538,18 +538,18 @@ func TestIsClusterAdminLocal(t *testing.T) {
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
-
-	defer func() {
-		cancel()
-		mgrStopped.Wait()
-	}()
 
 	c = mgr.GetClient()
 	g.Expect(c).ToNot(gomega.BeNil())
 
 	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
 
 	// The mutation webhook does not exist.
 
@@ -698,7 +698,7 @@ func TestIsClusterAdminRemote(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {

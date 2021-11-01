@@ -60,7 +60,7 @@ func TestBitbucketWebhookHandler(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -104,7 +104,7 @@ func TestBitbucketWebhookHandler2(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -162,7 +162,7 @@ func TestBitbucketWebhookHandler3(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {

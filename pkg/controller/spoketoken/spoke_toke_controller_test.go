@@ -167,6 +167,8 @@ func TestReconcile(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
 
+	time.Sleep(time.Second * 2)
+
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
 	theSecret := &corev1.Secret{}

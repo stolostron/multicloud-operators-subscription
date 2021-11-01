@@ -40,12 +40,12 @@ type AnsibleJobSpec struct {
 
 type AnsibleJobResult struct {
 	Changed  bool   `json:"changed,omitempty"`
-	Elapsed  string `json:"elapsed,omitempty"`
 	Failed   bool   `json:"failed,omitempty"`
+	Elapsed  string `json:"elapsed,omitempty"`
 	Finished string `json:"finished,omitempty"`
 	Started  string `json:"started,omitempty"`
 	Status   string `json:"status,omitempty"`
-	Url      string `json:"url,omitempty"`
+	URL      string `json:"url,omitempty"`
 }
 
 type K8sJob struct {
@@ -71,8 +71,9 @@ type EventTime struct {
 
 // UnmarshalJSON - override unmarshal json.
 func (e *EventTime) UnmarshalJSON(b []byte) (err error) {
-	t, err := time.Parse("2006-01-02T15:04:05.999999999", strings.Trim(string(b[:]), "\"\\"))
+	t, err := time.Parse("2006-01-02T15:04:05.999999999", strings.Trim(string(b), "\"\\"))
 	e.Time = metav1.NewTime(t)
+
 	return
 }
 

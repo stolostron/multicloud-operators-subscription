@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -74,10 +74,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	if utils.IsReadyACMClusterRegistry(mgr.GetAPIReader()) {
-		pmapper := &ClusterPlacementRuleMapper{mgr.GetClient()}
+		cpMapper := &ClusterPlacementRuleMapper{mgr.GetClient()}
 		err = c.Watch(
 			&source.Kind{Type: &spokeClusterV1.ManagedCluster{}},
-			handler.EnqueueRequestsFromMapFunc(pmapper.Map),
+			handler.EnqueueRequestsFromMapFunc(cpMapper.Map),
 			utils.ClusterPredicateFunc,
 		)
 
@@ -191,10 +191,6 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 	for _, cl := range instance.Status.Decisions {
 		orgclmap[cl.ClusterName] = cl.ClusterNamespace
 	}
-	// do nothing if has finalizer
-	if len(instance.GetObjectMeta().GetFinalizers()) != 0 {
-		return reconcile.Result{}, nil
-	}
 
 	// do nothing if not using mcm as scheduler (user set it to something else)
 	scname := instance.Spec.SchedulerName
@@ -226,7 +222,7 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 	// reconcile finished check if need to upadte the resource
 	if updated {
 		klog.Info("Update placementrule ", instance.Name, " with decisions: ", instance.Status.Decisions)
-		err = r.Status().Update(ctx, instance)
+		err = r.Status().Update(context.TODO(), instance)
 	}
 
 	klog.V(1).Info("Reconciling - finished.", request.NamespacedName, " with Get err:", err)

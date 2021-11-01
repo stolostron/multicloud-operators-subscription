@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,11 +23,11 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
-// PrepareOverrides returns the overridemap for given deployable instance
-func PrepareOverrides(cluster types.NamespacedName, instance *appv1alpha1.Deployable) ([]appv1alpha1.ClusterOverride, error) {
+// PrepareOverrides returns the overridemap for given subscription instance.
+func PrepareOverrides(cluster types.NamespacedName, appsub *appsubv1.Subscription) ([]appsubv1.ClusterOverride, error) {
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -35,26 +35,28 @@ func PrepareOverrides(cluster types.NamespacedName, instance *appv1alpha1.Deploy
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	if instance == nil || instance.Spec.Overrides == nil {
+	if appsub == nil || appsub.Spec.Overrides == nil {
 		return nil, nil
 	}
 
-	var overrides []appv1alpha1.ClusterOverride
+	var overrides []appsubv1.ClusterOverride
 
 	// go over clsuters to find matching override
-	for _, ov := range instance.Spec.Overrides {
-		if ov.ClusterName != cluster.Name && (ov.ClusterName != "/" || cluster.Name != "" || cluster.Namespace != "") {
-			continue
-		}
+	for _, ov := range appsub.Spec.Overrides {
+		if ov.ClusterName == cluster.Name || (ov.ClusterName == "/" && cluster.Name != "" && cluster.Namespace != "") {
+			overrides = ov.ClusterOverrides
 
-		overrides = ov.ClusterOverrides
+			break
+		}
 	}
+
+	klog.Infof("get overrides: %#v", overrides)
 
 	return overrides, nil
 }
 
-// OverrideTemplate alter the given template with overrides
-func OverrideTemplate(template *unstructured.Unstructured, overrides []appv1alpha1.ClusterOverride) (*unstructured.Unstructured, error) {
+// OverrideTemplate alter the given template with overrides.
+func OverrideTemplate(template *unstructured.Unstructured, overrides []appsubv1.ClusterOverride) (*unstructured.Unstructured, error) {
 	if klog.V(QuiteLogLel) {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -65,13 +67,13 @@ func OverrideTemplate(template *unstructured.Unstructured, overrides []appv1alph
 	ovt := template.DeepCopy()
 
 	if template == nil || overrides == nil {
-		klog.V(10).Info("No Instance or no override for template")
+		klog.Info("No Instance or no override for template")
 		return ovt, nil
 	}
 
 	for _, override := range overrides {
 		ovuobj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&override) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
-		klog.V(10).Info("From Instance Converter", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
+		klog.V(1).Info("From Instance Converter", ovuobj, "with err:", err, " path: ", ovuobj["path"], " value:", ovuobj["value"])
 
 		if err != nil {
 			return nil, errors.New("can not parse override")
@@ -91,7 +93,7 @@ func OverrideTemplate(template *unstructured.Unstructured, overrides []appv1alph
 		}
 	}
 
-	klog.V(10).Info("Finished overriding template:", ovt)
+	klog.V(1).Info("Finished overriding template:", ovt)
 
 	return ovt, nil
 }

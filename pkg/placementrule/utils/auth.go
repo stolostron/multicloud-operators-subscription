@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,8 +30,15 @@ import (
 )
 
 var (
-	AdminUsers  = map[string]bool{"admin": true, "multicluster-observability-operator": true}
-	AdminGroups = map[string]bool{"masters": true, "cluster-admins": true}
+	AdminUsers = map[string]bool{
+		"admin":                               true,
+		"multicluster-observability-operator": true,
+		"openshift-gitops-argocd-application-controller": true,
+	}
+	AdminGroups = map[string]bool{
+		"masters":        true,
+		"cluster-admins": true,
+	}
 )
 
 func FilteClustersByIdentity(authClient kubernetes.Interface, object runtime.Object, clmap map[string]*spokeClusterV1.ManagedCluster) error {

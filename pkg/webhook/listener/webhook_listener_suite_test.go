@@ -16,6 +16,7 @@ package listener
 
 import (
 	"context"
+	"log"
 	stdlog "log"
 	"os"
 	"sync"
@@ -62,7 +63,7 @@ func TestMain(m *testing.M) {
 		ObjectMeta: metav1.ObjectMeta{Name: "test"},
 	})
 	if err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	code := m.Run()
@@ -77,8 +78,8 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(ctx)).NotTo(gomega.HaveOccurred())
+		wg.Done()
+		mgr.Start(ctx)
 	}()
 
 	return wg

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"log"
 	stdlog "log"
 	"os"
 	"path/filepath"
@@ -24,6 +25,8 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 )
 
 var cfg *rest.Config
@@ -45,10 +49,31 @@ func TestMain(m *testing.M) {
 	}
 
 	apis.AddToScheme(scheme.Scheme)
+	appsubReportV1alpha1.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(fmt.Errorf("got error while start up the envtest, err: %v", err))
+	}
+
+	var c client.Client
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "local-cluster"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "appsub-ns"},
+	})
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	code := m.Run()
@@ -64,8 +89,8 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
-		g.Expect(mgr.Start(ctx)).NotTo(gomega.HaveOccurred())
+		wg.Done()
+		mgr.Start(ctx)
 	}()
 
 	return wg

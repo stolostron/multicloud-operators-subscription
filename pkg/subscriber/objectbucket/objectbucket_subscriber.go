@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,17 +16,18 @@ package objectbucket
 
 import (
 	"errors"
+	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 type itemmap map[types.NamespacedName]*SubscriberItem
@@ -34,13 +35,16 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
-	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
-	IsResourceNamespaced(schema.GroupVersionKind) bool
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
-	CleanupByHost(types.NamespacedName, string) error
+	GetLocalNonCachedClient() client.Client
+	GetRemoteClient() client.Client
+	GetRemoteNonCachedClient() client.Client
+	IsResourceNamespaced(*unstructured.Unstructured) bool
+	ProcessSubResources(*appv1alpha1.Subscription, []kubesynchronizer.ResourceUnit,
+		map[string]map[string]string, map[string]map[string]string, bool) error
+	PurgeAllSubscribedResources(*appv1alpha1.Subscription) error
 }
 
-// Subscriber - information to run namespace subscription
+// Subscriber - information to run object bucket subscription.
 type Subscriber struct {
 	itemmap
 	manager      manager.Manager
@@ -50,20 +54,19 @@ type Subscriber struct {
 
 var defaultSubscriber *Subscriber
 
-var objectbucketsyncsource = "subob-"
-
-// Add does nothing for namespace subscriber, it generates cache for each of the item
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+// Add does nothing for namespace subscriber, it generates cache for each of the item.
+func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int, hub, standalone bool) error {
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
-	klog.V(2).Info("Setting up default objectbucket subscriber on ", syncid)
+	klog.Info("Setting up default objectbucket subscriber on ", syncid)
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
-		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
+		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval, hub, standalone)
 		if err != nil {
 			klog.Error("Failed to initialize synchronizer for default namespace channel with error:", err)
+
 			return err
 		}
 
@@ -72,6 +75,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer for subscriber with error:", err)
+
 		return err
 	}
 
@@ -85,14 +89,14 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	return nil
 }
 
-// SubscribeItem subscribes a subscriber item with namespace channel
+// SubscribeItem subscribes a subscriber item with namespace channel.
 func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	if obs.itemmap == nil {
 		obs.itemmap = make(map[types.NamespacedName]*SubscriberItem)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	klog.V(1).Info("subscribeItem ", itemkey)
+	klog.Info("subscribeItem ", itemkey)
 
 	obssubitem, ok := obs.itemmap[itemkey]
 
@@ -106,16 +110,48 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 
 	obs.itemmap[itemkey] = obssubitem
 
-	obssubitem.successful = false
+	previousReconcileLevel := obssubitem.reconcileRate
+	previousSyncTime := obssubitem.syncTime
 
-	err := obssubitem.Start()
+	chnAnnotations := obssubitem.Channel.GetAnnotations()
+	subAnnotations := obssubitem.Subscription.GetAnnotations()
 
-	return err
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+		klog.Info("Cluster admin role enabled on SubscriberItem ", obssubitem.Subscription.Name)
+		obssubitem.clusterAdmin = true
+	}
+
+	obssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
+	obssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
+
+	// Reconcile level can be overridden to be
+	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+		klog.Infof("Overriding channel's reconcile rate %s to turn it off", obssubitem.reconcileRate)
+		obssubitem.reconcileRate = "off"
+	}
+
+	var restart bool = false
+
+	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, obssubitem.reconcileRate) {
+		// reconcile frequency has changed. restart the go routine
+		restart = true
+	}
+
+	// If manual sync time is updated, we want to restart the reconcile cycle and deploy the new commit immediately
+	if !strings.EqualFold(previousSyncTime, obssubitem.syncTime) {
+		klog.Infof("Manual reconcile time has changed from %s to %s. restart to reconcile resources", previousSyncTime, obssubitem.syncTime)
+
+		restart = true
+	}
+
+	obssubitem.Start(restart)
+
+	return nil
 }
 
-// UnsubscribeItem uobsubscribes a namespace subscriber item
+// UnsubscribeItem uobsubscribes a namespace subscriber item.
 func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
-	klog.V(2).Info("UnsubscribeItem ", key)
+	klog.Info("object bucket UnsubscribeItem ", key)
 
 	subitem, ok := obs.itemmap[key]
 
@@ -123,8 +159,9 @@ func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 		subitem.Stop()
 		delete(obs.itemmap, key)
 
-		if err := obs.synchronizer.CleanupByHost(key, objectbucketsyncsource+key.String()); err != nil {
-			klog.Errorf("failed to nusubscribe %v, err: %v", key.String(), err)
+		if err := obs.synchronizer.PurgeAllSubscribedResources(subitem.Subscription); err != nil {
+			klog.Errorf("failed to unsubscribe  %v, err: %v", key.String(), err)
+
 			return err
 		}
 	}
@@ -132,16 +169,17 @@ func (obs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	return nil
 }
 
-// GetDefaultSubscriber - returns the defajlt namespace subscriber
+// GetDefaultSubscriber - returns the defajlt namespace subscriber.
 func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
 
-// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster
+// CreateNamespaceSubsriber - create namespace subscriber with config to hub cluster, scheme of hub cluster and a syncrhonizer to local cluster.
 func CreateObjectBucketSubsriber(config *rest.Config, scheme *runtime.Scheme, mgr manager.Manager,
 	kubesync SyncSource, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
-		klog.Error("Can not create namespace subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
+		klog.Error("Can not create object bucket subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
+
 		return nil
 	}
 

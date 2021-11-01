@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -155,7 +155,7 @@ func (r *ReconcilePlacementRule) sortClustersByResourceHint(instance *appv1alpha
 		}
 
 		if instance.Spec.ResourceHint.Type != "" && cl.Status.Allocatable != nil {
-			switch instance.Spec.ResourceHint.Type { //nolint
+			switch instance.Spec.ResourceHint.Type {
 			case appv1alpha1.ResourceTypeCPU:
 				newcli.Metrics = cl.Status.Allocatable[spokeClusterV1.ResourceCPU]
 			case appv1alpha1.ResourceTypeMemory:

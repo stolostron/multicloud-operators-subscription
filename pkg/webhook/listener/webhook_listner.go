@@ -49,8 +49,8 @@ const (
 	GithubEventHeader      = "X-Github-Event"
 	BitbucketEventHeader   = "X-Event-Key"
 	GitlabEventHeader      = "X-Gitlab-Event"
-	serviceName            = "multicloud-operators-subscription"
-	hubSubscriptionAppName = "multicloud-operators-hub-subscription"
+	serviceName            = "multicluster-operators-subscription"
+	hubSubscriptionAppName = "multicluster-operators-hub-subscription"
 )
 
 // WebhookListener is a generic webhook event listener

@@ -29,6 +29,8 @@ run:
 linters:
   enable-all: true
   disable:
+    - exhaustive
+    - maligned
     - depguard
     - dupl
     - gochecknoglobals
@@ -71,7 +73,7 @@ linters-settings:
     min-confidence: 0.0
   gocognit:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 80
+    min-complexity: 150
   gofmt:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true

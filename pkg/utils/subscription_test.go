@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -291,7 +292,7 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -593,7 +594,7 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 					Annotations: map[string]string{
 						//nolint
 						"apps.open-cluster-management.io/deployables":        "test/pacman-subscription-0-ansible-pacman-mongo-deployment,test/pacman-subscription-0-ansible-pacman-pacman-deployment,test/pacman-subscription-0-ansible-pacman-f5-gslb-pacman-route,test/pacman-subscription-0-ansible-pacman-pacman-route,test/pacman-subscription-0-ansible-pacman-mongo-service,test/pacman-subscription-0-ansible-pacman-pacman-service,test/pacman-subscription-0-ansible-pacman-mongo-storage-persistentvolumeclaim",
-						"apps.open-cluster-management.io/git-branch":         "master",
+						"apps.open-cluster-management.io/git-branch":         "main",
 						"apps.open-cluster-management.io/git-current-commit": "389b2a1f023caa314a4a92c3831d86bbff0acf08",
 						"apps.open-cluster-management.io/git-path":           "ansible/pacman",
 						//nolint
@@ -609,7 +610,7 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 					Annotations: map[string]string{
 						//nolint
 						"apps.open-cluster-management.io/deployables":        "test/pacman-subscription-0-ansible-pacman-mongo-storage-persistentvolumeclaim,test/pacman-subscription-0-ansible-pacman-mongo-deployment,test/pacman-subscription-0-ansible-pacman-pacman-deployment,test/pacman-subscription-0-ansible-pacman-f5-gslb-pacman-route,test/pacman-subscription-0-ansible-pacman-pacman-route,test/pacman-subscription-0-ansible-pacman-mongo-service,test/pacman-subscription-0-ansible-pacman-pacman-service",
-						"apps.open-cluster-management.io/git-branch":         "master",
+						"apps.open-cluster-management.io/git-branch":         "main",
 						"apps.open-cluster-management.io/git-current-commit": "389b2a1f023caa314a4a92c3831d86bbff0acf08",
 						"apps.open-cluster-management.io/git-path":           "ansible/pacman",
 						//nolint

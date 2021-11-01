@@ -69,7 +69,7 @@ func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.Gomega
 	wg.Add(1)
 
 	go func() {
-		defer wg.Done()
+		wg.Done()
 		mgr.Start(ctx)
 	}()
 

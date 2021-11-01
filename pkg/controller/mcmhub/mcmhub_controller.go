@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -42,7 +41,7 @@ import (
 	"github.com/go-logr/logr"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+
 	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -227,7 +226,7 @@ func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	}
 
 	for _, sub := range subList.Items {
-		if sub.Spec.Channel == chn {
+		if sub.Spec.Channel == chn || sub.Spec.SecondaryChannel == chn {
 			objkey := types.NamespacedName{
 				Name:      sub.GetName(),
 				Namespace: sub.GetNamespace(),
@@ -323,21 +322,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// in hub, watch the deployable created by the subscription
-	err = c.Watch(
-		&source.Kind{Type: &dplv1.Deployable{}},
-		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
-		utils.DeployablePredicateFunctions)
-
-	if err != nil {
-		return err
-	}
-
 	// in hub, watch for channel changes
-	cmapper := &channelMapper{mgr.GetClient()}
+	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &chnv1.Channel{}},
-		handler.EnqueueRequestsFromMapFunc(cmapper.Map),
+		handler.EnqueueRequestsFromMapFunc(cMapper.Map),
 		utils.ChannelPredicateFunctions)
 
 	if err != nil {
@@ -345,10 +334,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// in hub, watch for placement rule changes
-	pmapper := &placementRuleMapper{mgr.GetClient()}
+	prMapper := &placementRuleMapper{mgr.GetClient()}
 	err = c.Watch(
 		&source.Kind{Type: &plrv1.PlacementRule{}},
-		handler.EnqueueRequestsFromMapFunc(pmapper.Map),
+		handler.EnqueueRequestsFromMapFunc(prMapper.Map),
 		utils.PlacementRulePredicateFunctions)
 
 	if err != nil {
@@ -378,43 +367,61 @@ type ReconcileSubscription struct {
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
 // and creates them if not found
-func (r *ReconcileSubscription) CreateSubscriptionAdminRBAC() error {
-	// Create subscription admin ClusteRole
-	clusterRole := subAdminClusterRole()
-	foundClusterRole := &rbacv1.ClusterRole{}
+func CreateSubscriptionAdminRBAC(r client.Client) error {
+	tries := 1
+	for tries < 4 {
+		// Create subscription admin ClusteRole
+		clusterRole := subAdminClusterRole()
+		foundClusterRole := &rbacv1.ClusterRole{}
 
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: clusterRole.Name}, foundClusterRole); err != nil {
-		if k8serrors.IsNotFound(err) {
-			klog.Info("Creating ClusterRole ", clusterRole.Name)
-			err = r.Create(context.TODO(), clusterRole)
+		if err := r.Get(context.TODO(), types.NamespacedName{Name: clusterRole.Name}, foundClusterRole); err != nil {
+			if k8serrors.IsNotFound(err) {
+				klog.Infof("ClusterRole %s not found. Creating it.", clusterRole.Name)
+				err = r.Create(context.TODO(), clusterRole)
 
-			if err != nil {
+				if err != nil {
+					klog.Error("error:", err)
+					return err
+				}
+			} else {
 				klog.Error("error:", err)
 				return err
 			}
 		} else {
-			klog.Error("error:", err)
-			return err
+			klog.Infof("ClusterRole %s exists.", clusterRole.Name)
+			break
 		}
+
+		time.Sleep(5 * time.Second)
+		tries++
 	}
 
-	// Create subscription admin ClusteRoleBinding
-	clusterRoleBinding := subAdminClusterRoleBinding()
-	foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
+	tries = 1
+	for tries < 4 {
+		// Create subscription admin ClusteRoleBinding
+		clusterRoleBinding := subAdminClusterRoleBinding()
+		foundClusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 
-	if err := r.Get(context.TODO(), types.NamespacedName{Name: clusterRoleBinding.Name}, foundClusterRoleBinding); err != nil {
-		if k8serrors.IsNotFound(err) {
-			klog.Info("Creating ClusterRoleBiding ", clusterRoleBinding.Name)
-			err = r.Create(context.TODO(), clusterRoleBinding)
+		if err := r.Get(context.TODO(), types.NamespacedName{Name: clusterRoleBinding.Name}, foundClusterRoleBinding); err != nil {
+			if k8serrors.IsNotFound(err) {
+				klog.Infof("ClusterRoleBiding %s not found. Creating it.", clusterRoleBinding.Name)
+				err = r.Create(context.TODO(), clusterRoleBinding)
 
-			if err != nil {
+				if err != nil {
+					klog.Error("error:", err)
+					return err
+				}
+			} else {
 				klog.Error("error:", err)
 				return err
 			}
 		} else {
-			klog.Error("error:", err)
-			return err
+			klog.Infof("ClusterRoleBiding %s exists.", clusterRoleBinding.Name)
+			break
 		}
+
+		time.Sleep(5 * time.Second)
+		tries++
 	}
 
 	return nil
@@ -441,31 +448,6 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			Kind: "ClusterRole",
 			Name: appv1.SubscriptionAdmin,
 		},
-	}
-}
-
-func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
-	// Get propagation status from the subscription deployable
-	hubdpl := &dplv1.Deployable{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
-
-	if err == nil {
-		sub.Status.Reason = hubdpl.Status.Reason
-
-		// the sub.Status.Message is aggregated over the doMCMHubReconcile
-		if sub.Status.Message == "" {
-			sub.Status.Message = hubdpl.Status.Message
-		}
-
-		if hubdpl.Status.Phase == dplv1.DeployableFailed {
-			sub.Status.Phase = appv1.SubscriptionPropagationFailed
-		} else if hubdpl.Status.Phase == dplv1.DeployableUnknown {
-			sub.Status.Phase = appv1.SubscriptionUnknown
-		} else {
-			sub.Status.Phase = appv1.SubscriptionPropagated
-		}
-	} else {
-		klog.Error(err)
 	}
 }
 
@@ -504,17 +486,18 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		r.finalCommit(passedBranchRegistration, passedPrehook, preErr, oins, instance, request, &result)
 	}()
 
-	err := r.CreateSubscriptionAdminRBAC()
-	if err != nil {
-		logger.Error(err, "failed create subscriberitem admin RBAC")
-		return reconcile.Result{}, err
-	}
-
-	err = r.Get(ctx, request.NamespacedName, instance)
+	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v", request.NamespacedName)
+
+			cleanupErr := r.cleanupManifestWork(request.NamespacedName)
+			if cleanupErr != nil {
+				klog.Warning("error while cleanup manifestwork ", cleanupErr)
+			}
+
 			// Object not found, delete existing subscriberitem if any
 			if err := r.hooks.DeregisterSubscription(request.NamespacedName); err != nil {
 				return reconcile.Result{}, err
@@ -545,54 +528,65 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "local placement and remote placement rule cannot be used together"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
-		if err := r.hubGitOps.RegisterBranch(instance); err != nil {
-			logger.Error(err, "failed to initialize Git connection")
-			preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
+		primaryChannel, _, err := r.getChannel(instance)
 
-			passedBranchRegistration = false
-
+		if err != nil {
+			klog.Errorf("Failed to find a channel for subscription: %s", instance.GetName())
 			return reconcile.Result{}, nil
 		}
 
-		// register will skip the failed clone repo
-		if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
-			logger.Error(err, "failed to register hooks, skip the subscription reconcile")
-			preErr = fmt.Errorf("failed to register hooks, err: %v", err)
+		// This block is only for Git subscription
+		if strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGit) ||
+			strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGitHub) {
+			if err := r.hubGitOps.RegisterBranch(instance); err != nil {
+				logger.Error(err, "failed to initialize Git connection")
+				preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
 
-			passedPrehook = false
+				passedBranchRegistration = false
 
-			return reconcile.Result{}, nil
-		}
+				return reconcile.Result{}, nil
+			}
 
-		if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
-			preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
-
-			//if it's registered
-			if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
-				logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
+			// register will skip the failed clone repo
+			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
+				logger.Error(err, "failed to register hooks, skip the subscription reconcile")
+				preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
 				passedPrehook = false
 
 				return reconcile.Result{}, nil
 			}
 
-			//if it's registered
-			b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
-			if !b || err != nil {
-				// used for use the status update
-				_ = preErr
+			if r.hooks.HasHooks(PreHookType, request.NamespacedName) {
+				preErr = fmt.Errorf("prehook for %v is not ready ", request.String())
 
-				r.overridePrehookTopoAnnotation(instance)
+				//if it's registered
+				if err := r.hooks.ApplyPreHooks(request.NamespacedName); err != nil {
+					logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
-				if err != nil {
-					logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+					passedPrehook = false
+
 					return reconcile.Result{}, nil
 				}
 
-				result.RequeueAfter = r.hookRequeueInterval
-				passedPrehook = false
+				//if it's registered
+				b, err := r.hooks.IsPreHooksCompleted(request.NamespacedName)
+				if !b || err != nil {
+					// used for use the status update
+					_ = preErr
 
-				return result, nil
+					r.overridePrehookTopoAnnotation(instance)
+
+					if err != nil {
+						logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+						return reconcile.Result{}, nil
+					}
+
+					result.RequeueAfter = r.hookRequeueInterval
+					passedPrehook = false
+
+					return result, nil
+				}
 			}
 		}
 
@@ -606,26 +600,23 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			instance.Status.Statuses = nil
 			returnErr = err
 		} else {
-			// Get propagation status from the subscription deployable
-			r.setHubSubscriptionStatus(instance)
-			// for object store, it takes a while for the object to be downloaded,
-			// so we want to requeue to get a valid topo annotation
-			if !isTopoAnnoExist(instance) {
-				//skip gosec G404 since the random number is only used for requeue
-				//timer
-				// #nosec G404
-				if result.RequeueAfter == 0 {
-					result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
-				}
-			}
+			// Clear prev reconcile errors
+			instance.Status.Phase = appv1.SubscriptionPropagated
+			instance.Status.Message = ""
+			instance.Status.Reason = ""
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
-		err = r.clearSubscriptionDpls(instance)
+		if !utils.IsHostingAppsub(instance) {
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v/%v", instance.GetNamespace(), instance.GetName())
 
-		if err != nil {
-			instance.Status.Phase = appv1.SubscriptionFailed
-			instance.Status.Reason = err.Error()
+			cleanupErr := r.cleanupManifestWork(types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      instance.Name,
+			})
+			if cleanupErr != nil {
+				klog.Warning("error while cleanup manifestwork ", cleanupErr)
+			}
 		}
 
 		if instance.Status.Phase != appv1.SubscriptionFailed && instance.Status.Phase != appv1.SubscriptionSubscribed {
@@ -645,26 +636,6 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	}
 
 	return result, nil
-}
-
-func isTopoAnnoExist(sub *appv1.Subscription) bool {
-	if sub == nil {
-		return false
-	}
-
-	annotation := sub.GetAnnotations()
-
-	if len(annotation) == 0 {
-		return false
-	}
-
-	v, ok := annotation[appv1.AnnotationTopo]
-
-	if !ok {
-		return false
-	}
-
-	return len(v) != 0
 }
 
 // IsSubscriptionCompleted will check:

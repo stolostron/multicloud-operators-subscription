@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,9 +17,10 @@ package git
 import (
 	"errors"
 	"strings"
+	"time"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -36,11 +37,13 @@ type itemmap map[types.NamespacedName]*SubscriberItem
 type SyncSource interface {
 	GetInterval() int
 	GetLocalClient() client.Client
+	GetLocalNonCachedClient() client.Client
 	GetRemoteClient() client.Client
-	GetValidatedGVK(schema.GroupVersionKind) *schema.GroupVersionKind
-	IsResourceNamespaced(schema.GroupVersionKind) bool
-	AddTemplates(string, types.NamespacedName, []kubesynchronizer.DplUnit) error
-	CleanupByHost(types.NamespacedName, string) error
+	GetRemoteNonCachedClient() client.Client
+	IsResourceNamespaced(*unstructured.Unstructured) bool
+	ProcessSubResources(*appv1alpha1.Subscription, []kubesynchronizer.ResourceUnit,
+		map[string]map[string]string, map[string]map[string]string, bool) error
+	PurgeAllSubscribedResources(*appv1alpha1.Subscription) error
 }
 
 // Subscriber - information to run namespace subscription
@@ -53,11 +56,8 @@ type Subscriber struct {
 
 var defaultSubscriber *Subscriber
 
-var githubk8ssyncsource = "subgbk8s-"
-var githubhelmsyncsource = "subgbhelm-"
-
-// Add does nothing for namespace subscriber, it generates cache for each of the item
-func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int) error {
+// Add does nothing for namespace subscriber, it generates cache for each of the item.
+func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedName, syncinterval int, hub, standalone bool) error {
 	// No polling, use cache. Add default one for cluster namespace
 	var err error
 
@@ -65,9 +65,10 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	sync := kubesynchronizer.GetDefaultSynchronizer()
 	if sync == nil {
-		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval)
+		err = kubesynchronizer.Add(mgr, hubconfig, syncid, syncinterval, hub, standalone)
 		if err != nil {
 			klog.Error("Failed to initialize synchronizer for default namespace channel with error:", err)
+
 			return err
 		}
 
@@ -76,6 +77,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 	if err != nil {
 		klog.Error("Failed to create synchronizer for subscriber with error:", err)
+
 		return err
 	}
 
@@ -89,14 +91,14 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	return nil
 }
 
-// SubscribeItem subscribes a subscriber item with namespace channel
+// SubscribeItem subscribes a subscriber item with namespace channel.
 func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
 	if ghs.itemmap == nil {
 		ghs.itemmap = make(map[types.NamespacedName]*SubscriberItem)
 	}
 
 	itemkey := types.NamespacedName{Name: subitem.Subscription.Name, Namespace: subitem.Subscription.Namespace}
-	klog.V(2).Info("subscribeItem ", itemkey)
+	klog.Info("subscribeItem ", itemkey)
 
 	ghssubitem, ok := ghs.itemmap[itemkey]
 
@@ -109,19 +111,6 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	subitem.DeepCopyInto(&ghssubitem.SubscriberItem)
 
 	ghs.itemmap[itemkey] = ghssubitem
-
-	// If the channel has annotation webhookenabled="true", do not poll the repo.
-	// Do subscription only on webhook events.
-	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
-		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = true
-		// Set successful to false so that the subscription keeps trying until all resources are successfully
-		// applied until the next webhook event.
-		ghssubitem.successful = false
-	} else {
-		klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
-		ghssubitem.webhookEnabled = false
-	}
 
 	previousReconcileLevel := ghssubitem.reconcileRate
 
@@ -146,6 +135,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
+	} else {
+		ghssubitem.clusterAdmin = false
 	}
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
@@ -153,6 +144,25 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
 	ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
 	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
+
+	// If the channel has annotation webhookenabled="true", do not poll the repo.
+	// Do subscription only on webhook events.
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
+		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+		ghssubitem.webhookEnabled = true
+		// Set successful to false so that the subscription keeps trying until all resources are successfully
+		// applied until the next webhook event.
+		ghssubitem.successful = false
+
+		ghssubitem.doSubscriptionWithRetries(time.Hour*3, 10)
+
+		klog.Info("Webhook event processed")
+
+		return nil
+	}
+
+	klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
+	ghssubitem.webhookEnabled = false
 
 	var restart bool = false
 
@@ -196,7 +206,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	return nil
 }
 
-// UnsubscribeItem uhrsubscribes a namespace subscriber item
+// UnsubscribeItem uhrsubscribes a namespace subscriber item.
 func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	klog.Info("git UnsubscribeItem ", key)
 
@@ -206,13 +216,9 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 		subitem.Stop()
 		delete(ghs.itemmap, key)
 
-		if err := ghs.synchronizer.CleanupByHost(key, githubk8ssyncsource+key.String()); err != nil {
-			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
-			return err
-		}
+		if err := ghs.synchronizer.PurgeAllSubscribedResources(subitem.Subscription); err != nil {
+			klog.Errorf("failed to unsubscribe  %v, err: %v", key.String(), err)
 
-		if err := ghs.synchronizer.CleanupByHost(key, githubhelmsyncsource+key.String()); err != nil {
-			klog.Errorf("failed to unsubscribe %v, err: %v", key.String(), err)
 			return err
 		}
 	}
@@ -220,7 +226,7 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 	return nil
 }
 
-// GetDefaultSubscriber - returns the defajlt namespace subscriber
+// GetDefaultSubscriber - returns the default git subscriber.
 func GetDefaultSubscriber() appv1alpha1.Subscriber {
 	return defaultSubscriber
 }
@@ -230,6 +236,7 @@ func CreateGitHubSubscriber(config *rest.Config, scheme *runtime.Scheme, mgr man
 	kubesync SyncSource, syncinterval int) *Subscriber {
 	if config == nil || kubesync == nil {
 		klog.Error("Can not create github subscriber with config: ", config, " kubenetes synchronizer: ", kubesync)
+
 		return nil
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,23 +28,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ghsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/git"
+	hrsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	ossub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	subutil "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	ghsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/git"
-	hrsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
-	nssub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/namespace"
-	ossub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/objectbucket"
-	subutil "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
-
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -65,19 +61,12 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	hubclient, err := client.New(hubconfig, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to hub cluster with error:", err)
+
 		return err
 	}
 
 	subs := make(map[string]appv1.Subscriber)
 
-	if nssub.GetdefaultNsSubscriber() == nil {
-		errmsg := "default namespace subscriber is not initialized"
-		klog.Error(errmsg)
-
-		return errors.NewServiceUnavailable(errmsg)
-	}
-
-	subs[chnv1.ChannelTypeNamespace] = nssub.GetdefaultNsSubscriber()
 	subs[chnv1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeGitHub] = ghsub.GetDefaultSubscriber()
 	subs[chnv1.ChannelTypeGit] = ghsub.GetDefaultSubscriber()
@@ -128,7 +117,7 @@ func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-// newReconciler returns a new reconcile.Reconciler
+// newReconciler returns a new reconcile.Reconciler.
 func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map[string]appv1.Subscriber, standalone bool) reconcile.Reconciler {
 	erecorder, _ := utils.NewEventRecorder(mgr.GetConfig(), mgr.GetScheme())
 
@@ -145,7 +134,7 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 	return rec
 }
 
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
+// add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	// Create a new controller
 	c, err := controller.New("subscription-controller", mgr, controller.Options{Reconciler: r})
@@ -175,12 +164,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	return nil
 }
 
-// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
+// blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler.
 var _ reconcile.Reconciler = &ReconcileSubscription{}
 
 type clock func() time.Time
 
-// ReconcileSubscription reconciles a Subscription object
+// ReconcileSubscription reconciles a Subscription object.
 type ReconcileSubscription struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
@@ -200,7 +189,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	defer klog.Info("Exit Reconciling subscription: ", request.NamespacedName)
 
 	instance := &appv1.Subscription{}
-	err := r.Get(ctx, request.NamespacedName, instance)
+	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -241,28 +230,6 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		// If standalone = false, reconcile subscriptions that are propagated from ACM hub. These subscriptions have this annotation.
 		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
 			(!strings.EqualFold(annotations[appv1.AnnotationHosting], "") && !r.standalone) {
-			// Check if the subscription deployable still exists on the hub.
-			hostDeployableName := utils.GetHostDeployable(annotations[dplv1.AnnotationHosting])
-
-			if hostDeployableName != nil {
-				hostDeployable := &dplv1.Deployable{}
-
-				err := r.hubclient.Get(context.TODO(), *hostDeployableName, hostDeployable)
-
-				if err != nil && errors.IsNotFound(err) {
-					klog.Infof("Host deployable %s is not found on the hub cluster. Remove subscription %s.", hostDeployableName, request.NamespacedName)
-
-					// Delete the subscription and let the next reconcile unsubscribe/delete resources.
-					err = r.Delete(context.TODO(), instance)
-
-					if err == nil {
-						klog.Infof("Removed subscription %s.", request.NamespacedName)
-					}
-
-					return reconcile.Result{}, err
-				}
-			}
-
 			reconcileErr := r.doReconcile(instance)
 
 			// doReconcile updates the subscription. Later this function fails to update the subscription status
@@ -326,6 +293,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		// if the subscription pause lable is true, stop unsubscription here.
 		if subutil.GetPauseLabel(instance) {
 			klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
+
 			return reconcile.Result{}, nil
 		}
 
@@ -356,6 +324,21 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
+	if instance.Spec.SecondaryChannel != "" {
+		subitem.SecondaryChannel = &chnv1.Channel{}
+		scndChnkey := utils.NamespacedNameFormat(instance.Spec.SecondaryChannel)
+		err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
+
+		if err != nil {
+			time.Sleep(1 * time.Second)
+
+			err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
+			if err != nil {
+				return gerr.Wrapf(err, "failed to get the secondary channel of subscription %v", instance)
+			}
+		}
+	}
+
 	if subitem.Channel.Spec.SecretRef != nil {
 		subitem.ChannelSecret = &corev1.Secret{}
 		chnseckey := types.NamespacedName{
@@ -368,7 +351,19 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
-	if subitem.Channel.Spec.ConfigMapRef != nil {
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.SecretRef != nil {
+		subitem.SecondaryChannelSecret = &corev1.Secret{}
+		scndChnSecKey := types.NamespacedName{
+			Name:      subitem.SecondaryChannel.Spec.SecretRef.Name,
+			Namespace: subitem.SecondaryChannel.Namespace,
+		}
+
+		if err := r.hubclient.Get(context.TODO(), scndChnSecKey, subitem.SecondaryChannelSecret); err != nil {
+			return gerr.Wrap(err, "failed to get reference secret from the secondary channel")
+		}
+	}
+
+	if subitem.Channel != nil && subitem.Channel.Spec.ConfigMapRef != nil {
 		subitem.ChannelConfigMap = &corev1.ConfigMap{}
 		chncfgkey := types.NamespacedName{
 			Name:      subitem.Channel.Spec.ConfigMapRef.Name,
@@ -377,6 +372,18 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 		if err := r.hubclient.Get(context.TODO(), chncfgkey, subitem.ChannelConfigMap); err != nil {
 			return gerr.Wrap(err, "failed to get reference configmap from channel")
+		}
+	}
+
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+		subitem.SecondaryChannelConfigMap = &corev1.ConfigMap{}
+		scndChnCfgKey := types.NamespacedName{
+			Name:      subitem.SecondaryChannel.Spec.ConfigMapRef.Name,
+			Namespace: subitem.SecondaryChannel.Namespace,
+		}
+
+		if err := r.hubclient.Get(context.TODO(), scndChnCfgKey, subitem.SecondaryChannelConfigMap); err != nil {
+			return gerr.Wrap(err, "failed to get reference configmap from the secondary channel")
 		}
 	}
 
@@ -390,8 +397,28 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		}
 	}
 
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.SecretRef != nil {
+		obj := subitem.SecondaryChannelSecret
+
+		gvk := schema.GroupVersionKind{Group: "", Kind: SecretKindStr, Version: "v1"}
+
+		if err := r.ListAndDeployReferredObject(instance, gvk, obj); err != nil {
+			return gerr.Wrapf(err, "Can't deploy reference secret %v for subscription %v", subitem.SecondaryChannelSecret.GetName(), instance.GetName())
+		}
+	}
+
 	if subitem.Channel.Spec.ConfigMapRef != nil {
 		obj := subitem.ChannelConfigMap
+		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
+		err = r.ListAndDeployReferredObject(instance, gvk, obj)
+
+		if err != nil {
+			return gerr.Wrapf(err, "can't deploy reference configmap %v for subscription %v", obj.GetName(), instance.GetName())
+		}
+	}
+
+	if subitem.SecondaryChannel != nil && subitem.SecondaryChannel.Spec.ConfigMapRef != nil {
+		obj := subitem.SecondaryChannelConfigMap
 		gvk := schema.GroupVersionKind{Group: "", Kind: ConfigMapKindStr, Version: "v1"}
 		err = r.ListAndDeployReferredObject(instance, gvk, obj)
 
@@ -424,7 +451,8 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 	subtype := strings.ToLower(string(subitem.Channel.Spec.Type))
 
-	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) {
+	if strings.EqualFold(subtype, chnv1.ChannelTypeGit) || strings.EqualFold(subtype, chnv1.ChannelTypeGitHub) ||
+		strings.EqualFold(subtype, chnv1.ChannelTypeObjectBucket) {
 		annotations := instance.GetAnnotations()
 
 		if utils.IsClusterAdmin(r.hubclient, instance, r.eventRecorder) {

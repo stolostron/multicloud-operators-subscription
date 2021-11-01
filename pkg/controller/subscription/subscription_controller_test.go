@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	plv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -159,7 +160,7 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 
 	c = mgr.GetClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	defer func() {
@@ -241,7 +242,6 @@ func TestReconcileWithTimeWindowStatusFlow(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-
 	mgrStopped := StartTestManager(ctx, mgr, g)
 
 	c = mgr.GetClient()

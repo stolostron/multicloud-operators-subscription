@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
 package apis
 
 import (
-	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	deployable "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	helmrelease "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	placementrule "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	v1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -26,9 +24,8 @@ import (
 func init() {
 	// Register the types with the Scheme so the components can map objects to GroupVersionKinds and back
 	AddToSchemes = append(AddToSchemes, v1.SchemeBuilder.AddToScheme,
-		spokeClusterV1.Install,
 		ansiblejob.SchemeBuilder.AddToScheme,
-		placementrule.SchemeBuilder.AddToScheme,
 		helmrelease.SchemeBuilder.AddToScheme,
-		deployable.SchemeBuilder.AddToScheme)
+		placementrule.SchemeBuilder.AddToScheme,
+	)
 }

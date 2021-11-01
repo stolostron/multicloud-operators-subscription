@@ -38,10 +38,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
+
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	dplutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/deployable"
 )
 
 func GetPackageAlias(sub *appv1.Subscription, packageName string) string {
@@ -77,6 +76,7 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 
 		if err != nil {
 			klog.Error("There was a problem in generating helm charts index file: ", err.Error())
+
 			return indexFile, err
 		}
 
@@ -97,17 +97,7 @@ func GenerateHelmIndexFile(sub *appv1.Subscription, repoRoot string, chartDirs m
 	return indexFile, nil
 }
 
-func CreateOrUpdateHelmChart(
-	packageName string,
-	releaseCRName string,
-	chartVersions repo.ChartVersions,
-	client client.Client,
-	channel *chnv1.Channel,
-	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
-	helmRelease = &releasev1.HelmRelease{}
-	err = client.Get(context.TODO(),
-		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
-
+func createSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, sub *appv1.Subscription, packageName string) (*releasev1.Source, error) {
 	var source *releasev1.Source
 
 	if IsGitChannel(string(channel.Spec.Type)) {
@@ -141,6 +131,98 @@ func CreateOrUpdateHelmChart(
 			},
 		}
 	}
+
+	return source, nil
+}
+
+func createAltSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, sub *appv1.Subscription, packageName string) (*releasev1.AltSource, error) {
+	var altSource *releasev1.AltSource
+
+	if IsGitChannel(string(channel.Spec.Type)) {
+		altSource = &releasev1.AltSource{
+			SourceType: releasev1.GitSourceType,
+			Git: &releasev1.Git{
+				Urls:      []string{channel.Spec.Pathname},
+				ChartPath: chartVersions[0].URLs[0],
+				Branch:    GetSubscriptionBranch(sub).Short(),
+			},
+		}
+	} else {
+		var validURLs []string
+
+		for _, url := range chartVersions[0].URLs {
+			if IsURL(url) {
+				validURLs = append(validURLs, url)
+			} else if IsURL(channel.Spec.Pathname + "/" + url) {
+				validURLs = append(validURLs, channel.Spec.Pathname+"/"+url)
+			}
+		}
+
+		if len(validURLs) == 0 {
+			return nil, fmt.Errorf("no valid URLs are found for package: %s", packageName)
+		}
+
+		altSource = &releasev1.AltSource{
+			SourceType: releasev1.HelmRepoSourceType,
+			HelmRepo: &releasev1.HelmRepo{
+				Urls: validURLs,
+			},
+		}
+	}
+
+	return altSource, nil
+}
+
+func CreateOrUpdateHelmChart(
+	packageName string,
+	releaseCRName string,
+	chartVersions repo.ChartVersions,
+	client client.Client,
+	channel *chnv1.Channel,
+	secondaryChannel *chnv1.Channel,
+	sub *appv1.Subscription) (helmRelease *releasev1.HelmRelease, err error) {
+	helmRelease = &releasev1.HelmRelease{}
+
+	source, err := createSource(channel, chartVersions, sub, packageName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var altSource *releasev1.AltSource
+
+	if secondaryChannel != nil {
+		altSource, err = createAltSource(secondaryChannel, chartVersions, sub, packageName)
+
+		if err != nil {
+			return nil, err
+		}
+
+		if secondaryChannel.Spec.ConfigMapRef != nil {
+			secondaryChannel.Spec.ConfigMapRef.Namespace = secondaryChannel.Namespace
+		}
+
+		if secondaryChannel.Spec.SecretRef != nil {
+			secondaryChannel.Spec.SecretRef.Namespace = secondaryChannel.Namespace
+		}
+
+		altSource.ConfigMapRef = secondaryChannel.Spec.ConfigMapRef
+		altSource.InsecureSkipVerify = secondaryChannel.Spec.InsecureSkipVerify
+		altSource.SecretRef = secondaryChannel.Spec.SecretRef
+
+		klog.Infof("Created altSource for helmRelease %s", releaseCRName)
+	}
+
+	if channel.Spec.ConfigMapRef != nil {
+		channel.Spec.ConfigMapRef.Namespace = channel.Namespace
+	}
+
+	if channel.Spec.SecretRef != nil {
+		channel.Spec.SecretRef.Namespace = channel.Namespace
+	}
+
+	err = client.Get(context.TODO(),
+		types.NamespacedName{Name: releaseCRName, Namespace: sub.Namespace}, helmRelease)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -180,6 +262,7 @@ func CreateOrUpdateHelmChart(
 					ChartName:          packageName,
 					Version:            version,
 					Digest:             digest,
+					AltSource:          altSource,
 				},
 			}
 		} else {
@@ -211,6 +294,7 @@ func CreateOrUpdateHelmChart(
 			ChartName:          packageName,
 			Version:            version,
 			Digest:             digest,
+			AltSource:          altSource,
 		}
 	}
 
@@ -224,6 +308,7 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 
 	if err != nil {
 		klog.Error("Failed to mashall ", helmRelease.Name, " err:", err)
+
 		return err
 	}
 
@@ -231,13 +316,14 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 	err = yaml.Unmarshal(data, template)
 
 	if err != nil {
-		klog.Warning("Processing local deployable with error template:", helmRelease, err)
+		klog.Warning("Error while processing helmrelease with template:", helmRelease.Name, err)
 	}
 
-	template, err = dplutils.OverrideTemplate(template, overrides.ClusterOverrides)
+	template, err = OverrideTemplate(template, overrides.ClusterOverrides)
 
 	if err != nil {
-		klog.Error("Failed to apply override for instance: ")
+		klog.Error("Failed to apply override for instance: ", helmRelease.Name, err)
+
 		return err
 	}
 
@@ -245,6 +331,7 @@ func Override(helmRelease *releasev1.HelmRelease, sub *appv1.Subscription) error
 
 	if err != nil {
 		klog.Error("Failed to mashall ", helmRelease.Name, " err:", err)
+
 		return err
 	}
 
@@ -287,13 +374,15 @@ func PkgToReleaseCRName(sub *appv1.Subscription, packageName string) (string, er
 	return releaseCRName, nil
 }
 
-func CreateHelmCRDeployable(
+func CreateHelmCRManifest(
 	repoURL string,
 	packageName string,
 	chartVersions repo.ChartVersions,
 	client client.Client,
 	channel *chnv1.Channel,
-	sub *appv1.Subscription) (*dplv1.Deployable, error) {
+	secondaryChannel *chnv1.Channel,
+	sub *appv1.Subscription,
+	clusterAdmin bool) (*unstructured.Unstructured, error) {
 	releaseCRName, err := PkgToReleaseCRName(sub, packageName)
 	if err != nil {
 		return nil, err
@@ -317,10 +406,11 @@ func CreateHelmCRDeployable(
 	}
 
 	helmRelease, err := CreateOrUpdateHelmChart(
-		packageName, releaseCRName, chartVersions, client, channel, sub)
+		packageName, releaseCRName, chartVersions, client, channel, secondaryChannel, sub)
 
 	if err != nil {
 		klog.Error("Failed to create or update helm chart ", packageName, " err:", err)
+
 		return nil, err
 	}
 
@@ -328,6 +418,7 @@ func CreateHelmCRDeployable(
 
 	if err != nil {
 		klog.Error("Failed to override ", helmRelease.Name, " err:", err)
+
 		return nil, err
 	}
 
@@ -337,6 +428,7 @@ func CreateHelmCRDeployable(
 		err := yaml.Unmarshal([]byte("{\"\":\"\"}"), &spec)
 		if err != nil {
 			klog.Error("Failed to create an empty spec for helm release", helmRelease)
+
 			return nil, err
 		}
 
@@ -348,36 +440,50 @@ func CreateHelmCRDeployable(
 		helmRelease.Labels = hrLbls
 	}
 
-	dpl := &dplv1.Deployable{}
-	dpl.Name = sub.Name + "-" + getShortSubUID(string(sub.UID)) + "-" + packageName
-	dpl.Namespace = sub.Namespace
+	if clusterAdmin {
+		klog.Info("cluster-admin is true.")
 
-	dpl.Spec.Template = &runtime.RawExtension{}
-	dpl.Spec.Template.Raw, err = json.Marshal(helmRelease)
+		rscAnnotations := helmRelease.GetAnnotations()
+
+		if rscAnnotations == nil {
+			rscAnnotations = make(map[string]string)
+		}
+
+		rscAnnotations[appv1.AnnotationClusterAdmin] = "true"
+		helmRelease.SetAnnotations(rscAnnotations)
+	}
+
+	helmReleaseRaw, err := json.Marshal(helmRelease)
 
 	if err != nil {
 		klog.Error("Failed to mashall helm release", helmRelease)
+
 		return nil, err
 	}
 
-	dplanno := make(map[string]string)
-	dplanno[dplv1.AnnotationLocal] = "true"
-	dpl.SetAnnotations(dplanno)
+	helmReleaseResource := &unstructured.Unstructured{}
+	err = json.Unmarshal(helmReleaseRaw, helmReleaseResource)
 
-	return dpl, nil
+	if err != nil {
+		klog.Error("Failed to unmashall helm release", helmReleaseResource)
+
+		return nil, err
+	}
+
+	return helmReleaseResource, nil
 }
 
-func getOverrides(packageName string, sub *appv1.Subscription) dplv1.Overrides {
-	dploverrides := dplv1.Overrides{}
+func getOverrides(packageName string, sub *appv1.Subscription) appv1.ClusterOverrides {
+	dploverrides := appv1.ClusterOverrides{}
 
 	for _, overrides := range sub.Spec.PackageOverrides {
 		if overrides.PackageName == packageName {
 			klog.Infof("Overrides for package %s found", packageName)
 			dploverrides.ClusterName = packageName
-			dploverrides.ClusterOverrides = make([]dplv1.ClusterOverride, 0)
+			dploverrides.ClusterOverrides = make([]appv1.ClusterOverride, 0)
 
 			for _, override := range overrides.PackageOverrides {
-				clusterOverride := dplv1.ClusterOverride{
+				clusterOverride := appv1.ClusterOverride{
 					RawExtension: runtime.RawExtension{
 						Raw: override.RawExtension.Raw,
 					},
