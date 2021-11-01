@@ -628,7 +628,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	utils.SetPartOfLabel(ghsi.SubscriberItem.Subscription, rsc)
 
 	rsc.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: subscriptionGVK.Version,
+		APIVersion: subscriptionGVK.GroupVersion().String(),
 		Kind:       subscriptionGVK.Kind,
 		Name:       ghsi.Subscription.Name,
 		UID:        ghsi.Subscription.UID,
