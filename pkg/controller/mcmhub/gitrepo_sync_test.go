@@ -24,8 +24,10 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 var (
@@ -40,7 +42,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
 
@@ -52,6 +54,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1.AnnotationGitBranch: "main",
+			},
 		},
 		Spec: appv1.SubscriptionSpec{
 			Channel: sharedkey.String(),
@@ -59,7 +64,7 @@ var (
 	}
 )
 
-func TestUpdateGitDeployablesAnnotation(t *testing.T) {
+func TestGetGitResources(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
@@ -83,34 +88,22 @@ func TestUpdateGitDeployablesAnnotation(t *testing.T) {
 
 	annotations := make(map[string]string)
 	annotations[appv1.AnnotationGitPath] = "test/github"
+	annotations[appv1.AnnotationGitBranch] = "main"
 	githubsub.SetAnnotations(annotations)
 
 	// No channel yet. It will fail and return false.
-	ret, err := rec.UpdateGitDeployablesAnnotation(githubsub)
+	_, err = rec.GetGitResources(githubsub, false)
 	g.Expect(err).To(gomega.HaveOccurred())
-	g.Expect(ret).To(gomega.BeFalse())
 
 	err = c.Create(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	time.Sleep(2 * time.Second)
 
-	ret, err = rec.UpdateGitDeployablesAnnotation(githubsub)
+	_, err = rec.GetGitResources(githubsub, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(ret).To(gomega.BeTrue())
 
 	time.Sleep(2 * time.Second)
-
-	subDeployables := rec.getSubscriptionDeployables(githubsub)
-	// To align with 3 new test yaml resources being added to test/github repo in #331 :-)
-	g.Expect(len(subDeployables)).To(gomega.Equal(42))
-
-	rec.deleteSubscriptionDeployables(githubsub)
-
-	time.Sleep(2 * time.Second)
-
-	subDeployables = rec.getSubscriptionDeployables(githubsub)
-	g.Expect(len(subDeployables)).To(gomega.Equal(0))
 
 	err = c.Delete(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import (
 type SubscriptionCMDOptions struct {
 	MetricsAddr           string
 	ClusterName           string
-	ClusterNamespace      string
 	HubConfigFilePathName string
 	TLSKeyFilePathName    string
 	TLSCrtFilePathName    string
 	SyncInterval          int
 	DisableTLS            bool
 	Standalone            bool
+	DeployAgent           bool
+	AgentImage            string
 	LeaseDurationSeconds  int
 }
 
@@ -37,6 +38,8 @@ var Options = SubscriptionCMDOptions{
 	SyncInterval:         60,
 	LeaseDurationSeconds: 60,
 	Standalone:           false,
+	DeployAgent:          false,
+	AgentImage:           "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
 }
 
 // ProcessFlags parses command line parameters into Options
@@ -64,13 +67,6 @@ func ProcessFlags() {
 		"Name of this endpoint.",
 	)
 
-	flag.StringVar(
-		&Options.ClusterNamespace,
-		"cluster-namespace",
-		Options.ClusterNamespace,
-		"Cluster Namespace of this endpoint in hub.",
-	)
-
 	flag.IntVar(
 		&Options.SyncInterval,
 		"sync-interval",
@@ -90,6 +86,20 @@ func ProcessFlags() {
 		"standalone",
 		Options.Standalone,
 		"Standalone mode.",
+	)
+
+	flag.BoolVar(
+		&Options.DeployAgent,
+		"deploy-agent",
+		Options.DeployAgent,
+		"Deploy agent by hub controller.",
+	)
+
+	flag.StringVar(
+		&Options.AgentImage,
+		"agent-image",
+		Options.AgentImage,
+		"Image of the agent to be deployed on managed cluster.",
 	)
 
 	flag.StringVar(

@@ -12,9 +12,7 @@ package kubernetes
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"reflect"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -28,116 +26,273 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/klog"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
-func (sync *KubeSynchronizer) checkServerObjects(gvk schema.GroupVersionKind, res *ResourceMap) error {
-	if res == nil {
-		errmsg := "Checking server objects with nil map"
-		klog.Error(errmsg)
-
-		return errors.NewBadRequest(errmsg)
+func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema.GroupVersionResource, bool, error) {
+	pkgGK := schema.GroupKind{
+		Kind:  kind,
+		Group: group,
 	}
 
-	klog.V(5).Info("Checking Server object:", res.GroupVersionResource)
-
-	objlist, err := sync.DynamicClient.Resource(res.GroupVersionResource).List(context.TODO(), metav1.ListOptions{})
+	mapping, err := sync.RestMapper.RESTMapping(pkgGK, version)
 	if err != nil {
+		return schema.GroupVersionResource{}, false, fmt.Errorf("failed to get GVR from restmapping: %v", err)
+	}
+
+	var isNamespaced bool = true
+
+	if mapping.Scope.Name() != "namespace" {
+		isNamespaced = false
+	}
+
+	klog.Infof("scope: %#v", mapping.Scope)
+
+	return mapping.Resource, isNamespaced, nil
+}
+
+// DeleteSingleSubscribedResource delete a subcribed resource from a appsub.
+func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.NamespacedName,
+	pkgStatus appSubStatusV1alpha1.SubscriptionUnitStatus) error {
+	pkgGroup, pkgVersion := utils.ParseAPIVersion(pkgStatus.APIVersion)
+
+	if pkgGroup == "" && pkgVersion == "" {
+		klog.Infof("invalid apiversion pkgStatus: %v", pkgStatus)
+
+		return fmt.Errorf("invalid apiversion")
+	}
+
+	pkgGVR, isNamespaced, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgStatus.Kind)
+
+	if err != nil {
+		klog.Infof("Failed to get GVR from restmapping: %v", err)
+
 		return err
 	}
 
-	var dl dynamic.ResourceInterface
+	nri := sync.DynamicClient.Resource(pkgGVR)
 
-	for _, obj := range objlist.Items {
-		obj := obj
-		if !sync.Extension.IsObjectOwnedBySynchronizer(&obj, sync.SynchronizerID) {
-			continue
-		}
+	var ri dynamic.ResourceInterface
 
-		host := sync.Extension.GetHostFromObject(&obj)
-		dpl := utils.GetHostDeployableFromObject(&obj)
-		source := utils.GetSourceFromObject(&obj)
+	if isNamespaced {
+		ri = nri.Namespace(pkgStatus.Namespace)
+	} else {
+		ri = nri
+	}
 
-		if dpl == nil || host == nil {
-			continue
-		}
+	pkgObj, err := ri.Get(context.TODO(), pkgStatus.Name, metav1.GetOptions{})
 
-		reskey := sync.generateResourceMapKey(*host, *dpl)
+	if err != nil {
+		klog.Infof("Failed to get the package, no need to delete. err: %v, ", err)
 
-		tplunit, ok := res.TemplateMap[reskey]
+		return nil
+	}
 
-		if res.Namespaced {
-			dl = sync.DynamicClient.Resource(res.GroupVersionResource).Namespace(obj.GetNamespace())
-		} else {
-			dl = sync.DynamicClient.Resource(res.GroupVersionResource)
-		}
+	deletepolicy := metav1.DeletePropagationBackground
+	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 
-		if !ok {
-			// Harvest from system
-			if obj.GetDeletionTimestamp() == nil {
-				klog.V(3).Infof("Havesting tplunit from cluster host: %#v, obj: %#v, TemplateMap: %#v", dpl, obj, res.TemplateMap)
+	if err != nil {
+		klog.Errorf("Failed to delete package, appsub: %v, pkgName: %v, pkgNamespace: %v, err: %v",
+			hostSub, pkgStatus.Name, pkgStatus.Namespace, err)
 
-				unit := &TemplateUnit{
-					ResourceUpdated: false,
-					StatusUpdated:   false,
-					Unstructured:    obj.DeepCopy(),
-					Source:          source,
-				}
-				unit.Unstructured.SetGroupVersionKind(gvk)
-				res.TemplateMap[reskey] = unit
-			}
-		} else {
-			if tplunit.Source != source {
-				klog.V(3).Info("Havesting resource ", dpl.Namespace, "/", dpl.Name, " but owned by other source, skipping")
-				continue
-			}
-
-			status := obj.Object["status"]
-			klog.V(4).Info("Found for ", dpl, ", tplunit:", tplunit, "Doing obj ", obj.GetNamespace(), "/", obj.GetName(), " with status:", status)
-			delete(obj.Object, "status")
-
-			err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, status, false)
-
-			if err != nil {
-				klog.Error("Failed to update host status with error:", err)
-			}
-
-			if tplunit.ResourceUpdated {
-				continue
-			}
-
-			if !reflect.DeepEqual(obj, tplunit.Unstructured.Object) {
-				newobj := tplunit.Unstructured.DeepCopy()
-				newobj.SetResourceVersion(obj.GetResourceVersion())
-				_, err = dl.Update(context.TODO(), newobj, metav1.UpdateOptions{})
-				klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
-
-				sync.eventrecorder.RecordEvent(tplunit.Unstructured, "UpdateResource",
-					"Synchronizer updated resource "+tplunit.GetName()+"of gvk:"+tplunit.GroupVersionKind().String()+" for retry", err)
-
-				if err == nil {
-					tplunit.ResourceUpdated = true
-				}
-			}
-			// don't process the err of status update. leave it to next round house keeping
-			if err != nil {
-				return err
-			}
-			klog.V(5).Info("Updated template ", tplunit.Unstructured.GetName(), ":", tplunit.ResourceUpdated)
-			res.TemplateMap[reskey] = tplunit
-		}
+		return err
 	}
 
 	return nil
 }
 
-func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *TemplateUnit) error {
-	klog.V(5).Info("Apply - Creating New Resource ", tplunit)
+// PurgeSubscribedResources purge all resources deployed by the appsub.
+func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Subscription) error {
+	sync.kmtx.Lock()
+	defer sync.kmtx.Unlock()
 
-	tplunit.Unstructured.SetResourceVersion("")
-	obj, err := ri.Create(context.TODO(), tplunit.Unstructured, metav1.CreateOptions{})
+	hostSub := types.NamespacedName{
+		Namespace: appsub.GetNamespace(),
+		Name:      appsub.GetName(),
+	}
+
+	klog.Infof("Prepare to purge all resources deployed by the appsub: %v", hostSub.String())
+
+	appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
+
+	appsubStatusName := hostSub.Name
+	appsubStatusNs := hostSub.Namespace
+
+	// Handle appsubstatus on local-cluster
+	if sync.hub && !sync.standalone {
+		if strings.HasSuffix(appsubStatusName, "-local") {
+			appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
+		}
+
+		appsubStatusNs = sync.SynchronizerID.Name
+	}
+
+	appSubStatusKey := types.NamespacedName{
+		Name:      appsubStatusName,
+		Namespace: appsubStatusNs,
+	}
+
+	appSubUnitStatuses := []SubscriptionUnitStatus{}
+
+	err := sync.LocalClient.Get(context.TODO(), appSubStatusKey, appSubStatus)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("appSubStatus not found, %s/%s", appSubStatusKey.Namespace, appSubStatusKey.Name)
+
+			appsubClusterStatus := SubscriptionClusterStatus{
+				Cluster:                   sync.SynchronizerID.Name,
+				AppSub:                    hostSub,
+				Action:                    "DELETE",
+				SubscriptionPackageStatus: appSubUnitStatuses,
+			}
+
+			err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+			if err != nil {
+				klog.Warning("error while sync app sub cluster status: ", err)
+			}
+
+			return nil
+		}
+
+		klog.Infof("failed to get appSubStatus, appsubstatus: %s/%s, err: %v", appSubStatusKey.Namespace, appSubStatusKey.Name, err)
+
+		return nil
+	}
+
+	if sync.SkipAppSubStatusResDel {
+		klog.Info("SkipAppSubStatusResDel enabled for ", hostSub.Namespace, "/", hostSub.Name)
+	} else {
+		for _, pkgStatus := range appSubStatus.Statuses.SubscriptionStatus {
+			appSubUnitStatus := SubscriptionUnitStatus{}
+			appSubUnitStatus.APIVersion = pkgStatus.APIVersion
+			appSubUnitStatus.Kind = pkgStatus.Kind
+			appSubUnitStatus.Name = pkgStatus.Name
+			appSubUnitStatus.Namespace = pkgStatus.Namespace
+
+			err := sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+			if err != nil {
+				appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+				appSubUnitStatus.Message = err.Error()
+				appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+				continue
+			}
+
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+			appSubUnitStatus.Message = ""
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+		}
+	}
+
+	appsubClusterStatus := SubscriptionClusterStatus{
+		Cluster:                   sync.SynchronizerID.Name,
+		AppSub:                    hostSub,
+		Action:                    "DELETE",
+		SubscriptionPackageStatus: appSubUnitStatuses,
+	}
+
+	err = sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+	if err != nil {
+		klog.Warning("error while sync app sub cluster status: ", err)
+	}
+
+	return nil
+}
+
+func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscription, resources []ResourceUnit,
+	allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	hostSub := types.NamespacedName{
+		Namespace: appsub.GetNamespace(),
+		Name:      appsub.GetName(),
+	}
+	// meaning clean up all the resource from a source:host
+	if len(resources) == 0 {
+		return sync.PurgeAllSubscribedResources(appsub)
+	}
+
+	// handle orphan resource
+	sync.kmtx.Lock()
+
+	appSubUnitStatuses := []SubscriptionUnitStatus{}
+
+	for _, resource := range resources {
+		appSubUnitStatus := SubscriptionUnitStatus{}
+
+		template, err := sync.OverrideResource(hostSub, &resource)
+
+		if err != nil {
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+			appSubUnitStatus.Message = err.Error()
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+			klog.Infof("Failed to overrifde resource. err: %v", err)
+
+			continue
+		}
+
+		resource.Resource = template
+
+		appSubUnitStatus.APIVersion = resource.Resource.GetAPIVersion()
+		appSubUnitStatus.Kind = resource.Resource.GetKind()
+		appSubUnitStatus.Name = resource.Resource.GetName()
+		appSubUnitStatus.Namespace = resource.Resource.GetNamespace()
+
+		pkgGVR, isNamespaced, err := sync.getGVRfromGVK(resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind)
+
+		if err != nil {
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+			appSubUnitStatus.Message = err.Error()
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+			klog.Infof("Failed to get GVR from restmapping: %v", err)
+
+			continue
+		}
+
+		nri := sync.DynamicClient.Resource(pkgGVR)
+
+		err = sync.applyTemplate(nri, isNamespaced, resource, isSpecialResource(pkgGVR), allowlist, denyList, isAdmin)
+
+		if err != nil {
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+			appSubUnitStatus.Message = err.Error()
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+			klog.Errorf("Failed to apply kind template, pkg: %v/%v, error: %v ",
+				appSubUnitStatus.Namespace, appSubUnitStatus.Name, err)
+
+			continue
+		}
+
+		appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+		appSubUnitStatus.Message = ""
+		appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+	}
+
+	appsubClusterStatus := SubscriptionClusterStatus{
+		Cluster:                   sync.SynchronizerID.Name,
+		AppSub:                    hostSub,
+		Action:                    "APPLY",
+		SubscriptionPackageStatus: appSubUnitStatuses,
+	}
+
+	err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+	if err != nil {
+		klog.Warning("error while sync app sub cluster status: ", err)
+	}
+
+	sync.kmtx.Unlock()
+
+	return nil
+}
+
+func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.ResourceInterface, tplunit *unstructured.Unstructured) error {
+	klog.Infof("Apply - Creating New Resource: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
+
+	tplunit.SetResourceVersion("")
+	obj, err := ri.Create(context.TODO(), tplunit, metav1.CreateOptions{})
 
 	// Auto Create Namespace if not exist
 	if err != nil && errors.IsNotFound(err) {
@@ -166,7 +321,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 
 		ns.SetAnnotations(nsanno)
 
-		klog.V(1).Infof("Apply - Creating New Namespace: %#v", ns)
+		klog.Infof("Apply - Creating New Namespace: %#v", ns)
 
 		nsus := &unstructured.Unstructured{}
 		nsus.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(ns)
@@ -176,8 +331,6 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 				Version: "v1",
 				Kind:    "Namespace",
 			})
-			sync.eventrecorder.RecordEvent(nsus, "CreateNamespace",
-				"Synchronizer created namespace "+ns.Name+" for resource "+tplunit.GetName(), err)
 
 			_, err = sync.DynamicClient.Resource(schema.GroupVersionResource{
 				Version:  "v1",
@@ -186,30 +339,18 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 
 			if err == nil {
 				// try again
-				obj, err = ri.Create(context.TODO(), tplunit.Unstructured, metav1.CreateOptions{})
+				obj, err = ri.Create(context.TODO(), tplunit, metav1.CreateOptions{})
 			}
 		}
 	}
 
 	if err != nil {
-		tplunit.ResourceUpdated = false
-
 		klog.Error("Failed to apply resource with error: ", err)
 
 		return err
 	}
 
 	obj.SetGroupVersionKind(tplunit.GroupVersionKind())
-	sync.eventrecorder.RecordEvent(obj, "CreateResource",
-		"Synchronizer created resource "+tplunit.GetName()+" of gvk:"+obj.GroupVersionKind().String(), err)
-
-	tplunit.ResourceUpdated = true
-
-	if obj != nil {
-		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"], false)
-	} else {
-		err = sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil, false)
-	}
 
 	if err != nil {
 		klog.Error("Failed to update host status with error: ", err)
@@ -225,7 +366,7 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 //
 //updateResourceByTemplateUnit will then update,patch the obj given tplunit.
 func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface,
-	obj *unstructured.Unstructured, tplunit *TemplateUnit, specialResource bool) error {
+	origUnit *unstructured.Unstructured, tplunit *unstructured.Unstructured, specialResource bool) error {
 	var err error
 
 	overwrite := false
@@ -234,10 +375,10 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 	tmplAnnotations := tplunit.GetAnnotations()
 
-	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(obj, *tplown, sync.SynchronizerID) {
+	if tplown != nil && !sync.Extension.IsObjectOwnedByHost(origUnit, *tplown, sync.SynchronizerID) {
 		// If the subscription is created by a subscription admin and reconcile option exists,
 		// we can update the resource even if it is not owned by this subscription.
-		// These subscription annotations are passed down to deployable payload by the subscribers.
+		// These subscription annotations are passed down payload by the subscribers.
 		// When we update other owner's resources, make sure these annnotations along with other
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
@@ -252,14 +393,6 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		} else {
 			errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
 			klog.Info(errmsg)
-
-			tplunit.ResourceUpdated = false
-
-			err = sync.Extension.UpdateHostStatus(errors.NewBadRequest(errmsg), tplunit.Unstructured, nil, false)
-
-			if err != nil {
-				klog.Error("Failed to update host status for existing resource with error:", err)
-			}
 
 			return err
 		}
@@ -278,15 +411,15 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 	hasHostSubscription := tmplAnnotations[appv1alpha1.AnnotationHosting] != ""
 
-	newobj := tplunit.Unstructured.DeepCopy()
-	newobj.SetResourceVersion(obj.GetResourceVersion())
+	newobj := tplunit.DeepCopy()
+	newobj.SetResourceVersion(origUnit.GetResourceVersion())
 
 	// If subscription-admin chooses merge option, remove the typical annotations we add. This will avoid the resources being
 	// deleted when the subscription is removed.
 	// If subscription-admin chooses replace option, keep the typical annotations we add. Subscription takes over the resources.
 	// When the subscription is removed, the resources will be removed too.
 	if overwrite && merge {
-		// If overwriting someone else's resource, remove annotations like hosting subscription, hostring deployables... etc
+		// If overwriting someone else's resource, remove annotations like hosting subscription... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
 		newobj = utils.RemoveSubOwnerRef(newobj)
 	}
@@ -297,10 +430,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 
 		var objb, tplb, pb []byte
-		objb, err = obj.MarshalJSON()
+		objb, err = origUnit.MarshalJSON()
 
 		if err != nil {
 			klog.Error("Failed to marshall obj with error:", err)
+
 			return err
 		}
 
@@ -308,6 +442,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 		if err != nil {
 			klog.Error("Failed to marshall tplunit with error:", err)
+
 			return err
 		}
 
@@ -316,44 +451,39 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		pb, err = jsonpatch.CreateThreeWayJSONMergePatch(tplb, tplb, objb)
 		if err != nil {
 			klog.Error("Failed to make patch with error:", err)
+
 			return err
 		}
 
-		klog.Infof("Patch object. obj: %s, %s, patch: %s", obj.GetName(), obj.GroupVersionKind().String(), string(pb))
-		klog.V(5).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
+		klog.Infof("Patch object. obj: %s, %s, patch: %s", origUnit.GetName(), origUnit.GroupVersionKind().String(), string(pb))
+		klog.V(1).Info("Generating Patch for service update.\nObjb:", string(objb), "\ntplb:", string(tplb), "\nPatch:", string(pb))
 
-		_, err = ri.Patch(context.TODO(), obj.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
+		_, err = ri.Patch(context.TODO(), origUnit.GetName(), types.MergePatchType, pb, metav1.PatchOptions{})
 	} else {
 		klog.Info("Apply object. newobj: " + newobj.GroupVersionKind().String())
-		klog.V(5).Infof("Apply object. newobj: %#v", newobj)
+		klog.V(1).Infof("Apply object. newobj: %#v", newobj)
 		_, err = ri.Update(context.TODO(), newobj, metav1.UpdateOptions{})
 
 		// Some kubernetes resources are immutable after creation. Log and ignore update errors.
 		if errors.IsForbidden(err) {
 			klog.Info(err.Error())
+
 			return nil
 		} else if errors.IsInvalid(err) {
 			klog.Info(err.Error())
+
 			return nil
 		}
 	}
 
-	klog.V(5).Info("Check - Updated existing Resource to", tplunit, " with err:", err)
+	klog.Info("Check - Updated existing Resource to", tplunit, " with err:", err)
 
-	if err == nil {
-		tplunit.ResourceUpdated = true
-	} else {
+	if err != nil {
 		klog.Error("Failed to update resource with error:", err)
 	}
 
 	if strings.EqualFold(tplunit.GetKind(), "subscription") && hasHostSubscription {
 		klog.Info("this is propagated subscription resource. skip updating status")
-	} else {
-		sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, obj.Object["status"], false)
-
-		if sterr != nil {
-			klog.Error("Failed to update host status with error:", err)
-		}
 	}
 
 	return nil
@@ -378,56 +508,10 @@ func isSpecialResource(gvr schema.GroupVersionResource) bool {
 	return gvr == serviceGVR || gvr == serviceAccountGVR || gvr == namespaceGVR
 }
 
-func (sync *KubeSynchronizer) applyKindTemplates(res *ResourceMap, keySet map[string]bool, allowlist, denyList map[string]map[string]string, isAdmin bool) {
-	nri := sync.DynamicClient.Resource(res.GroupVersionResource)
-
-	for resourceKey, okVal := range keySet {
-		tplunit := res.TemplateMap[resourceKey]
-
-		if okVal && tplunit != nil {
-			if utils.IsResourceDenied(*tplunit.Unstructured, denyList, isAdmin) {
-				denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
-					tplunit.GetAPIVersion(), tplunit.GetKind())
-
-				klog.Info(denyError.Error())
-
-				err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
-
-				if err != nil {
-					klog.Error("failed to update the status, err: " + err.Error())
-				}
-			} else {
-				if utils.IsResourceAllowed(*tplunit.Unstructured, allowlist, isAdmin) {
-					err := sync.applyTemplate(nri, res.Namespaced, resourceKey, tplunit, isSpecialResource(res.GroupVersionResource))
-
-					if err != nil {
-						klog.Error("Failed to apply kind template", tplunit.Unstructured, "with error:", err)
-					}
-				} else {
-					denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
-						tplunit.GetAPIVersion(), tplunit.GetKind())
-
-					if !isAdmin {
-						denyError = fmt.Errorf("not deployed by a subscription admin. the resource apiVersion: %s kind: %s is not deployed",
-							tplunit.GetAPIVersion(), tplunit.GetKind())
-					}
-
-					klog.Info(denyError.Error())
-
-					err := sync.Extension.UpdateHostStatus(denyError, tplunit.Unstructured, nil, false)
-
-					if err != nil {
-						klog.Error("failed to update the status, err: " + err.Error())
-					}
-				}
-			}
-		}
-	}
-}
-
 func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInterface, namespaced bool,
-	k string, tplunit *TemplateUnit, specialResource bool) error {
-	klog.V(1).Info("Applying (key:", k, ") template:", tplunit, tplunit.Unstructured, "updated:", tplunit.ResourceUpdated)
+	resource ResourceUnit, specialResource bool, allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	tplunit := resource.Resource
+	klog.Infof("Applying template: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
 
 	var ri dynamic.ResourceInterface
 	if namespaced {
@@ -436,12 +520,36 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		ri = nri
 	}
 
-	if !utils.AllowApplyTemplate(sync.LocalClient, tplunit.Unstructured) {
-		klog.Infof("Applying template is paused: %v/%v", tplunit.GetName(), tplunit.GetNamespace())
+	if !utils.AllowApplyTemplate(sync.LocalClient, tplunit) {
+		klog.Infof("Applying template is paused: %v/%v, kind: %v", tplunit.GetNamespace(), tplunit.GetName(), tplunit.GetKind())
+
 		return nil
 	}
 
-	obj, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
+	if utils.IsResourceDenied(*tplunit, denyList, isAdmin) {
+		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
+			tplunit.GetAPIVersion(), tplunit.GetKind())
+
+		klog.Info(denyError.Error())
+
+		return denyError
+	}
+
+	if !utils.IsResourceAllowed(*tplunit, allowlist, isAdmin) {
+		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is not on the allow list. Not deployed",
+			tplunit.GetAPIVersion(), tplunit.GetKind())
+
+		if !isAdmin {
+			denyError = fmt.Errorf("not deployed by a subscription admin. the resource apiVersion: %s kind: %s is not deployed",
+				tplunit.GetAPIVersion(), tplunit.GetKind())
+		}
+
+		klog.Info(denyError.Error())
+
+		return denyError
+	}
+
+	origUnit, err := ri.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -449,89 +557,17 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		} else {
 			klog.Error("Failed to apply resource with error:", err)
 		}
-	} else if !tplunit.ResourceUpdated {
-		err = sync.updateResourceByTemplateUnit(ri, obj, tplunit, specialResource)
-		// don't process the err of status update. leave it to next round house keeping
+	} else {
+		err = sync.updateResourceByTemplateUnit(ri, origUnit, tplunit, specialResource)
 	}
-	// leave the sync the check routine, not this one
 
-	klog.V(3).Info("Applied Kind Template ", tplunit.Unstructured, " error:", err)
+	klog.Infof("Applied Kind Template: %v/%v, err: %v ", tplunit.GetNamespace(), tplunit.GetName(), err)
 
 	return err
 }
 
-// DeRegisterTemplate applies the resource in spec.template to given kube
-func (sync *KubeSynchronizer) DeRegisterTemplate(host, dpl types.NamespacedName, source string) error {
-	if klog.V(utils.QuiteLogLel) {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
-	// check resource template map for deployables
-	klog.V(2).Info("Deleting template ", dpl, "for source:", source)
-
-	for _, resmap := range sync.KubeResources {
-		// all templates are added with annotations, no need to check nil
-		if len(resmap.TemplateMap) > 0 {
-			klog.V(5).Info("Checking valid resource map: ", resmap.GroupVersionResource)
-		}
-
-		reskey := sync.generateResourceMapKey(host, dpl)
-
-		tplunit, ok := resmap.TemplateMap[reskey]
-		if !ok || tplunit.Source != source {
-			if tplunit != nil {
-				klog.V(5).Infof("Delete - skipping tplunit with other source, resmap source: %v, source: %v", tplunit.Source, source)
-			}
-
-			continue
-		}
-
-		delete(resmap.TemplateMap, reskey)
-
-		klog.V(5).Info("Deleted template ", dpl, "in resource map ", resmap.GroupVersionResource)
-
-		if !resmap.GroupVersionResource.Empty() {
-			var dl dynamic.ResourceInterface
-			if resmap.Namespaced {
-				dl = sync.DynamicClient.Resource(resmap.GroupVersionResource).Namespace(tplunit.GetNamespace())
-			} else {
-				dl = sync.DynamicClient.Resource(resmap.GroupVersionResource)
-			}
-
-			// check resource ownership
-			tgtobj, err := dl.Get(context.TODO(), tplunit.GetName(), metav1.GetOptions{})
-			if err == nil {
-				if sync.Extension.IsObjectOwnedByHost(tgtobj, host, sync.SynchronizerID) {
-					klog.V(5).Info("Resource is owned by ", host, "Deleting ", tplunit.Unstructured)
-
-					deletepolicy := metav1.DeletePropagationBackground
-					err = dl.Delete(context.TODO(), tplunit.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
-					sync.eventrecorder.RecordEvent(tplunit.Unstructured, "DeleteResource",
-						"Synchronizer deleted resource "+tplunit.GetName()+" of gvk:"+tplunit.GroupVersionKind().String()+" by deregister", err)
-
-					if err != nil {
-						klog.Error("Failed to delete tplunit in kubernetes, with error:", err)
-					}
-
-					sterr := sync.Extension.UpdateHostStatus(err, tplunit.Unstructured, nil, true)
-
-					if sterr != nil {
-						klog.Error("Failed to update host status, with error:", err)
-					}
-				}
-			}
-		}
-
-		klog.V(5).Info("Deleted resource ", dpl, "in k8s")
-	}
-
-	return nil
-}
-
-// RegisterTemplate applies the resource in spec.template to given kube
-func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instance *dplv1alpha1.Deployable, source string) error {
+// OverrideResource updates resource based on the hosting appsub before the resource is deployed.
+func (sync *KubeSynchronizer) OverrideResource(hostSub types.NamespacedName, resource *ResourceUnit) (*unstructured.Unstructured, error) {
 	// Parse the resource in template
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
@@ -542,160 +578,94 @@ func (sync *KubeSynchronizer) RegisterTemplate(host types.NamespacedName, instan
 
 	var err error
 
-	template := &unstructured.Unstructured{}
-
-	if instance.Spec.Template == nil {
-		klog.Warning("Processing local deployable without template:", instance)
-		return nil
-	}
-
-	if instance.Spec.Template.Object != nil {
-		template.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(instance.Spec.Template.Object.DeepCopyObject())
-	} else {
-		err = json.Unmarshal(instance.Spec.Template.Raw, template)
-		klog.V(3).Info("Processing Local with template:", template, ", syncid: ", sync.SynchronizerID, ", host: ", host)
-	}
-
+	appsub, err := sync.getHostingAppSub(hostSub)
 	if err != nil {
-		klog.Error("Failed to unmashal template with error: ", err, " with ", string(instance.Spec.Template.Raw))
-		return err
+		return nil, err
 	}
+
+	template := resource.Resource.DeepCopy()
 
 	if template.GetKind() == "" {
-		return errors.NewBadRequest("Failed to update template with empty kind. gvk:" + template.GetObjectKind().GroupVersionKind().String())
+		return nil, errors.NewBadRequest("Failed to update template with empty kind. gvk:" + template.GetObjectKind().GroupVersionKind().String())
 	}
 
-	// set name to deployable name if not given
+	// set name to resource name if not given
 	if template.GetName() == "" {
-		template.SetName(instance.GetName())
+		template.SetName(hostSub.Name)
 	}
 
-	// carry/override with deployable labels
+	// carry/override with appsub labels
 	tpllbls := template.GetLabels()
 	if tpllbls == nil {
 		tpllbls = make(map[string]string)
 	}
 
-	for k, v := range instance.GetLabels() {
+	klog.V(1).Infof("pre template lables : %v", tpllbls)
+
+	for k, v := range appsub.GetLabels() {
+		if _, ok := tpllbls[k]; ok {
+			continue
+		}
+
 		tpllbls[k] = v
 	}
 
+	klog.V(1).Infof("template lables combinded with appsub labels: %v", tpllbls)
+
 	template.SetLabels(tpllbls)
 
-	tplgvk := template.GetObjectKind().GroupVersionKind()
-	validgvk := sync.GetValidatedGVK(tplgvk)
-
-	if validgvk == nil {
-		return errors.NewBadRequest("GroupVersionKind of Template is not supported. " + tplgvk.String())
-	}
-
-	template.SetGroupVersionKind(*validgvk)
-
-	resmap, ok := sync.KubeResources[*validgvk]
-
-	if !ok {
-		// register new kind
-		resmap = &ResourceMap{
-			GroupVersionResource: schema.GroupVersionResource{},
-			TemplateMap:          make(map[string]*TemplateUnit),
-			Namespaced:           true,
-		}
-		klog.V(5).Info("Adding new resource from registration. kind: ", template.GetKind(), " GroupVersionResource: ", resmap.GroupVersionResource)
-	}
-
-	if resmap.Namespaced && template.GetNamespace() == "" {
-		template.SetNamespace(instance.GetNamespace())
-	}
-
-	dpl := types.NamespacedName{
-		Name:      instance.GetName(),
-		Namespace: instance.GetNamespace(),
-	}
-
-	reskey := sync.generateResourceMapKey(host, dpl)
-
-	// Try to get template object, take error as not exist, will check again anyway.
-	if len(instance.GetObjectMeta().GetFinalizers()) > 0 {
-		// Deployable in being deleted, de-register template and return
-		klog.V(5).Info("Deployable has finalizers, ready to delete object", instance)
-
-		err = sync.DeRegisterTemplate(host, dpl, source)
-
-		if err != nil {
-			klog.Error("Failed to deregister template when there are finalizer(s) with error: ", err)
-		}
-
-		return nil
-	}
-
-	// step out if the target resource is not from this deployable
-	existingTemplateUnit, ok := resmap.TemplateMap[reskey]
-
-	if ok && !sync.Extension.IsObjectOwnedByHost(existingTemplateUnit.Unstructured, host, sync.SynchronizerID) {
-		return errors.NewBadRequest(fmt.Sprintf("Resource owned by other owner: %s vs %s. Backing off.",
-			sync.Extension.GetHostFromObject(existingTemplateUnit.Unstructured).String(), host.String()))
-	}
-
-	if !utils.IsLocalDeployable(instance) {
-		klog.V(5).Info("Deployable is not (no longer) local, ready to delete object", instance)
-
-		err = sync.DeRegisterTemplate(host, dpl, source)
-
-		if err != nil {
-			klog.Error("Failed to deregister template when the deployable is not local, with error:", err)
-		}
-
-		instance.Status.ResourceStatus = nil
-		instance.Status.Message = ""
-		instance.Status.Reason = ""
-
-		return nil
-	}
-
-	err = sync.Extension.SetHostToObject(template, host, sync.SynchronizerID)
+	err = sync.Extension.SetHostToObject(template, hostSub, sync.SynchronizerID)
 	if err != nil {
 		klog.Error("Failed to set host to object with error:", err)
 	}
 
-	tplanno := template.GetAnnotations()
-	tplanno[dplv1alpha1.AnnotationHosting] = instance.GetNamespace() + "/" + instance.GetName()
-
-	tplanno[appv1alpha1.AnnotationSyncSource] = source
-	template.SetAnnotations(tplanno)
-
 	// apply override in template
 	if sync.SynchronizerID != nil {
-		ovmap, err := utils.PrepareOverrides(*sync.SynchronizerID, instance)
+		ovmap, err := utils.PrepareOverrides(*sync.SynchronizerID, appsub)
 		if err != nil {
-			klog.Error("Failed to prepare override for instance: ", instance)
-			return err
+			klog.Errorf("Failed to prepare override for instance: %v/%v", appsub.Namespace, appsub.Name)
+
+			return nil, err
 		}
 
 		template, err = utils.OverrideTemplate(template, ovmap)
 
 		if err != nil {
-			klog.Error("Failed to apply override for instance: ", instance)
-			return err
+			klog.Errorf("Failed to apply override for instance: %v/%v", appsub.Namespace, appsub.Name)
+
+			return nil, err
 		}
 	}
 
-	klog.V(4).Info("overrode template: ", template)
-	// skip no-op to template
+	klog.Infof("overrode template: %v/%v, kind: %v", template.GetNamespace(), template.GetName(), template.GetKind())
 
-	templateUnit := &TemplateUnit{
-		ResourceUpdated: false,
-		StatusUpdated:   false,
-		Unstructured:    template.DeepCopy(),
-		Source:          source,
-	}
-	resmap.TemplateMap[reskey] = templateUnit
-	sync.KubeResources[template.GetObjectKind().GroupVersionKind()] = resmap
-
-	klog.V(2).Info("Registered template ", template, "to KubeResource map:", template.GetObjectKind().GroupVersionKind(), "for source: ", source)
-
-	return nil
+	return template, nil
 }
 
-func (sync *KubeSynchronizer) generateResourceMapKey(host, dpl types.NamespacedName) string {
-	return host.String() + "/" + dpl.String()
+func (sync *KubeSynchronizer) IsResourceNamespaced(rsc *unstructured.Unstructured) bool {
+	pkgGroup := rsc.GroupVersionKind().Group
+	pkgVersion := rsc.GroupVersionKind().Version
+	pkgKind := rsc.GroupVersionKind().Kind
+
+	_, isNamespaced, err := sync.getGVRfromGVK(pkgGroup, pkgVersion, pkgKind)
+
+	if err != nil {
+		klog.Infof("Failed to get GVR from restmapping: %v", err)
+
+		return false
+	}
+
+	return isNamespaced
+}
+
+func (sync *KubeSynchronizer) getHostingAppSub(hostSub types.NamespacedName) (*appv1alpha1.Subscription, error) {
+	appsub := &appv1alpha1.Subscription{}
+
+	if err := sync.LocalClient.Get(context.TODO(), hostSub, appsub); err != nil {
+		klog.Errorf("failed to get hosting appsub: %v, error: %v ", hostSub.String(), err)
+
+		return nil, err
+	}
+
+	return appsub, nil
 }

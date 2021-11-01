@@ -6,7 +6,7 @@ spec:
   channel: dev/dev-helmrepo
   name: nginx-ingress
   placement:
-    local: false
+    local: true
   packageOverrides:
   - packageName: nginx-ingress
     packageAlias: nginx-ingress-simple

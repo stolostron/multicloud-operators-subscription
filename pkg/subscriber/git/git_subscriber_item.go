@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package git
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io/ioutil"
 	"path/filepath"
@@ -28,7 +27,6 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -36,11 +34,10 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const (
@@ -68,29 +65,28 @@ var (
 // SubscriberItem - defines the unit of namespace subscription
 type SubscriberItem struct {
 	appv1.SubscriberItem
-	crdsAndNamespaceFiles  []string
-	rbacFiles              []string
-	otherFiles             []string
-	repoRoot               string
-	commitID               string
-	reconcileRate          string
-	desiredCommit          string
-	desiredTag             string
-	syncTime               string
-	stopch                 chan struct{}
-	syncinterval           int
-	count                  int
-	synchronizer           SyncSource
-	chartDirs              map[string]string
-	kustomizeDirs          map[string]string
-	resources              []kubesynchronizer.DplUnit
-	indexFile              *repo.IndexFile
-	webhookEnabled         bool
-	successful             bool
-	clusterAdmin           bool
-	currentNamespaceScoped bool
-	userID                 string
-	userGroup              string
+	crdsAndNamespaceFiles []string
+	rbacFiles             []string
+	otherFiles            []string
+	repoRoot              string
+	commitID              string
+	reconcileRate         string
+	desiredCommit         string
+	desiredTag            string
+	syncTime              string
+	stopch                chan struct{}
+	syncinterval          int
+	count                 int
+	synchronizer          SyncSource
+	chartDirs             map[string]string
+	kustomizeDirs         map[string]string
+	resources             []kubesynchronizer.ResourceUnit
+	indexFile             *repo.IndexFile
+	webhookEnabled        bool
+	successful            bool
+	clusterAdmin          bool
+	userID                string
+	userGroup             string
 }
 
 type kubeResource struct {
@@ -134,6 +130,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
 					ghsi.SubscriberItem.Subscription.GetNamespace(),
 					ghsi.SubscriberItem.Subscription.GetName(), nextRun)
+
 				return
 			}
 		}
@@ -141,6 +138,7 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		// if the subscription pause lable is true, stop subscription here.
 		if utils.GetPauseLabel(ghsi.SubscriberItem.Subscription) {
 			klog.Infof("Git Subscription %v/%v is paused.", ghsi.SubscriberItem.Subscription.GetNamespace(), ghsi.SubscriberItem.Subscription.GetName())
+
 			return
 		}
 
@@ -199,7 +197,64 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Infof("Resources are not reconciled successfully yet. Continue reconciling.")
 	}
 
-	klog.V(2).Info("Subscribing ...", ghsi.Subscription.Name)
+	klog.Info("Subscribing ...", ghsi.Subscription.Name)
+
+	//Update the secret and config map
+	if ghsi.Channel != nil {
+		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.Channel)
+		if sec != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
+				klog.Warningf("can't deploy reference secret %v for subscription %v", ghsi.ChannelSecret.GetName(), ghsi.Subscription.GetName())
+			}
+		}
+
+		if cm != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
+				klog.Warningf("can't deploy reference configmap %v for subscription %v", ghsi.ChannelConfigMap.GetName(), ghsi.Subscription.GetName())
+			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(ghsi.synchronizer.GetLocalNonCachedClient(), *ghsi.Channel)
+		if sec != nil {
+			klog.V(1).Info("updated in memory channel secret for ", ghsi.Subscription.Name)
+			ghsi.ChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory channel configmap for ", ghsi.Subscription.Name)
+			ghsi.ChannelConfigMap = cm
+		}
+	}
+
+	if ghsi.SecondaryChannel != nil {
+		sec, cm := utils.FetchChannelReferences(ghsi.synchronizer.GetRemoteNonCachedClient(), *ghsi.SecondaryChannel)
+		if sec != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "Secret", Version: "v1"}, sec); err != nil {
+				klog.Warningf("can't deploy reference secondary secret %v for subscription %v", ghsi.SecondaryChannelSecret.GetName(), ghsi.Subscription.GetName())
+			}
+		}
+
+		if cm != nil {
+			if err := utils.ListAndDeployReferredObject(ghsi.synchronizer.GetLocalNonCachedClient(), ghsi.Subscription,
+				schema.GroupVersionKind{Group: "", Kind: "ConfigMap", Version: "v1"}, cm); err != nil {
+				klog.Warningf("can't deploy reference secondary configmap %v for subscription %v", ghsi.SecondaryChannelConfigMap.GetName(), ghsi.Subscription.GetName())
+			}
+		}
+
+		sec, cm = utils.FetchChannelReferences(ghsi.synchronizer.GetLocalNonCachedClient(), *ghsi.SecondaryChannel)
+		if sec != nil {
+			klog.Info("updated in memory secondary channel secret for ", ghsi.Subscription.Name)
+			ghsi.SecondaryChannelSecret = sec
+		}
+
+		if cm != nil {
+			klog.V(1).Info("updated in memory secondary channel configmap for ", ghsi.Subscription.Name)
+			ghsi.SecondaryChannelConfigMap = cm
+		}
+	}
 
 	//Clone the git repo
 	commitID, err := ghsi.cloneGitRepo()
@@ -223,6 +278,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			if ghsi.count < 6 {
 				if commitID == ghsi.commitID && ghsi.successful {
 					klog.Infof("Appsub %s Git commit: %s hasn't changed. Skip reconcile.", hostkey.String(), commitID)
+
 					return nil
 				}
 			} else {
@@ -232,7 +288,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		}
 	}
 
-	ghsi.resources = []kubesynchronizer.DplUnit{}
+	ghsi.resources = []kubesynchronizer.ResourceUnit{}
 
 	err = ghsi.sortClonedGitRepo()
 	if err != nil {
@@ -245,9 +301,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	errMsg := ""
 
-	syncsource := githubk8ssyncsource + hostkey.String()
-
-	klog.V(4).Info("Applying resources: ", ghsi.crdsAndNamespaceFiles)
+	klog.Info("Applying crd resources: ", ghsi.crdsAndNamespaceFiles)
 
 	err = ghsi.subscribeResources(ghsi.crdsAndNamespaceFiles)
 
@@ -259,7 +313,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		errMsg += err.Error()
 	}
 
-	klog.V(4).Info("Applying resources: ", ghsi.rbacFiles)
+	klog.Info("Applying rbac resources: ", ghsi.rbacFiles)
 
 	err = ghsi.subscribeResources(ghsi.rbacFiles)
 
@@ -271,7 +325,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		errMsg += err.Error()
 	}
 
-	klog.V(4).Info("Applying resources: ", ghsi.otherFiles)
+	klog.Info("Applying other resources: ", ghsi.otherFiles)
 
 	err = ghsi.subscribeResources(ghsi.otherFiles)
 
@@ -283,7 +337,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		errMsg += err.Error()
 	}
 
-	klog.V(4).Info("Applying kustomizations: ", ghsi.kustomizeDirs)
+	klog.Info("Applying kustomizations: ", ghsi.kustomizeDirs)
 
 	err = ghsi.subscribeKustomizations()
 
@@ -295,7 +349,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		errMsg += err.Error()
 	}
 
-	klog.V(4).Info("Applying helm charts..")
+	klog.Info("Applying helm charts..")
 
 	err = ghsi.subscribeHelmCharts(ghsi.indexFile)
 
@@ -311,30 +365,16 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	annotations := ghsi.Subscription.GetAnnotations()
 
-	if annotations == nil || annotations[dplv1.AnnotationHosting] == "" {
+	if annotations == nil || annotations[appv1.AnnotationHosting] == "" {
 		standaloneSubscription = true
 	}
 
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
-	// Update the host deployable status accordingly and quit.
+	// Update the host subscription status accordingly and quit.
 	if len(ghsi.resources) == 0 && !ghsi.successful {
 		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
-
-			statusErr := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
-
-			if statusErr != nil {
-				klog.Error("Failed to update subscription status with the error. Trying again in 2 seconds")
-
-				time.Sleep(2 * time.Second)
-
-				statusErr2 := utils.UpdateDeployableStatus(ghsi.synchronizer.GetRemoteClient(), errors.New(errMsg), ghsi.Subscription, nil)
-
-				if statusErr2 != nil {
-					klog.Error("Failed to update subscription status with the error. again")
-				}
-			}
 		}
 
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
@@ -342,7 +382,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
 
-	if err := ghsi.synchronizer.AddTemplates(syncsource, hostkey, ghsi.resources,
+	if err := ghsi.synchronizer.ProcessSubResources(ghsi.Subscription, ghsi.resources,
 		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
 		klog.Error(err)
 
@@ -426,12 +466,13 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 }
 
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
-	// sync kube resource deployables
+	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)
+
 			return err
 		}
 
@@ -444,17 +485,20 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 
 				if err != nil {
 					// Ignore if it does not have apiVersion or kind fields in the YAML
+					klog.Infof("Invalid kube resources. err: %v ", err)
+
 					continue
 				}
 
-				klog.V(4).Info("Applying Kubernetes resource of kind ", t.Kind)
+				klog.V(1).Info("Applying Kubernetes resource of kind ", t.Kind)
 
 				if t.Kind == "Subscription" {
-					klog.V(4).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
+					klog.V(1).Infof("Injecting userID(%s), Group(%s) to subscription", ghsi.userID, ghsi.userGroup)
 
 					o := &unstructured.Unstructured{}
 					if err := yaml.Unmarshal(resource, o); err != nil {
 						klog.Error("Failed to unmarshal resource YAML.")
+
 						return err
 					}
 
@@ -470,6 +514,7 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 					resource, err = yaml.Marshal(o)
 					if err != nil {
 						klog.Error(err)
+
 						continue
 					}
 				}
@@ -483,20 +528,21 @@ func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 }
 
 func (ghsi *SubscriberItem) subscribeResourceFile(file []byte) {
-	dpltosync, validgvk, err := ghsi.subscribeResource(file)
+	resourceToSync, validgvk, err := ghsi.subscribeResource(file)
 	if err != nil {
 		klog.Error(err)
 	}
 
-	if dpltosync == nil || validgvk == nil {
+	if resourceToSync == nil || validgvk == nil {
 		klog.Info("Skipping resource")
+
 		return
 	}
 
-	ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpltosync, Gvk: *validgvk})
+	ghsi.resources = append(ghsi.resources, kubesynchronizer.ResourceUnit{Resource: resourceToSync, Gvk: *validgvk})
 }
 
-func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *schema.GroupVersionKind, error) {
+func (ghsi *SubscriberItem) subscribeResource(file []byte) (*unstructured.Unstructured, *schema.GroupVersionKind, error) {
 	rsc := &unstructured.Unstructured{}
 	err := yaml.Unmarshal(file, &rsc)
 
@@ -504,54 +550,14 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		klog.Error(err, "Failed to unmarshal Kubernetes resource")
 	}
 
-	dpl := &dplv1.Deployable{}
+	validgvk := rsc.GetObjectKind().GroupVersionKind()
 
-	if ghsi.Channel == nil {
-		dpl.Name = ghsi.Subscription.Name + "-" + rsc.GetKind() + "-" + rsc.GetName()
-		dpl.Namespace = ghsi.Subscription.Namespace
-
-		if ghsi.clusterAdmin && (rsc.GetNamespace() != "") {
-			// With the cluster admin, the same resource with the same name can be applied to multiple namespaces.
-			// This avoids name collisions.
-			dpl.Namespace = rsc.GetNamespace()
-		}
-	} else {
-		dpl.Name = ghsi.Channel.Name + "-" + rsc.GetKind() + "-" + rsc.GetName()
-		dpl.Namespace = ghsi.Channel.Namespace
-
-		if ghsi.clusterAdmin && (rsc.GetNamespace() != "") {
-			// With the cluster admin, the same resource with the same name can be applied to multiple namespaces.
-			// This avoids name collisions.
-			dpl.Namespace = rsc.GetNamespace()
-		}
-	}
-
-	orggvk := rsc.GetObjectKind().GroupVersionKind()
-	validgvk := ghsi.synchronizer.GetValidatedGVK(orggvk)
-
-	if validgvk == nil {
-		gvkerr := errors.New("Resource " + orggvk.String() + " is not supported")
-		err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), gvkerr, nil)
-
-		if err != nil {
-			klog.Info("error in setting in cluster package status :", err)
-		}
-
-		return nil, nil, gvkerr
-	}
-
-	if ghsi.synchronizer.IsResourceNamespaced(*validgvk) {
+	if ghsi.synchronizer.IsResourceNamespaced(rsc) {
 		if ghsi.clusterAdmin {
 			klog.Info("cluster-admin is true.")
 
 			if rsc.GetNamespace() != "" {
-				if ghsi.currentNamespaceScoped {
-					// If current-namespace-scoped annotation is true, deploy resources into subscription's namespace
-					klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
-					rsc.SetNamespace(ghsi.Subscription.Namespace)
-				} else {
-					klog.Info("Using resource's original namespace. Resource namespace is " + rsc.GetNamespace())
-				}
+				klog.Info("Using resource's original namespace. Resource namespace is " + rsc.GetNamespace())
 			} else {
 				klog.Info("Setting it to subscription namespace " + ghsi.Subscription.Namespace)
 				rsc.SetNamespace(ghsi.Subscription.Namespace)
@@ -578,7 +584,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	if ghsi.Subscription.Spec.PackageFilter != nil {
 		errMsg := ghsi.checkFilters(rsc)
 		if errMsg != "" {
-			klog.V(3).Info(errMsg)
+			klog.Infof("failed to check package filter, err: %v", errMsg)
 
 			return nil, nil, nil
 		}
@@ -587,8 +593,8 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	if ghsi.Subscription.Spec.PackageOverrides != nil {
 		rsc, err = utils.OverrideResourceBySubscription(rsc, rsc.GetName(), ghsi.Subscription)
 		if err != nil {
-			errmsg := "Failed override package " + dpl.Name + " with error: " + err.Error()
-			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), dpl.GetName(), err, nil)
+			errmsg := "Failed override package " + rsc.GetName() + " with error: " + err.Error()
+			err = utils.SetInClusterPackageStatus(&(ghsi.Subscription.Status), rsc.GetName(), err, nil)
 
 			if err != nil {
 				errmsg += " and failed to set in cluster package status with error: " + err.Error()
@@ -634,23 +640,7 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 		UID:        ghsi.Subscription.UID,
 	}})
 
-	dpl.Spec.Template = &runtime.RawExtension{}
-	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
-
-	if err != nil {
-		klog.Error(err, "Failed to mashall the resource", rsc)
-		return nil, nil, err
-	}
-
-	annotations := dpl.GetAnnotations()
-	if annotations == nil {
-		annotations = make(map[string]string)
-	}
-
-	annotations[dplv1.AnnotationLocal] = "true"
-	dpl.SetAnnotations(annotations)
-
-	return dpl, validgvk, nil
+	return rsc, &validgvk, nil
 }
 
 func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg string) {
@@ -695,7 +685,7 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 			}
 
 			if !matched {
-				errMsg = "Failed to pass annotation check to deployable " + rsc.GetName()
+				errMsg = "Failed to pass annotation check to manifest " + rsc.GetName()
 
 				return errMsg
 			}
@@ -707,17 +697,18 @@ func (ghsi *SubscriberItem) checkFilters(rsc *unstructured.Unstructured) (errMsg
 
 func (ghsi *SubscriberItem) subscribeHelmCharts(indexFile *repo.IndexFile) (err error) {
 	for packageName, chartVersions := range indexFile.Entries {
-		klog.V(4).Infof("chart: %s\n%v", packageName, chartVersions)
+		klog.V(1).Infof("chart: %s\n%v", packageName, chartVersions)
 
-		dpl, err := utils.CreateHelmCRDeployable(
-			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription)
+		helmReleaseCR, err := utils.CreateHelmCRManifest(
+			"", packageName, chartVersions, ghsi.synchronizer.GetLocalClient(), ghsi.Channel, ghsi.SecondaryChannel, ghsi.Subscription, ghsi.clusterAdmin)
 
 		if err != nil {
-			klog.Error("Failed to create a helmrelease CR deployable, err: ", err)
+			klog.Error("Failed to create a helmrelease CR manifest, err: ", err)
+
 			return err
 		}
 
-		ghsi.resources = append(ghsi.resources, kubesynchronizer.DplUnit{Dpl: dpl, Gvk: helmGvk})
+		ghsi.resources = append(ghsi.resources, kubesynchronizer.ResourceUnit{Resource: helmReleaseCR, Gvk: helmGvk})
 	}
 
 	return err
@@ -832,6 +823,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(ghsi.repoRoot, resourcePath, utils.SkipHooksOnManaged)
 	if err != nil {
 		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
+
 		return err
 	}
 
@@ -847,6 +839,7 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 	if err != nil {
 		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
 		klog.Error(err, "Failed to generate helm index file.")
+
 		return err
 	}
 

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
 	"time"
 
@@ -41,12 +40,12 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
+	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
 const clusterRole = `apiVersion: rbac.authorization.k8s.io/v1
@@ -323,16 +322,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// in hub, watch the deployable created by the subscription
-	err = c.Watch(
-		&source.Kind{Type: &dplv1.Deployable{}},
-		&handler.EnqueueRequestForOwner{IsController: true, OwnerType: &appv1.Subscription{}},
-		utils.DeployablePredicateFunctions)
-
-	if err != nil {
-		return err
-	}
-
 	// in hub, watch for channel changes
 	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
@@ -462,31 +451,6 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	}
 }
 
-func (r *ReconcileSubscription) setHubSubscriptionStatus(sub *appv1.Subscription) {
-	// Get propagation status from the subscription deployable
-	hubdpl := &dplv1.Deployable{}
-	err := r.Get(context.TODO(), types.NamespacedName{Name: sub.Name + "-deployable", Namespace: sub.Namespace}, hubdpl)
-
-	if err == nil {
-		sub.Status.Reason = hubdpl.Status.Reason
-
-		// the sub.Status.Message is aggregated over the doMCMHubReconcile
-		if sub.Status.Message == "" {
-			sub.Status.Message = hubdpl.Status.Message
-		}
-
-		if hubdpl.Status.Phase == dplv1.DeployableFailed {
-			sub.Status.Phase = appv1.SubscriptionPropagationFailed
-		} else if hubdpl.Status.Phase == dplv1.DeployableUnknown {
-			sub.Status.Phase = appv1.SubscriptionUnknown
-		} else {
-			sub.Status.Phase = appv1.SubscriptionPropagated
-		}
-	} else {
-		klog.Error(err)
-	}
-}
-
 // Reconcile reads that state of the cluster for a Subscription object and makes changes based on the state read
 // and what is in the Subscription.Spec
 func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile.Request) (result reconcile.Result, returnErr error) {
@@ -527,6 +491,13 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	if err != nil {
 		if errors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v", request.NamespacedName)
+
+			cleanupErr := r.cleanupManifestWork(request.NamespacedName)
+			if cleanupErr != nil {
+				klog.Warning("error while cleanup manifestwork ", cleanupErr)
+			}
+
 			// Object not found, delete existing subscriberitem if any
 			if err := r.hooks.DeregisterSubscription(request.NamespacedName); err != nil {
 				return reconcile.Result{}, err
@@ -629,26 +600,23 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			instance.Status.Statuses = nil
 			returnErr = err
 		} else {
-			// Get propagation status from the subscription deployable
-			r.setHubSubscriptionStatus(instance)
-			// for object store, it takes a while for the object to be downloaded,
-			// so we want to requeue to get a valid topo annotation
-			if !isTopoAnnoExist(instance) {
-				//skip gosec G404 since the random number is only used for requeue
-				//timer
-				// #nosec G404
-				if result.RequeueAfter == 0 {
-					result.RequeueAfter = time.Second * time.Duration(rand.Intn(10))
-				}
-			}
+			// Clear prev reconcile errors
+			instance.Status.Phase = appv1.SubscriptionPropagated
+			instance.Status.Message = ""
+			instance.Status.Reason = ""
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
-		err = r.clearSubscriptionDpls(instance)
+		if !utils.IsHostingAppsub(instance) {
+			klog.Infof("Clean up all the manifestWorks owned by appsub: %v/%v", instance.GetNamespace(), instance.GetName())
 
-		if err != nil {
-			instance.Status.Phase = appv1.SubscriptionFailed
-			instance.Status.Reason = err.Error()
+			cleanupErr := r.cleanupManifestWork(types.NamespacedName{
+				Namespace: instance.Namespace,
+				Name:      instance.Name,
+			})
+			if cleanupErr != nil {
+				klog.Warning("error while cleanup manifestwork ", cleanupErr)
+			}
 		}
 
 		if instance.Status.Phase != appv1.SubscriptionFailed && instance.Status.Phase != appv1.SubscriptionSubscribed {
@@ -668,26 +636,6 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	}
 
 	return result, nil
-}
-
-func isTopoAnnoExist(sub *appv1.Subscription) bool {
-	if sub == nil {
-		return false
-	}
-
-	annotation := sub.GetAnnotations()
-
-	if len(annotation) == 0 {
-		return false
-	}
-
-	v, ok := annotation[appv1.AnnotationTopo]
-
-	if !ok {
-		return false
-	}
-
-	return len(v) != 0
 }
 
 // IsSubscriptionCompleted will check:

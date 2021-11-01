@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/open-cluster-management/builder:go1.16-linux AS plugin-builder
-ENV POLICY_GENERATOR_TAG=v1.2.2
+ENV POLICY_GENERATOR_TAG=v1.2.1
 
 WORKDIR /policy-generator
 RUN curl -L -o "policy-generator-plugin.tar.gz" \
@@ -26,7 +26,9 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
 
 # install operator binary
 COPY build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY build/_output/bin/multicluster-operators-placementrule /usr/local/bin
 COPY build/_output/bin/uninstall-crd /usr/local/bin
+COPY build/_output/bin/appsubsummary /usr/local/bin
 
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator

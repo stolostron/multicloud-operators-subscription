@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,10 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 
-	chnapis "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis"
-	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
-	plrapis "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis"
-	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	chnapis "open-cluster-management.io/multicloud-operators-channel/pkg/apis"
 )
 
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
@@ -35,21 +33,8 @@ func AddToScheme(s *runtime.Scheme) error {
 		return err
 	}
 
-	err = releaseapis.AddToSchemes.AddToScheme(s)
+	err = spokeClusterV1.AddToScheme(s)
 	if err != nil {
-		klog.Error("Failed to add helmrelease to scheme ")
-		return err
-	}
-
-	err = dplapis.AddToSchemes.AddToScheme(s)
-	if err != nil {
-		klog.Error("Failed to add deployable to scheme ")
-		return err
-	}
-
-	err = plrapis.AddToSchemes.AddToScheme(s)
-	if err != nil {
-		klog.Error("Failed to add placementrule to scheme ")
 		return err
 	}
 

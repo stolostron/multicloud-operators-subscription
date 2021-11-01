@@ -1,5 +1,4 @@
-  
-# Copyright 2019 The Kubernetes Authors.
+# Copyright 2021 The Kubernetes Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,34 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This repo is build in Travis-ci by default;
-# Override this variable in local env.
-TRAVIS_BUILD  ?= 1
-
-# Image URL to use all building/pushing image targets;
-# Use your own docker registry and image name for dev/test by overridding the IMG and REGISTRY environment variable.
-IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
-REGISTRY ?= quay.io/open-cluster-management
-
-# Github host to use for checking the source tree;
-# Override this variable ue with your own value if you're working on forked repo.
-GIT_HOST ?= github.com/open-cluster-management
-
-PWD := $(shell pwd)
-BASE_DIR := $(shell basename $(PWD))
-
-# Keep an existing GOPATH, make a private one if it is undefined
-GOPATH_DEFAULT := $(PWD)/.go
-export GOPATH ?= $(GOPATH_DEFAULT)
-GOBIN_DEFAULT := $(GOPATH)/bin
-export GOBIN ?= $(GOBIN_DEFAULT)
-TESTARGS_DEFAULT := "-v"
-export TESTARGS ?= $(TESTARGS_DEFAULT)
-DEST ?= $(GOPATH)/src/$(GIT_HOST)/$(BASE_DIR)
-VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
-IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG)
-HUB_KUBECONFIG ?= $(HOME)/hub-kubeconfig
 MANAGED_CLUSTER_NAME ?= cluster1
+TEST_TMP :=/tmp
+export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
+K8S_VERSION ?=1.19.2
+GOHOSTOS ?=$(shell go env GOHOSTOS)
+GOHOSTARCH ?= $(shell go env GOHOSTARCH)
+KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
+KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
@@ -53,109 +32,112 @@ else
     $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-.PHONY: fmt lint test build build-images
-
-
-# GITHUB_USER containing '@' char must be escaped with '%40'
-GITHUB_USER := $(shell echo $(GITHUB_USER) | sed 's/@/%40/g')
-GITHUB_TOKEN ?=
-
-USE_VENDORIZED_BUILD_HARNESS ?=
-
-ifndef USE_VENDORIZED_BUILD_HARNESS
-	ifeq ($(TRAVIS_BUILD),1)
-	-include $(shell curl -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v4.raw' -L https://api.github.com/repos/open-cluster-management/build-harness-extensions/contents/templates/Makefile.build-harness-bootstrap -o .build-harness-bootstrap; echo .build-harness-bootstrap)
+SED_CMD:=sed
+ifeq ($(GOHOSTOS),darwin)
+	ifeq ($(GOHOSTARCH),amd64)
+		SED_CMD:=gsed
 	endif
-else
--include vbh/.build-harness-vendorized
 endif
 
-default::
-	@echo "Build Harness Bootstrapped"
+FINDFILES=find . \( -path ./.git -o -path ./.github \) -prune -o -type f
+XARGS = xargs -0 ${XARGS_FLAGS}
+CLEANXARGS = xargs ${XARGS_FLAGS}
 
-include common/Makefile.common.mk
+REGISTRY = quay.io/open-cluster-management
+VERSION = latest
+IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
+export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
+export TEST_GIT_REPO_URL=github.com/open-cluster-management-io/multicloud-operators-subscription
 
-############################################################
-# work section
-############################################################
-$(GOBIN):
-	@echo "create gobin"
-	@mkdir -p $(GOBIN)
-
-work: $(GOBIN)
-
-############################################################
-# format section
-############################################################
-
-# All available format: format-go format-protos format-python
-# Default value will run all formats, override these make target with your requirements:
-#    eg: fmt: format-go format-protos
-fmt: format-go format-protos format-python
-
-############################################################
-# check section
-############################################################
-
-check: lint
-
-# All available linters: lint-dockerfiles lint-scripts lint-yaml lint-copyright-banner lint-go lint-python lint-helm lint-markdown lint-sass lint-typescript lint-protos
-# Default value will run all linters, override these make target with your requirements:
-#    eg: lint: lint-go lint-yaml
-lint: lint-all
-
-############################################################
-# test section
-############################################################
-
-test:
-	@kubebuilder version
-	@go test ${TESTARGS} ./cmd/... ./pkg/...
-
-############################################################
-# coverage section
-############################################################
- 
-
-############################################################
-# build section
-############################################################
+.PHONY: build
 
 build:
-	@common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
 	@common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+	@common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
+	@common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
+
+.PHONY: local
 
 local:
-	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/$(IMG) ./cmd/manager
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-subscription ./cmd/manager
 	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/uninstall-crd ./cmd/uninstall-crd
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/appsubsummary ./cmd/appsubsummary
+	@GOOS=darwin common/scripts/gobuild.sh build/_output/bin/multicluster-operators-placementrule ./cmd/placementrule
 
-############################################################
-# images section
-############################################################
+.PHONY: build-images
 
 build-images: build
 	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
-	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
-build-latest-community-operator:
-	docker tag ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:${COMPONENT_VERSION}${COMPONENT_TAG_EXTENSION} ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:latest
-	docker login ${COMPONENT_DOCKER_REPO} -u ${DOCKER_USER} -p ${DOCKER_PASS}
-	docker push ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:latest
-	@echo "Pushed the following image: ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:latest"
+.PHONY: lint
 
-release-community-operator:
-	docker login ${COMPONENT_DOCKER_REPO} -u ${DOCKER_USER} -p ${DOCKER_PASS}
-	docker pull ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:${COMPONENT_VERSION}${COMPONENT_TAG_EXTENSION}
-	docker tag ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:${COMPONENT_VERSION}${COMPONENT_TAG_EXTENSION} ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:community-${COMPONENT_VERSION}
-	docker push ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:community-${COMPONENT_VERSION}
-	@echo "Pushed the following image: ${COMPONENT_DOCKER_REPO}/${COMPONENT_NAME}:community-${COMPONENT_VERSION}"
+lint: lint-all
+
+.PHONY: lint-all
+
+lint-all:lint-go
+
+.PHONY: lint-go
+
+lint-go:
+	@${FINDFILES} -name '*.go' \( ! \( -name '*.gen.go' -o -name '*.pb.go' \) \) -print0 | ${XARGS} common/scripts/lint_go.sh
+
+.PHONY: test
+
+# download the kubebuilder-tools to get kube-apiserver binaries from it
+ensure-kubebuilder-tools:
+ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
+	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
+	mkdir -p '$(KUBEBUILDER_ASSETS)'
+	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
+	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
+else
+	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
+endif
+.PHONY: ensure-kubebuilder-tools
+
+update: go-bindata
+	go-bindata -o pkg/addonmanager/bindata/bindata.go -pkg bindata deploy/managed-common deploy/managed
+
+go-bindata:
+	go install github.com/go-bindata/go-bindata/go-bindata
+
+test: ensure-kubebuilder-tools
+	@echo ${TEST_GIT_REPO_URL}
+	go test -timeout 300s -v ./pkg/... 
+
+.PHONY: deploy-standalone
+
+deploy-standalone:
+	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
+	kubectl apply -f deploy/hub-common
+	kubectl apply -f deploy/standalone
+
+.PHONY: deploy-hub
+
+deploy-ocm:
+	deploy/ocm/install.sh
+
+deploy-hub:
+	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
+	kubectl apply -f deploy/crds
+	kubectl apply -f deploy/hub-common
+	kubectl apply -f deploy/hub
+
+.PHONY: deploy-addon
+
+deploy-addon:
+	$(SED_CMD) -e "s,managed_cluster_name,$(MANAGED_CLUSTER_NAME)," deploy/addon/addon.yaml | kubectl apply -f -
 
 
-############################################################
-# clean section
-############################################################
-clean::
-	rm -f build/_output/bin/$(IMG)
+build-e2e:
+	go test -c ./test/e2e
+
+test-e2e: build-e2e deploy-ocm deploy-hub
+	./e2e.test -test.v -ginkgo.v
+
 
 ############################################################
 # generate code and crd 
@@ -175,7 +157,7 @@ ifeq (, $(shell which controller-gen))
 	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
 	cd $$CONTROLLER_GEN_TMP_DIR ;\
 	go mod init tmp ;\
-	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.4.0 ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.5.0 ;\
 	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
@@ -189,27 +171,6 @@ CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
 # Generate manifests e.g. CRD, RBAC etc.
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) paths="./..." output:crd:artifacts:config=deploy/crds
-
-
-############################################################
-# deploy a community hub stack onto a cluster
-############################################################
-deploy-community-hub:
-	kubectl apply -f deploy/common
-	kubectl apply -f deploy/hub
-
-
-############################################################
-# deploy a community managed stack onto a cluster
-############################################################
-deploy-community-managed:
-	cp -f $(HUB_KUBECONFIG) /tmp/kubeconfig
-	kubectl apply -f deploy/common
-	kubectl -n multicluster-operators delete secret appmgr-hub-kubeconfig --ignore-not-found
-	kubectl -n multicluster-operators create secret generic appmgr-hub-kubeconfig --from-file=kubeconfig=/tmp/kubeconfig
-	sed -i 's/<managed cluster name>/$(MANAGED_CLUSTER_NAME)/g' deploy/managed/operator.yaml
-	sed -i 's/<managed cluster namespace>/$(MANAGED_CLUSTER_NAME)/g' deploy/managed/operator.yaml
-	kubectl apply -f deploy/managed
 
 
 ############################################################

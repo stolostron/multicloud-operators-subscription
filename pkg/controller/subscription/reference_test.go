@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ package subscription
 
 import (
 	"context"
-	"reflect"
 	"testing"
 	"time"
 
@@ -29,7 +28,7 @@ import (
 
 	"github.com/onsi/gomega"
 
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -193,185 +192,6 @@ func TestDeleteReferredObjects(t *testing.T) {
 				g.Expect(c.Delete(context.TODO(), tC.refSrt)).NotTo(gomega.HaveOccurred())
 			}
 			g.Expect(tmp.Items).Should(gomega.HaveLen(tC.itemLen))
-		})
-	}
-}
-
-func TestIsOwnedBy(t *testing.T) {
-	owerName := "sub-a"
-	owerUID := types.UID("sub-uid")
-
-	owner := &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      owerName,
-			Namespace: nssubTest,
-			UID:       owerUID,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: chKey.String(),
-		},
-	}
-
-	testCases := []struct {
-		desc   string
-		obj    referredObject
-		wanted bool
-	}{
-		{
-			desc: "not owned",
-			obj: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					ResourceVersion: srtGVK.String(),
-					Name:            refSrtName,
-				},
-			},
-			wanted: false,
-		},
-		{
-			desc: "ownedbysub",
-			obj: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "alreadyowned",
-					Namespace: nssubTest,
-					OwnerReferences: []metav1.OwnerReference{
-						{Name: owerName, UID: owerUID},
-					},
-				},
-			},
-			wanted: true,
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			got := isObjectOwnedBySub(tC.obj, owner.GetName())
-			if got != tC.wanted {
-				t.Errorf("wanted %v, got %v", tC.wanted, got)
-			}
-		})
-	}
-}
-
-func TestAddObjectOwnedBySub(t *testing.T) {
-	owerName := "sub-a"
-	owerUID := types.UID("sub-uid")
-
-	owner := &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      owerName,
-			Namespace: nssubTest,
-			UID:       owerUID,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: chKey.String(),
-		},
-	}
-
-	testCases := []struct {
-		desc         string
-		obj          referredObject
-		newowner     *appv1alpha1.Subscription
-		newOwerships []metav1.OwnerReference
-	}{
-		{
-			desc: "adding new",
-			obj: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					ResourceVersion: srtGVK.String(),
-					Name:            refSrtName,
-				},
-			},
-			newowner: owner,
-			newOwerships: []metav1.OwnerReference{
-				{Kind: SubscriptionGVK.Kind, APIVersion: SubscriptionGVK.Version, Name: owner.GetName(), UID: owner.GetUID()},
-			},
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			got := addObjectOwnedBySub(tC.obj, tC.newowner)
-			t.Logf("got %v", got)
-			if !reflect.DeepEqual(got, tC.newOwerships) {
-				t.Errorf("sub %v is not added as owner to %v", owner.GetName(), tC.obj.GetName())
-			}
-		})
-	}
-}
-
-func TestDeleteSubFromObjectOwners(t *testing.T) {
-	ownerName := "sub-a"
-	ownerUID := types.UID("sub-uid")
-
-	ownera := &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ownerName,
-			Namespace: nssubTest,
-			UID:       ownerUID,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: chKey.String(),
-		},
-	}
-
-	ownerNameb := "sub-b"
-	ownerUIDb := types.UID("sub-uid-b")
-
-	ownerb := &appv1alpha1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      ownerNameb,
-			Namespace: nssubTest,
-			UID:       ownerUIDb,
-		},
-		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: chKey.String(),
-		},
-	}
-
-	testCases := []struct {
-		desc         string
-		obj          referredObject
-		ownername    string
-		newOwerships []metav1.OwnerReference
-	}{
-		{
-			desc: "deleting with only one owner",
-			obj: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					ResourceVersion: srtGVK.String(),
-					Name:            refSrtName,
-					OwnerReferences: []metav1.OwnerReference{
-						{Kind: SubscriptionGVK.Kind, APIVersion: SubscriptionGVK.Version, Name: ownera.GetName(), UID: ownera.GetUID()},
-					},
-				},
-			},
-			ownername:    ownera.GetName(),
-			newOwerships: []metav1.OwnerReference{},
-		},
-
-		{
-			desc: "deleting with 2 owner",
-			obj: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					ResourceVersion: srtGVK.String(),
-					Name:            refSrtName,
-					OwnerReferences: []metav1.OwnerReference{
-						{Kind: SubscriptionGVK.Kind, APIVersion: SubscriptionGVK.Version, Name: ownera.GetName(), UID: ownera.GetUID()},
-						{Kind: SubscriptionGVK.Kind, APIVersion: SubscriptionGVK.Version, Name: ownerb.GetName(), UID: ownerb.GetUID()},
-					},
-				},
-			},
-			ownername: ownera.GetName(),
-			newOwerships: []metav1.OwnerReference{
-				{Kind: SubscriptionGVK.Kind, APIVersion: SubscriptionGVK.Version, Name: ownerb.GetName(), UID: ownerb.GetUID()},
-			},
-		},
-	}
-	for _, tC := range testCases {
-		t.Run(tC.desc, func(t *testing.T) {
-			got := deleteSubFromObjectOwnersByName(tC.obj, tC.ownername)
-			t.Logf("got %v", got)
-			if !reflect.DeepEqual(got, tC.newOwerships) {
-				t.Errorf("sub %v is not delete from owner list of %v", tC.ownername, tC.obj.GetName())
-			}
 		})
 	}
 }

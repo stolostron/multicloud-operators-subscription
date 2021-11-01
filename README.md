@@ -1,204 +1,145 @@
 # multicloud-operators-subscription
 
-[![Build](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)
-[![GoDoc](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription)
-[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/open-cluster-management/multicloud-operators-subscription)
-[![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-------
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
-
 - [Overview](#overview)
-- [Quick start](#quick-start)
-    - [Subscribe a Helm chart](#subscribe-a-helm-chart)
-    - [Troubleshooting](#troubleshooting)
-- [Multicluster application subscription deployment](#multicluster-application-subscription-deployment)
-- [Community, discussion, contribution, and support](#community-discussion-contribution-and-support)
-- [Getting started](#getting-started)
-    - [Prerequisites](#prerequisites)
-- [Security response](#security-response)
-- [References](#references)
-    - [multicloud-operators repositories](#multicloud-operators-repositories)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+- [Architecture](#architecture)
+- [Stand-alone deployment](#stand-alone-deployment)
+- [Multi-cluster deployment](#multi-cluster-deployment)
+    - [Prerequisite](#prerequisite)
+    - [Operator Deployment](#operator-deployment)
+    - [Add-on Deployment](#add-on-deployment)
+    - [What is next](#what-is-next)
+- [GitOps subscription](#gitops-subscription)
+- [Object storage subscription](#object-storage-subscription)
+- [Community, discussion, contribution, and support](#community,-discussion,-contribution,-and-support)
 
 ## Overview
 
-------
+Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to subscribe to a source repository [channel](https://github.com/open-cluster-management-io/multicloud-operators-channel) that can be the following types: Git repository, Helm release registry, or Object storage repository.
 
-Subscribes resources from channels and applies them to Kubernetes 
+Subscriptions can point to a channel for identifying new or updated resource templates. The subscription operator can then download directly from the storage location and deploy to targeted managed clusters without checking the hub cluster first. With a subscription, the subscription operator can monitor the channel for new or updated resources instead of the hub cluster.
 
-## Quick start
+## Architecture
 
-------
+![architecture](images/architecture.png)
 
-### Subscribe a Helm chart
+## Stand-alone deployment
 
-- Clone the [multicloud-operators-subscription GitHub repository](https://github.com/open-cluster-management/multicloud-operators-subscription).
-
-```shell
-mkdir -p "$GOPATH"/src/github.com/open-cluster-management
-cd "$GOPATH"/src/github.com/open-cluster-management
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription.git
-cd "$GOPATH"/src/github.com/open-cluster-management/multicloud-operators-subscription
-```
-
-- Set up the environment, and deploy the subscription operator.
+Deploy the subscription operator.
 
 ```shell
-kubectl apply -f ./deploy/standalone
+$ git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+$ cd multicloud-operators-subscription
+$ make deploy-standalone
+$ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicluster-operators-subscription   1/1     1            1           21m
 ```
 
-- Create a Channel and a Subscription.
+Create a Helm channel and subscribe to it.
 
 ```shell
 kubectl apply -f ./examples/helmrepo-channel
 ```
 
-- Subscribe!
-
-```shell
-kubectl patch subscriptions.apps.open-cluster-management.io simple --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
-```
-
 Find the nginx pods that are deployed to the current namespace. You should have 3 backend pods with the controller.
 
 ```shell
-% kubectl get pods -l app=nginx-ingress
-NAME                                             READY   STATUS    RESTARTS   AGE
-nginx-ingress-controller-857f44797-7fx7c         1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-97pxz   1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-drt7c   1/1     Running   0          96s
-nginx-ingress-default-backend-6b8dc9d88f-n26ls   1/1     Running   0          96s
+$ kubectl get pods -l app=nginx-ingress
+NAME                                                    READY   STATUS    RESTARTS   AGE
+nginx-ingress-simple-controller-6b57886cf8-pmqs5        1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-cgfwn   1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-q8gdg   1/1     Running   0          21m
+nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0          21m
 ```
 
-Check the [Getting started](docs/getting_started.md) doc for more details.
+## Multi-cluster deployment
 
-### Troubleshooting
+### Prerequisite
 
-- Check operator availability
+Install the `clusteradm` CLI tool. For more information see [here](https://open-cluster-management.io/getting-started/quick-start/#install-clusteradm-cli-tool).
+
+Using `clusteradm`, deploy a cluster manager on your _hub_ cluster and deploy a klusterlet agent on your _managed_ cluster. For more information see [here](https://open-cluster-management.io/getting-started/quick-start/#deploy-a-cluster-manager-on-your-hub-cluster).
+
+### Operator Deployment
+
+Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
-% kubectl get deploy,pods
-NAME                                                READY     UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/multicloud-operators-subscription   1/1       1            1           99m
-
-NAME                                                     READY     STATUS    RESTARTS   AGE
-pod/multicloud-operators-subscription-557c676479-dh2fg   1/1       Running   0          24s
+$ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+$ clusteradm install addons --names application-manager
+$ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicluster-operators-subscription   1/1     1            1           25s
+$ kubectl -n open-cluster-management wait deploy multicluster-operators-subscription --for condition=available
 ```
 
-- Check the Subscription and its status.
+### Add-on Deployment
+
+
+Enable the subscription add-on for _managed_ cluster. For the value of `<managed cluster name>`, choose the managed cluster you want to install the add-on to by running the command `kubectl get managedclusters` on the _hub_ cluster.
 
 ```shell
-% kubectl describe appsub simple
-Name:         simple
-Namespace:    default
-Labels:       <none>
-Annotations:  kubectl.kubernetes.io/last-applied-configuration:
-                {"apiVersion":"apps.open-cluster-management.io/v1","kind":"Subscription","metadata":{"annotations":{},"name":"simple","namespace":"default"},"spec":{"ch...
-API Version:  apps.open-cluster-management.io/v1
-Kind:         Subscription
-Metadata:
-  Creation Timestamp:  2019-11-21T04:01:47Z
-  Generation:          2
-  Resource Version:    24045
-  Self Link:           /apis/apps/v1/namespaces/default/subscriptions/simple
-  UID:                 a35b6ef5-0c13-11ea-b4e7-00000a100ef8
-Spec:
-  Channel:  dev/dev-helmrepo
-  Name:     nginx-ingress
-  Package Overrides:
-    Package Alias:  nginx-ingress-alias
-    Package Name:  nginx-ingress
-    Package Overrides:
-      Path:   spec
-      Value:  defaultBackend:
-  replicaCount: 3
-
-  Placement:
-    Local:  true
-Status:
-  Last Update Time:  2019-11-21T04:02:38Z
-  Phase:             Subscribed
-  Statuses:
-    /:
-      Packages:
-        dev-helmrepo-nginx-ingress-1.25.0:
-          Last Update Time:  2019-11-21T04:02:38Z
-          Phase:             Subscribed
-          Resource Status:
-            Last Update:  2019-11-21T04:02:24Z
-            Phase:        Success
-Events:                   <none>
+$ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+$ kubectl get managedclusters
+NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
+<managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
+$ clusteradm enable addons --names application-manager --clusters <managed cluster name> # clusteradm enable addons --names application-manager --clusters cluster1
+$ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
+NAME                  AVAILABLE   DEGRADED   PROGRESSING
+application-manager   True
 ```
 
-### Multicluster application subscription deployment
-
-- Setup a _hub_ cluster and a _managed_ cluster. See [open-cluster-management registration-operator](https://github.com/open-cluster-management/registration-operator#how-to-deploy) for more details.
-
-- Deploy the subscription operator on the _hub_ cluster.
+Check the the subscription add-on deployment on the _managed_ cluster.
 
 ```shell
-kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription
+$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
+$ kubectl -n open-cluster-management-agent-addon get deploy multicluster-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicluster-operators-subscription   1/1     1            1           103s
+```
+
+### What is next
+
+After a successful deployment, test the subscription operator with a `helm` subscription. Run the following command:
+
+```Shell
+git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
 cd multicloud-operators-subscription
-TRAVIS_BUILD=0
-make deploy-community-hub # make deploy-community-hub GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
+kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
+kubectl apply -f examples/helmrepo-hub-channel
 ```
 
-- Deploy the subscription agent on the _managed_ cluster.
+After a while, you should see the subscription propagated to the managed cluster and the Helm app installed. By default, when a subscription deploys subscribed applications to target clusters, the applications are deployed to that subscription namespace. To confirm, run the following command:
 
-```shell
-kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
-export HUB_KUBECONFIG=_path_to_hub_kubeconfig_ # replace _path_to_hub_kubeconfig_ with the full path to the hub cluster kubeconfig
-export MANAGED_CLUSTER_NAME=cluster1
-make deploy-community-managed # make deploy-community-managed GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
-```
-
-- Deploy an application subscription on the _hub_ cluster and it will propagate down to the _managed_ cluster
-
-```shell
-$ kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
-$ kubectl apply -f examples/helmrepo-hub-channel
-$ kubectl config use-context _managed_cluster_context_ # replace _managed_cluster_context_ with the managed cluster context name
-$ sleep 60
+```Shell
+$ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
 $ kubectl get subscriptions.apps 
-NAME        STATUS       AGE   LOCAL PLACEMENT   TIME WINDOW
-nginx-sub   Subscribed   77s   true       
+NAME        STATUS       AGE    LOCAL PLACEMENT   TIME WINDOW
+nginx-sub   Subscribed   107m   true  
 $ kubectl get pod
-NAME                                                   READY   STATUS    RESTARTS   AGE
-nginx-ingress-65f8e-controller-76fdf7f8bb-srfjp        1/1     Running   0          84s
-nginx-ingress-65f8e-default-backend-865d66965c-ckq66   1/1     Running   0          84s
-
+NAME                                                   READY   STATUS      RESTARTS   AGE
+nginx-ingress-47f79-controller-6f495bb5f9-lpv7z        1/1     Running     0          108m
+nginx-ingress-47f79-default-backend-7559599b64-rhwgm   1/1     Running     0          108m
 ```
+
+## GitOps subscription
+
+You can subscribe to public or enterprise Git repositories that contain Kubernetes resource YAML files or Helm charts, or both. See [Git repository channel subscription](docs/gitrepo_subscription.md) for more details.
+
+## Object storage subscription
+
+You can subscribe to cloud object storage that contain Kubernetes resource YAML files. See [Object storage channel subscription](docs/objectstorage_subscription.md) for more details.
 
 ## Community, discussion, contribution, and support
 
-Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repository.
+Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
 
-------
+### Communication channels
 
-## Getting started
+Slack channel: [#open-cluster-mgmt](http://slack.k8s.io/#open-cluster-mgmt)
 
-### Prerequisites
+## License
 
-Check the [Development Doc](docs/development.md) for information about how to contribute to the repository.
-
-## Security response
-
-Check the [Security Doc](SECURITY.md) if you find a security issue.
-
-## References
-
-### Multicloud-operators repositories
-
-- [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
-- [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
-- [multicloud-operators-deployable](https://github.com/open-cluster-management/multicloud-operators-deployable)
-- [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
-- [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
-- [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
+This code is released under the Apache 2.0 license. See the file LICENSE for more information.

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 package controller
 
-import "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/mcmhub"
+import "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/mcmhub"
 
 func init() {
 	// AddHubToManagerFuncs is a list of functions to create controllers and add them to a manager.

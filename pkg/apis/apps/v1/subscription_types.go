@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 
-	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
+	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
 var (
@@ -86,8 +85,10 @@ var (
 	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
 	// AnnotationBucketPath defines s3 object bucket subfolder path
 	AnnotationBucketPath = SchemeGroupVersion.Group + "/bucket-path"
-	// AnnotationCurrentNamespaceScoped specifies to deloy resources into subscription namespace
-	AnnotationCurrentNamespaceScoped = SchemeGroupVersion.Group + "/current-namespace-scoped"
+	// AnnotationManagedCluster identifies this is a deployable for managed cluster
+	AnnotationManagedCluster = SchemeGroupVersion.Group + "/managed-cluster"
+	// AnnotationHostingDeployable sits in templated resource, gives name of hosting deployable, legacy annotation
+	AnnotationHostingDeployable = SchemeGroupVersion.Group + "/hosting-deployable"
 )
 
 const (
@@ -157,6 +158,18 @@ type HourRange struct {
 	End   string `json:"end,omitempty"`
 }
 
+// ClusterOverride describes rules for override
+type ClusterOverride struct {
+	runtime.RawExtension `json:",inline"`
+}
+
+// Overrides field in deployable
+type ClusterOverrides struct {
+	ClusterName string `json:"clusterName"`
+	//+kubebuilder:validation:MinItems=1
+	ClusterOverrides []ClusterOverride `json:"clusterOverrides"` // To be added
+}
+
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
@@ -171,7 +184,7 @@ type SubscriptionSpec struct {
 	// For hub use only, to specify which clusters to go to
 	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
 	// for hub use only to specify the overrides when apply to clusters
-	Overrides []dplv1alpha1.Overrides `json:"overrides,omitempty"`
+	Overrides []ClusterOverrides `json:"overrides,omitempty"`
 	// help user control when the subscription will take affect
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
 	// +optional

@@ -1,0 +1,15 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: <APPSUB-NS>
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  namespace: <APPSUB-NS>
+  name: <APPSUB-NAME>
+spec:
+  channel: sub004/ggithubcom-rokej-myapplication
+  placement:
+    local: false

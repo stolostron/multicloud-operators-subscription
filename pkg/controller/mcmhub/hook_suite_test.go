@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,17 +24,17 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
@@ -46,7 +46,6 @@ const (
 	testGitPath         = "../../.."
 )
 
-var k8sManager mgr.Manager
 var k8sClt client.Client
 var specTimeOut = pullInterval * 10
 var setRequeueInterval = func(r *ReconcileSubscription) {
@@ -67,19 +66,23 @@ func TestHookReconcile(t *testing.T) {
 var _ = BeforeSuite(func(done Done) {
 	By("bootstrapping test environment")
 
-	err := apis.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = ansiblejob.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = spokeClusterV1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	k8sManager, err := mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
-	c = k8sManager.GetClient()
+	k8sClt = k8sManager.GetClient()
+	Expect(k8sClt).ToNot(BeNil())
+
+	err = apis.AddToScheme(k8sManager.GetScheme())
+	Expect(err).NotTo(HaveOccurred())
+
+	err = ansiblejob.AddToScheme(k8sManager.GetScheme())
+	Expect(err).NotTo(HaveOccurred())
+
+	err = spokeClusterV1.AddToScheme(k8sManager.GetScheme())
+	Expect(err).NotTo(HaveOccurred())
+
+	err = appsubReportV1alpha1.AddToScheme(k8sManager.GetScheme())
+	Expect(err).NotTo(HaveOccurred())
 
 	cloneFunc := func(*utils.GitCloneOption) (string, error) {
 		return defaultCommit, nil
@@ -104,31 +107,28 @@ var _ = BeforeSuite(func(done Done) {
 		Expect(k8sManager.Start(ctrl.SetupSignalHandler())).ToNot(HaveOccurred())
 	}()
 
-	k8sClt = k8sManager.GetClient()
-	Expect(k8sClt).ToNot(BeNil())
-
-	err = c.Create(context.Background(), &corev1.Namespace{
+	err = k8sClt.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "normal-sub"},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = c.Create(context.Background(), &corev1.Namespace{
+	err = k8sClt.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "ansible-reconcile-1"},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = c.Create(context.Background(), &corev1.Namespace{
+	err = k8sClt.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-0"},
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	err = c.Create(context.Background(), &corev1.Namespace{
+	err = k8sClt.Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "ansible-pre-2"},
 	})
 	if err != nil {
