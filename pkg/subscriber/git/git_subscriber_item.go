@@ -627,12 +627,16 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*dplv1.Deployable, *
 	// Set app label
 	utils.SetPartOfLabel(ghsi.SubscriberItem.Subscription, rsc)
 
-	rsc.SetOwnerReferences([]metav1.OwnerReference{{
-		APIVersion: subscriptionGVK.GroupVersion().String(),
-		Kind:       subscriptionGVK.Kind,
-		Name:       ghsi.Subscription.Name,
-		UID:        ghsi.Subscription.UID,
-	}})
+	// If resource namespace is different than the subscription namespace, setting the owner ref
+	// will cause the resource to be deleted by k8s garbage collection
+	if rsc.GetNamespace() == ghsi.Subscription.Namespace {
+		rsc.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: subscriptionGVK.GroupVersion().String(),
+			Kind:       subscriptionGVK.Kind,
+			Name:       ghsi.Subscription.Name,
+			UID:        ghsi.Subscription.UID,
+		}})
+	}
 
 	dpl.Spec.Template = &runtime.RawExtension{}
 	dpl.Spec.Template.Raw, err = json.Marshal(rsc)
