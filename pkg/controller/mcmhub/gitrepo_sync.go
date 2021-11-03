@@ -23,7 +23,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"github.com/pkg/errors"
-	gerr "github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/repo"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -33,7 +32,6 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
@@ -156,54 +154,6 @@ func getResourcePath(localFolderFunc func(*appv1.Subscription) string, sub *appv
 	}
 
 	return resourcePath
-}
-
-func getGitChart(sub *appv1.Subscription, localRepoRoot, subPath string) (*repo.IndexFile, error) {
-	chartDirs, a, b, c, d, err := utils.SortResources(localRepoRoot, subPath)
-	if err != nil {
-		return nil, gerr.Wrap(err, "failed to get helm index for topo annotation")
-	}
-
-	//to pass the linter without changing the utils.SortResources() API
-	_ = fmt.Sprint(a, b, c, d)
-
-	// Build a helm repo index file
-	indexFile, err := utils.GenerateHelmIndexFile(sub, localRepoRoot, chartDirs)
-
-	if err != nil {
-		// If package name is not specified in the subscription, filterCharts throws an error. In this case, just return the original index file.
-		return nil, gerr.Wrap(err, "failed to get helm index file")
-	}
-
-	return indexFile, nil
-}
-
-func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, chn, secondChn *chnv1.Channel) string {
-	idxFile, err := getGitChart(sub, utils.GetLocalGitFolder(sub), getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub))
-	if err != nil {
-		klog.Error(err.Error())
-		return ""
-	}
-
-	_ = idxFile
-
-	if len(idxFile.Entries) != 0 {
-		rls, err := helmops.ChartIndexToHelmReleases(r.Client, chn, secondChn, sub, idxFile)
-		if err != nil {
-			klog.Error(err.Error())
-			return ""
-		}
-
-		res, err := generateResrouceList(r.cfg, rls)
-		if err != nil {
-			klog.Error(err.Error())
-			return ""
-		}
-
-		return res
-	}
-
-	return ""
 }
 
 func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subscription,
