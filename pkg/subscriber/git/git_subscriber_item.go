@@ -751,6 +751,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 	}
 
 	primaryChannelConnectionConfig.RepoURL = ghsi.Channel.Spec.Pathname
+	primaryChannelConnectionConfig.InsecureSkipVerify = ghsi.Channel.Spec.InsecureSkipVerify
 	cloneOptions.PrimaryConnectionOption = primaryChannelConnectionConfig
 
 	// Get the secondary channel connection options
@@ -763,6 +764,7 @@ func (ghsi *SubscriberItem) cloneGitRepo() (commitID string, err error) {
 		}
 
 		secondaryChannelConnectionConfig.RepoURL = ghsi.SecondaryChannel.Spec.Pathname
+		secondaryChannelConnectionConfig.InsecureSkipVerify = ghsi.SecondaryChannel.Spec.InsecureSkipVerify
 		cloneOptions.SecondaryConnectionOption = secondaryChannelConnectionConfig
 	}
 
