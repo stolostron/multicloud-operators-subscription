@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/open-cluster-management/builder:go1.16-linux AS plugin-builder
+FROM registry.ci.openshift.org/open-cluster-management/builder:go1.17-linux AS plugin-builder
 ENV POLICY_GENERATOR_TAG=v1.2.1
 
 WORKDIR /policy-generator

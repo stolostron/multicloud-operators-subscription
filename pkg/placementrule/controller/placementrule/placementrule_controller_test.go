@@ -264,6 +264,8 @@ func TestAllClusters(t *testing.T) {
 		defer c.Delete(context.TODO(), clinstance)
 	}
 
+	time.Sleep(6 * time.Second)
+
 	cAlphaKey := types.NamespacedName{
 		Name: "clusteralpha",
 	}

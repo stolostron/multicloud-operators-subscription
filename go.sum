@@ -1494,8 +1494,8 @@ open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c/go
 open-cluster-management.io/api v0.0.0-20210607023841-cd164385e2bb/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
 open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d h1:r5gaLswoTczgxY6502WSI/I8BesWotg6dbQCUJTPflc=
 open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
-open-cluster-management.io/multicloud-operators-channel v0.4.1-0.20211019174739-f906eb7328a6 h1:oGYIREUst+DSsljiTBELiS6n5JlFtyycwJ0ME6YD2bE=
-open-cluster-management.io/multicloud-operators-channel v0.4.1-0.20211019174739-f906eb7328a6/go.mod h1:7WI7xQEkDCGoFO8vs+fybnj3b/ebSRlhrfHYmXFFaOk=
+open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798 h1:VgHRjxqCeGzHxwea9sqJH7eVpHyK363q6Lep+ZxccTA=
+open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798/go.mod h1:ELKJ1LHadEYbYHEeWrZXC8zAHrzXzzKJRtp/7D1WlmU=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/letsencrypt v0.0.3 h1:H7xDfhkaFFSYEJlKeq38RwX2jYcnTeHuDQyT+mMNMwM=
 rsc.io/letsencrypt v0.0.3/go.mod h1:buyQKZ6IXrRnB7TdkHP0RyEybLx18HHyOSoTyoOLqNY=
