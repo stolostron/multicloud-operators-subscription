@@ -16,6 +16,7 @@ require (
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	github.com/openshift/library-go v0.0.0-20210609150209-1c980926414c
 	github.com/operator-framework/operator-lib v0.5.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.11.0
@@ -34,7 +35,7 @@ require (
 	k8s.io/klog v1.0.0
 	k8s.io/kube-openapi v0.0.0-20210305001622-591a79e4bda7
 	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
-	open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d
+	open-cluster-management.io/api v0.5.1-0.20211109002058-9676c7a1e606
 	open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
@@ -142,7 +143,6 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opencontainers/runc v1.0.0-rc9 // indirect
-	github.com/openshift/library-go v0.0.0-20210609150209-1c980926414c // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
