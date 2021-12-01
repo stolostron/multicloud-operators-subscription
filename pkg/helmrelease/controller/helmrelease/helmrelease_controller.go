@@ -256,6 +256,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		klog.Info("Requeue HelmRelease after one minute ")
 
@@ -355,6 +356,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		if rollbackByUninstall && installedRelease != nil {
 			// hack for MultiClusterHub to remove CRD outside of Helm/HelmRelease's control
@@ -373,13 +375,16 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 				klog.Error("Failed to uninstall HelmRelease for install rollback",
 					helmreleaseNsn(instance), " ", errUninstall)
 
+				errMsg := "failed installation " + err.Error() + " and failed uninstall rollback " + errUninstall.Error()
+
 				instance.Status.SetCondition(appv1.HelmAppCondition{
 					Type:    appv1.ConditionReleaseFailed,
 					Status:  appv1.StatusTrue,
 					Reason:  appv1.ReasonInstallError,
-					Message: "failed installation " + err.Error() + " and failed uninstall rollback " + errUninstall.Error(),
+					Message: errMsg,
 				})
 				_ = r.updateResourceStatus(instance)
+				r.populateErrorAppSubStatus(errMsg, instance, manager)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -442,6 +447,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		// hack for MultiClusterHub to remove CRD outside of Helm/HelmRelease's control
 		// TODO introduce a generic annotation to trigger this feature
@@ -460,13 +466,16 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 				klog.Error("Failed to rollback HelmRelease ",
 					helmreleaseNsn(instance), " ", err)
 
+				errMsg := "failed upgrade " + err.Error() + " and failed rollback: " + errRollback.Error()
+
 				instance.Status.SetCondition(appv1.HelmAppCondition{
 					Type:    appv1.ConditionReleaseFailed,
 					Status:  appv1.StatusTrue,
 					Reason:  appv1.ReasonUpgradeError,
-					Message: "failed upgrade " + err.Error() + " and failed rollback: " + errRollback.Error(),
+					Message: errMsg,
 				})
 				_ = r.updateResourceStatus(instance)
+				r.populateErrorAppSubStatus(errMsg, instance, manager)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -519,6 +528,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
 		klog.Error("Failed to uninstall HelmRelease ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -550,6 +560,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Failed to get API Capabilities to perform cleanup check ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -560,6 +571,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Corrupted release record for ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -574,6 +586,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Unable to build kubernetes objects for delete ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -588,6 +601,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				klog.Error("Unable to get resource ", resource.Namespace, "/", resource.Name,
 					" for ", helmreleaseNsn(instance), " ", err)
 				r.updateUninstallResourceErrorStatus(instance, err)
+				r.populateErrorAppSubStatus(err.Error(), instance, manager)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -614,6 +628,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				Message: message,
 			})
 			_ = r.updateResourceStatus(instance)
+			r.populateErrorAppSubStatus(message, instance, manager)
 
 			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 		}
@@ -667,6 +682,8 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
@@ -750,6 +767,47 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 					r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
 				}
 			}
+		}
+	}
+}
+
+func (r *ReconcileHelmRelease) populateErrorAppSubStatus(
+	errMsg string, instance *appv1.HelmRelease, manager helmoperator.Manager) {
+	for _, hrOwner := range instance.OwnerReferences {
+		if hrOwner.Kind == "Subscription" {
+
+			appSubUnitStatuses := []kubesynchronizer.SubscriptionUnitStatus{}
+
+			appSubUnitStatus := kubesynchronizer.SubscriptionUnitStatus{}
+			appSubUnitStatus.APIVersion = instance.APIVersion
+			appSubUnitStatus.Kind = instance.Kind
+			appSubUnitStatus.Name = instance.Name
+			appSubUnitStatus.Namespace = instance.Namespace
+
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+			appSubUnitStatus.Message = errMsg
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+			appsubClusterStatus := kubesynchronizer.SubscriptionClusterStatus{
+				Cluster:                   r.synchronizer.SynchronizerID.Name,
+				AppSub:                    types.NamespacedName{Name: hrOwner.Name, Namespace: instance.GetNamespace()},
+				Action:                    "APPLY",
+				SubscriptionPackageStatus: appSubUnitStatuses,
+			}
+
+			// get the parent appsub
+			appsub := &appsubv1.Subscription{}
+			appsubKey := types.NamespacedName{
+				Namespace: instance.GetNamespace(),
+				Name:      hrOwner.Name,
+			}
+			err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
+			if err != nil {
+				klog.Infof("failed to get parent appsub, err: %v", err)
+			}
+
+			skipOrphanDelete := true
+			r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
 		}
 	}
 }
