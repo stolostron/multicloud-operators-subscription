@@ -32,7 +32,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/repo"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -200,142 +199,22 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	klog.V(4).Infof("Check if helmRepo changed with hash %s", hash)
 
-	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
+	isHashDiff := hash != hrsi.hash
+	isUnsuccessful := !hrsi.success
 
-	for _, hrName := range hrNames {
-		isHashDiff := hash != hrsi.hash
-		isUnsuccessful := !hrsi.success
-		existsHelmRelease := false
-		populatedHelmReleaseStatus := false
+	if isHashDiff || isUnsuccessful {
+		klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v", isHashDiff, isUnsuccessful)
 
-		existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
-		if err != nil {
-			klog.Error("Failed to determine if HelmRelease exists: ", err)
+		if err := hrsi.processSubscription(indexFile, hash); err != nil {
+			klog.Error("Failed to process helm repo subscription with error:", err)
 
 			hrsi.success = false
 
 			return
 		}
 
-		if existsHelmRelease {
-			populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
-				types.NamespacedName{Name: hrsi.Subscription.Name,
-					Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
-			if err != nil {
-				klog.Error("Failed to determine if HelmRelease status is populated: ", err)
-
-				hrsi.success = false
-
-				return
-			}
-		}
-
-		if isHashDiff || isUnsuccessful || !existsHelmRelease || !populatedHelmReleaseStatus {
-			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
-				isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
-
-			if err := hrsi.processSubscription(indexFile, hash); err != nil {
-				klog.Error("Failed to process helm repo subscription with error:", err)
-
-				hrsi.success = false
-
-				return
-			}
-
-			hrsi.success = true
-		}
+		hrsi.success = true
 	}
-}
-
-func getHelmReleaseNames(indexFile *repo.IndexFile, sub *appv1.Subscription) []string {
-	klog.V(4).Infof("Calculating the HelmRelease names")
-
-	var hrNames []string
-
-	for packageName := range indexFile.Entries {
-		releaseCRName, err := utils.PkgToReleaseCRName(sub, packageName)
-		if err != nil {
-			klog.Error(err, "Unable to get HelmRelease name for package: ", packageName)
-			continue
-		}
-
-		hrNames = append(hrNames, releaseCRName)
-	}
-
-	return hrNames
-}
-
-func isHelmReleaseExists(client client.Client, namespace string, releaseCRName string) (bool, error) {
-	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s exists", namespace, releaseCRName)
-
-	helmRelease := &releasev1.HelmRelease{}
-
-	if err := client.Get(context.TODO(),
-		types.NamespacedName{Name: releaseCRName, Namespace: namespace}, helmRelease); err != nil {
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-
-		klog.Error(err, "Unable to get HelmRelease %s/%s", namespace, releaseCRName)
-
-		return false, err
-	}
-
-	return true, nil
-}
-
-func isHelmReleaseStatusPopulated(client client.Client, hostSub types.NamespacedName, namespace string, releaseCRName string) (bool, error) {
-	klog.V(3).Infof("Checking to see if the HelmRelease %s/%s status is populated", namespace, releaseCRName)
-
-	helmRelease := &releasev1.HelmRelease{}
-
-	if err := client.Get(context.TODO(),
-		types.NamespacedName{Name: releaseCRName, Namespace: namespace}, helmRelease); err != nil {
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-
-		klog.Error(err, "Unable to get HelmRelease %s/%s", namespace, releaseCRName)
-
-		return false, err
-	}
-
-	sub := &appv1.Subscription{}
-	if err := client.Get(context.TODO(), hostSub, sub); err != nil {
-		if errors.IsNotFound(err) {
-			return false, nil
-		}
-
-		klog.Error(err, "Unable to get Subscription %v", hostSub)
-
-		return false, err
-	}
-
-	statuses := sub.Status.Statuses
-	if len(statuses) == 0 {
-		return false, nil
-	}
-
-	localStatus := statuses["/"]
-	if localStatus == nil {
-		return false, nil
-	}
-
-	pkgStatus := localStatus.SubscriptionPackageStatus
-	if len(pkgStatus) == 0 {
-		return false, nil
-	}
-
-	hostDpl := utils.GetHostDeployableFromObject(helmRelease)
-	if hostDpl == nil {
-		return true, nil
-	}
-
-	if pkgStatus[hostDpl.Name] == nil || pkgStatus[hostDpl.Name].ResourceStatus == nil || len(pkgStatus[hostDpl.Name].ResourceStatus.Raw) == 0 {
-		return false, nil
-	}
-
-	return true, nil
 }
 
 func (hrsi *SubscriberItem) processSubscription(indexFile *repo.IndexFile, hash string) error {
