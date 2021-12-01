@@ -65,6 +65,10 @@ const (
 	SSHKey = "sshKey"
 	// Passphrase is used to open the SSH key
 	Passphrase = "passphrase"
+	// ClientKey is a client private key for connecting to a Git server
+	ClientKey = "clientKey"
+	// ClientCert is a client certificate for connecting to a Git server
+	ClientCert = "clientCert"
 )
 
 type kubeResource struct {
@@ -95,6 +99,8 @@ type ChannelConnectionCfg struct {
 	Passphrase         []byte
 	InsecureSkipVerify bool
 	CaCerts            string
+	ClientKey          []byte
+	ClientCert         []byte
 }
 
 // ParseKubeResoures parses a YAML content and returns kube resources in byte array from the file
@@ -193,7 +199,13 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 	if strings.HasPrefix(options.URL, "http") {
 		klog.Info("Connecting to Git server via HTTP")
 
-		err := getHTTPOptions(options, channelConnOptions.User, channelConnOptions.Password, channelConnOptions.CaCerts, channelConnOptions.InsecureSkipVerify)
+		err := getHTTPOptions(options,
+			channelConnOptions.User,
+			channelConnOptions.Password,
+			channelConnOptions.CaCerts,
+			channelConnOptions.InsecureSkipVerify,
+			channelConnOptions.ClientKey,
+			channelConnOptions.ClientCert)
 
 		if err != nil {
 			klog.Error(err, "failed to prepare HTTP clone options")
@@ -451,7 +463,7 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 	return nil
 }
 
-func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, insecureSkipVerify bool) error {
+func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, insecureSkipVerify bool, clientkey, clientcert []byte) error {
 	if user != "" && password != "" {
 		options.Auth = &githttp.BasicAuth{
 			Username: user,
@@ -499,6 +511,21 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 		clientConfig.RootCAs = certPool
 
 		installProtocol = true
+	}
+
+	// If client key pair is provided, make mTLS connection
+	if len(clientkey) > 0 && len(clientcert) > 0 {
+		klog.Info("Client certificate key pair is provieded. Making mTLS connection.")
+		clientCertificate, err := tls.X509KeyPair(clientcert, clientkey)
+
+		if err != nil {
+			klog.Error(err.Error())
+			return err
+		}
+
+		// Add the client certificate in the connection
+		clientConfig.Certificates = []tls.Certificate{clientCertificate}
+		klog.Info("Client certificate key pair added successfully")
 	}
 
 	if installProtocol {
@@ -575,7 +602,7 @@ func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigM
 	connCfg = &ChannelConnectionCfg{}
 
 	if secret != nil {
-		user, token, sshKey, passphrase, err := ParseChannelSecret(secret)
+		user, token, sshKey, passphrase, clientkey, clientcert, err := ParseChannelSecret(secret)
 
 		if err != nil {
 			return nil, err
@@ -585,6 +612,8 @@ func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigM
 		connCfg.Password = token
 		connCfg.SSHKey = sshKey
 		connCfg.Passphrase = passphrase
+		connCfg.ClientCert = clientcert
+		connCfg.ClientKey = clientkey
 	}
 
 	if configmap != nil {
@@ -597,11 +626,13 @@ func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigM
 }
 
 // GetChannelSecret returns username and password for channel
-func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, []byte, []byte, error) {
+func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, []byte, []byte, []byte, []byte, error) {
 	username := ""
 	accessToken := ""
 	sshKey := []byte("")
 	passphrase := []byte("")
+	clientkey := []byte("")
+	clientcert := []byte("")
 
 	if chn.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
@@ -614,17 +645,17 @@ func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string,
 		err := client.Get(context.TODO(), types.NamespacedName{Name: chn.Spec.SecretRef.Name, Namespace: secns}, secret)
 		if err != nil {
 			klog.Error(err, "Unable to get secret from local cluster.")
-			return username, accessToken, sshKey, passphrase, err
+			return username, accessToken, sshKey, passphrase, clientkey, clientcert, err
 		}
 
-		username, accessToken, sshKey, passphrase, err = ParseChannelSecret(secret)
+		username, accessToken, sshKey, passphrase, clientkey, clientcert, err = ParseChannelSecret(secret)
 
 		if err != nil {
-			return username, accessToken, sshKey, passphrase, err
+			return username, accessToken, sshKey, passphrase, clientkey, clientcert, err
 		}
 	}
 
-	return username, accessToken, sshKey, passphrase, nil
+	return username, accessToken, sshKey, passphrase, clientkey, clientcert, nil
 }
 
 // GetDataFromChannelConfigMap returns username and password for channel
@@ -647,37 +678,47 @@ func GetChannelConfigMap(client client.Client, chn *chnv1.Channel) *corev1.Confi
 	return nil
 }
 
-func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, error) {
+func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, []byte, []byte, error) {
 	username := ""
 	accessToken := ""
 	sshKey := []byte("")
 	passphrase := []byte("")
+	clientKey := []byte("")
+	clientCert := []byte("")
 	err := yaml.Unmarshal(secret.Data[UserID], &username)
 
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal username from the secret.")
-		return username, accessToken, sshKey, passphrase, err
+		return username, accessToken, sshKey, passphrase, clientKey, clientCert, err
 	}
 
 	err = yaml.Unmarshal(secret.Data[AccessToken], &accessToken)
 
 	if err != nil {
 		klog.Error(err, "Failed to unmarshal accessToken from the secret.")
-		return username, accessToken, sshKey, passphrase, err
+		return username, accessToken, sshKey, passphrase, clientKey, clientCert, err
 	}
 
 	sshKey = bytes.TrimSpace(secret.Data[SSHKey])
 	passphrase = bytes.TrimSpace(secret.Data[Passphrase])
+	clientKey = bytes.TrimSpace(secret.Data[ClientKey])
+	clientCert = bytes.TrimSpace(secret.Data[ClientCert])
 
-	if len(sshKey) == 0 {
+	if (len(clientKey) == 0 && len(clientCert) > 0) || (len(clientKey) > 0 && len(clientCert) == 0) {
+		klog.Error(err, "For mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
+		return username, accessToken, sshKey, passphrase, clientKey, clientCert,
+			errors.New("For mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
+	}
+
+	if len(sshKey) == 0 && len(clientKey) == 0 {
 		if username == "" || accessToken == "" {
 			klog.Error(err, "sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
-			return username, accessToken, sshKey, passphrase,
+			return username, accessToken, sshKey, passphrase, clientKey, clientCert,
 				errors.New("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
 		}
 	}
 
-	return username, accessToken, sshKey, passphrase, nil
+	return username, accessToken, sshKey, passphrase, clientKey, clientCert, nil
 }
 
 // GetLocalGitFolder returns the local Git repo clone directory
