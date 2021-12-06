@@ -364,36 +364,28 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 			return err
 		}
 
-		sshhostname = strings.Split(u.Host, ":")[0]
-
-		sshhostport = u.Host
+		sshhostname = u.Hostname()
+		sshhostport = u.Port()
 	} else if strings.HasPrefix(sshURL, "git@") {
 		sshhostname = strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
 	}
 
+	klog.Info("sshhostname =  " + sshhostname)
+	klog.Info("sshhostport =  " + sshhostport)
+
 	klog.Info("Getting public SSH host key for " + sshhostname)
 
 	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
+
+	if sshhostport != "" {
+		cmd = exec.Command("ssh-keyscan", sshhostname, "-p", sshhostport) // #nosec G204 the variable is generated within this function.
+		klog.Infof("Running command ssh-keyscan %s -p %s", sshhostname, sshhostport)
+	}
+
 	stdout, err := cmd.Output()
 
 	if err != nil {
 		klog.Error("failed to get public SSH host key: ", err)
-
-		if sshhostport != "" && (sshhostport != sshhostname) {
-			klog.Info("Getting public SSH host key for " + sshhostport)
-
-			cmd2 := exec.Command("ssh-keyscan", sshhostport) // #nosec G204 the variable is generated within this function.
-			stdout2, err2 := cmd2.Output()
-
-			if err2 != nil {
-				klog.Error("failed to get public SSH host key: ", err2)
-				return err2
-			}
-
-			stdout = stdout2
-		} else {
-			return err
-		}
 	}
 
 	klog.Info("SSH host key: " + string(stdout))
