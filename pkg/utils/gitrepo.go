@@ -364,8 +364,6 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 			return err
 		}
 
-		sshhostname = strings.Split(u.Host, ":")[0]
-
 		sshhostname = u.Hostname()
 		sshhostport = u.Port()
 	} else if strings.HasPrefix(sshURL, "git@") {
