@@ -264,6 +264,20 @@ func TestCheckVersion(t *testing.T) {
 
 	ret = checkVersion(githubsub, chartVersion)
 	g.Expect(ret).To(gomega.BeTrue())
+
+	packageFilter = &appv1alpha1.PackageFilter{}
+	packageFilter.Version = "v2.0.0"
+
+	githubsub.Spec.PackageFilter = packageFilter
+
+	ret = checkVersion(githubsub, chartVersion)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	packageFilter = &appv1alpha1.PackageFilter{}
+	githubsub.Spec.PackageFilter = packageFilter
+
+	ret = checkVersion(githubsub, chartVersion)
+	g.Expect(ret).To(gomega.BeTrue())
 }
 
 func TestOverride(t *testing.T) {

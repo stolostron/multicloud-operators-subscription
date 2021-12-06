@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	workV1 "open-cluster-management.io/api/work/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -82,6 +83,9 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = appsubReportV1alpha1.AddToScheme(k8sManager.GetScheme())
+	Expect(err).NotTo(HaveOccurred())
+
+	err = workV1.AddToScheme(k8sManager.GetScheme())
 	Expect(err).NotTo(HaveOccurred())
 
 	cloneFunc := func(*utils.GitCloneOption) (string, error) {

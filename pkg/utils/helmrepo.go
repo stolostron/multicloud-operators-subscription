@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/blang/semver"
+	semver "github.com/Masterminds/semver/v3"
 	"github.com/ghodss/yaml"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/repo"
@@ -579,7 +579,7 @@ func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) er
 }
 
 //filterOnVersion filters the indexFile with the version, and Digest provided in the subscription
-//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/blang/semver)
+//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/Masterminds/semver)
 func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
 	keys := make([]string, 0)
 	for k := range indexFile.Entries {
@@ -621,21 +621,21 @@ func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.PackageFilter.Version != "" {
 			version := chartVersion.Version
-			versionVersion, err := semver.Parse(version)
+			versionVersion, err := semver.NewVersion(version)
 
 			if err != nil {
 				klog.Error(err)
 				return false
 			}
 
-			filterVersion, err := semver.ParseRange(sub.Spec.PackageFilter.Version)
+			filterVersion, err := semver.NewConstraint(sub.Spec.PackageFilter.Version)
 
 			if err != nil {
 				klog.Error(err)
 				return false
 			}
 
-			return filterVersion(versionVersion)
+			return filterVersion.Check(versionVersion)
 		}
 	}
 
