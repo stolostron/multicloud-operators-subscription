@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/open-cluster-management/builder:go1.17-linux AS builder
-ENV POLICY_GENERATOR_TAG=v1.2.2
+ENV POLICY_GENERATOR_TAG=v1.2.3
 
 WORKDIR /go/src/github.com/open-cluster-management/multicluster-operators-subscription
 COPY . .
