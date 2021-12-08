@@ -270,23 +270,27 @@ func TestGetChannelSecret(t *testing.T) {
 
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, sshKey, passphrase, err := GetChannelSecret(c, githubchn)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err := GetChannelSecret(c, githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Equal("admin"))
 	g.Expect(pwd).To(gomega.Equal("1f2d1e2e67df"))
 	g.Expect(string(sshKey)).To(gomega.Equal(""))
 	g.Expect(string(passphrase)).To(gomega.Equal(""))
+	g.Expect(string(clientkey)).To(gomega.Equal(""))
+	g.Expect(string(clientcert)).To(gomega.Equal(""))
 
 	// Test when secret ref is wrong
 	secretRef.Name = "correct-secret_nogood"
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, sshKey, passphrase, err = GetChannelSecret(c, githubchn)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Equal(""))
 	g.Expect(pwd).To(gomega.Equal(""))
 	g.Expect(string(sshKey)).To(gomega.Equal(""))
 	g.Expect(string(passphrase)).To(gomega.Equal(""))
+	g.Expect(string(clientkey)).To(gomega.Equal(""))
+	g.Expect(string(clientcert)).To(gomega.Equal(""))
 
 	// Test when secret has incorrect data
 	chnSecret2 := &corev1.Secret{}
@@ -299,12 +303,14 @@ func TestGetChannelSecret(t *testing.T) {
 	secretRef.Name = "incorrect-secret"
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, sshKey, passphrase, err = GetChannelSecret(c, githubchn)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Or(gomega.Equal(""), gomega.Equal("admin")))
 	g.Expect(pwd).To(gomega.Equal(""))
 	g.Expect(string(sshKey)).To(gomega.Equal(""))
 	g.Expect(string(passphrase)).To(gomega.Equal(""))
+	g.Expect(string(clientkey)).To(gomega.Equal(""))
+	g.Expect(string(clientcert)).To(gomega.Equal(""))
 }
 
 func TestKustomizeOverrideString(t *testing.T) {
