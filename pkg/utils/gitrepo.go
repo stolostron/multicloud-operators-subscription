@@ -516,6 +516,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 	// If client key pair is provided, make mTLS connection
 	if len(clientkey) > 0 && len(clientcert) > 0 {
 		klog.Info("Client certificate key pair is provieded. Making mTLS connection.")
+
 		clientCertificate, err := tls.X509KeyPair(clientcert, clientkey)
 
 		if err != nil {
@@ -525,6 +526,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 
 		// Add the client certificate in the connection
 		clientConfig.Certificates = []tls.Certificate{clientCertificate}
+
 		klog.Info("Client certificate key pair added successfully")
 	}
 
@@ -705,9 +707,9 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 	clientCert = bytes.TrimSpace(secret.Data[ClientCert])
 
 	if (len(clientKey) == 0 && len(clientCert) > 0) || (len(clientKey) > 0 && len(clientCert) == 0) {
-		klog.Error(err, "For mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
+		klog.Error(err, "for mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
 		return username, accessToken, sshKey, passphrase, clientKey, clientCert,
-			errors.New("For mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
+			errors.New("for mTLS connection to Git, both clientKey (private key) and clientCert (certificate) are required in the channel secret")
 	}
 
 	if len(sshKey) == 0 && len(clientKey) == 0 {
