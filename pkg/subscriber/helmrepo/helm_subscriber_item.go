@@ -198,6 +198,11 @@ func (hrsi *SubscriberItem) doSubscription() {
 		}
 	}
 
+	if indexFile != nil && indexFile.Entries != nil && len(indexFile.Entries) == 0 {
+		klog.Warning("Failed to find any matching Helm chart for deployment. Check spec.packageFilter: ",
+			hrsi.Subscription.GetNamespace(), "/", hrsi.Subscription.GetName())
+	}
+
 	klog.V(4).Infof("Check if helmRepo changed with hash %s", hash)
 
 	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
