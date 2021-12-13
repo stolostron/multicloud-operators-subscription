@@ -1,0 +1,41 @@
+---
+apiVersion: apps.open-cluster-management.io/v1alpha1
+kind: SubscriptionReport
+metadata:
+  labels:
+    apps.open-cluster-management.io/hosting-subscription: <APPSUB-NS>.<APPSUB-NAME>
+  name: <APPSUB-NAME>
+  namespace: <APPSUB-NS>
+reportType: Application
+resources:
+- apiVersion: v1
+  kind: Service
+  name: redis-master2
+  namespace: playback-ns-2
+- apiVersion: apps/v1
+  kind: Deployment
+  name: redis-master2
+  namespace: playback-ns-2
+- apiVersion: v1
+  kind: Service
+  name: redis-slave2
+  namespace: playback-ns-2
+- apiVersion: apps/v1
+  kind: Deployment
+  name: redis-slave2
+  namespace: playback-ns-2
+- apiVersion: v1
+  kind: Service
+  name: frontend2
+  namespace: playback-ns-2
+- apiVersion: apps/v1
+  kind: Deployment
+  name: frontend2
+  namespace: playback-ns-2
+results:
+summary:
+  deployed: "0"
+  failed: "0"
+  inProgress: "0"
+  propagationFailed: "0"
+  clusters: "<CLUSTER-TOTAL>"

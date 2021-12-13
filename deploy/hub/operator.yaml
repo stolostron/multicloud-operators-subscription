@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicluster-operators-subscription
-  namespace: multicluster-operators
+  namespace: open-cluster-management
   labels:
     name: multicluster-operators-subscription
 spec:
@@ -18,13 +18,14 @@ spec:
       serviceAccountName: multicluster-operators
       containers:
         - name: multicluster-operators-subscription
-          image: quay.io/open-cluster-management/multicluster-operators-subscription:latest
+          image: quay.io/open-cluster-management/multicloud-operators-subscription:latest
           ports:
           - containerPort: 8443
           command:
           - /usr/local/bin/multicluster-operators-subscription
           - --sync-interval=60
-          imagePullPolicy: Always
+          - --deploy-agent
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
             - name: POD_NAME
@@ -33,10 +34,9 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "multicluster-operators-subscription"
+            - name: DEPLOYMENT_LABEL
+              value: "multicluster-operators-subscription"
           resources:
               requests:
                 cpu: 100m
-                memory: 256Mi
-              limits:
-                cpu: 500m
-                memory: 512Mi
+                memory: 128Mi

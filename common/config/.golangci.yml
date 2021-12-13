@@ -23,10 +23,14 @@ run:
   skip-files:
     - ".*\\.pb\\.go"
     - ".*\\.gen\\.go"
+    - ".*.helmrelease.*\\.go"
+    - ".*.ansiblejob.*\\.go"
 
 linters:
   enable-all: true
   disable:
+    - exhaustive
+    - maligned
     - depguard
     - dupl
     - gochecknoglobals
@@ -49,6 +53,7 @@ linters:
     - gofumpt
     - nestif
     - ineffassign
+    - unused
   fast: false
 
 linters-settings:
@@ -68,7 +73,7 @@ linters-settings:
     min-confidence: 0.0
   gocognit:
     # minimal code complexity to report, 30 by default (but we recommend 10-20)
-    min-complexity: 85
+    min-complexity: 150
   gofmt:
     # simplify code: gofmt with `-s` option, true by default
     simplify: true

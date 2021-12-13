@@ -30,10 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
+	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -49,7 +50,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "HelmRepo",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm",
+			Pathname: "https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm",
 		},
 	}
 
@@ -193,7 +194,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
+			"https://" + GetTestGitRepoURLFromEnvVar() + "/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
 	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")
@@ -337,7 +338,7 @@ persistence:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
-func TestCreateHelmCRDeployable(t *testing.T) {
+func TestCreateHelmCRManifest(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	// Test Git clone with a secret
@@ -374,14 +375,14 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	githubsub.UID = "dummyuid"
 
-	dpl, err := CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err := CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
-	dplName1 := dpl.Name
+	dplName1 := dpl.GetName()
 
 	githubchn.Spec.Type = chnv1.ChannelTypeHelmRepo
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
@@ -397,13 +398,13 @@ func TestCreateHelmCRDeployable(t *testing.T) {
 
 	time.Sleep(3 * time.Second)
 
-	dpl, err = CreateHelmCRDeployable("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub)
+	dpl, err = CreateHelmCRManifest("../..", "chart1", indexFile.Entries["chart1"], c, githubchn, nil, githubsub, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(dpl).NotTo(gomega.BeNil())
 
-	dplName2 := dpl.Name
+	dplName2 := dpl.GetName()
 
-	// Test that the deployable names are the same for the same charts with different versions
+	// Test that the manifest names are the same for the same charts with different versions
 	g.Expect(dplName1).To(gomega.Equal(dplName2))
 }
 

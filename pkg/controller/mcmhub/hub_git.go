@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,16 +25,17 @@ import (
 	"sync"
 	"time"
 
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/klog"
+	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -220,7 +221,7 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 			for subKey := range branchInfo.registeredSub {
 				// Update the commit annotation with a wrong commit ID to trigger hub subscription reconcile.
 				// The hub subscription reconcile will compare this to the commit ID in the map h.repoRecords[repoName].branchs[bName].lastCommitID
-				// to determine it needs to regenerate deployables.
+				// to determine it needs to regenerate manifests.
 				if err := updateCommitAnnotation(h.clt, subKey, fakeCommitID(newCommit)); err != nil {
 					h.logger.Error(err, fmt.Sprintf("failed to update new commit %s to subscription %s", newCommit, subKey.String()))
 					continue
@@ -662,7 +663,7 @@ func parseAnsibleJobResoures(file []byte) [][]byte {
 
 func parseFromKutomizedAsAnsibleJobs(kustomizes [][]byte, parser func([]byte) [][]byte, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
 	jobs := []ansiblejob.AnsibleJob{}
-	// sync kube resource deployables
+	// sync kube resource manifests
 	for _, kus := range kustomizes {
 		resources := parser(kus)
 
@@ -686,7 +687,7 @@ func parseFromKutomizedAsAnsibleJobs(kustomizes [][]byte, parser func([]byte) []
 
 func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger logr.Logger) ([]ansiblejob.AnsibleJob, error) {
 	jobs := []ansiblejob.AnsibleJob{}
-	// sync kube resource deployables
+	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
 		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 

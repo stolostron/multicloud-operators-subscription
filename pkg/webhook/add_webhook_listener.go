@@ -15,7 +15,7 @@
 package webhook
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook/listener"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook/listener"
 )
 
 func init() {

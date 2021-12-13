@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
 package subscriber
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/objectbucket"
 )
 
 func init() {

@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,12 +21,12 @@ import (
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
-var AddToManagerFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, int) error
+var AddToManagerFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, int, bool, bool) error
 
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config, id *types.NamespacedName, interval int) error {
+func AddToManager(m manager.Manager, cfg *rest.Config, id *types.NamespacedName, interval int, hub, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
-		if err := f(m, cfg, id, interval); err != nil {
+		if err := f(m, cfg, id, interval, hub, standalone); err != nil {
 			return err
 		}
 	}

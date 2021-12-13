@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,13 +95,4 @@ func ValidateK8sLabel(s string) string {
 	}
 
 	return s[start:stop]
-}
-
-// TrimLabelLast63Chars returns the last 63 characters of the input string
-func TrimLabelLast63Chars(s string) string {
-	if len(s) > 63 {
-		s = s[len(s)-63:]
-	}
-
-	return s
 }

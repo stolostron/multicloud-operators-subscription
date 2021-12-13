@@ -52,8 +52,8 @@ import (
 	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 const (
@@ -177,19 +177,6 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 		ReferenceName:     cloneOptions.Branch,
 	}
 
-	// The destination directory needs to be created here
-	err = os.RemoveAll(cloneOptions.DestDir)
-
-	if err != nil {
-		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
-	}
-
-	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
-
-	if err != nil {
-		return nil, err
-	}
-
 	if strings.HasPrefix(options.URL, "http") {
 		klog.Info("Connecting to Git server via HTTP")
 
@@ -229,6 +216,18 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 			klog.Info("Setting clone depth to 20")
 			options.Depth = 20
 		}
+	}
+
+	err = os.RemoveAll(cloneOptions.DestDir)
+
+	if err != nil {
+		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
+	}
+
+	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
+
+	if err != nil {
+		return nil, err
 	}
 
 	return options, nil
@@ -364,36 +363,28 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 			return err
 		}
 
-		sshhostname = strings.Split(u.Host, ":")[0]
-
-		sshhostport = u.Host
+		sshhostname = u.Hostname()
+		sshhostport = u.Port()
 	} else if strings.HasPrefix(sshURL, "git@") {
 		sshhostname = strings.Split(strings.SplitAfter(sshURL, "@")[1], ":")[0]
 	}
 
+	klog.Info("sshhostname =  " + sshhostname)
+	klog.Info("sshhostport =  " + sshhostport)
+
 	klog.Info("Getting public SSH host key for " + sshhostname)
 
 	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
+
+	if sshhostport != "" {
+		cmd = exec.Command("ssh-keyscan", sshhostname, "-p", sshhostport) // #nosec G204 the variable is generated within this function.
+		klog.Infof("Running command ssh-keyscan %s -p %s", sshhostname, sshhostport)
+	}
+
 	stdout, err := cmd.Output()
 
 	if err != nil {
 		klog.Error("failed to get public SSH host key: ", err)
-
-		if sshhostport != "" && (sshhostport != sshhostname) {
-			klog.Info("Getting public SSH host key for " + sshhostport)
-
-			cmd2 := exec.Command("ssh-keyscan", sshhostport) // #nosec G204 the variable is generated within this function.
-			stdout2, err2 := cmd2.Output()
-
-			if err2 != nil {
-				klog.Error("failed to get public SSH host key: ", err2)
-				return err2
-			}
-
-			stdout = stdout2
-		} else {
-			return err
-		}
 	}
 
 	klog.Info("SSH host key: " + string(stdout))
@@ -873,11 +864,11 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 		encodedUserIdentity := strings.Trim(annotations[appv1.AnnotationUserIdentity], "")
 
 		if encodedUserGroup != "" {
-			userGroups = base64StringDecode(encodedUserGroup)
+			userGroups = Base64StringDecode(encodedUserGroup)
 		}
 
 		if encodedUserIdentity != "" {
-			userIdentity = base64StringDecode(encodedUserIdentity)
+			userIdentity = Base64StringDecode(encodedUserIdentity)
 		}
 
 		if annotations[appv1.AnnotationHosting] != "" {
@@ -961,7 +952,7 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 	return isUserSubAdmin
 }
 
-func base64StringDecode(encodedStr string) string {
+func Base64StringDecode(encodedStr string) string {
 	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
 	if err != nil {
 		klog.Error("Failed to base64 decode")

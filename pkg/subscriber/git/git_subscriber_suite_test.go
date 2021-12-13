@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,13 +26,14 @@ import (
 	"github.com/onsi/gomega/gexec"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
 
 const (
@@ -74,10 +75,13 @@ var _ = BeforeSuite(func(done Done) {
 	err = apis.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
+	err = appSubStatusV1alpha1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
 	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
 	Expect(err).ToNot(HaveOccurred())
 
-	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2)).NotTo(HaveOccurred())
+	Expect(Add(k8sManager, k8sManager.GetConfig(), &types.NamespacedName{}, 2, false, false)).NotTo(HaveOccurred())
 	go func() {
 		err = k8sManager.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())

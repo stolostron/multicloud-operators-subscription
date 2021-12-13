@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -34,8 +33,11 @@ var AddHelmToManagerFuncs []func(manager.Manager) error
 // AddHubToManagerFuncs is a list of functions to add all Hub Controllers to the Manager
 var AddHubToManagerFuncs []func(manager.Manager) error
 
+// AddAppSubSummaryToManagerFuncs is a list of functions to add all AppSubSummary Controllers to the Manager
+var AddAppSubSummaryToManagerFuncs []func(manager.Manager, int) error
+
 // AddToManager adds all Controllers to the Manager
-func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, standalone bool) error {
+func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedName, hub, standalone bool) error {
 	for _, f := range AddToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
@@ -44,7 +46,7 @@ func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedN
 
 	// If remote subscription pod (appmgr) is running in hub, don't add helmrelease controller to the manager,
 	// As there has been a helmrelease controller running in standalone subscription pod
-	if !utils.IsHub(m.GetConfig()) || standalone {
+	if !hub || standalone {
 		klog.Info("Add helmrelease controller when the remote subscription is NOT running on hub or standalone subscription")
 
 		for _, f := range AddHelmToManagerFuncs {
@@ -67,6 +69,17 @@ func AddToManager(m manager.Manager, cfg *rest.Config, syncid *types.NamespacedN
 func AddHubToManager(m manager.Manager) error {
 	for _, f := range AddHubToManagerFuncs {
 		if err := f(m); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// AddAppSubSummaryToManager adds AppSubSummary Controller to the Manager
+func AddAppSubSummaryToManager(m manager.Manager, interval int) error {
+	for _, f := range AddAppSubSummaryToManagerFuncs {
+		if err := f(m, interval); err != nil {
 			return err
 		}
 	}

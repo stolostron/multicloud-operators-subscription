@@ -1,4 +1,4 @@
-// Copyright 2019 The Kubernetes Authors.
+// Copyright 2021 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -113,7 +113,9 @@ func TestE2ESuite(t *testing.T) {
 
 	runner := NewRunner(defaultAddr, runEndpoint)
 
-	testIDs := []string{"sub-001", "sub-002", "sub-003", "sub-004"}
+	testIDs := []string{"sub-001", "sub-002", "sub-003", "sub-004",
+		"RHACM4K-2346", "RHACM4K-1680", "RHACM4K-1701", "RHACM4K-2352", "RHACM4K-2347", "RHACM4K-2570", "RHACM4K-2569"}
+	stageTestIDs := []string{"RHACM4K-2348", "RHACM4K-1732", "RHACM4K-2566", "RHACM4K-2568"}
 
 	for _, tID := range testIDs {
 		if err := runner.Run(tID); err != nil {
@@ -121,5 +123,11 @@ func TestE2ESuite(t *testing.T) {
 		}
 	}
 
-	t.Logf("subscription e2e tests %v passed", testIDs)
+	for _, tID := range stageTestIDs {
+		if err := runner.Run(tID); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	t.Logf("The e2e tests %v, stage tests %v passed", testIDs, stageTestIDs)
 }

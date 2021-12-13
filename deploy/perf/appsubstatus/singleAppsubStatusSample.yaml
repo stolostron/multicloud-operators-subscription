@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test-cluster-1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: appsub-ns-1
+---
+apiVersion: apps.open-cluster-management.io/v1alpha1
+kind: SubscriptionStatus
+metadata:
+  labels:
+    apps.open-cluster-management.io/cluster: test-cluster-1
+    apps.open-cluster-management.io/hosting-subscription: appsub-ns-1.appsub-1
+  name: appsub-ns-1.appsub-1.status
+  namespace: test-cluster-1
+statuses:
+  packages:
+    serviceaccount-1:
+      pkgkind: ServiceAccount
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "service account deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    clusterrole-1:
+      pkgkind: ClusterRole
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "cluster role deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    clusterrolebinding-1:
+      pkgkind: ClusterRoleBinding
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "cluster role binding deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    service-1:
+      pkgkind: Service
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "service deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+    deployment-1:
+      pkgkind: Deployment
+      pkgnamespace: ns-sub-1
+      phase: Deployed
+      message: "deployment deployed"
+      lastUpdateTime: "2021-06-07T16:29:44Z"
+---
+apiVersion: apps.open-cluster-management.io/v1alpha1
+kind: SubscriptionStatus
+metadata:
+  labels:
+    apps.open-cluster-management.io/hub-subscription: appsub-1
+  name: appsub-1.status
+  namespace: appsub-ns-1
+summary:
+  deployed:
+    count: 8
+    clusters: 
+    - test-cluster-1
+    - test-cluster-2
+    - test-cluster-3
+    - test-cluster-4
+    - test-cluster-5
+    - test-cluster-6
+    - test-cluster-7
+    - test-cluster-8
+  failed:
+    count: 2
+    clusters: 
+    - test-cluster-9
+    - test-cluster-10
