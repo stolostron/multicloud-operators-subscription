@@ -48,7 +48,7 @@ const (
 )
 
 var k8sClt client.Client
-var specTimeOut = pullInterval * 10
+var specTimeOut = pullInterval * 30
 var setRequeueInterval = func(r *ReconcileSubscription) {
 	r.hookRequeueInterval = hookRequeueInterval
 }

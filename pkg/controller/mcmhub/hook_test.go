@@ -232,7 +232,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 				Name:      subKey.Name,
 				Namespace: subKey.Namespace,
 				Annotations: map[string]string{
-					subv1.AnnotationGitBranch: "release-2.0",
+					subv1.AnnotationGitBranch: "main",
 					subv1.AnnotationGitPath:   "test/github/resources",
 				},
 			},
