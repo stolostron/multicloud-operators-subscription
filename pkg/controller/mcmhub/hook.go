@@ -26,10 +26,8 @@ import (
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
@@ -683,35 +681,33 @@ func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Clie
 
 func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client.Client, logger logr.Logger) ([]types.NamespacedName, error) {
 	var clusters []types.NamespacedName
-	// only support mcm placementpolicy now
-	pp := &plrv1.PlacementRule{}
+
 	pref := instance.Spec.Placement.PlacementRef
 
-	if len(pref.Kind) > 0 && pref.Kind != "PlacementRule" || len(pref.APIVersion) > 0 && pref.APIVersion != "apps.open-cluster-management.io/v1" {
+	if (len(pref.Kind) > 0 && pref.Kind != "PlacementRule" && pref.Kind != "Placement") ||
+		(len(pref.APIVersion) > 0 && pref.APIVersion != "apps.open-cluster-management.io/v1" && pref.APIVersion != "cluster.open-cluster-management.io/v1alpha1") {
 		logger.Info(fmt.Sprintln("Unsupported placement reference:", instance.Spec.Placement.PlacementRef))
 
 		return nil, nil
 	}
 
-	logger.V(10).Info(fmt.Sprintln("Referencing existing PlacementRule:", instance.Spec.Placement.PlacementRef, " in ", instance.GetNamespace()))
+	logger.V(10).Info(fmt.Sprintln("Referencing placement: ", pref, " in ", instance.GetNamespace()))
 
-	// get placementpolicy resource
-	if err := kubeclient.Get(context.TODO(),
-		client.ObjectKey{Name: instance.Spec.Placement.PlacementRef.Name,
-			Namespace: instance.GetNamespace()}, pp); err != nil {
-		if errors.IsNotFound(err) {
-			logger.Info(fmt.Sprintln("Failed to locate placement reference", instance.Spec.Placement.PlacementRef))
+	ns := instance.GetNamespace()
 
-			return nil, err
-		}
+	if pref.Namespace != "" {
+		ns = pref.Namespace
+	}
+
+	clusterNames, err := getDecisionsFromPlacementRef(pref, ns, kubeclient)
+	if err != nil {
+		logger.Error(err, "Failed to get decisions from placement reference: "+pref.Name)
 
 		return nil, err
 	}
 
-	logger.V(10).Info(fmt.Sprintln("Preparing cluster namespaces from ", pp))
-
-	for _, decision := range pp.Status.Decisions {
-		cluster := types.NamespacedName{Name: decision.ClusterName, Namespace: decision.ClusterNamespace}
+	for _, clusterName := range clusterNames {
+		cluster := types.NamespacedName{Name: clusterName, Namespace: clusterName}
 		clusters = append(clusters, cluster)
 	}
 

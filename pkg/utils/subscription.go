@@ -28,7 +28,6 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
-	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 
@@ -324,23 +323,6 @@ var ChannelPredicateFunctions = predicate.Funcs{
 		}
 
 		return !reflect.DeepEqual(newChn.Spec, oldChn.Spec)
-	},
-	CreateFunc: func(e event.CreateEvent) bool {
-		return true
-	},
-
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return true
-	},
-}
-
-// PlacementRulePredicateFunctions filters PlacementRule status decisions update
-var PlacementRulePredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newPlr := e.ObjectNew.(*plrv1.PlacementRule)
-		oldPlr := e.ObjectOld.(*plrv1.PlacementRule)
-
-		return !reflect.DeepEqual(newPlr.Status.Decisions, oldPlr.Status.Decisions)
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
 		return true

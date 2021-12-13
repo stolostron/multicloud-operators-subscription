@@ -40,9 +40,8 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 
+	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-
-	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -78,7 +77,7 @@ const (
 	reconcileName              = "subscription-hub-reconciler"
 	defaultHookRequeueInterval = time.Second * 15
 	INFOLevel                  = 1
-	placementRuleFlag          = "--fired-by-placementrule"
+	placementDecisionFlag      = "--fired-by-placementdecision"
 )
 
 var defaulRequeueInterval = time.Second * 3
@@ -241,11 +240,11 @@ func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
 	return requests
 }
 
-type placementRuleMapper struct {
+type placementDecisionMapper struct {
 	client.Client
 }
 
-func (mapper *placementRuleMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *placementDecisionMapper) Map(obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel) {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -253,7 +252,7 @@ func (mapper *placementRuleMapper) Map(obj client.Object) []reconcile.Request {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	// if placementrule is created/updated/deleted, its relative subscriptions should be reconciled.
+	// if placementdecision is created/updated/deleted, its relative subscriptions should be reconciled.
 
 	var requests []reconcile.Request
 
@@ -262,7 +261,17 @@ func (mapper *placementRuleMapper) Map(obj client.Object) []reconcile.Request {
 	err := mapper.List(context.TODO(), subList, listopts)
 
 	if err != nil {
-		klog.Error("Listing all subscriptions in placementRuleMapper and got error:", err)
+		klog.Error("Listing all subscriptions in placementDecisionMapper and got error:", err)
+	}
+
+	// get the placement name from the placementdecision
+	placementName := obj.GetLabels()[placementLabel]
+	if placementName == "" {
+		placementName = obj.GetLabels()[placementRuleLabel]
+
+		if placementName == "" {
+			return nil
+		}
 	}
 
 	for _, sub := range subList.Items {
@@ -274,25 +283,25 @@ func (mapper *placementRuleMapper) Map(obj client.Object) []reconcile.Request {
 				plRef.Namespace = sub.Namespace
 			}
 
-			if plRef.Name != obj.GetName() || plRef.Namespace != obj.GetNamespace() {
+			if plRef.Name != placementName || plRef.Namespace != obj.GetNamespace() {
 				continue
 			}
 
 			// If there is no cluster in placement decision, no reconcile.
-			placementRule := &plrv1.PlacementRule{}
-			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, placementRule)
+			placementDecision := &clusterapi.PlacementDecision{}
+			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, placementDecision)
 
 			if err != nil {
-				klog.Error("failed to get placementrule error:", err)
+				klog.Error("failed to get placementdecision error:", err)
 				continue
 			}
 
-			if len(placementRule.Status.Decisions) == 0 {
+			if len(placementDecision.Status.Decisions) == 0 {
 				continue
 			}
 
 			// in Reconcile(), removed the below suffix flag when processing the subscription
-			subKey := types.NamespacedName{Name: sub.GetName() + placementRuleFlag + obj.GetResourceVersion(), Namespace: sub.GetNamespace()}
+			subKey := types.NamespacedName{Name: sub.GetName() + placementDecisionFlag + obj.GetResourceVersion(), Namespace: sub.GetNamespace()}
 
 			requests = append(requests, reconcile.Request{NamespacedName: subKey})
 		}
@@ -333,12 +342,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// in hub, watch for placement rule changes
-	prMapper := &placementRuleMapper{mgr.GetClient()}
+	// in hub, watch for placement decision changes
+	pdMapper := &placementDecisionMapper{mgr.GetClient()}
 	err = c.Watch(
-		&source.Kind{Type: &plrv1.PlacementRule{}},
-		handler.EnqueueRequestsFromMapFunc(prMapper.Map),
-		utils.PlacementRulePredicateFunctions)
+		&source.Kind{Type: &clusterapi.PlacementDecision{}},
+		handler.EnqueueRequestsFromMapFunc(pdMapper.Map))
 
 	if err != nil {
 		return err
@@ -465,15 +473,15 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	//flag used to determine if we skip the posthook
 	passedPrehook := true
 
-	//flag used to determine if the reconcile came from a placementrule decision change then force register
+	//flag used to determine if the reconcile came from a placement decision change then force register
 	placementDecisionUpdated := false
-	placementRuleRv := ""
+	placementDecisionRv := ""
 
-	if strings.Contains(request.Name, placementRuleFlag) {
+	if strings.Contains(request.Name, placementDecisionFlag) {
 		placementDecisionUpdated = true
-		placementRuleRv = after(request.Name, placementRuleFlag)
-		request.Name = strings.TrimSuffix(request.Name, placementRuleRv)
-		request.Name = strings.TrimSuffix(request.Name, placementRuleFlag)
+		placementDecisionRv = after(request.Name, placementDecisionFlag)
+		request.Name = strings.TrimSuffix(request.Name, placementDecisionRv)
+		request.Name = strings.TrimSuffix(request.Name, placementDecisionFlag)
 		request.NamespacedName = types.NamespacedName{Name: request.Name, Namespace: request.Namespace}
 	}
 
@@ -524,9 +532,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) && (pl.Local != nil && *pl.Local) {
-		logger.Info("both local placement and remote placement rule are defined in the subscription")
+		logger.Info("both local placement and remote placement are defined in the subscription")
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
-		instance.Status.Reason = "local placement and remote placement rule cannot be used together"
+		instance.Status.Reason = "local placement and remote placement cannot be used together"
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		primaryChannel, _, err := r.getChannel(instance)
 
@@ -548,7 +556,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			}
 
 			// register will skip the failed clone repo
-			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementRuleRv); err != nil {
+			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementDecisionRv); err != nil {
 				logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 				preErr = fmt.Errorf("failed to register hooks, err: %v", err)
 
@@ -668,8 +676,8 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	}
 
 	// need to wait for managed cluster reporting back
-	// When placmentrule doesn't have target cluster decision list, managed clusters status is empty.
-	// In this case, check the clusters list by checking the placementrule
+	// When placmentdecision doesn't have target cluster decision list, managed clusters status is empty.
+	// In this case, check the clusters list by checking the placementdecision
 	// If it's indeed empty cluster list then treat the subscription as completed.
 	managedStatus := subIns.Status.Statuses
 	if len(managedStatus) == 0 {

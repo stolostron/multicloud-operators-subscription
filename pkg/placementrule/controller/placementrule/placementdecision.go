@@ -116,6 +116,7 @@ func (r *ReconcilePlacementRule) syncPlacementDecisions(ctx context.Context,
 	placementDecisions := &clusterapi.PlacementDecisionList{}
 	listopts := &client.ListOptions{}
 	listopts.LabelSelector = labelSelector
+	listopts.Namespace = placementRule.Namespace
 
 	err = r.List(ctx, placementDecisions, listopts)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
@@ -133,7 +134,7 @@ var _ = PDescribe("hub git ops", func() {
 			Expect(k8sClt.Delete(ctx, subIns.DeepCopy())).Should(Succeed())
 		}()
 
-		Eventually(registerSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(registerSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
 
 		sr := gitOps.GetSubRecords()
 
@@ -144,9 +145,9 @@ var _ = PDescribe("hub git ops", func() {
 		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 
-		Eventually(checkGitRegCommit(testBranch), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(checkGitRegCommit(testBranch), pullInterval*3, pullInterval).Should(Succeed())
 
-		Eventually(deRegisterSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
 		sr = gitOps.GetSubRecords()
 
 		Expect(sr).ShouldNot(HaveKey(subKey))
@@ -155,7 +156,7 @@ var _ = PDescribe("hub git ops", func() {
 
 		Expect(rr).ShouldNot(HaveKey("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
 		Expect(rr).Should(HaveLen(0))
-	})
+	}, 20*float64(time.Second))
 
 	It("register/deRegisterSub the 2nd subscription", func() {
 		subIns := subIns.DeepCopy()
@@ -185,8 +186,9 @@ var _ = PDescribe("hub git ops", func() {
 			Expect(k8sClt.Delete(ctx, sub2.DeepCopy())).Should(Succeed())
 		}()
 
-		Eventually(registerSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
-		Eventually(registerSub(sub2Key), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(registerSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
+
+		Eventually(registerSub(sub2Key), pullInterval*3, pullInterval).Should(Succeed())
 
 		sr := gitOps.GetSubRecords()
 
@@ -200,7 +202,7 @@ var _ = PDescribe("hub git ops", func() {
 		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
 		Expect(branchInfo.registeredSub).Should(HaveKey(sub2Key))
 
-		Eventually(deRegisterSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
 
 		sr = gitOps.GetSubRecords()
 
@@ -214,7 +216,7 @@ var _ = PDescribe("hub git ops", func() {
 		Expect(branchInfo.registeredSub).Should(HaveKey(sub2Key))
 		Expect(branchInfo.registeredSub).Should(HaveLen(1))
 
-		Eventually(checkGitRegCommit(testBranch), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(checkGitRegCommit(testBranch), pullInterval*3, pullInterval).Should(Succeed())
 	})
 
 	It("should update commitID, after prehook is applied", func() {
@@ -340,8 +342,9 @@ var _ = PDescribe("hub git ops", func() {
 			Expect(k8sClt.Delete(ctx, sub2.DeepCopy())).Should(Succeed())
 		}()
 
-		Eventually(registerSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
-		Eventually(registerSub(sub2Key), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(registerSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
+
+		Eventually(registerSub(sub2Key), pullInterval*3, pullInterval).Should(Succeed())
 
 		sr := gitOps.GetSubRecords()
 
@@ -356,7 +359,7 @@ var _ = PDescribe("hub git ops", func() {
 		branchInfo2 := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch2]
 		Expect(branchInfo2.registeredSub).Should(HaveKey(sub2Key))
 
-		Eventually(deRegisterSub(subKey), pullInterval*300, pullInterval).Should(Succeed())
+		Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
 
 		sr = gitOps.GetSubRecords()
 
