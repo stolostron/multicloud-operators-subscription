@@ -205,39 +205,65 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	klog.V(4).Infof("Check if helmRepo changed with hash %s", hash)
 
-	hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
+	isParentMultiClusterHub := isParentMultiClusterHub(hrsi.Subscription)
 
-	for _, hrName := range hrNames {
-		isHashDiff := hash != hrsi.hash
-		isUnsuccessful := !hrsi.success
-		existsHelmRelease := false
-		populatedHelmReleaseStatus := false
+	if isParentMultiClusterHub {
+		klog.V(1).Info("Subscription's parent is MCH: ", hrsi.Subscription.GetNamespace(), "/", hrsi.Subscription.GetName())
 
-		existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
-		if err != nil {
-			klog.Error("Failed to determine if HelmRelease exists: ", err)
+		hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
 
-			hrsi.success = false
+		for _, hrName := range hrNames {
+			isHashDiff := hash != hrsi.hash
+			isUnsuccessful := !hrsi.success
+			existsHelmRelease := false
+			populatedHelmReleaseStatus := false
 
-			return
-		}
-
-		if existsHelmRelease {
-			populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
-				types.NamespacedName{Name: hrsi.Subscription.Name,
-					Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
+			existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
 			if err != nil {
-				klog.Error("Failed to determine if HelmRelease status is populated: ", err)
+				klog.Error("Failed to determine if HelmRelease exists: ", err)
 
 				hrsi.success = false
 
 				return
 			}
-		}
 
-		if isHashDiff || isUnsuccessful || !existsHelmRelease || !populatedHelmReleaseStatus {
-			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
-				isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
+			if existsHelmRelease {
+				populatedHelmReleaseStatus, err = isHelmReleaseStatusPopulated(hrsi.synchronizer.GetLocalClient(),
+					types.NamespacedName{Name: hrsi.Subscription.Name,
+						Namespace: hrsi.Subscription.Namespace}, hrsi.Subscription.Namespace, hrName)
+				if err != nil {
+					klog.Error("Failed to determine if HelmRelease status is populated: ", err)
+
+					hrsi.success = false
+
+					return
+				}
+			}
+
+			if isHashDiff || isUnsuccessful || !existsHelmRelease || !populatedHelmReleaseStatus {
+				klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v populatedHelmReleaseStatus=%v",
+					isHashDiff, isUnsuccessful, existsHelmRelease, populatedHelmReleaseStatus)
+
+				if err := hrsi.processSubscription(indexFile, hash); err != nil {
+					klog.Error("Failed to process helm repo subscription with error:", err)
+
+					hrsi.success = false
+
+					return
+				}
+
+				hrsi.success = true
+			}
+		}
+	} else {
+		klog.V(1).Info("Subscription's parent is not MCH: ", hrsi.Subscription.GetNamespace(), "/", hrsi.Subscription.GetName())
+
+		isHashDiff := hash != hrsi.hash
+		isUnsuccessful := !hrsi.success
+
+		if isHashDiff || isUnsuccessful {
+			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v",
+				isHashDiff, isUnsuccessful)
 
 			if err := hrsi.processSubscription(indexFile, hash); err != nil {
 				klog.Error("Failed to process helm repo subscription with error:", err)
@@ -652,4 +678,17 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 	}
 
 	return doErr
+}
+
+func isParentMultiClusterHub(sub *appv1.Subscription) bool {
+	if sub != nil && sub.GetOwnerReferences() != nil {
+		for _, appsubOwner := range sub.GetOwnerReferences() {
+			if appsubOwner.Kind == "MultiClusterHub" &&
+				strings.Contains(appsubOwner.APIVersion, "open-cluster-management") {
+				return true
+			}
+		}
+	}
+
+	return false
 }
