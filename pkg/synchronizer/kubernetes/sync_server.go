@@ -259,6 +259,8 @@ func (sync *KubeSynchronizer) purgeSubscribedResource(subType string, hostSub ty
 }
 
 func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
+	sync.kmtx.Lock()
+
 	// meaning clean up all the resource from a source:host
 	if len(order.dpls) == 0 {
 		return sync.purgeSubscribedResource(order.subType, order.hostSub)
@@ -295,7 +297,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	}
 
 	// handle orphan resource
-	sync.kmtx.Lock()
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
