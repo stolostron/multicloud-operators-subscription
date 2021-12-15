@@ -201,6 +201,9 @@ func RunManager() {
 
 	sig := signals.SetupSignalHandler()
 
+	klog.Info("Detecting ACM Placement Decision API...")
+	utils.DetectPlacementDecision(sig, mgr.GetAPIReader())
+
 	klog.Info("Starting the Cmd.")
 
 	// Start addon manager

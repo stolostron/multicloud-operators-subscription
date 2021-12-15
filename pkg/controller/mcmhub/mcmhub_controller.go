@@ -343,13 +343,15 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// in hub, watch for placement decision changes
-	pdMapper := &placementDecisionMapper{mgr.GetClient()}
-	err = c.Watch(
-		&source.Kind{Type: &clusterapi.PlacementDecision{}},
-		handler.EnqueueRequestsFromMapFunc(pdMapper.Map))
+	if utils.IsReadyPlacementDecision(mgr.GetAPIReader()) {
+		pdMapper := &placementDecisionMapper{mgr.GetClient()}
+		err = c.Watch(
+			&source.Kind{Type: &clusterapi.PlacementDecision{}},
+			handler.EnqueueRequestsFromMapFunc(pdMapper.Map))
 
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

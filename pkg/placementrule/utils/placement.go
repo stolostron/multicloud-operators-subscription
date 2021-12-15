@@ -27,9 +27,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func ToPlaceLocal(placement *appv1alpha1.Placement) bool {
@@ -124,11 +123,12 @@ func IsReadyACMClusterRegistry(clReader client.Reader) bool {
 	err := clReader.List(context.TODO(), cllist, listopts)
 
 	if err == nil {
-		klog.Error("Cluster API service ready")
+		klog.Error("Managed Cluster API ready")
+
 		return true
 	}
 
-	klog.Error("Cluster API service NOT ready: ", err)
+	klog.Error("Managed Cluster API NOT ready: ", err)
 
 	return false
 }
