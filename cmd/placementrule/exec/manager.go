@@ -20,6 +20,7 @@ import (
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -81,6 +82,9 @@ func RunManager() {
 	}
 
 	sig := signals.SetupSignalHandler()
+
+	klog.Info("Detecting ACM managed cluster API ...")
+	utils.DetectClusterRegistry(sig, mgr.GetAPIReader())
 
 	klog.Info("Starting the Cmd.")
 
