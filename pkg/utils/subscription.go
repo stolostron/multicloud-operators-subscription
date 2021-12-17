@@ -27,6 +27,7 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
+	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
@@ -42,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
@@ -1270,4 +1272,36 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 	}
 
 	return sec, cm
+}
+
+// IsReadyPlacementDecision check if Placement Decision API is ready or not.
+func IsReadyPlacementDecision(clReader client.Reader) bool {
+	pdlist := &clusterapi.PlacementDecisionList{}
+
+	listopts := &client.ListOptions{}
+
+	err := clReader.List(context.TODO(), pdlist, listopts)
+
+	if err == nil {
+		klog.Error("Placement Decision API ready")
+
+		return true
+	}
+
+	klog.Error("Placement Decision API NOT ready: ", err)
+
+	return false
+}
+
+// DetectPlacementDecision - Detect the Placement Decision API every 10 seconds. the controller will be exited when it is ready
+// The controller will be auto restarted by the multicluster-operators-application deployment CR later.
+//nolint:unparam
+func DetectPlacementDecision(ctx context.Context, clReader client.Reader) {
+	if !IsReadyPlacementDecision(clReader) {
+		go wait.UntilWithContext(ctx, func(ctx context.Context) {
+			if IsReadyPlacementDecision(clReader) {
+				os.Exit(1)
+			}
+		}, time.Duration(10)*time.Second)
+	}
 }
