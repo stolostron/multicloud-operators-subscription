@@ -59,6 +59,17 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	klog.Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
 		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
 
+	// If the incoming new appstatus is only one HelmRelease kind resource, skip the appsubstatus sync-up.
+	// Later the helmrelease controller will update the actual resources to the appsubstatus
+	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 {
+		if appsubClusterStatus.SubscriptionPackageStatus[0].Kind == "HelmRelease" {
+			klog.Infof("Don't upate the HelmRelease kind resource to appsub status. appsub: %v/%v",
+				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
+
+			return nil
+		}
+	}
+
 	skipOrphanDel := false
 	if skipOrphanDelete != nil {
 		skipOrphanDel = *skipOrphanDelete
@@ -86,6 +97,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			foundPkgStatus = false
 		} else {
 			klog.Errorf("failed to get package status, err: %v", err)
+
 			return err
 		}
 	}
@@ -138,6 +150,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			// Create appsubstatus on appSub NS
 			if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
 				klog.Errorf("Error in creating on managed cluster, appsubstatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
+
 				return err
 			}
 		} else {
