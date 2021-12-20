@@ -115,6 +115,11 @@ func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
 		return true
 	}
 
+	// When user updates the desired Git commit or tag, this annotation is expected to change as well by reconcile.
+	if !isEqualAnnotationFiled(oldAnnotations, newAnnotations, appv1.AnnotationGitCommit) {
+		return true
+	}
+
 	// we care annotation change. pass it down
 	if !reflect.DeepEqual(oldAnnotations, newAnnotations) {
 		return true
@@ -170,8 +175,11 @@ func FilterOutTimeRelatedFields(in *appv1.Subscription) *appv1.Subscription {
 
 	//annotation that contains time
 	//also remove annotations that are added and updated by the subscription controller
-	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration",
-		appv1.AnnotationGitCommit}
+	timeFields := []string{"kubectl.kubernetes.io/last-applied-configuration"}
+
+	if anno[appv1.AnnotationGitTag] == "" && anno[appv1.AnnotationGitTargetCommit] == "" {
+		timeFields = append(timeFields, appv1.AnnotationGitCommit)
+	}
 
 	for _, f := range timeFields {
 		delete(anno, f)
