@@ -283,7 +283,7 @@ func TestGetChannelSecret(t *testing.T) {
 	secretRef.Name = "correct-secret_nogood"
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, sshKey, passphrase, clientkey, clientcert, err := GetChannelSecret(c, githubchn)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Equal(""))
 	g.Expect(pwd).To(gomega.Equal(""))
@@ -303,7 +303,7 @@ func TestGetChannelSecret(t *testing.T) {
 	secretRef.Name = "incorrect-secret"
 	githubchn.Spec.SecretRef = secretRef
 
-	user, pwd, sshKey, passphrase, clientkey, clientcert, err := GetChannelSecret(c, githubchn)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err = GetChannelSecret(c, githubchn)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(user).To(gomega.Or(gomega.Equal(""), gomega.Equal("admin")))
 	g.Expect(pwd).To(gomega.Equal(""))
