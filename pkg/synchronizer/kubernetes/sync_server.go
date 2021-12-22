@@ -263,6 +263,8 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 		return sync.purgeSubscribedResource(order.subType, order.hostSub)
 	}
 
+	sync.kmtx.Lock()
+
 	keySet := make(map[string]bool)
 	resSet := make(map[string]map[schema.GroupVersionKind]bool)
 	crdFlag := false
@@ -292,7 +294,6 @@ func (sync *KubeSynchronizer) processOrder(order resourceOrder) error {
 	}
 
 	// handle orphan resource
-	sync.kmtx.Lock()
 	for resgvk, resmap := range sync.KubeResources {
 		for reskey, tplunit := range resmap.TemplateMap {
 			//if resource's key don't belong to the current key set, then do
