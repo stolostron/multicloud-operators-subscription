@@ -638,6 +638,7 @@ func (r *ReconcileSubscription) prepareDeployableForSubscription(sub, rootSub *a
 	subep.CreationTimestamp = metav1.Time{}
 	subep.Generation = 1
 	subep.SelfLink = ""
+	subep.SetFinalizers(nil)
 
 	subepanno := r.updateSubAnnotations(sub)
 
