@@ -19,29 +19,24 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .scope.kind
-      name: Kind
-      priority: 1
-      type: string
-    - jsonPath: .scope.name
-      name: Name
-      priority: 1
+    - jsonPath: .reportType
+      name: ReportType
       type: string
     - jsonPath: .summary.deployed
       name: Deployed
-      type: integer
+      type: string
     - jsonPath: .summary.inProgress
       name: InProgress
-      type: integer
+      type: string
     - jsonPath: .summary.failed
       name: Failed
-      type: integer
+      type: string
     - jsonPath: .summary.propagationFailed
       name: PropagationFailed
-      type: integer
+      type: string
     - jsonPath: .summary.clusters
       name: Clusters
-      type: integer
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -129,19 +124,19 @@ spec:
             properties:
               clusters:
                 description: Clusters provides the count of all managed clusters the subscription is deployed to
-                type: integer
+                type: string
               deployed:
                 description: Deployed provides the count of subscriptions that deployed successfully
-                type: integer
+                type: string
               failed:
                 description: Failed provides the count of subscriptions that failed to deploy
-                type: integer
+                type: string
               inProgress:
                 description: InProgress provides the count of subscriptions that are in the process of being deployed
-                type: integer
+                type: string
               propagationFailed:
                 description: PropagationFailed provides the count of subscriptions that failed to propagate to a managed cluster
-                type: integer
+                type: string
             type: object
         required:
         - reportType

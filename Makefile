@@ -97,11 +97,11 @@ else
 endif
 .PHONY: ensure-kubebuilder-tools
 
-update: go-bindata
+update:
 	go-bindata -o pkg/addonmanager/bindata/bindata.go -pkg bindata deploy/managed-common deploy/managed
 
 go-bindata:
-	go install github.com/go-bindata/go-bindata/go-bindata
+	go install github.com/go-bindata/go-bindata/go-bindata@latest
 
 test: ensure-kubebuilder-tools
 	@echo ${TEST_GIT_REPO_URL}
