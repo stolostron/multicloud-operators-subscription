@@ -138,6 +138,8 @@ build-e2e:
 test-e2e: build-e2e deploy-ocm deploy-hub
 	./e2e.test -test.v -ginkgo.v
 
+test-e2e-kc:
+	build/e2e-kc.sh
 
 ############################################################
 # generate code and crd 

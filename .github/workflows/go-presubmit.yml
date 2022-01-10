@@ -116,5 +116,6 @@ jobs:
       - name: Run e2e test
         run: |
           make test-e2e
+          make test-e2e-kc
         env:
           KUBECONFIG: /home/runner/.kube/config
