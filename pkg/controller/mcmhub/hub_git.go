@@ -392,7 +392,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		return nil
 	}
 
-	user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, primaryChannel)
+	user, pwd, sshKey, passphrase, clientkey, clientcert, err := utils.GetChannelSecret(h.clt, primaryChannel)
 
 	if err != nil {
 		h.logger.Error(err, "failed to register subscription to git watcher register")
@@ -425,11 +425,13 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 	primaryChannelConnectionConfig.Password = pwd
 	primaryChannelConnectionConfig.SSHKey = sshKey
 	primaryChannelConnectionConfig.User = user
+	primaryChannelConnectionConfig.ClientCert = clientcert
+	primaryChannelConnectionConfig.ClientKey = clientkey
 
 	cloneOptions.PrimaryConnectionOption = primaryChannelConnectionConfig
 
 	if secondaryChannel != nil {
-		user, pwd, sshKey, passphrase, err := utils.GetChannelSecret(h.clt, secondaryChannel)
+		user, pwd, sshKey, passphrase, clientkey, clientcert, err := utils.GetChannelSecret(h.clt, secondaryChannel)
 
 		if err != nil {
 			h.logger.Error(err, "failed to register subscription to git watcher register")
@@ -462,6 +464,8 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		secondaryChannelConnectionConfig.Password = pwd
 		secondaryChannelConnectionConfig.SSHKey = sshKey
 		secondaryChannelConnectionConfig.User = user
+		secondaryChannelConnectionConfig.ClientCert = clientcert
+		secondaryChannelConnectionConfig.ClientKey = clientkey
 
 		cloneOptions.SecondaryConnectionOption = secondaryChannelConnectionConfig
 	}
