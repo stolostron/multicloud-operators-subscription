@@ -775,7 +775,7 @@ func getChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigM
 	connCfg = &utils.ChannelConnectionCfg{}
 
 	if secret != nil {
-		user, token, sshKey, passphrase, err := utils.ParseChannelSecret(secret)
+		user, token, sshKey, passphrase, clientkey, clientcert, err := utils.ParseChannelSecret(secret)
 
 		if err != nil {
 			return nil, err
@@ -785,6 +785,8 @@ func getChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigM
 		connCfg.Password = token
 		connCfg.SSHKey = sshKey
 		connCfg.Passphrase = passphrase
+		connCfg.ClientKey = clientkey
+		connCfg.ClientCert = clientcert
 	}
 
 	if configmap != nil {

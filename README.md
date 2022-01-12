@@ -140,6 +140,6 @@ Check the [CONTRIBUTING Doc](CONTRIBUTING.md) for how to contribute to the repo.
 
 Slack channel: [#open-cluster-mgmt](http://slack.k8s.io/#open-cluster-mgmt)
 
-## License 
+## License
 
-This code is released under the Apache 2.0 license. See the file LICENSE for more information. 
+This code is released under the Apache 2.0 license. See the file LICENSE for more information.

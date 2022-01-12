@@ -97,11 +97,11 @@ else
 endif
 .PHONY: ensure-kubebuilder-tools
 
-update: go-bindata
+update:
 	go-bindata -o pkg/addonmanager/bindata/bindata.go -pkg bindata deploy/managed-common deploy/managed
 
 go-bindata:
-	go install github.com/go-bindata/go-bindata/go-bindata
+	go install github.com/go-bindata/go-bindata/go-bindata@latest
 
 test: ensure-kubebuilder-tools
 	@echo ${TEST_GIT_REPO_URL}
@@ -138,6 +138,8 @@ build-e2e:
 test-e2e: build-e2e deploy-ocm deploy-hub
 	./e2e.test -test.v -ginkgo.v
 
+test-e2e-kc:
+	build/e2e-kc.sh
 
 ############################################################
 # generate code and crd 
