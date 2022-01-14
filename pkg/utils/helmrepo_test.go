@@ -31,8 +31,8 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -48,7 +48,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "HelmRepo",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm",
+			Pathname: "https://github.com/stolostron/multicloud-operators-subscription/test/helm",
 		},
 	}
 
@@ -151,7 +151,7 @@ func TestCreateOrUpdateHelmChart(t *testing.T) {
 	g.Expect(helmrelease).NotTo(gomega.BeNil())
 	g.Expect(helmrelease.Repo.Source.HelmRepo.Urls[0]).
 		Should(gomega.Equal(
-			"https://github.com/open-cluster-management/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
+			"https://github.com/stolostron/multicloud-operators-subscription/test/helm/my-app-0.1.0.tgz"))
 
 	var fullUrls []string
 	fullUrls = append(fullUrls, "https://charts.helm.sh/stable/packages/nginx-ingress-1.36.3.tgz")

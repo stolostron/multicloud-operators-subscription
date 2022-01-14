@@ -15,7 +15,7 @@
 package subscriber
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/objectbucket"
 )
 
 func init() {

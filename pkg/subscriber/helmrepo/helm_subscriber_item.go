@@ -41,10 +41,10 @@ import (
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	dplpro "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/processdeployable"
+	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 // SubscriberItem - defines the unit of namespace subscription

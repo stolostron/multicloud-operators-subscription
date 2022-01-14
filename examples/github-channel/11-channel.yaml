@@ -5,4 +5,4 @@ metadata:
   namespace: kuberesources
 spec:
     type: Git
-    pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
+    pathname: https://github.com/stolostron/multicloud-operators-subscription.git

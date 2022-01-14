@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -51,7 +51,7 @@ var (
 		},
 		Spec: chnv1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://github.com/stolostron/multicloud-operators-subscription.git",
 		},
 	}
 

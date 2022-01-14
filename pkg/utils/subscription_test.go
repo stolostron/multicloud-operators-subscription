@@ -35,7 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 func TestSubscriptionStatusLogic(t *testing.T) {
