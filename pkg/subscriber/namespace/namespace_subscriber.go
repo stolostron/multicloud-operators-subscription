@@ -38,8 +38,8 @@ import (
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
 
 // NsSubscriberItem  defines the unit of namespace subscription

@@ -1,8 +1,8 @@
 # multicloud-operators-subscription
 
 [![Build](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)](https://api.travis-ci.com/open-cluster-management/multicloud-operators-subscription.svg?branch=main)
-[![GoDoc](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/open-cluster-management/multicloud-operators-subscription)
-[![Go Report Card](https://goreportcard.com/badge/github.com/open-cluster-management/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/open-cluster-management/multicloud-operators-subscription)
+[![GoDoc](https://godoc.org/github.com/stolostron/multicloud-operators-subscription?status.svg)](https://godoc.org/github.com/stolostron/multicloud-operators-subscription)
+[![Go Report Card](https://goreportcard.com/badge/github.com/stolostron/multicloud-operators-subscription)](https://goreportcard.com/report/github.com/stolostron/multicloud-operators-subscription)
 [![Sonarcloud Status](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)](https://sonarcloud.io/api/project_badges/measure?project=open-cluster-management_multicloud-operators-subscription&metric=coverage)
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -38,13 +38,13 @@ Subscribes resources from channels and applies them to Kubernetes
 
 ### Subscribe a Helm chart
 
-- Clone the [multicloud-operators-subscription GitHub repository](https://github.com/open-cluster-management/multicloud-operators-subscription).
+- Clone the [multicloud-operators-subscription GitHub repository](https://github.com/stolostron/multicloud-operators-subscription).
 
 ```shell
 mkdir -p "$GOPATH"/src/github.com/open-cluster-management
 cd "$GOPATH"/src/github.com/open-cluster-management
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription.git
-cd "$GOPATH"/src/github.com/open-cluster-management/multicloud-operators-subscription
+git clone https://github.com/stolostron/multicloud-operators-subscription.git
+cd "$GOPATH"/src/github.com/stolostron/multicloud-operators-subscription
 ```
 
 - Set up the environment, and deploy the subscription operator.
@@ -144,7 +144,7 @@ Events:                   <none>
 
 ```shell
 kubectl config use-context _hub_cluster_context_ # replace _hub_cluster_context_ with the hub cluster context name
-git clone https://github.com/open-cluster-management/multicloud-operators-subscription
+git clone https://github.com/stolostron/multicloud-operators-subscription
 cd multicloud-operators-subscription
 TRAVIS_BUILD=0
 make deploy-community-hub # make deploy-community-hub GO_REQUIRED_MIN_VERSION:= # if you see warning about min version
@@ -196,10 +196,9 @@ Check the [Security Doc](SECURITY.md) if you find a security issue.
 
 ### Multicloud-operators repositories 
 
-- [multicloud-operators-application](https://github.com/open-cluster-management/multicloud-operators-application)
-- [multicloud-operators-channel](https://github.com/open-cluster-management/multicloud-operators-channel)
-- [multicloud-operators-deployable](https://github.com/open-cluster-management/multicloud-operators-deployable)
-- [multicloud-operators-placementrule](https://github.com/open-cluster-management/multicloud-operators-placementrule)
-- [multicloud-operators-subscription](https://github.com/open-cluster-management/multicloud-operators-subscription)
-- [multicloud-operators-subscription-release](https://github.com/open-cluster-management/multicloud-operators-subscription-release)
-
+- [multicloud-operators-application](https://github.com/stolostron/multicloud-operators-application)
+- [multicloud-operators-channel](https://github.com/stolostron/multicloud-operators-channel)
+- [multicloud-operators-deployable](https://github.com/stolostron/multicloud-operators-deployable)
+- [multicloud-operators-placementrule](https://github.com/stolostron/multicloud-operators-placementrule)
+- [multicloud-operators-subscription](https://github.com/stolostron/multicloud-operators-subscription)
+- [multicloud-operators-subscription-release](https://github.com/stolostron/multicloud-operators-subscription-release)

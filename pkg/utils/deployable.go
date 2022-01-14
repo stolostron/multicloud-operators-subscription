@@ -33,7 +33,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // IsResourceOwnedByCluster checks if the deployable belongs to this controller by AnnotationManagedCluster
