@@ -32,8 +32,8 @@ import (
 
 	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 // DeployableReconciler reconciles a Deployable object of Nmespace channel

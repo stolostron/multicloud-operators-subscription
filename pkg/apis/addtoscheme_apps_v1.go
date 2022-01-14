@@ -15,8 +15,8 @@
 package apis
 
 import (
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	v1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	v1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 func init() {
