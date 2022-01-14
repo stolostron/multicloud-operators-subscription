@@ -25,7 +25,7 @@ spec:
           secretName: appmgr-hub-kubeconfig
       containers:
         - name: multicluster-operators-subscription
-          image: quay.io/open-cluster-management/multicluster-operators-subscription:community-latest
+          image: quay.io/stolostron/multicluster-operators-subscription:community-latest
           ports:
           - containerPort: 8443
           command:

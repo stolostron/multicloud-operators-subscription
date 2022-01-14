@@ -31,8 +31,8 @@ import (
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/apis"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 const (

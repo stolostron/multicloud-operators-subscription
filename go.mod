@@ -1,4 +1,4 @@
-module github.com/open-cluster-management/multicloud-operators-subscription
+module github.com/stolostron/multicloud-operators-subscription
 
 go 1.15
 
@@ -41,6 +41,12 @@ require (
 )
 
 replace (
+	github.com/open-cluster-management/ansiblejob-go-lib => github.com/stolostron/ansiblejob-go-lib v0.1.12
+	github.com/open-cluster-management/api => open-cluster-management.io/api v0.0.0-20201007180356-41d07eee4294
+	github.com/open-cluster-management/multicloud-operators-channel => github.com/stolostron/multicloud-operators-channel v1.2.2-2-20201130-37b47
+	github.com/open-cluster-management/multicloud-operators-deployable => github.com/stolostron/multicloud-operators-deployable v1.2.2-2-20201130-7bc3c
+	github.com/open-cluster-management/multicloud-operators-placementrule => github.com/stolostron/multicloud-operators-placementrule v1.2.2-2-20201130-98cfd
+	github.com/open-cluster-management/multicloud-operators-subscription-release => github.com/stolostron/multicloud-operators-subscription-release v1.2.2-2-20210722-e76f365
 	k8s.io/client-go => k8s.io/client-go v0.19.3
 	sigs.k8s.io/controller-runtime => sigs.k8s.io/controller-runtime v0.6.2
 )

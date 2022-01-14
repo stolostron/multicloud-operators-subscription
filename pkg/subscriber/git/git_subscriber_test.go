@@ -29,8 +29,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 const rsc1 = `apiVersion: v1
@@ -112,7 +112,7 @@ var (
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "Git",
-			Pathname: "https://github.com/open-cluster-management/multicloud-operators-subscription.git",
+			Pathname: "https://github.com/stolostron/multicloud-operators-subscription.git",
 		},
 	}
 	githubsub = &appv1alpha1.Subscription{

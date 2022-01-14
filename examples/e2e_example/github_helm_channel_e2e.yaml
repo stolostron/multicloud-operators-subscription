@@ -32,7 +32,7 @@ metadata:
     name: git-sub
 spec:
   type: Git
-  pathname: https://github.com/open-cluster-management/multicloud-operators-subscription
+  pathname: https://github.com/stolostron/multicloud-operators-subscription
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule

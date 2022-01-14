@@ -32,13 +32,13 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ansiblejob "github.com/open-cluster-management/ansiblejob-go-lib/api/v1alpha1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller"
-	leasectrl "github.com/open-cluster-management/multicloud-operators-subscription/pkg/controller/subscription"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/webhook"
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/apis"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/controller"
+	leasectrl "github.com/stolostron/multicloud-operators-subscription/pkg/controller/subscription"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/subscriber"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.

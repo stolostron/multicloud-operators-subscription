@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 const (

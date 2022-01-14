@@ -30,13 +30,13 @@ import (
 	"k8s.io/klog"
 
 	dplv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	kubesynchronizer "github.com/open-cluster-management/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
-	dplpro "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/processdeployable"
+	dplpro "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/processdeployable"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
-	awsutils "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils/aws"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
+	awsutils "github.com/stolostron/multicloud-operators-subscription/pkg/utils/aws"
 )
 
 var SubscriptionGVK = schema.GroupVersionKind{Group: "apps.open-cluster-management.io", Kind: "Subscription", Version: "v1"}

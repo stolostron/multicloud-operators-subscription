@@ -34,7 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 const (

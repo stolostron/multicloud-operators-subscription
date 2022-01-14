@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 	coordinationv1 "k8s.io/api/coordination/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
