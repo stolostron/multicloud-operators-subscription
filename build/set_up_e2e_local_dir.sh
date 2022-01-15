@@ -17,4 +17,3 @@ fi
 echo "now you can run the applifecycle-backend-e2e binary as:"
 echo "======>>>>"
 echo "applifecycle-backend-e2e -cfg cluster_config -data e2e-data"
-

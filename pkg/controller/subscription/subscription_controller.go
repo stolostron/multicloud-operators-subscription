@@ -36,14 +36,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	ghsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/git"
-	hrsub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
-	nssub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
-	ossub "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/objectbucket"
-	subutil "github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	ghsub "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/git"
+	hrsub "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	nssub "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/namespace"
+	ossub "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/objectbucket"
+	subutil "github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 const (

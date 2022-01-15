@@ -20,11 +20,11 @@ TRAVIS_BUILD  ?= 1
 # Image URL to use all building/pushing image targets;
 # Use your own docker registry and image name for dev/test by overridding the IMG and REGISTRY environment variable.
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
-REGISTRY ?= quay.io/open-cluster-management
+REGISTRY ?= quay.io/stolostron
 
 # Github host to use for checking the source tree;
 # Override this variable ue with your own value if you're working on forked repo.
-GIT_HOST ?= github.com/open-cluster-management
+GIT_HOST ?= github.com/stolostron
 
 PWD := $(shell pwd)
 BASE_DIR := $(shell basename $(PWD))
@@ -53,7 +53,15 @@ else
     $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
 
-.PHONY: fmt lint test coverage build build-images
+TEST_TMP :=/tmp
+export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
+K8S_VERSION ?=1.19.2
+GOHOSTOS ?=$(shell go env GOHOSTOS)
+GOHOSTARCH ?= $(shell go env GOHOSTARCH)
+KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
+KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
+
+.PHONY: fmt lint coverage build build-images
 
 
 # GITHUB_USER containing '@' char must be escaped with '%40'
@@ -64,7 +72,7 @@ USE_VENDORIZED_BUILD_HARNESS ?=
 
 ifndef USE_VENDORIZED_BUILD_HARNESS
 	ifeq ($(TRAVIS_BUILD),1)
-	-include $(shell curl -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v4.raw' -L https://api.github.com/repos/open-cluster-management/build-harness-extensions/contents/templates/Makefile.build-harness-bootstrap -o .build-harness-bootstrap; echo .build-harness-bootstrap)
+	-include $(shell curl -H 'Authorization: token ${GITHUB_TOKEN}' -H 'Accept: application/vnd.github.v4.raw' -L https://api.github.com/repos/stolostron/build-harness-extensions/contents/templates/Makefile.build-harness-bootstrap -o .build-harness-bootstrap; echo .build-harness-bootstrap)
 	endif
 else
 -include vbh/.build-harness-vendorized
@@ -108,9 +116,23 @@ lint: lint-all
 # test section
 ############################################################
 
-test:
-	@kubebuilder version
-	@go test ${TESTARGS} ./cmd/... ./pkg/...
+.PHONY: ensure-kubebuilder-tools
+
+# download the kubebuilder-tools to get kube-apiserver binaries from it
+ensure-kubebuilder-tools:
+ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
+	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
+	mkdir -p '$(KUBEBUILDER_ASSETS)'
+	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
+	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
+else
+	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
+endif
+
+.PHONY: test
+
+test: ensure-kubebuilder-tools
+	go test -timeout 300s -v ./pkg/...
 
 ############################################################
 # coverage section

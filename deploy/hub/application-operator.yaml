@@ -42,7 +42,7 @@ spec:
           value: multicluster-operators-application
         - name: OPERATOR_NAME
           value: multicluster-operators-placementrule
-        image: quay.io/open-cluster-management/multicluster-operators-placementrule:community-latest
+        image: quay.io/stolostron/multicluster-operators-placementrule:community-latest
         imagePullPolicy: Always
         livenessProbe:
           exec:
@@ -88,7 +88,7 @@ spec:
           value: multicluster-operators-application
         - name: OPERATOR_NAME
           value: multicluster-operators-deployable
-        image: quay.io/open-cluster-management/multicluster-operators-deployable:community-latest
+        image: quay.io/stolostron/multicluster-operators-deployable:community-latest
         imagePullPolicy: Always
         livenessProbe:
           exec:
@@ -134,7 +134,7 @@ spec:
           value: multicluster-operators-application
         - name: OPERATOR_NAME
           value: multicluster-operators-channel
-        image: quay.io/open-cluster-management/multicluster-operators-channel:community-latest
+        image: quay.io/stolostron/multicluster-operators-channel:community-latest
         imagePullPolicy: Always
         livenessProbe:
           exec:
@@ -184,7 +184,7 @@ spec:
           value: multicluster-operators-application
         - name: OPERATOR_NAME
           value: multicluster-operators-application
-        image: quay.io/open-cluster-management/multicluster-operators-application:community-latest
+        image: quay.io/stolostron/multicluster-operators-application:community-latest
         imagePullPolicy: Always
         livenessProbe:
           exec:
