@@ -11,7 +11,7 @@ metadata:
   namespace: ch-git
 spec:
   type: Git
-  pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
+  pathname: https://github.com/stolostron/multicloud-operators-subscription.git
 ---
 apiVersion: v1
 kind: Namespace

@@ -29,8 +29,8 @@ import (
 
 	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
 	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
-	subapis "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	subapis "github.com/stolostron/multicloud-operators-subscription/pkg/apis"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )
 
 var (

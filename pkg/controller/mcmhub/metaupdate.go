@@ -54,9 +54,9 @@ import (
 
 	rHelper "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
 	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
-	appv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/helmrepo"
+	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	subv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
+	helmops "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 )
 
 const (

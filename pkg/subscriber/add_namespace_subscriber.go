@@ -15,7 +15,7 @@
 package subscriber
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/subscriber/namespace"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/namespace"
 )
 
 func init() {

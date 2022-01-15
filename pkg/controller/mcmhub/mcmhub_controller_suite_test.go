@@ -34,8 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/apis"
+	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 )
 
 var cfg *rest.Config

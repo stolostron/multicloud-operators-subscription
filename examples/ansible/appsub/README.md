@@ -3,7 +3,7 @@ Prepare:
 2. An Ansible AWX/Tower environment. See https://github.com/ansible/awx for more details.
 
 Perform:
-1. Fork the https://github.com/open-cluster-management/multicloud-operators-subscription into your personal repo.
+1. Fork the https://github.com/stolostron/multicloud-operators-subscription into your personal repo.
 2. Edit the `examples/ansible/appsub/EDITME02-channel.yaml` and `examples/ansible/appsub/EDITME-secret.yaml` files.
 3. `git clone https://github.com/_your_github_id_/multicloud-operators-subscription.git`
 4. `cd multicloud-operators-subscription`

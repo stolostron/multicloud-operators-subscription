@@ -27,9 +27,9 @@ import (
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
 	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	ansiblejob "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	subv1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"github.com/pkg/errors"
+	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	subv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -38,7 +38,7 @@ import (
 )
 
 const (
-	ansibleGitURL = "https://github.com/open-cluster-management/multicloud-operators-subscription"
+	ansibleGitURL = "https://github.com/stolostron/multicloud-operators-subscription"
 	pullInterval  = time.Second * 3
 )
 

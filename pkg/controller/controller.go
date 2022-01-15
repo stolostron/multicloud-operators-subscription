@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription/pkg/utils"
+	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"

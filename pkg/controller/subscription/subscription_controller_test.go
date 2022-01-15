@@ -29,7 +29,7 @@ import (
 
 	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
-	appv1alpha1 "github.com/open-cluster-management/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var c client.Client

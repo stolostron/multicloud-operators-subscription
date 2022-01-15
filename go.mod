@@ -1,4 +1,4 @@
-module github.com/open-cluster-management/multicloud-operators-subscription
+module github.com/stolostron/multicloud-operators-subscription
 
 go 1.17
 
@@ -189,6 +189,11 @@ require (
 )
 
 replace (
+	github.com/open-cluster-management/api => open-cluster-management.io/api v0.0.0-20210513122330-d76f10481f05
+	github.com/open-cluster-management/multicloud-operators-channel => github.com/stolostron/multicloud-operators-channel v1.2.5-0-20211122-79abb30
+	github.com/open-cluster-management/multicloud-operators-deployable => github.com/stolostron/multicloud-operators-deployable v1.2.4-0-20211122-24ac963
+	github.com/open-cluster-management/multicloud-operators-placementrule => github.com/stolostron/multicloud-operators-placementrule v1.2.4-0-20211122-be034
+	github.com/open-cluster-management/multicloud-operators-subscription-release => github.com/stolostron/multicloud-operators-subscription-release v1.2.4-0-20211122-8309641
 	github.com/operator-framework/operator-lib => github.com/operator-framework/operator-lib v0.5.0
 	k8s.io/client-go => k8s.io/client-go v0.21.3
 )
