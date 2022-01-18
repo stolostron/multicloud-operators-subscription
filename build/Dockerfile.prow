@@ -1,7 +1,7 @@
-FROM registry.ci.openshift.org/open-cluster-management/builder:go1.17-linux AS builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.17-linux AS builder
 ENV POLICY_GENERATOR_TAG=v1.2.3
 
-WORKDIR /go/src/github.com/open-cluster-management/multicluster-operators-subscription
+WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
 RUN make -f Makefile.prow build
 
@@ -29,10 +29,10 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     KUSTOMIZE_PLUGIN_HOME=/etc/kustomize/plugin
 
 # install operator binary
-COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
-COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/multicluster-operators-placementrule /usr/local/bin
-COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin
-COPY --from=builder /go/src/github.com/open-cluster-management/multicluster-operators-subscription/build/_output/bin/appsubsummary /usr/local/bin
+COPY --from=builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY --from=builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-placementrule /usr/local/bin
+COPY --from=builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin
+COPY --from=builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/appsubsummary /usr/local/bin
 
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
