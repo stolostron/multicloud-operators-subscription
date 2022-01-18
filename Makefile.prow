@@ -39,7 +39,7 @@ XARGS = xargs -0 ${XARGS_FLAGS}
 CLEANXARGS = xargs ${XARGS_FLAGS}
 
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
-REGISTRY = quay.io/open-cluster-management
+REGISTRY = quay.io/stolostron
 VERSION ?= $(shell cat COMPONENT_VERSION 2> /dev/null)
 IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG):$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
@@ -56,7 +56,7 @@ build:
 .PHONY: build-images
 
 build-images: build
-	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
+	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile.prow .
 	@docker tag ${IMAGE_NAME_AND_VERSION} $(REGISTRY)/$(IMG):latest
 
 .PHONY: lint
