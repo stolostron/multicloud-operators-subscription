@@ -82,6 +82,8 @@ github.com/Shopify/toxiproxy v2.1.4+incompatible/go.mod h1:OXgGpZ6Cli1/URJOF1DMx
 github.com/VividCortex/gohistogram v1.0.0/go.mod h1:Pf5mBqqDxYaXu3hDrrU+w6nw50o/4+TcAqDqk/vUH7g=
 github.com/acomagu/bufpipe v1.0.3 h1:fxAGrHZTgQ9w5QqVItgzwj235/uYZYgbXitB+dLupOk=
 github.com/acomagu/bufpipe v1.0.3/go.mod h1:mxdxdup/WdsKVreO5GpW4+M/1CE2sMG4jeGJ2sYmHc4=
+github.com/admiral-fleet/multicloud-operators-channel v1.2.5-0-20211122-79abb30.0.20220119195805-56bbed721a55 h1:OxD23fMb872F38+iWUR1HjwwjM7LVbH330aT3SLXXjA=
+github.com/admiral-fleet/multicloud-operators-channel v1.2.5-0-20211122-79abb30.0.20220119195805-56bbed721a55/go.mod h1:OVKKHapdylk62Lx4MeXQp1PfL76algYLMhqjB+z4bSs=
 github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alcortesm/tgz v0.0.0-20161220082320-9c5fe88206d7 h1:uSoVVbwJiQipAclBbw+8quDsfcvFjOpI5iCf4p/cqCs=
@@ -898,8 +900,6 @@ github.com/spf13/viper v1.7.0/go.mod h1:8WkrPz2fc9jxqZNCJI/76HCieCp4Q8HaLFoCha5q
 github.com/src-d/gcfg v1.4.0 h1:xXbNR5AlLSA315x2UO+fTSSAXCDf+Ar38/6oyGbDKQ4=
 github.com/src-d/gcfg v1.4.0/go.mod h1:p/UMsR43ujA89BJY9duynAwIpvqEujIH/jFlfL7jWoI=
 github.com/stoewer/go-strcase v1.2.0/go.mod h1:IBiWB2sKIp3wVVQ3Y035++gc+knqhUQag1KpM8ahLw8=
-github.com/stolostron/multicloud-operators-channel v1.2.5-0-20211122-79abb30 h1:JWC8IqMnGA19as8WCVPwWRjH3hhbFbYgBkmLYLK9cgY=
-github.com/stolostron/multicloud-operators-channel v1.2.5-0-20211122-79abb30/go.mod h1:z2F4f3YiRZ2D8m7SaoU84u+JogdDEhsIB8Otf+qefiM=
 github.com/stolostron/multicloud-operators-deployable v1.2.4-0-20211122-24ac963 h1:9xEZZq3cRtvNME7HjurGQpmAH0YtPyLJkXkja9QaZeM=
 github.com/stolostron/multicloud-operators-deployable v1.2.4-0-20211122-24ac963/go.mod h1:9kut8xt6t4kIxj67wTL8HsW2QehQ6csGPHYzXSTJQJQ=
 github.com/stolostron/multicloud-operators-placementrule v1.2.4-0-20211122-be034 h1:n2pP8U6Pjc/IGzOdwaum+WN/HjyS5inxrCPpSQLhTG4=

@@ -21,11 +21,11 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	chnv1 "github.com/mikeshng/multicloud-operators-channel/pkg/apis/apps/v1"
 	. "github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	spokeClusterV1 "github.com/open-cluster-management/api/cluster/v1"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	"github.com/pkg/errors"
 	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"

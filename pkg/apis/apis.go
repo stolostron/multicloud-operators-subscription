@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
 
-	chnapis "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis"
+	chnapis "github.com/mikeshng/multicloud-operators-channel/pkg/apis"
 	dplapis "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis"
 	plrapis "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis"
 	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"

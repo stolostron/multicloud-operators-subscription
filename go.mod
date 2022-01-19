@@ -15,10 +15,10 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/go-github/v32 v32.1.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20200218152459-de0855a40bc1
+	github.com/mikeshng/multicloud-operators-channel v1.2.5-0-20211122-79abb30.0.20220119195120-3dd36fef3bdc
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/open-cluster-management/api v0.0.0-20210513122330-d76f10481f05
-	github.com/open-cluster-management/multicloud-operators-channel v1.2.5-0-20211122-79abb30
 	github.com/open-cluster-management/multicloud-operators-deployable v1.2.4-0-20211122-24ac963
 	github.com/open-cluster-management/multicloud-operators-placementrule v1.2.4-0-20211122-be034
 	github.com/open-cluster-management/multicloud-operators-subscription-release v1.2.4-0-20211122-8309641
@@ -189,8 +189,8 @@ require (
 )
 
 replace (
+	github.com/mikeshng/multicloud-operators-channel => github.com/admiral-fleet/multicloud-operators-channel v1.2.5-0-20211122-79abb30.0.20220119195805-56bbed721a55
 	github.com/open-cluster-management/api => open-cluster-management.io/api v0.0.0-20210513122330-d76f10481f05
-	github.com/open-cluster-management/multicloud-operators-channel => github.com/stolostron/multicloud-operators-channel v1.2.5-0-20211122-79abb30
 	github.com/open-cluster-management/multicloud-operators-deployable => github.com/stolostron/multicloud-operators-deployable v1.2.4-0-20211122-24ac963
 	github.com/open-cluster-management/multicloud-operators-placementrule => github.com/stolostron/multicloud-operators-placementrule v1.2.4-0-20211122-be034
 	github.com/open-cluster-management/multicloud-operators-subscription-release => github.com/stolostron/multicloud-operators-subscription-release v1.2.4-0-20211122-8309641

@@ -19,7 +19,7 @@
 package v1
 
 import (
-	pkgapisappsv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	pkgapisappsv1 "github.com/mikeshng/multicloud-operators-channel/pkg/apis/apps/v1"
 	apisappsv1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appsv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	corev1 "k8s.io/api/core/v1"

@@ -19,9 +19,9 @@ import (
 	"fmt"
 	"strings"
 
+	chnv1 "github.com/mikeshng/multicloud-operators-channel/pkg/apis/apps/v1"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1alpha1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	"github.com/pkg/errors"
 	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
