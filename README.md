@@ -194,7 +194,7 @@ Check the [Security Doc](SECURITY.md) if you find a security issue.
 
 ## References
 
-### Multicloud-operators repositories 
+### Multicloud-operators repositories
 
 - [multicloud-operators-application](https://github.com/stolostron/multicloud-operators-application)
 - [multicloud-operators-channel](https://github.com/stolostron/multicloud-operators-channel)
