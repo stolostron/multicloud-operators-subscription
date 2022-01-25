@@ -311,7 +311,7 @@ func genBranchString(subIns *subv1.Subscription) string {
 		return branch
 	}
 
-	return "master"
+	return "nobranchdummy"
 }
 
 func setBranch(subIns *subv1.Subscription, bName string) {
