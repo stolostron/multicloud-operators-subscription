@@ -257,7 +257,6 @@ github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153 h1:yUdfgN0XgIJw7fo
 github.com/elazarl/goproxy v0.0.0-20180725130230-947c36da3153/go.mod h1:/Zj4wYkgs4iZTTu3o/KG3Itv/qCCa8VVMlb3i9OVuzc=
 github.com/emicklei/go-restful v0.0.0-20170410110728-ff4f55a20633/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emicklei/go-restful v2.9.5+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
-github.com/emicklei/go-restful v2.11.1+incompatible h1:CjKsv3uWcCMvySPQYKxO8XX3f9zD4FeZRsW4G0B4ffE=
 github.com/emicklei/go-restful v2.11.1+incompatible/go.mod h1:otzb+WCGbkyDHkqmQmT5YD2WR4BBwUdeQoFo8l/7tVs=
 github.com/emirpasic/gods v1.12.0 h1:QAUIPSaCu4G+POclxeqb3F+WPpdKqFGlw36+yOzGlrg=
 github.com/emirpasic/gods v1.12.0/go.mod h1:YfzfFFoVP/catgzJb4IKIqXjX78Ha8FMSDh3ymbK86o=
@@ -1498,8 +1497,8 @@ open-cluster-management.io/api v0.0.0-20210607023841-cd164385e2bb/go.mod h1:9qiA
 open-cluster-management.io/api v0.0.0-20210629235044-d779373b7f7d/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
 open-cluster-management.io/api v0.5.1-0.20211109002058-9676c7a1e606 h1:j/BHFMHX0F7HYzEfshpcM/213XRQrWjz4lWihhhfz9M=
 open-cluster-management.io/api v0.5.1-0.20211109002058-9676c7a1e606/go.mod h1:9qiA5h/8kvPQnJEOlAPHVjRO9a1jCmDhGzvgMBvXEaE=
-open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798 h1:VgHRjxqCeGzHxwea9sqJH7eVpHyK363q6Lep+ZxccTA=
-open-cluster-management.io/multicloud-operators-channel v0.5.1-0.20211122200432-da1610291798/go.mod h1:ELKJ1LHadEYbYHEeWrZXC8zAHrzXzzKJRtp/7D1WlmU=
+open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220124220643-6ee87ebd2b22 h1:5sSc4FufGrxl/20rJQzL3rY1smY2T9rP5YKvZlSJlUU=
+open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220124220643-6ee87ebd2b22/go.mod h1:85kUVN9zenQEZcahxZ/qMVTWKM/ELzFGw7wMNYhF6Zk=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/letsencrypt v0.0.3 h1:H7xDfhkaFFSYEJlKeq38RwX2jYcnTeHuDQyT+mMNMwM=
 rsc.io/letsencrypt v0.0.3/go.mod h1:buyQKZ6IXrRnB7TdkHP0RyEybLx18HHyOSoTyoOLqNY=
