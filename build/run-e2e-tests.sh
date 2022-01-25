@@ -20,7 +20,7 @@ set -e
 echo -e "E2E TESTS GO HERE!"
 
 # need to find a way to use the Makefile to set these
-REGISTRY=quay.io/open-cluster-management
+REGISTRY=quay.io/stolostron
 IMG=$(cat COMPONENT_NAME 2> /dev/null)
 IMAGE_NAME=${REGISTRY}/${IMG}
 BUILD_IMAGE=${IMAGE_NAME}:latest
