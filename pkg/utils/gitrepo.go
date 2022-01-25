@@ -178,9 +178,13 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 
 	options := &git.CloneOptions{
 		URL:               channelConnOptions.RepoURL,
-		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		ReferenceName:     cloneOptions.Branch,
+	}
+
+	// If branch name is provided, clone the specified branch only.
+	if cloneOptions.Branch != "" {
+		options.ReferenceName = cloneOptions.Branch
+		options.SingleBranch = true
 	}
 
 	// The destination directory needs to be created here
@@ -309,6 +313,8 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		klog.Error(err, " Failed to get git repo head")
 		return "", errors.New("failed to get git repo head, err: " + err.Error())
 	}
+
+	klog.Infof("Successfully cloned the repo and the current branch is %s", ref.Name().Short())
 
 	// If both commitHash and revisionTag are provided, take commitHash.
 	targetCommit := cloneOptions.CommitHash
@@ -579,17 +585,15 @@ func GetSubscriptionBranch(sub *appv1.Subscription) plumbing.ReferenceName {
 }
 
 func GetSubscriptionBranchRef(b string) plumbing.ReferenceName {
-	branch := plumbing.Master
-
-	if b != "" && b != "master" {
+	if b != "" {
 		if !strings.HasPrefix(b, "refs/heads/") {
 			b = "refs/heads/" + b
 		}
 
-		branch = plumbing.ReferenceName(b)
+		return plumbing.ReferenceName(b)
 	}
 
-	return branch
+	return ""
 }
 
 func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigMap) (connCfg *ChannelConnectionCfg, err error) {
@@ -717,7 +721,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 
 // GetLocalGitFolder returns the local Git repo clone directory
 func GetLocalGitFolder(sub *appv1.Subscription) string {
-	return filepath.Join(os.TempDir(), sub.Name, GetSubscriptionBranch(sub).Short())
+	return filepath.Join(os.TempDir(), sub.Namespace, sub.Name)
 }
 
 type SkipFunc func(string, string) bool
