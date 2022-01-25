@@ -33,8 +33,8 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	open-cluster-management.io/addon-framework v0.0.0-20210624140015-b26f9964526c
-	open-cluster-management.io/api v0.5.1-0.20211109002058-9676c7a1e606
-	open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220124220643-6ee87ebd2b22
+	open-cluster-management.io/api v0.6.0
+	open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220125181144-dae8bc05ea37
 	sigs.k8s.io/controller-runtime v0.9.1
 	sigs.k8s.io/kustomize/api v0.8.8
 )
