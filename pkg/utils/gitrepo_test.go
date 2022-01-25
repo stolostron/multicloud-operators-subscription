@@ -221,8 +221,8 @@ func TestGetSubscriptionBranch(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	branch := GetSubscriptionBranch(githubsub)
-	g.Expect(branch).To(gomega.Equal(plumbing.Master))
-	g.Expect(branch.Short()).To(gomega.Equal("master"))
+	g.Expect(branch).To(gomega.Equal(plumbing.ReferenceName("")))
+	g.Expect(branch.Short()).To(gomega.Equal(""))
 
 	subanno := make(map[string]string)
 	subanno[appv1alpha1.AnnotationGitBranch] = "notmaster"
