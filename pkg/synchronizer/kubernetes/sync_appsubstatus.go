@@ -88,7 +88,12 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 		}
 	}
 
-	pkgstatus := &v1alpha1.SubscriptionStatus{}
+	pkgstatus := &v1alpha1.SubscriptionStatus{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionStatus",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
 	foundPkgStatus := true
 
 	if err := sync.LocalClient.Get(context.TODO(),
@@ -149,7 +154,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 			// Create appsubstatus on appSub NS
 			if err := sync.LocalClient.Create(context.TODO(), pkgstatus); err != nil {
-				klog.Errorf("Error in creating on managed cluster, appsubstatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
+				klog.Errorf("Error in creating appsubstatus:%v/%v, err:%v", appsubClusterStatus.AppSub.Namespace, pkgstatusName, err)
 
 				return err
 			}
@@ -357,7 +362,12 @@ func (sync *KubeSynchronizer) recordAppSubStatusEvents(appsub *appv1.Subscriptio
 
 func buildAppSubStatus(statusName, statusNs, appsubName, appsubNs, cluster string,
 	unitStatuses []v1alpha1.SubscriptionUnitStatus) *v1alpha1.SubscriptionStatus {
-	pkgstatus := &v1alpha1.SubscriptionStatus{}
+	pkgstatus := &v1alpha1.SubscriptionStatus{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionStatus",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
 	pkgstatus.Namespace = statusNs
 	pkgstatus.Name = statusName
 
@@ -522,7 +532,13 @@ func deleteAppsubReportResult(rClient client.Client, appsubNs, appsubName, clust
 }
 
 func getClusterAppsubReport(rClient client.Client, clusterAppsubReportNs string, create bool) (*v1alpha1.SubscriptionReport, error) {
-	appsubReport := &v1alpha1.SubscriptionReport{}
+	appsubReport := &v1alpha1.SubscriptionReport{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionReport",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
+
 	appsubReport.Namespace = clusterAppsubReportNs
 	appsubReport.Name = clusterAppsubReportNs
 	klog.V(1).Infof("Get cluster appSubReport: %v/%v", appsubReport.Namespace, appsubReport.Name)
