@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -241,7 +242,10 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
 	propagationFailedCount, clusterCount int) error {
 	appsubReport := &appsubreportv1alpha1.SubscriptionReport{
-		TypeMeta: metav1.TypeMeta{},
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionReport",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sub.Name,
 			Namespace: sub.Namespace,
@@ -293,29 +297,31 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 	} else {
 		klog.V(1).Infof("App appsubReport found: %v/%v, update it.", appsubReport.Namespace, appsubReport.Name)
 
-		if resources == nil {
-			klog.V(1).Infof("No resources, skip update")
-
-			return nil
-		}
-
-		// Update resource list
-		resourceList := appsubReport.Resources
-		if resourceList != nil && reflect.DeepEqual(resourceList, resources) {
-			klog.V(1).Infof("App appsubReport(%v/%v) resource list unchanged.", appsubReport.Namespace, appsubReport.Name)
-
-			return nil
-		}
-
-		appsubReport.Resources = resources
-
-		//reset placementrule cluster count as the pass count
 		if propagationFailedCount > 0 {
-			appsubReport.Summary.InProgress = "0"
-		} else {
-			appsubReport.Summary.InProgress = strconv.Itoa(clusterCount)
+			klog.V(1).Infof("Failed to get clusters from placement, exit without updating appsubReport")
+
+			return nil
 		}
 
+		if resources != nil && (appsubReport.Resources == nil || !reflect.DeepEqual(appsubReport.Resources, resources)) {
+			appsubReport.Resources = resources
+		} else {
+			klog.V(1).Infof("App appsubReport(%v/%v) resource list unchanged.", appsubReport.Namespace, appsubReport.Name)
+		}
+
+		// update counts
+		deployed, err := strconv.Atoi(appsubReport.Summary.Deployed)
+		if err != nil {
+			deployed = 0
+		}
+
+		var failed int
+		failed, err = strconv.Atoi(appsubReport.Summary.Failed)
+		if err != nil {
+			failed = 0
+		}
+
+		appsubReport.Summary.InProgress = strconv.Itoa(clusterCount - deployed - failed)
 		appsubReport.Summary.PropagationFailed = strconv.Itoa(propagationFailedCount)
 		appsubReport.Summary.Clusters = strconv.Itoa(clusterCount)
 

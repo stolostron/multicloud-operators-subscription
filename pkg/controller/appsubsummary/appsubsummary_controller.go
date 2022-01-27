@@ -209,7 +209,12 @@ func (r *ReconcileAppSubSummary) createOrUpdateAppSubReport(
 
 		klog.V(1).Infof("updating AppSubReport for appsub: %v", appsub)
 
-		appsubReport := &appsubReportV1alpha1.SubscriptionReport{}
+		appsubReport := &appsubReportV1alpha1.SubscriptionReport{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SubscriptionReport",
+				APIVersion: "apps.open-cluster-management.io/v1alpha1",
+			},
+		}
 		appsubReportKey := types.NamespacedName{
 			Name:      appsubName,
 			Namespace: appsubNs,
