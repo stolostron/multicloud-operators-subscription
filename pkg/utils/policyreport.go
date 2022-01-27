@@ -69,7 +69,12 @@ func CreateFailedAppsubReportResult(client client.Client, cluster string, appsub
 
 func getClusterAppsubReport(rClient client.Client, clusterAppsubReportNs string,
 	create bool) (*appsubReportV1alpha1.SubscriptionReport, error) {
-	appsubReport := &appsubReportV1alpha1.SubscriptionReport{}
+	appsubReport := &appsubReportV1alpha1.SubscriptionReport{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionReport",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
 	appsubReport.Namespace = clusterAppsubReportNs
 	appsubReport.Name = clusterAppsubReportNs
 

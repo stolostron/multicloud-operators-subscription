@@ -17,6 +17,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -115,7 +116,12 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 
 	klog.Infof("Prepare to purge all resources deployed by the appsub: %v", hostSub.String())
 
-	appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{}
+	appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{
+		TypeMeta: metaV1.TypeMeta{
+			Kind:       "SubscriptionStatus",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
 
 	appsubStatusName := hostSub.Name
 	appsubStatusNs := hostSub.Namespace
