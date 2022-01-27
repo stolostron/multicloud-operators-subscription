@@ -113,8 +113,8 @@ func TestE2ESuite(t *testing.T) {
 
 	runner := NewRunner(defaultAddr, runEndpoint)
 
-	testIDs := []string{"sub-001", "sub-002", "sub-003", "sub-004",
-		"RHACM4K-2346", "RHACM4K-1680", "RHACM4K-1701", "RHACM4K-2352", "RHACM4K-2347", "RHACM4K-2570", "RHACM4K-2569"}
+	testIDs := []string{"sub-002", "sub-003", "sub-004",
+		"RHACM4K-2346", "RHACM4K-1701", "RHACM4K-2352", "RHACM4K-2347", "RHACM4K-2570", "RHACM4K-2569"}
 	stageTestIDs := []string{"RHACM4K-2348", "RHACM4K-1732", "RHACM4K-2566", "RHACM4K-2568"}
 
 	for _, tID := range testIDs {
