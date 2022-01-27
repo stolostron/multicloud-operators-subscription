@@ -20,7 +20,7 @@ Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to s
 
 Subscriptions can point to a channel for identifying new or updated resource templates. The subscription operator can then download directly from the storage location and deploy to targeted managed clusters without checking the hub cluster first. With a subscription, the subscription operator can monitor the channel for new or updated resources instead of the hub cluster.
 
-## Architecture
+## Architecture -
 
 ![architecture](images/architecture.png)
 
