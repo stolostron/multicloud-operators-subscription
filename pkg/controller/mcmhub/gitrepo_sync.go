@@ -82,29 +82,23 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription, isAdmin
 		// If subscription does not have commit annotation, it needs to be generated in this block.
 		oldCommit := getCommitID(sub)
 
-		if oldCommit == "" || !strings.EqualFold(oldCommit, commit) ||
-			r.isHookUpdate(annotations, subKey) {
-			if oldCommit == "" || !strings.EqualFold(oldCommit, commit) {
-				klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", oldCommit, commit)
-			}
+		if r.isHookUpdate(annotations, subKey) {
+			klog.Info("The topo annotation does not have applied hooks. Adding it.")
+		}
 
-			if r.isHookUpdate(annotations, subKey) {
-				klog.Info("The topo annotation does not have applied hooks. Adding it.")
-			}
+		baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
+		resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub)
 
-			baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
-			resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub)
+		objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir, isAdmin)
+		if err != nil {
+			klog.Error(err.Error())
+			return nil, err
+		}
 
-			objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir, isAdmin)
-			if err != nil {
-				klog.Error(err.Error())
-				return nil, err
-			}
+		if oldCommit == "" || !strings.EqualFold(oldCommit, commit) {
+			klog.Infof("The Git commit has changed since the last reconcile. last: %s, new: %s", oldCommit, commit)
 
 			setCommitID(sub, commit)
-		} else {
-			klog.Infof("The Git commit has not changed since the last reconcile. last: %s, new: %s", annotations[appv1.AnnotationGitCommit], commit)
-			return nil, nil
 		}
 	}
 
