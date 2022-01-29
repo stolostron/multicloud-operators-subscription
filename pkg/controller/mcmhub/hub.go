@@ -94,6 +94,9 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	// Check and add cluster-admin annotation for multi-namepsace application
 	isAdmin := r.AddClusterAdminAnnotation(sub)
 
+	// Add or sync application labels
+	r.AddAppLabels(sub)
+
 	var resources []*v1.ObjectReference
 
 	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
@@ -133,6 +136,30 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	err = r.PropagateAppSubManifestWork(sub, clusters)
 
 	return err
+}
+
+func (r *ReconcileSubscription) AddAppLabels(s *appv1alpha1.Subscription) {
+	labels := s.GetLabels()
+
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	if labels["app"] != "" { // if label "app" exists, sync with "app.kubernetes.io/part-of" label
+		if labels["app.kubernetes.io/part-of"] != labels["app"] {
+			labels["app.kubernetes.io/part-of"] = labels["app"]
+		}
+	} else { // if "app" label does not exist, set it and "app.kubernetes.io/part-of" label with the subscription name
+		if labels["app.kubernetes.io/part-of"] != s.Name {
+			labels["app.kubernetes.io/part-of"] = s.Name
+		}
+
+		if labels["app"] != s.Name {
+			labels["app"] = s.Name
+		}
+	}
+
+	s.SetLabels(labels)
 }
 
 //GetChannelNamespaceType get the channel namespace and channel type by the given subscription
