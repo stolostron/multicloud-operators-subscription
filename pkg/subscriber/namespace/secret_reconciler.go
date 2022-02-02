@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	"github.com/pkg/errors"
 

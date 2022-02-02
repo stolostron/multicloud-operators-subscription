@@ -24,12 +24,12 @@ import (
 	"strings"
 
 	"github.com/ghodss/yaml"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
 	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
-	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/api/filesys" //nolint
+	"sigs.k8s.io/kustomize/api/krusty"  //nolint
 	kustomizetypes "sigs.k8s.io/kustomize/api/types"
 )
 

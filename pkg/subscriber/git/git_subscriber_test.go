@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 
-	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
+	chnv1alpha1 "github.com/stolostron/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 )

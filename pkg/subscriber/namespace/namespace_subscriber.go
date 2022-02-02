@@ -35,9 +35,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
-	chnv1alpha1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
-	dplutils "github.com/open-cluster-management/multicloud-operators-deployable/pkg/utils"
+	chnv1alpha1 "github.com/stolostron/multicloud-operators-channel/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplutils "github.com/stolostron/multicloud-operators-deployable/pkg/utils"
 	appv1alpha1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
