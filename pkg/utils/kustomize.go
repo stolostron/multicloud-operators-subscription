@@ -28,8 +28,8 @@ import (
 	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
-	"sigs.k8s.io/kustomize/api/filesys"
-	"sigs.k8s.io/kustomize/api/krusty"
+	"sigs.k8s.io/kustomize/api/filesys" //nolint
+	"sigs.k8s.io/kustomize/api/krusty"  //nolint
 	kustomizetypes "sigs.k8s.io/kustomize/api/types"
 )
 
