@@ -16,6 +16,7 @@ package apis
 
 import (
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	deployable "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	helmrelease "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	placementrule "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	v1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -27,5 +28,6 @@ func init() {
 		ansiblejob.SchemeBuilder.AddToScheme,
 		helmrelease.SchemeBuilder.AddToScheme,
 		placementrule.SchemeBuilder.AddToScheme,
+		deployable.SchemeBuilder.AddToScheme,
 	)
 }

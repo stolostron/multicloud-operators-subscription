@@ -37,6 +37,7 @@ import (
 	workV1 "open-cluster-management.io/api/work/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	deployable "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 )
 
@@ -56,6 +57,7 @@ func TestMain(m *testing.M) {
 	spokeClusterV1.AddToScheme(scheme.Scheme)
 	appSubStatusV1alpha1.AddToScheme(scheme.Scheme)
 	workV1.AddToScheme(scheme.Scheme)
+	deployable.AddToScheme(scheme.Scheme)
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
