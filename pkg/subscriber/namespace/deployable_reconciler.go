@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	dplv1alpha1 "github.com/open-cluster-management/multicloud-operators-deployable/pkg/apis/apps/v1"
+	dplv1alpha1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
 
 	kubesynchronizer "github.com/stolostron/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"

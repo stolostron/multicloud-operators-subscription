@@ -23,9 +23,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	chnv1 "github.com/open-cluster-management/multicloud-operators-channel/pkg/apis/apps/v1"
 	plrv1 "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/apis/apps/v1"
 	placementutils "github.com/open-cluster-management/multicloud-operators-placementrule/pkg/utils"
+	chnv1 "github.com/stolostron/multicloud-operators-channel/pkg/apis/apps/v1"
 	ansiblejob "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
