@@ -8,6 +8,7 @@
     - [Hub Subscription Pod](#hub-subscription-pod)
     - [Managed Subscription Pod](#managed-subscription-pod)
     - [How subscription status is reported](#how-subscription-status-is-reported)
+    - [Hub Backend CLI](#hub-backend-cli)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -296,3 +297,20 @@ summary:
   propagationFailed: 1
   clusters: 10
 ```
+
+## Hub Backend CLI 
+
+The CLI is for getting the package level AppSub Status on a given managed cluster
+
+As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport
+dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a backend CLI, so that the end users can get the detailed status for an application deployed on a specific cluster.
+```
+% getAppSubStatus.sh -c <managed cluster Name> -s <AppSub Namespace> -n <Appsub Name>
+// the relative package level AppSub status CR on the managed cluster will be fetched and displayed.
+```
+This CLI, uses identity details in the Application subscriptionReport, to create a managedClusterView resource, to see the managed cluster application SubscriptionStatus so the user can identify exactly what is wrong with the application.
+
+The CLI can be downloaded here:
+
+https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
+
