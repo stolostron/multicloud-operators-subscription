@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -167,12 +166,6 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 		}
 
 		for _, obj := range objList {
-			errs := validation.IsDNS1123Subdomain(obj.Name)
-			if len(errs) > 0 {
-				errs = append([]string{fmt.Sprintf("Invalid %s name '%s'", obj.Kind, obj.Name)}, errs...)
-				errMsgs = append(errMsgs, strings.Join(errs, ","))
-			}
-
 			// No need to save the namespace object to the resource list of the appsub
 			if obj.Kind == "Namespace" {
 				continue
