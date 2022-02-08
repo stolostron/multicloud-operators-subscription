@@ -79,6 +79,8 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		return err
 	}
 
+	sync.SkipAppSubStatusResDel = false
+
 	defaultSubscriber = CreateObjectBucketSubsriber(hubconfig, mgr.GetScheme(), mgr, sync, syncinterval)
 	if defaultSubscriber == nil {
 		errmsg := "failed to create default namespace subscriber"
