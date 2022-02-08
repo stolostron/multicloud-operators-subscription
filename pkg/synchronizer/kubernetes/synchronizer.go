@@ -131,8 +131,6 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 		if strings.HasSuffix(appsubStatusName, "-local") {
 			appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
 		}
-
-		appsubStatusNs = sync.SynchronizerID.Name
 	}
 
 	appSubStatusKey := types.NamespacedName{

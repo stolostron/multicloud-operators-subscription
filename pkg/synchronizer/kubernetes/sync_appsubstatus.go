@@ -80,13 +80,14 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 	appsubName := appsubClusterStatus.AppSub.Name
 	pkgstatusNs := appsubClusterStatus.AppSub.Namespace
-	pkgstatusName := appsubName
 
 	if isLocalCluster {
 		if strings.HasSuffix(appsubName, "-local") {
 			appsubName = appsubName[:len(appsubName)-6]
 		}
 	}
+
+	pkgstatusName := appsubName
 
 	pkgstatus := &v1alpha1.SubscriptionStatus{
 		TypeMeta: metaV1.TypeMeta{
