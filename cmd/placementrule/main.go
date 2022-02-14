@@ -22,7 +22,7 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"open-cluster-management.io/multicloud-operators-subscription/cmd/placementrule/exec"
 )

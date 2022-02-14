@@ -26,7 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -101,7 +101,7 @@ func GetDefaultSynchronizer() *KubeSynchronizer {
 // CreateSynchronizer createa an instance of synchrizer with give api-server config.
 func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Scheme, syncid *types.NamespacedName,
 	interval int, ext Extension, hub, standalone bool) (*KubeSynchronizer, error) {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 

@@ -16,7 +16,7 @@ package apis
 
 import (
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	placement "open-cluster-management.io/api/cluster/v1alpha1"

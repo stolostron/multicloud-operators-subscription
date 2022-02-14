@@ -34,7 +34,7 @@ import (
 	"helm.sh/helm/v3/pkg/storage/driver"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	helmclient "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/client"
 	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
 	"sigs.k8s.io/controller-runtime/pkg/client"

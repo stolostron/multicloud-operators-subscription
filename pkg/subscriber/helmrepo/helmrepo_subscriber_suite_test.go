@@ -29,7 +29,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
@@ -47,12 +46,11 @@ var k8sClient client.Client
 func TestSubscriptionNamespaceReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Helm Controller Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t,
+		"Helm Controller Suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 
 	t := true
@@ -85,9 +83,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	k8sClient = k8sManager.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
-
-	close(done)
-}, StartTimeout)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

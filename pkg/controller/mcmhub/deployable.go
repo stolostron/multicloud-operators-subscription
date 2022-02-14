@@ -19,7 +19,7 @@ import (
 	"fmt"
 
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	deployableV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	appSubV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"

@@ -20,10 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-logr/logr"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	"github.com/go-logr/logr"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	workV1 "open-cluster-management.io/api/work/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
@@ -38,8 +38,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 )
 
 const (
@@ -60,12 +58,11 @@ var defaultCommit = "test-00000001"
 func TestHookReconcile(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Hook Test Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t,
+		"Hook Test Suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 
 	k8sManager, err := mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
@@ -102,7 +99,7 @@ var _ = BeforeSuite(func(done Done) {
 
 	defaulRequeueInterval = time.Second * 1
 
-	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(logr.DiscardLogger{}),
+	gitOps = NewHookGit(k8sManager.GetClient(), setHubGitOpsLogger(logr.Discard()),
 		setHubGitOpsInterval(hookRequeueInterval*1),
 		setGetCloneFunc(cloneFunc),
 		setLocalDirResovler(localRepoDidr),
@@ -142,9 +139,7 @@ var _ = BeforeSuite(func(done Done) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	close(done)
-}, StartTimeout)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
