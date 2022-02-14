@@ -31,7 +31,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -42,9 +41,8 @@ import (
 func TestSubscriptionStatusLogic(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"SubscriptionStatus check",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t,
+		"SubscriptionStatus check")
 }
 
 var _ = Describe("subscription(s)", func() {

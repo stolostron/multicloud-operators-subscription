@@ -40,11 +40,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	"strings"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v42/github"
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
@@ -880,7 +880,7 @@ func GetKubeIgnore(resourcePath string) *gitignore.GitIgnore {
 	klog.V(4).Info("Git repo resource root directory: ", resourcePath)
 
 	lines := []string{""}
-	kubeIgnore, _ := gitignore.CompileIgnoreLines(lines...)
+	kubeIgnore := gitignore.CompileIgnoreLines(lines...)
 
 	if _, err := os.Stat(filepath.Join(resourcePath, ".kubernetesignore")); err == nil {
 		klog.V(4).Info("Found .kubernetesignore in ", resourcePath)
@@ -1023,7 +1023,7 @@ func GetLatestCommitID(url, branch string, clt ...*github.Client) (string, error
 	owner, repo := u[0], u[1]
 	ctx := context.TODO()
 
-	b, _, err := gitClt.Repositories.GetBranch(ctx, owner, repo, branch)
+	b, _, err := gitClt.Repositories.GetBranch(ctx, owner, repo, branch, true)
 	if err != nil {
 		return "", err
 	}

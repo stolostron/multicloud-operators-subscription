@@ -23,7 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // ObjectStore interface.
@@ -117,7 +117,7 @@ func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessK
 
 	// aws s3 object store doesn't need to specify URL.
 	// minio object store needs immutable URL. The aws sdk is not allowed to modify the host name of the minio URL
-	customResolver := aws.EndpointResolverFunc(func(service, region string) (aws.Endpoint, error) {
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
 		klog.V(1).Infof("service: %v, region: %v", service, region)
 		if region == "minio" {
 			return aws.Endpoint{
@@ -128,7 +128,7 @@ func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessK
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolver(customResolver))
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver))
 	if err != nil {
 		klog.Error("Failed to load aws config. error: ", err)
 

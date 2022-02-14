@@ -21,14 +21,14 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // PrepareOverrides returns the overridemap for given subscription instance.
 func PrepareOverrides(cluster types.NamespacedName, appsub *appsubv1.Subscription) ([]appsubv1.ClusterOverride, error) {
-	if klog.V(QuiteLogLel) {
+	if klog.V(QuiteLogLel).Enabled() {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 
@@ -57,7 +57,7 @@ func PrepareOverrides(cluster types.NamespacedName, appsub *appsubv1.Subscriptio
 
 // OverrideTemplate alter the given template with overrides.
 func OverrideTemplate(template *unstructured.Unstructured, overrides []appsubv1.ClusterOverride) (*unstructured.Unstructured, error) {
-	if klog.V(QuiteLogLel) {
+	if klog.V(QuiteLogLel).Enabled() {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 

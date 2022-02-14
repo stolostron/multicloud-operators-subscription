@@ -22,9 +22,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/google/go-github/v32/github"
+	"github.com/google/go-github/v42/github"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"

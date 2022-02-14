@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 func GenerateServerCerts(dir string) error {

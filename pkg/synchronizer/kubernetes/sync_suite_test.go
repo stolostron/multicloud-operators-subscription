@@ -33,7 +33,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
@@ -50,12 +49,11 @@ var k8sClient client.Client
 func TestSynchorizerOnSub(t *testing.T) {
 	RegisterFailHandler(Fail)
 
-	RunSpecsWithDefaultAndCustomReporters(t,
-		"Synchronizer Suite",
-		[]Reporter{printer.NewlineReporter{}})
+	RunSpecs(t,
+		"Synchronizer Suite")
 }
 
-var _ = BeforeSuite(func(done Done) {
+var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 
 	t := true
@@ -96,8 +94,7 @@ var _ = BeforeSuite(func(done Done) {
 		ObjectMeta: metav1.ObjectMeta{Name: "cluster1"}})
 	Expect(err).NotTo(HaveOccurred())
 
-	close(done)
-}, StartTimeout)
+})
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")

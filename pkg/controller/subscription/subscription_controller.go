@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	ghsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/git"
@@ -80,7 +80,7 @@ type channelMapper struct {
 }
 
 func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 

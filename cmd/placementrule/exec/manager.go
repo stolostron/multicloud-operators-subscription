@@ -23,7 +23,7 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
