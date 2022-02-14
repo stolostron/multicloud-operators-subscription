@@ -27,8 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
-	"k8s.io/klog/klogr"
+	"k8s.io/klog/v2"
+	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -136,7 +136,7 @@ type subscriptionMapper struct {
 }
 
 func (mapper *subscriptionMapper) Map(obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 
@@ -203,7 +203,7 @@ type channelMapper struct {
 }
 
 func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 
@@ -245,7 +245,7 @@ type placementDecisionMapper struct {
 }
 
 func (mapper *placementDecisionMapper) Map(obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel) {
+	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 

@@ -19,7 +19,7 @@ import (
 	"os"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	ctrl "sigs.k8s.io/controller-runtime"

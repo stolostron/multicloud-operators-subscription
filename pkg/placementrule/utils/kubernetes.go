@@ -27,7 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 // ConvertLabels coverts label selector to lables.Selector
@@ -49,7 +49,7 @@ func ConvertLabels(labelSelector *metav1.LabelSelector) (labels.Selector, error)
 func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
 	var err error
 
-	if klog.V(QuiteLogLel) {
+	if klog.V(QuiteLogLel).Enabled() {
 		fnName := GetFnName()
 		klog.Infof("Entering: %v()", fnName)
 
