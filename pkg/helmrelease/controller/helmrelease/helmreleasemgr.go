@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/ghodss/yaml"
@@ -104,11 +103,7 @@ func downloadChart(client client.Client, s *appv1.HelmRelease) (string, error) {
 
 	chartsDir := os.Getenv(appv1.ChartsDir)
 	if chartsDir == "" {
-		chartsDir, err = ioutil.TempDir("/tmp", "charts")
-		if err != nil {
-			klog.Error(err, " - Can not create tempdir")
-			return "", err
-		}
+		chartsDir = "/tmp/hr-charts"
 	}
 
 	chartDir, err := utils.DownloadChart(configMap, secret, chartsDir, s)
