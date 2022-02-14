@@ -24,7 +24,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strconv"
 	"strings"
@@ -84,12 +83,9 @@ func newReconciler(mgr manager.Manager, synchronizer *kubesynchronizer.KubeSynch
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	chartsDir := os.Getenv(appv1.ChartsDir)
 	if chartsDir == "" {
-		chartsDir, err := ioutil.TempDir("/tmp", "charts")
-		if err != nil {
-			return err
-		}
+		chartsDir = "/tmp/hr-charts"
 
-		err = os.Setenv(appv1.ChartsDir, chartsDir)
+		err := os.Setenv(appv1.ChartsDir, chartsDir)
 		if err != nil {
 			return err
 		}

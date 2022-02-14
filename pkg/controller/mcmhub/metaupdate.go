@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -128,11 +127,7 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 
 	chartsDir := os.Getenv(releasev1.ChartsDir)
 	if chartsDir == "" {
-		chartsDir, err = ioutil.TempDir("/tmp", "charts")
-		if err != nil {
-			klog.Error(err, " - Can not create tempdir")
-			return "", err
-		}
+		chartsDir = "/tmp/hr-charts"
 	}
 
 	chartDir, err := rUtils.DownloadChart(configMap, secret, chartsDir, s)
