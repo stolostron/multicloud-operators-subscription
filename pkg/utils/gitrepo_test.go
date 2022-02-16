@@ -840,7 +840,7 @@ func subAdminClusterRole() *rbacv1.ClusterRole {
 func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 	return &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appv1.SubscriptionAdmin,
+			Name: "some-other-binding-name",
 		},
 		Subjects: []rbacv1.Subject{
 			{
