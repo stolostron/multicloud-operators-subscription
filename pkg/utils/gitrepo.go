@@ -987,6 +987,7 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 				isUserSubAdmin = true
 			} else if subject.Kind == "Group" {
 				groupNames := strings.Split(userGroups, ",")
+
 				for _, groupName := range groupNames {
 					if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
 						klog.Info("Group match. cluster-admin: true")
@@ -1016,6 +1017,7 @@ func scanUserSubAdmin(client client.Client, userIdentity, userGroups string) boo
 		for _, binding := range bindingList.Items {
 			if binding.RoleRef.Kind == "ClusterRole" && binding.RoleRef.Name == "open-cluster-management:subscription-admin" {
 				klog.Infof("Found cluster role binding %s with open-cluster-management:subscription-admin cluster role.", binding.Name)
+
 				for _, subject := range binding.Subjects {
 					if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
 						klog.Info("User match. cluster-admin: true")
@@ -1023,6 +1025,7 @@ func scanUserSubAdmin(client client.Client, userIdentity, userGroups string) boo
 						isUserSubAdmin = true
 					} else if subject.Kind == "Group" {
 						groupNames := strings.Split(userGroups, ",")
+
 						for _, groupName := range groupNames {
 							if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
 								klog.Info("Group match. cluster-admin: true")
