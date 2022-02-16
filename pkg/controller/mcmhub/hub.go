@@ -134,13 +134,6 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	}
 
 	err = r.PropagateAppSubManifestWork(sub, clusters)
-	if err == nil {
-		// Cleanup deployables that were created pre-ACM 2.5
-		if err := r.cleanupDeployables(sub); err != nil {
-			// Log error only
-			klog.Warning(err, "Error cleaning up deployables")
-		}
-	}
 
 	return err
 }
