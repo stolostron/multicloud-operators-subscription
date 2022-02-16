@@ -96,3 +96,30 @@ else
     echo "02-placementrule: appsub deployment pod is deleted"
 fi
 echo "PASSED test case 02-placementrule"
+
+### 03-keep-namespace
+echo "STARTING test 03-keep-namespace"
+kubectl config use-context kind-hub
+kubectl create ns test-case-03
+kubectl apply -f test/e2e/cases/03-keep-namespace/
+sleep 30
+
+kubectl config use-context kind-cluster1
+if kubectl get ns test-case-03; then 
+    echo "03-keep-namespace: cluster1 namespace 03-keep-namespace is created"
+else
+    echo "03-keep-namespace FAILED: cluster1 namespace 03-keep-namespace is not present"
+    exit 1
+fi
+
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/03-keep-namespace/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl get ns test-case-03; then 
+    echo "03-keep-namespace: cluster1 namespace 03-keep-namespace is still present"
+else
+    echo "03-keep-namespace FAILED: cluster1 namespace 03-keep-namespace is not present"
+    exit 1
+fi
+echo "PASSED test case 03-keep-namespace"
