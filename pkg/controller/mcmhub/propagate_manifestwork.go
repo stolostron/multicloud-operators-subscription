@@ -248,6 +248,20 @@ func (r *ReconcileSubscription) setLocalManifestWork(cluster ManageClusters, hos
 		},
 	}
 
+	localManifestWork.Spec.DeleteOption = &manifestWorkV1.DeleteOption{
+		PropagationPolicy: manifestWorkV1.DeletePropagationPolicyTypeSelectivelyOrphan,
+		SelectivelyOrphan: &manifestWorkV1.SelectivelyOrphan{
+			OrphaningRules: []manifestWorkV1.OrphaningRule{
+				{
+					Group:     "",
+					Namespace: "",
+					Resource:  "namespaces",
+					Name:      appsub.GetNamespace(),
+				},
+			},
+		},
+	}
+
 	for i := 0; i < len(localManifestWork.Spec.Workload.Manifests); i++ {
 		klog.V(1).Infof("workload manifest: %#v", string(localManifestWork.Spec.Workload.Manifests[i].Raw))
 	}
