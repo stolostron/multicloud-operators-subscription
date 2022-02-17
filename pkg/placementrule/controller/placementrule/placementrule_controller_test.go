@@ -517,6 +517,6 @@ func TestClusterChange(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	if len(decision.Status.Decisions) != 2 {
-		t.Errorf("Failed to get all(2) clusters, placementdecision: %v", result)
+		t.Errorf("Failed to get all(2) clusters, placementdecision: %v", decision)
 	}
 }
