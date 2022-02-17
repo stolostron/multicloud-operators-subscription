@@ -980,23 +980,7 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 	if err == nil {
 		klog.Infof("ClusterRoleBinding %s found.", appv1.SubscriptionAdmin)
 
-		for _, subject := range foundClusterRoleBinding.Subjects {
-			if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
-				klog.Info("User match. cluster-admin: true")
-
-				isUserSubAdmin = true
-			} else if subject.Kind == "Group" {
-				groupNames := strings.Split(userGroups, ",")
-
-				for _, groupName := range groupNames {
-					if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
-						klog.Info("Group match. cluster-admin: true")
-
-						isUserSubAdmin = true
-					}
-				}
-			}
-		}
+		isUserSubAdmin = checkUserSubAdmin(foundClusterRoleBinding.Subjects, userIdentity, userGroups)
 	} else {
 		klog.Error(err)
 	}
@@ -1018,27 +1002,39 @@ func scanUserSubAdmin(client client.Client, userIdentity, userGroups string) boo
 			if binding.RoleRef.Kind == "ClusterRole" && binding.RoleRef.Name == "open-cluster-management:subscription-admin" {
 				klog.Infof("Found cluster role binding %s with open-cluster-management:subscription-admin cluster role.", binding.Name)
 
-				for _, subject := range binding.Subjects {
-					if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
-						klog.Info("User match. cluster-admin: true")
+				isUserSubAdmin = checkUserSubAdmin(binding.Subjects, userIdentity, userGroups)
 
-						isUserSubAdmin = true
-					} else if subject.Kind == "Group" {
-						groupNames := strings.Split(userGroups, ",")
-
-						for _, groupName := range groupNames {
-							if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
-								klog.Info("Group match. cluster-admin: true")
-
-								isUserSubAdmin = true
-							}
-						}
-					}
+				if isUserSubAdmin {
+					break
 				}
 			}
 		}
 	} else {
 		klog.Error(err)
+	}
+
+	return isUserSubAdmin
+}
+
+func checkUserSubAdmin(subjects []rbacv1.Subject, userIdentity, userGroups string) bool {
+	isUserSubAdmin := false
+
+	for _, subject := range subjects {
+		if strings.Trim(subject.Name, "") == strings.Trim(userIdentity, "") && strings.Trim(subject.Kind, "") == "User" {
+			klog.Info("User match. cluster-admin: true")
+
+			isUserSubAdmin = true
+		} else if subject.Kind == "Group" {
+			groupNames := strings.Split(userGroups, ",")
+
+			for _, groupName := range groupNames {
+				if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
+					klog.Info("Group match. cluster-admin: true")
+
+					isUserSubAdmin = true
+				}
+			}
+		}
 	}
 
 	return isUserSubAdmin
