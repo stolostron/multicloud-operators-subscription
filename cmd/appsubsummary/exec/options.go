@@ -21,11 +21,13 @@ import (
 // AppSubStatusCMDOptions for command line flag parsing.
 type AppSubStatusCMDOptions struct {
 	MetricsAddr  string
+	KubeConfig   string
 	SyncInterval int
 }
 
 var options = AppSubStatusCMDOptions{
 	MetricsAddr:  "",
+	KubeConfig:   "",
 	SyncInterval: 15,
 }
 
@@ -45,5 +47,12 @@ func ProcessFlags() {
 		"sync-interval",
 		options.SyncInterval,
 		"The interval of housekeeping in seconds.",
+	)
+
+	flag.StringVar(
+		&options.KubeConfig,
+		"kubeconfig",
+		options.KubeConfig,
+		"The kube config that points to a external api server.",
 	)
 }

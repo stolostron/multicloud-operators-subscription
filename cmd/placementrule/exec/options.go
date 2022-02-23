@@ -21,10 +21,12 @@ import (
 // PlacementRuleCMDOptions for command line flag parsing
 type PlacementRuleCMDOptions struct {
 	MetricsAddr string
+	KubeConfig  string
 }
 
 var options = PlacementRuleCMDOptions{
 	MetricsAddr: "",
+	KubeConfig:  "",
 }
 
 // ProcessFlags parses command line parameters into options
@@ -36,5 +38,12 @@ func ProcessFlags() {
 		"metrics-addr",
 		options.MetricsAddr,
 		"The address the metric endpoint binds to.",
+	)
+
+	flag.StringVar(
+		&options.KubeConfig,
+		"kubeconfig",
+		options.KubeConfig,
+		"The kube config that points to a external api server.",
 	)
 }

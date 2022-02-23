@@ -22,6 +22,7 @@ import (
 	"k8s.io/klog/v2"
 	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 )
@@ -45,7 +46,20 @@ func RunManager() {
 		klog.Info("LeaderElection disabled as not running in a cluster")
 	}
 
+	klog.Info("kubeconfig:" + options.KubeConfig)
+
+	var err error
+
 	cfg := ctrl.GetConfigOrDie()
+
+	if options.KubeConfig != "" {
+		cfg, err = utils.GetClientConfigFromKubeConfig(options.KubeConfig)
+
+		if err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+	}
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
