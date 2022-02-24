@@ -21,6 +21,7 @@ import (
 // SubscriptionCMDOptions for command line flag parsing
 type SubscriptionCMDOptions struct {
 	MetricsAddr           string
+	KubeConfig            string
 	ClusterName           string
 	HubConfigFilePathName string
 	TLSKeyFilePathName    string
@@ -31,15 +32,18 @@ type SubscriptionCMDOptions struct {
 	DeployAgent           bool
 	AgentImage            string
 	LeaseDurationSeconds  int
+	Debug                 bool
 }
 
 var Options = SubscriptionCMDOptions{
 	MetricsAddr:          "",
+	KubeConfig:           "",
 	SyncInterval:         60,
 	LeaseDurationSeconds: 60,
 	Standalone:           false,
 	DeployAgent:          false,
 	AgentImage:           "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
+	Debug:                false,
 }
 
 // ProcessFlags parses command line parameters into Options
@@ -51,6 +55,13 @@ func ProcessFlags() {
 		"metrics-addr",
 		Options.MetricsAddr,
 		"The address the metric endpoint binds to.",
+	)
+
+	flag.StringVar(
+		&Options.KubeConfig,
+		"kubeconfig",
+		Options.KubeConfig,
+		"The kube config that points to a external api server.",
 	)
 
 	flag.StringVar(
@@ -114,6 +125,13 @@ func ProcessFlags() {
 		"tls-crt-file",
 		Options.TLSCrtFilePathName,
 		"WebHook event listener TLS cert file path.",
+	)
+
+	flag.BoolVar(
+		&Options.Debug,
+		"debug",
+		false,
+		"if debug is true, hub github webhook listener will be disabled",
 	)
 
 	flag.BoolVar(
