@@ -21,6 +21,7 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
+	appsubutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -44,11 +45,25 @@ func RunManager() {
 
 		enableLeaderElection = true
 	} else {
-		klog.Info("LeaderElection disabled as not running in a cluster")
+		klog.Info("LeaderElection disabled as not running in cluster")
 	}
 
+	klog.Info("kubeconfig:" + options.KubeConfig)
+
 	// Create a new Cmd to provide shared dependencies and start components
+	var err error
+
 	cfg := ctrl.GetConfigOrDie()
+
+	if options.KubeConfig != "" {
+		cfg, err = appsubutils.GetClientConfigFromKubeConfig(options.KubeConfig)
+
+		if err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+	}
+
 	cfg.QPS = 100.0
 	cfg.Burst = 200
 

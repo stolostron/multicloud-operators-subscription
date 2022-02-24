@@ -82,10 +82,24 @@ func RunManager() {
 		leaderElectionID = "multicloud-operators-remote-subscription-leader.open-cluster-management.io"
 	}
 
+	klog.Info("kubeconfig:" + Options.KubeConfig)
+
 	// increase the dafault QPS(5) to 100, only sends 5 requests to API server
 	// seems to be unrealistic. Reading some other projects, it seems QPS 100 is
 	// a pretty common practice
+	var err error
+
 	cfg := ctrl.GetConfigOrDie()
+
+	if Options.KubeConfig != "" {
+		cfg, err = utils.GetClientConfigFromKubeConfig(Options.KubeConfig)
+
+		if err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+	}
+
 	cfg.QPS = 100.0
 	cfg.Burst = 200
 
@@ -111,6 +125,7 @@ func RunManager() {
 
 	// generate config to hub cluster
 	hubconfig := mgr.GetConfig()
+
 	if Options.HubConfigFilePathName != "" {
 		hubconfig, err = clientcmd.BuildConfigFromFlags("", Options.HubConfigFilePathName)
 
@@ -153,10 +168,12 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		// Setup Webhook listner
-		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
-			klog.Error("Failed to initialize WebHook listener with error:", err)
-			os.Exit(1)
+		if !Options.Debug {
+			// Setup Webhook listner
+			if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, true); err != nil {
+				klog.Error("Failed to initialize WebHook listener with error:", err)
+				os.Exit(1)
+			}
 		}
 	} else if !strings.EqualFold(Options.ClusterName, "") {
 		// Setup ocinfrav1 Scheme for manager
@@ -268,7 +285,7 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 		return err
 	}
 
-	if standalone {
+	if standalone && !Options.Debug {
 		// Setup Webhook listner
 		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {
 			klog.Error("Failed to initialize WebHook listener with error:", err)

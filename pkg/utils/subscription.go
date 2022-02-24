@@ -19,7 +19,9 @@ import (
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"reflect"
 	"strings"
@@ -46,6 +48,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
@@ -1312,4 +1315,31 @@ func DetectPlacementDecision(ctx context.Context, clReader client.Reader) {
 			}
 		}, time.Duration(10)*time.Second)
 	}
+}
+
+func GetClientConfigFromKubeConfig(kubeconfigFile string) (*rest.Config, error) {
+	if len(kubeconfigFile) > 0 {
+		return getClientConfig(kubeconfigFile)
+	}
+
+	return nil, errors.New("no kubeconfig file found")
+}
+
+func getClientConfig(kubeConfigFile string) (*rest.Config, error) {
+	kubeConfigBytes, err := ioutil.ReadFile(kubeConfigFile)
+	if err != nil {
+		return nil, err
+	}
+
+	kubeConfig, err := clientcmd.NewClientConfigFromBytes(kubeConfigBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	clientConfig, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	return clientConfig, nil
 }
