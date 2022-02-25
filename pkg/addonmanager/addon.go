@@ -22,7 +22,10 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/addonmanager/bindata"
 )
 
-const roleName = "application-manager-agent"
+const (
+	roleName                     = "application-manager-agent"
+	addonDefaultInstallNamespace = "open-cluster-management-agent-addon"
+)
 
 var (
 	genericScheme    = runtime.NewScheme()
@@ -49,14 +52,22 @@ func init() {
 }
 
 type subscriptionAgent struct {
-	agentImage string
-	kubeClient kubernetes.Interface
+	agentImage           string
+	kubeClient           kubernetes.Interface
+	agentInstallStrategy *agent.InstallStrategy
 }
 
-func NewAgent(agentImage string, kubeClient kubernetes.Interface) agent.AgentAddon {
+func NewAgent(agentImage string, kubeClient kubernetes.Interface, agentInstallAllStrategy bool) agent.AgentAddon {
+	var agentInstallStrategy *agent.InstallStrategy = nil
+
+	if agentInstallAllStrategy {
+		agentInstallStrategy = agent.InstallAllStrategy(addonDefaultInstallNamespace)
+	}
+
 	return &subscriptionAgent{
-		agentImage: agentImage,
-		kubeClient: kubeClient,
+		agentImage:           agentImage,
+		kubeClient:           kubeClient,
+		agentInstallStrategy: agentInstallStrategy,
 	}
 }
 
@@ -108,7 +119,8 @@ func (s *subscriptionAgent) Manifests(cluster *clusterv1.ManagedCluster, addon *
 
 func (s *subscriptionAgent) GetAgentAddonOptions() agent.AgentAddonOptions {
 	return agent.AgentAddonOptions{
-		AddonName: "application-manager",
+		AddonName:       "application-manager",
+		InstallStrategy: s.agentInstallStrategy,
 		Registration: &agent.RegistrationOption{
 			CSRConfigurations: agent.KubeClientSignerConfigurations("application-manager", "appmgr"),
 			CSRApproveCheck: func(

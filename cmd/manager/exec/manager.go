@@ -238,7 +238,7 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		addon := agentaddon.NewAgent(Options.AgentImage, kubeClient)
+		addon := agentaddon.NewAgent(Options.AgentImage, kubeClient, Options.AgentInstallAll)
 
 		if err := adddonmgr.AddAgent(addon); err != nil {
 			klog.Error("Failed to add addon to addon manager, error:", err)

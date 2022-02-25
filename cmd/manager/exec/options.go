@@ -33,6 +33,7 @@ type SubscriptionCMDOptions struct {
 	AgentImage            string
 	LeaseDurationSeconds  int
 	Debug                 bool
+	AgentInstallAll       bool
 }
 
 var Options = SubscriptionCMDOptions{
@@ -140,4 +141,11 @@ func ProcessFlags() {
 		Options.DisableTLS,
 		"Disable TLS on WebHook event listener.",
 	)
+
+	flag.BoolVar(
+		&Options.AgentInstallAll,
+		"agent-install-all",
+		false,
+		"Configure the install strategy of agent on managed clusters. "+
+			"Enabling this will automatically install agent on all managed cluster.")
 }
