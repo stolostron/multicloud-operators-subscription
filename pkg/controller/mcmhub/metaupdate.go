@@ -296,36 +296,58 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) ([]*v1.
 //test case.
 //generates the resource list for given HelmRelease
 func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) ([]*v1.ObjectReference, error) {
-	dryRunEventRecorder := record.NewBroadcaster()
-
-	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
-		DryRunClient:       true,
-		EventBroadcaster:   dryRunEventRecorder,
-	})
+	mgr, err := getManager(cfg)
 
 	if err != nil {
+		klog.Error(err.Error())
+
 		return nil, err
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	return generateResourceList(*mgr, s)
+}
 
-	go func() {
-		if err := mgr.Start(ctx); err != nil {
-			klog.Error(err)
+var theManager manager.Manager = nil
+
+func getManager(cfg *rest.Config) (*manager.Manager, error) {
+	if theManager == nil {
+		klog.Info("no existing controller manager for helm chart dry run ..")
+
+		dryRunEventRecorder := record.NewBroadcaster()
+
+		var err error = nil
+
+		theManager, err = manager.New(cfg, manager.Options{
+			MetricsBindAddress: "0",
+			LeaderElection:     false,
+			DryRunClient:       true,
+			EventBroadcaster:   dryRunEventRecorder,
+		})
+
+		if err != nil {
+			return nil, err
 		}
-	}()
 
-	defer func() {
-		cancel()
-	}()
+		ctx, cancel := context.WithCancel(context.Background())
 
-	if mgr.GetCache().WaitForCacheSync(ctx) {
-		return generateResourceList(mgr, s)
+		go func() {
+			if err := theManager.Start(ctx); err != nil {
+				klog.Error(err)
+			}
+		}()
+
+		klog.Info("helm chart dry run controller manager started")
+
+		defer func() {
+			cancel()
+		}()
+
+		if !theManager.GetCache().WaitForCacheSync(ctx) {
+			return nil, fmt.Errorf("fail to start a manager to generate the resource list")
+		}
 	}
 
-	return nil, fmt.Errorf("fail to start a manager to generate the resource list")
+	return &theManager, nil
 }
 
 func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {
