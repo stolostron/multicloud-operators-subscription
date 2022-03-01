@@ -218,8 +218,11 @@ func RunManager() {
 
 	sig := signals.SetupSignalHandler()
 
-	klog.Info("Detecting ACM Placement Decision API...")
-	utils.DetectPlacementDecision(sig, mgr.GetAPIReader())
+	// Only detect if the placementDecsion API is ready on the hub cluster
+	if !Options.Standalone && Options.ClusterName == "" {
+		klog.Info("Detecting ACM Placement Decision API on the hub...")
+		utils.DetectPlacementDecision(sig, mgr.GetAPIReader())
+	}
 
 	klog.Info("Starting the Cmd.")
 
