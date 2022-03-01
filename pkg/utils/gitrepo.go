@@ -259,8 +259,8 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		klog.Error("Failed to get Git clone options with the primary channel. Trying the secondary channel.")
 
 		usingPrimary = false
-		options, err = getConnectionOptions(cloneOptions, false)
 
+		options, err = getConnectionOptions(cloneOptions, false)
 		if err != nil {
 			klog.Error("Failed to get Git clone options with the secondary channel.")
 
