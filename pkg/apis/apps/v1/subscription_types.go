@@ -102,6 +102,8 @@ const (
 	MergeReconcile = "merge"
 	// ReplaceReconcile replaces fields in resources using kubernetes update
 	ReplaceReconcile = "replace"
+	// MergeAndOwnReconcile creates or updates fields in resources using kubernetes patch and take ownership of the resource
+	MergeAndOwnReconcile = "mergeAndOwn"
 	// SubscriptionNameSuffix is appended to the subscription name when propagated to managed clusters
 	SubscriptionNameSuffix = ""
 	// ChannelCertificateData is the configmap data spec field containing trust certificates
