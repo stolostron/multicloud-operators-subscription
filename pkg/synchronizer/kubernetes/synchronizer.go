@@ -91,6 +91,17 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 		return nil
 	}
 
+	annotations := pkgObj.GetAnnotations()
+
+	// The resource might not be owned by the subscription if you deployed the susbcription
+	// with subscription-admin role and merge option. In this case, do not delete the resource on subscription deletion.
+	if annotations[appv1alpha1.AnnotationHosting] != (hostSub.Namespace + "/" + hostSub.Name) {
+		klog.Infof("appsub: %v, pkgName: %v, pkgNamespace: %v, is not owned by the subscription. Skip deleting.",
+			hostSub, pkgStatus.Name, pkgStatus.Namespace)
+
+		return nil
+	}
+
 	deletepolicy := metav1.DeletePropagationBackground
 	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 
@@ -387,7 +398,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		// subscription specific annotations are removed.
 		if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") &&
 			(strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) ||
-				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile)) {
+				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile) ||
+				strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeAndOwnReconcile)) {
 			klog.Infof("Resource %s/%s will be updated with reconcile option: %s.",
 				tplunit.GetNamespace(),
 				tplunit.GetName(),
@@ -402,7 +414,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		}
 	}
 
-	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile) {
+	if !strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) {
 		merge = false
 	}
 
