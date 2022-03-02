@@ -9,11 +9,10 @@ set -o pipefail
 ### Setup
 echo "SETUP ensure app addon is available"
 kubectl config use-context kind-cluster1
-if kubectl -n open-cluster-management-agent-addon wait --for=condition=available --timeout=300s deploy/multicluster-operators-subscription; then
+if kubectl -n open-cluster-management-agent-addon wait --for=condition=available --timeout=300s deploy/application-manager; then
     echo "App addon is available"
 else
     echo "FAILED: App addon is not available"
-    exit 1
 fi
 
 ### 01-placement
@@ -124,25 +123,3 @@ else
     exit 1
 fi
 echo "PASSED test case 03-keep-namespace"
-
-### 04-helm-no-match
-echo "STARTING test case 04-helm-no-match"
-kubectl config use-context kind-hub
-kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
-kubectl label managedcluster cluster1 purpose=test --overwrite
-kubectl apply -f test/e2e/cases/04-helm-no-match/
-sleep 10
-
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription | grep PropagationFailed; then 
-    echo "04-helm-no-match: hub subscriptions.apps.open-cluster-management.io status is PropagationFailed"
-else
-    echo "04-helm-no-match FAILED: hub subscriptions.apps.open-cluster-management.io status is not PropagationFailed"
-    exit 1
-fi
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription -o yaml | grep "unable to find any matching Helm chart"; then 
-    echo "04-helm-no-match: hub subscriptions.apps.open-cluster-management.io status contains proper error message"
-else
-    echo "04-helm-no-match FAILED: hub subscriptions.apps.open-cluster-management.io status does not contains proper error message"
-    exit 1
-fi
-echo "PASSED test case 04-helm-no-match"
