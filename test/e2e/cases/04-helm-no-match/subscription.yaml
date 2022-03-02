@@ -1,0 +1,12 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: demo-subscription
+  namespace: default
+spec:
+  channel: default/demo-helmrepo
+  name: this-chart-doesn't-exist
+  placement:
+    placementRef: 
+      name: demo-placement
+      kind: Placement
