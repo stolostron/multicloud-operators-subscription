@@ -32,10 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
-	addonframeworkmgr "open-cluster-management.io/addon-framework/pkg/addonmanager"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
-	agentaddon "open-cluster-management.io/multicloud-operators-subscription/pkg/addonmanager"
+	agentaddon "open-cluster-management.io/multicloud-operators-subscription/addon"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
@@ -227,24 +226,10 @@ func RunManager() {
 	klog.Info("Starting the Cmd.")
 
 	// Start addon manager
-	if !Options.Standalone && Options.ClusterName == "" && Options.DeployAgent {
-		kubeClient, err := kubernetes.NewForConfig(cfg)
-		if err != nil {
-			klog.Error("Failed to setup kube client, error:", err)
-			os.Exit(1)
-		}
-
-		adddonmgr, err := addonframeworkmgr.New(cfg)
-
+	if !Options.Standalone && Options.ClusterName == "" {
+		adddonmgr, err := agentaddon.NewAddonManager(cfg, Options.AgentImage, Options.AgentInstallAll)
 		if err != nil {
 			klog.Error("Failed to setup addon manager, error:", err)
-			os.Exit(1)
-		}
-
-		addon := agentaddon.NewAgent(Options.AgentImage, kubeClient, Options.AgentInstallAll)
-
-		if err := adddonmgr.AddAgent(addon); err != nil {
-			klog.Error("Failed to add addon to addon manager, error:", err)
 			os.Exit(1)
 		}
 

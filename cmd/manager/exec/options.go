@@ -29,7 +29,6 @@ type SubscriptionCMDOptions struct {
 	SyncInterval          int
 	DisableTLS            bool
 	Standalone            bool
-	DeployAgent           bool
 	AgentImage            string
 	LeaseDurationSeconds  int
 	Debug                 bool
@@ -42,7 +41,6 @@ var Options = SubscriptionCMDOptions{
 	SyncInterval:         60,
 	LeaseDurationSeconds: 60,
 	Standalone:           false,
-	DeployAgent:          false,
 	AgentImage:           "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
 	Debug:                false,
 }
@@ -98,13 +96,6 @@ func ProcessFlags() {
 		"standalone",
 		Options.Standalone,
 		"Standalone mode.",
-	)
-
-	flag.BoolVar(
-		&Options.DeployAgent,
-		"deploy-agent",
-		Options.DeployAgent,
-		"Deploy agent by hub controller.",
 	)
 
 	flag.StringVar(

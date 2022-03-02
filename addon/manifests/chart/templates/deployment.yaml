@@ -1,0 +1,109 @@
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  name: {{ template "application-manager.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    component: "application-manager"
+spec:
+  replicas: 1
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      component: "application-manager"
+  template:
+    metadata:
+      annotations:
+        target.workload.openshift.io/management: '{"effect": "PreferredDuringScheduling"}'
+      labels:
+        component: "application-manager"
+    spec:
+      serviceAccountName: {{ template "application-manager.fullname" . }}
+      containers:
+      - name: subscription-controller
+        image: "{{ .Values.global.imageOverrides.multicluster_operators_subscription }}"
+        imagePullPolicy: "{{ .Values.global.imagePullPolicy }}"
+        env:
+          - name: WATCH_NAMESPACE
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.name
+          - name: OPERATOR_NAME
+            value: "subscription-controller"
+          {{- if .Values.global.proxyConfig.HTTP_PROXY }}
+          - name: HTTP_PROXY
+            value: {{ .Values.global.proxyConfig.HTTP_PROXY }}
+          {{- end }}
+          {{- if .Values.global.proxyConfig.HTTPS_PROXY }}
+          - name: HTTPS_PROXY
+            value: {{ .Values.global.proxyConfig.HTTPS_PROXY }}
+          {{- end }}
+          {{- if .Values.global.proxyConfig.NO_PROXY }}
+          - name: NO_PROXY
+            value: {{ .Values.global.proxyConfig.NO_PROXY }}
+            {{- end }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        livenessProbe:
+          exec:
+            command:
+            - ls
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        readinessProbe:
+          exec:
+            command:
+            - ls
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        securityContext:
+          privileged: false
+          readOnlyRootFilesystem: false
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL
+        command: ["/usr/local/bin/multicluster-operators-subscription"]
+        args:
+          - "--alsologtostderr"
+          - "--cluster-name={{ .Values.clusterName }}"
+          - "--hub-cluster-configfile=/var/run/klusterlet/kubeconfig"
+        livenessProbe:
+          exec:
+            command:
+            - ls
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        readinessProbe:
+          exec:
+            command:
+            - ls
+          initialDelaySeconds: 15
+          periodSeconds: 15
+        volumeMounts:
+          - name: klusterlet-config
+            mountPath: /var/run/klusterlet
+      volumes:
+        - name: klusterlet-config
+          secret:
+            secretName: {{ .Values.hubKubeConfigSecret }}
+      {{- if .Values.global.imagePullSecret }}
+      imagePullSecrets:
+      - name: "{{ .Values.global.imagePullSecret }}"
+      {{- end }}
+      {{- with .Values.global.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+      {{- end }}

@@ -9,7 +9,7 @@ set -o pipefail
 ### Setup
 echo "SETUP ensure app addon is available"
 kubectl config use-context kind-cluster1
-if kubectl -n open-cluster-management-agent-addon wait --for=condition=available --timeout=300s deploy/multicluster-operators-subscription; then
+if kubectl -n open-cluster-management-agent-addon wait --for=condition=available --timeout=300s deploy/application-manager; then
     echo "App addon is available"
 else
     echo "FAILED: App addon is not available"
