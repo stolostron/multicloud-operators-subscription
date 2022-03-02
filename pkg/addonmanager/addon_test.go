@@ -37,7 +37,7 @@ func TestManifests(t *testing.T) {
 
 	fakeKubeClient := fakekube.NewSimpleClientset()
 
-	agent := NewAgent("test", fakeKubeClient)
+	agent := NewAgent("test", fakeKubeClient, false)
 
 	objects, err := agent.Manifests(cluster, addon)
 
@@ -80,7 +80,7 @@ func TestPermissionFunc(t *testing.T) {
 
 	fakeKubeClient := fakekube.NewSimpleClientset()
 
-	agent := NewAgent("test", fakeKubeClient)
+	agent := NewAgent("test", fakeKubeClient, false)
 
 	err := agent.GetAgentAddonOptions().Registration.PermissionConfig(cluster, addon)
 

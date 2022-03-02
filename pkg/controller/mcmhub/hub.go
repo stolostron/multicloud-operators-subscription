@@ -103,7 +103,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		resources, err = r.GetGitResources(sub, isAdmin)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		resources, err = getHelmTopoResources(r.Client, r.cfg, r.restMapper, primaryChannel, secondaryChannel, sub, isAdmin)
+		resources, err = getHelmTopoResources(r.Client, r.cfg, primaryChannel, secondaryChannel, sub, isAdmin)
 	case chnv1alpha1.ChannelTypeObjectBucket:
 		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, isAdmin)
 	}

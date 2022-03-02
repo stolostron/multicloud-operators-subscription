@@ -552,10 +552,6 @@ func GetSubscriptionChartsOnHub(hubClt client.Client, channel, secondChannel *ch
 		}
 	}
 
-	if indexFile != nil && indexFile.Entries != nil && len(indexFile.Entries) == 0 {
-		return nil, fmt.Errorf("unable to find any matching Helm chart for deployment. Check the Helm repo and the subscription's filter values")
-	}
-
 	return ChartIndexToHelmReleases(hubClt, channel, secondChannel, sub, indexFile)
 }
 

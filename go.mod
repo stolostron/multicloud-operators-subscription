@@ -14,7 +14,7 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
 	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.17.0
-	github.com/openshift/api v3.9.1-0.20190924102528-32369d4db2ad+incompatible
+	github.com/openshift/api v0.0.0-20211209135129-c58d9f695577
 	github.com/openshift/library-go v0.0.0-20220203150523-45e0cded6a36
 	github.com/operator-framework/operator-lib v0.10.0
 	github.com/pkg/errors v0.9.1
@@ -33,12 +33,13 @@ require (
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.40.1
-	open-cluster-management.io/addon-framework v0.2.0
+	open-cluster-management.io/addon-framework v0.2.1-0.20220217081958-3a1dfe85a86f
 	open-cluster-management.io/api v0.6.0
 	open-cluster-management.io/multicloud-operators-channel v0.6.1-0.20220211220806-5d96f748742d
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/kustomize/api v0.11.1
 	sigs.k8s.io/kustomize/kyaml v0.13.3
+	sigs.k8s.io/yaml v1.3.0
 )
 
 require (
@@ -93,6 +94,7 @@ require (
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	github.com/fatih/structs v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.1 // indirect
 	github.com/gliderlabs/ssh v0.3.3 // indirect
 	github.com/go-errors/errors v1.4.2 // indirect
@@ -194,13 +196,14 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	k8s.io/apiserver v0.23.3 // indirect
 	k8s.io/component-base v0.23.3 // indirect
+	k8s.io/kube-aggregator v0.23.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf // indirect
 	k8s.io/kubectl v0.23.3 // indirect
 	k8s.io/utils v0.0.0-20220127004650-9b3446523e65 // indirect
 	oras.land/oras-go v1.1.0 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
+	sigs.k8s.io/kube-storage-version-migrator v0.0.4 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (

@@ -504,7 +504,7 @@ func TestClusterChange(t *testing.T) {
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	time.Sleep(8 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	err = c.Get(context.TODO(), prulekey, result)
 	g.Expect(err).NotTo(gomega.HaveOccurred())

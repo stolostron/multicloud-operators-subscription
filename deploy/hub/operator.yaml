@@ -24,7 +24,6 @@ spec:
           command:
           - /usr/local/bin/multicluster-operators-subscription
           - --sync-interval=60
-          - --deploy-agent
           imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE

@@ -23,7 +23,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -111,7 +110,6 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		// used for the helm to run get the resource list
 		cfg:                 mgr.GetConfig(),
 		scheme:              mgr.GetScheme(),
-		restMapper:          mgr.GetRESTMapper(),
 		eventRecorder:       erecorder,
 		logger:              logger,
 		hookRequeueInterval: defaultHookRequeueInterval,
@@ -375,7 +373,6 @@ type ReconcileSubscription struct {
 	hookRequeueInterval time.Duration
 	hooks               HookProcessor
 	hubGitOps           GitOps
-	restMapper          meta.RESTMapper
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding

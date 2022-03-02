@@ -29,10 +29,10 @@ type SubscriptionCMDOptions struct {
 	SyncInterval          int
 	DisableTLS            bool
 	Standalone            bool
-	DeployAgent           bool
 	AgentImage            string
 	LeaseDurationSeconds  int
 	Debug                 bool
+	AgentInstallAll       bool
 }
 
 var Options = SubscriptionCMDOptions{
@@ -41,7 +41,6 @@ var Options = SubscriptionCMDOptions{
 	SyncInterval:         60,
 	LeaseDurationSeconds: 60,
 	Standalone:           false,
-	DeployAgent:          false,
 	AgentImage:           "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
 	Debug:                false,
 }
@@ -99,13 +98,6 @@ func ProcessFlags() {
 		"Standalone mode.",
 	)
 
-	flag.BoolVar(
-		&Options.DeployAgent,
-		"deploy-agent",
-		Options.DeployAgent,
-		"Deploy agent by hub controller.",
-	)
-
 	flag.StringVar(
 		&Options.AgentImage,
 		"agent-image",
@@ -140,4 +132,11 @@ func ProcessFlags() {
 		Options.DisableTLS,
 		"Disable TLS on WebHook event listener.",
 	)
+
+	flag.BoolVar(
+		&Options.AgentInstallAll,
+		"agent-install-all",
+		false,
+		"Configure the install strategy of agent on managed clusters. "+
+			"Enabling this will automatically install agent on all managed cluster.")
 }
