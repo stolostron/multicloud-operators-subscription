@@ -45,6 +45,11 @@ IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/$(IMG):$(VERSION)
 export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
 export TEST_GIT_REPO_URL = github.com/stolostron/multicloud-operators-subscription
 
+BASE_DIR := $(shell basename $(PWD))
+
+# Controller runtime need use this variable as tmp cache dir. if not set, ut will fail in prow
+export XDG_CACHE_HOME ?= $(BASE_DIR)/.cache
+
 .PHONY: build
 
 build:
