@@ -16,7 +16,6 @@ package mcmhub
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -38,12 +37,11 @@ import (
 	"k8s.io/client-go/discovery"
 	cached "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/rest"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
@@ -141,7 +139,7 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 	return chartDir, nil
 }
 
-func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel,
+func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper, channel, secondChannel *chnv1.Channel,
 	sub *subv1.Subscription, isAdmin bool) ([]*v1.ObjectReference, error) {
 	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
 	if err != nil {
@@ -155,7 +153,7 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 	cfg := rest.CopyConfig(hubCfg)
 
 	for _, helmRl := range helmRls {
-		objList, err := GenerateResourceListByConfig(cfg, helmRl)
+		objList, err := generateResourceList(hubClt, rm, cfg, helmRl)
 		if err != nil {
 			return nil, gerr.Wrap(err, "failed to get object lists")
 		}
@@ -187,8 +185,8 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, channel, se
 }
 
 //generateResourceList generates the resource list for given HelmRelease
-func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) ([]*v1.ObjectReference, error) {
-	chartDir, err := downloadChart(mgr.GetClient(), s)
+func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) ([]*v1.ObjectReference, error) {
+	chartDir, err := downloadChart(client, s)
 	if err != nil {
 		klog.Error(err, " - Failed to download the chart")
 		return nil, err
@@ -216,7 +214,7 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) ([]*v1.
 		return nil, fmt.Errorf("failed to load chart dir: %w", err)
 	}
 
-	rcg, err := newRESTClientGetter(mgr, s.Namespace)
+	rcg, err := newRESTClientGetter(rm, cfg, s.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get REST client getter from manager: %w", err)
 	}
@@ -290,66 +288,6 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) ([]*v1.
 	return resources, nil
 }
 
-//GenerateResourceListByConfig this func and it's child funcs(downloadChart,
-//generateResourceList) is a clone of from the helmrelease. Having this clone
-//give us the flexiblity to modify the function parameters,which helped to pass
-//test case.
-//generates the resource list for given HelmRelease
-func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) ([]*v1.ObjectReference, error) {
-	mgr, err := getManager(cfg)
-
-	if err != nil {
-		klog.Error(err.Error())
-
-		return nil, err
-	}
-
-	return generateResourceList(*mgr, s)
-}
-
-var theManager manager.Manager = nil
-
-func getManager(cfg *rest.Config) (*manager.Manager, error) {
-	if theManager == nil {
-		klog.Info("no existing controller manager for helm chart dry run ..")
-
-		dryRunEventRecorder := record.NewBroadcaster()
-
-		var err error = nil
-
-		theManager, err = manager.New(cfg, manager.Options{
-			MetricsBindAddress: "0",
-			LeaderElection:     false,
-			DryRunClient:       true,
-			EventBroadcaster:   dryRunEventRecorder,
-		})
-
-		if err != nil {
-			return nil, err
-		}
-
-		ctx, cancel := context.WithCancel(context.Background())
-
-		go func() {
-			if err := theManager.Start(ctx); err != nil {
-				klog.Error(err)
-			}
-		}()
-
-		klog.Info("helm chart dry run controller manager started")
-
-		defer func() {
-			cancel()
-		}()
-
-		if !theManager.GetCache().WaitForCacheSync(ctx) {
-			return nil, fmt.Errorf("fail to start a manager to generate the resource list")
-		}
-	}
-
-	return &theManager, nil
-}
-
 func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 	applied := r.hooks.GetLastAppliedInstance(subKey)
@@ -394,16 +332,13 @@ func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map
 	return anno
 }
 
-func newRESTClientGetter(mgr manager.Manager, ns string) (genericclioptions.RESTClientGetter, error) {
-	cfg := mgr.GetConfig()
-
+func newRESTClientGetter(rm meta.RESTMapper, cfg *restclient.Config, ns string) (genericclioptions.RESTClientGetter, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	cdc := cached.NewMemCacheClient(dc)
-	rm := mgr.GetRESTMapper()
 
 	return &restClientGetter{
 		restConfig:      cfg,

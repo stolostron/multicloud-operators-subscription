@@ -227,7 +227,7 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 		klog.V(1).Info("Status update", request.NamespacedName, " with err:", err)
 	}
 
-	err = r.syncPlacementDecisions(ctx, instance.Namespace, instance.Name)
+	err = r.syncPlacementDecisions(ctx, *instance)
 	if err != nil {
 		klog.Warning("err:", err)
 	}

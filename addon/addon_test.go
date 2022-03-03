@@ -123,6 +123,7 @@ func TestManifest(t *testing.T) {
 				}
 			}
 
+			// output is for debug
 			// output(t, test.name, objects...)
 		})
 	}
