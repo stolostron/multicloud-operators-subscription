@@ -40,17 +40,8 @@ const (
 // syncPlacementDecisions create/update/delete placementdecisions based on PlacementRule's status.decisions
 // based on https://github.com/open-cluster-management-io/placement/blob/v0.2.0/pkg/controllers/scheduling/scheduling_controller.go#L339
 func (r *ReconcilePlacementRule) syncPlacementDecisions(ctx context.Context,
-	prNamespace string, prName string) error {
-	klog.Info("syncPlacementDecisions placementrule ", prNamespace, "/", prName)
-
-	prNsn := types.NamespacedName{Namespace: prNamespace, Name: prName}
-
-	placementRule := &placementruleapi.PlacementRule{}
-
-	err := r.Get(ctx, prNsn, placementRule)
-	if err != nil {
-		return err
-	}
+	placementRule placementruleapi.PlacementRule) error {
+	klog.Info("syncPlacementDecisions placementrule ", placementRule.Namespace, "/", placementRule.Name)
 
 	var prDecisions []placementruleapi.PlacementDecision
 
@@ -95,7 +86,7 @@ func (r *ReconcilePlacementRule) syncPlacementDecisions(ctx context.Context,
 		placementDecisionName := fmt.Sprintf("%s-decision-%d", placementRule.Name, index+1)
 		placementDecisionNames.Insert(placementDecisionName)
 		err := r.createOrUpdatePlacementDecision(
-			ctx, *placementRule, placementDecisionName, decisionSlice)
+			ctx, placementRule, placementDecisionName, decisionSlice)
 
 		if err != nil {
 			errs = append(errs, err)

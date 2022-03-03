@@ -66,6 +66,38 @@ I0207 22:59:38.422618       1 mcmhub_controller.go:518] subscription-hub-reconci
 - Make sure the hub subscription pod is restarted to run.
 - Check more details from the hub subscription pod log
 
+### Set up memory limit for the hub subscription pod
+
+- Open the ACM csv, search the `multicluster-operators-hub-subscription` container, update the memory limit, save the csv
+
+```
+% oc edit csv -n open-cluster-management advanced-cluster-management.v2.5.0
+
+      - name: multicluster-operators-hub-subscription
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              app: multicluster-operators-hub-subscription
+              ......
+
+                resources:
+                  limits:
+                    cpu: 750m
+                    memory: 2Gi                 ================> this is the hub subscription pod memory limit, update it to 4Gi for example.
+                  requests:
+                    cpu: 150m
+                    memory: 128Mi
+
+```
+- verify the hub subscription pod should be restarted with the new memory limit. It could take a while for OLM to be reconciled to do so.
+
+```
+% oc get pods -n open-cluster-management |grep hub-sub
+multicluster-operators-hub-subscription-58858c488f-c52zt          1/1     Running     2 (28h ago)      27d
+```
+
+
 
 ## Managed Subscription Pod
 
@@ -107,19 +139,30 @@ I0204 02:25:56.525992       1 subscription_controller.go:188] Standalone/Endpoin
 
 - Find the managed cluster Name ${CLUSTER_NAME}
 ```
-% oc get managedclusters 
+% oc get managedclusters
 NAME               HUB ACCEPTED   MANAGED CLUSTER URLS                                          JOINED   AVAILABLE   AGE
 local-cluster      true           https://api.playback-next.demo.red-chesterfield.com:6443      True     True        4d2h
 playback-3node-1   true           https://api.playback-3node-1.demo.red-chesterfield.com:6443   True     True        3d13h
 ```
 
-- Stop Reconcile
+- On the hub cluster, stop Reconcile
 To patch the managed subscription pod on the managed cluster, you need to first stop reconcile of the KlusterletAddonConfig on hub
 ```
 % oc annotate klusterletaddonconfig -n ${CLUSTER_NAME} ${CLUSTER_NAME} klusterletaddonconfig-pause=true --overwrite=true
 ```
 
-- Open the managed cluster deployment on the managed cluster, append the log level to 1, save the deployment 
+- On the hub cluster,scale Down klusterlet-addon-operator
+```
+% oc edit manifestwork -n ${CLUSTER_NAME}  ${CLUSTER_NAME}-klusterlet-addon-operator
+
+search for Deployment. Set spec.replicas to 0:
+```
+- On the managed cluster, make sure the klusterlet-addon-operator pod is terminated.
+```
+% oc get pods -n open-cluster-management-agent-addon |grep klusterlet-addon-operator
+```
+
+- On the managed cluster, edit the appmgr addon deployment to set the log level to 1, save the deployment
 
 ```
 % oc edit deployments -n open-cluster-management-agent-addon  klusterlet-addon-appmgr
@@ -133,8 +176,56 @@ To patch the managed subscription pod on the managed cluster, you need to first 
 ```
 
 - Make sure the managed subscription pod is restarted to run.
+```
+% oc get pods -n open-cluster-management-agent-addon  |grep klusterlet-addon-appmgr
+klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0          14s
+```
 
 - Check more details from the managed subscription pod log.
+
+### Set up memory limit for the managed subscription pod
+
+- Find the managed cluster Name ${CLUSTER_NAME}
+```
+% oc get managedclusters
+NAME               HUB ACCEPTED   MANAGED CLUSTER URLS                                          JOINED   AVAILABLE   AGE
+local-cluster      true           https://api.playback-next.demo.red-chesterfield.com:6443      True     True        4d2h
+playback-3node-1   true           https://api.playback-3node-1.demo.red-chesterfield.com:6443   True     True        3d13h
+```
+
+- On the hub cluster, stop Reconcile
+To patch the managed subscription pod on the managed cluster, you need to first stop reconcile of the KlusterletAddonConfig on hub
+```
+% oc annotate klusterletaddonconfig -n ${CLUSTER_NAME} ${CLUSTER_NAME} klusterletaddonconfig-pause=true --overwrite=true
+```
+
+- On the hub cluster,scale Down klusterlet-addon-operator
+```
+% oc edit manifestwork -n ${CLUSTER_NAME}  ${CLUSTER_NAME}-klusterlet-addon-operator
+
+search for Deployment. Set spec.replicas to 0:
+```
+- On the managed cluster, make sure the klusterlet-addon-operator pod is terminated.
+```
+% oc get pods -n open-cluster-management-agent-addon |grep klusterlet-addon-operator
+```
+
+- On the managed cluster, find and replace the memory limit to your desired value
+```
+% oc edit deployments -n open-cluster-management-agent-addon  klusterlet-addon-appmgr
+...
+        resources:
+          limits:
+            memory: 2Gi               ================> this is the managed subscription pod memory limit, update it to 3Gi for example.
+          requests:
+            memory: 128Mi
+```
+
+- Make sure the managed subscription pod is restarted wit the new memory limit.
+```
+% oc get pods -n open-cluster-management-agent-addon  |grep klusterlet-addon-appmgr
+klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0          14s
+```
 
 
 ## How subscription status is reported
@@ -313,4 +404,3 @@ This CLI, uses identity details in the Application subscriptionReport, to create
 The CLI can be downloaded here:
 
 https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
-
