@@ -48,26 +48,39 @@ func GetPassword(secret *corev1.Secret) string {
 func GetConfigMap(client client.Client, parentNamespace string, configMapRef *corev1.ObjectReference) (configMap *corev1.ConfigMap, err error) {
 	if configMapRef != nil {
 		klog.V(5).Info("Retrieve configMap ", parentNamespace, "/", configMapRef.Name)
+
+		// The secret is copied into the subscription namespace on managed cluster.
+		// If namespace is not specified, look for the secret in the parent (subscription) namespace.
+		// If namespace is specified, FIRST look for the secret in the specified namespace.
+		//     THEN look for the secret in the parent (subscription) namespace.
+		usingParentNs := false
+
 		ns := configMapRef.Namespace
 
 		if ns == "" {
 			ns = parentNamespace
+			usingParentNs = true
 		}
 
 		configMap = &corev1.ConfigMap{}
 
 		err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: configMapRef.Name}, configMap)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				return nil, nil
+			if !usingParentNs && errors.IsNotFound(err) {
+				// Now try to find the config map in subscription namespace
+				err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: configMapRef.Name}, configMap)
+
+				if err != nil {
+					return nil, err
+				}
+
+				klog.Info("configMap found ", "Name: ", configMapRef.Name, " in namespace: ", parentNamespace)
+			} else {
+				return nil, err
 			}
-
-			klog.Error(err, " - Failed to get configMap ", "Name: ", configMapRef.Name, " on namespace: ", ns)
-
-			return nil, err
+		} else {
+			klog.Info("ConfigMap found ", "Name:", configMapRef.Name, " in namespace: ", ns)
 		}
-
-		klog.V(5).Info("ConfigMap found ", "Name:", configMapRef.Name, " on namespace: ", ns)
 	} else {
 		klog.V(5).Info("no configMapRef defined ", "parentNamespace", parentNamespace)
 	}
@@ -80,19 +93,37 @@ func GetSecret(client client.Client, parentNamespace string, secretRef *corev1.O
 	if secretRef != nil {
 		klog.V(5).Info("retrieve secret :", parentNamespace, "/", secretRef)
 
+		// The secret is copied into the subscription namespace on managed cluster.
+		// If namespace is not specified, look for the secret in the parent (subscription) namespace.
+		// If namespace is specified, FIRST look for the secret in the specified namespace.
+		//     THEN look for the secret in the parent (subscription) namespace.
+		usingParentNs := false
+
 		ns := secretRef.Namespace
 		if ns == "" {
 			ns = parentNamespace
+			usingParentNs = true
 		}
 
 		secret = &corev1.Secret{}
 
 		err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: secretRef.Name}, secret)
 		if err != nil {
-			return nil, err
-		}
+			if !usingParentNs && errors.IsNotFound(err) {
+				// Now try to find the secret in subscription namespace
+				err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: secretRef.Name}, secret)
 
-		klog.V(5).Info("Secret found ", "Name: ", secretRef.Name, " on namespace: ", ns)
+				if err != nil {
+					return nil, err
+				}
+
+				klog.Info("Secret found ", "Name: ", secretRef.Name, " in namespace: ", parentNamespace)
+			} else {
+				return nil, err
+			}
+		} else {
+			klog.Info("Secret found ", "Name: ", secretRef.Name, " in namespace: ", ns)
+		}
 	} else {
 		klog.V(5).Info("No secret defined at ", "parentNamespace", parentNamespace)
 	}
