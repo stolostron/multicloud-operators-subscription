@@ -410,11 +410,11 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 			errmsg := "Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff"
 			klog.Info(errmsg)
 
-			return err
+			return errors.NewBadRequest("Obj " + tplunit.GetNamespace() + "/" + tplunit.GetName() + " exists and owned by others, backoff")
 		}
 	}
 
-	if !strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeReconcile) {
+	if strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.ReplaceReconcile) {
 		merge = false
 	}
 
@@ -434,7 +434,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	// deleted when the subscription is removed.
 	// If subscription-admin chooses replace option, keep the typical annotations we add. Subscription takes over the resources.
 	// When the subscription is removed, the resources will be removed too.
-	if overwrite && merge {
+	// If mergeAndOwn, do not remove the annotations and ownerRef. We want to merge and also take ownership of the existing resource.
+	if overwrite && merge && !strings.EqualFold(tmplAnnotations[appv1alpha1.AnnotationResourceReconcileOption], appv1alpha1.MergeAndOwnReconcile) {
 		// If overwriting someone else's resource, remove annotations like hosting subscription... etc
 		newobj = utils.RemoveSubAnnotations(newobj)
 		newobj = utils.RemoveSubOwnerRef(newobj)
@@ -496,6 +497,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 
 	if err != nil {
 		klog.Error("Failed to update resource with error:", err)
+
+		return err
 	}
 
 	if strings.EqualFold(tplunit.GetKind(), "subscription") && hasHostSubscription {
