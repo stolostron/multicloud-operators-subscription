@@ -13,7 +13,7 @@ enabled: true
 subscriptionrelease:
   enabled: true
   image:
-    repository: quay.io/open-cluster-management/multicloud-operators-subscription-release:latest
+    repository: quay.io/stolostron/multicloud-operators-subscription-release:latest
     tag: latest
     pullPolicy: IfNotPresent
   hostname: mycluster.icp

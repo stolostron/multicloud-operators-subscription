@@ -15,7 +15,7 @@
 package controller
 
 import (
-	"github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
+	"github.com/stolostron/multicloud-operators-subscription-release/pkg/controller/helmrelease"
 )
 
 func init() {

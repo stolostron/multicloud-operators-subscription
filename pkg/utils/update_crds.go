@@ -47,7 +47,7 @@ var (
 			"crdName": "apps.open-cluster-management.io_placementrules_crd.yaml",
 		},
 		"helmrelease": {
-			"url":     "https://raw.githubusercontent.com/open-cluster-management/multicloud-operators-subscription-release/master/deploy/crds/apps.open-cluster-management.io_helmreleases_crd.yaml", // nolint:lll // fix url
+			"url":     "https://raw.githubusercontent.com/stolostron/multicloud-operators-subscription-release/master/deploy/crds/apps.open-cluster-management.io_helmreleases_crd.yaml", // nolint:lll // fix url
 			"crdName": "apps.open-cluster-management.io_helmrelease_crd.yaml",
 		},
 		"managedcluster": {

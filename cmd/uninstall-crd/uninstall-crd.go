@@ -27,8 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	releaseapis "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis"
 	dplapis "github.com/stolostron/multicloud-operators-deployable/pkg/apis"
+	releaseapis "github.com/stolostron/multicloud-operators-subscription-release/pkg/apis"
 	subapis "github.com/stolostron/multicloud-operators-subscription/pkg/apis"
 	"github.com/stolostron/multicloud-operators-subscription/pkg/utils"
 )

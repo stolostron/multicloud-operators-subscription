@@ -48,12 +48,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	releasev1 "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 	chnv1 "github.com/stolostron/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
+	releasev1 "github.com/stolostron/multicloud-operators-subscription-release/pkg/apis/apps/v1"
 
-	rHelper "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/controller/helmrelease"
-	rUtils "github.com/open-cluster-management/multicloud-operators-subscription-release/pkg/utils"
+	rHelper "github.com/stolostron/multicloud-operators-subscription-release/pkg/controller/helmrelease"
+	rUtils "github.com/stolostron/multicloud-operators-subscription-release/pkg/utils"
 	appv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "github.com/stolostron/multicloud-operators-subscription/pkg/apis/apps/v1"
 	helmops "github.com/stolostron/multicloud-operators-subscription/pkg/subscriber/helmrepo"
