@@ -16,7 +16,6 @@ package mcmhub
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -36,6 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/cli-runtime/pkg/resource"
+	restclient "k8s.io/client-go/rest"
 
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/discovery"
@@ -43,10 +43,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "github.com/stolostron/multicloud-operators-channel/pkg/apis/apps/v1"
 	dplv1 "github.com/stolostron/multicloud-operators-deployable/pkg/apis/apps/v1"
@@ -119,7 +117,8 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) (bool, error) {
+func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper,
+	channel, secondChannel *chnv1.Channel, sub *subv1.Subscription) (bool, error) {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
@@ -131,7 +130,7 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, channel
 		return false, err
 	}
 
-	expectTopo, err := generateResrouceList(hubCfg, helmRls)
+	expectTopo, err := generateResrouceList(hubClt, hubCfg, rm, helmRls)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false, err
@@ -147,12 +146,12 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, channel
 	return false, nil
 }
 
-func generateResrouceList(hubCfg *rest.Config, helmRls []*releasev1.HelmRelease) (string, error) {
+func generateResrouceList(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper, helmRls []*releasev1.HelmRelease) (string, error) {
 	res := make([]string, 0)
 	cfg := rest.CopyConfig(hubCfg)
 
 	for _, helmRl := range helmRls {
-		resList, err := GenerateResourceListByConfig(cfg, helmRl)
+		resList, err := generateResourceList(hubClt, rm, cfg, helmRl)
 		if err != nil {
 			return "", gerr.Wrap(err, "failed to get resource string")
 		}
@@ -325,8 +324,8 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 }
 
 //generateResourceList generates the resource list for given HelmRelease
-func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.ResourceList, error) {
-	chartDir, err := downloadChart(mgr.GetClient(), s)
+func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
+	chartDir, err := downloadChart(client, s)
 	if err != nil {
 		klog.Error(err, " - Failed to download the chart")
 		return nil, err
@@ -354,7 +353,7 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 		return nil, fmt.Errorf("failed to load chart dir: %w", err)
 	}
 
-	rcg, err := newRESTClientGetter(mgr, s.Namespace)
+	rcg, err := newRESTClientGetter(rm, cfg, s.Namespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get REST client getter from manager: %w", err)
 	}
@@ -404,44 +403,6 @@ func generateResourceList(mgr manager.Manager, s *releasev1.HelmRelease) (kube.R
 	}
 
 	return resources, nil
-}
-
-//GenerateResourceListByConfig this func and it's child funcs(downloadChart,
-//generateResourceList) is a clone of from the helmrelease. Having this clone
-//give us the flexiblity to modify the function parameters,which helped to pass
-//test case.
-//generates the resource list for given HelmRelease
-func GenerateResourceListByConfig(cfg *rest.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
-	dryRunEventRecorder := record.NewBroadcaster()
-
-	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
-		DryRunClient:       true,
-		EventBroadcaster:   dryRunEventRecorder,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-
-	go func() {
-		if err := mgr.Start(ctx); err != nil {
-			klog.Error(err)
-		}
-	}()
-
-	defer func() {
-		cancel()
-	}()
-
-	if mgr.GetCache().WaitForCacheSync(ctx) {
-		return generateResourceList(mgr, s)
-	}
-
-	return nil, fmt.Errorf("fail to start a manager to generate the resource list")
 }
 
 func GetDeployableTemplateAsUnstructrure(dpl *dplv1.Deployable) (*unstructured.Unstructured, error) {
@@ -507,16 +468,13 @@ func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map
 	return anno
 }
 
-func newRESTClientGetter(mgr manager.Manager, ns string) (genericclioptions.RESTClientGetter, error) {
-	cfg := mgr.GetConfig()
-
+func newRESTClientGetter(rm meta.RESTMapper, cfg *restclient.Config, ns string) (genericclioptions.RESTClientGetter, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 
 	cdc := cached.NewMemCacheClient(dc)
-	rm := mgr.GetRESTMapper()
 
 	return &restClientGetter{
 		restConfig:      cfg,
