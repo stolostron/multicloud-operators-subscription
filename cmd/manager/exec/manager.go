@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
+	addonV1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -161,6 +162,12 @@ func RunManager() {
 			os.Exit(1)
 		}
 
+		// Setup cluster management addon Scheme for manager
+		if err := addonV1alpha1.AddToScheme(mgr.GetScheme()); err != nil {
+			klog.Error(err, "")
+			os.Exit(1)
+		}
+
 		// Setup all Hub Controllers
 		if err := controller.AddHubToManager(mgr); err != nil {
 			klog.Error(err, "")
@@ -220,7 +227,7 @@ func RunManager() {
 	// Only detect if the placementDecsion API is ready on the hub cluster
 	if !Options.Standalone && Options.ClusterName == "" {
 		klog.Info("Detecting ACM Placement Decision API on the hub...")
-		utils.DetectPlacementDecision(sig, mgr.GetAPIReader())
+		utils.DetectPlacementDecision(sig, mgr.GetAPIReader(), mgr.GetClient())
 	}
 
 	klog.Info("Starting the Cmd.")

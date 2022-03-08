@@ -29,6 +29,7 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
+	addonV1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -1292,25 +1293,58 @@ func IsReadyPlacementDecision(clReader client.Reader) bool {
 	listopts := &client.ListOptions{}
 
 	err := clReader.List(context.TODO(), pdlist, listopts)
+	if err != nil {
+		klog.Error("Placement Decision API NOT ready: ", err)
 
-	if err == nil {
-		klog.Error("Placement Decision API ready")
-
-		return true
+		return false
 	}
 
-	klog.Error("Placement Decision API NOT ready: ", err)
+	cmalist := &addonV1alpha1.ClusterManagementAddOnList{}
 
-	return false
+	err = clReader.List(context.TODO(), cmalist, listopts)
+	if err != nil {
+		klog.Error("Cluster Management Addon API NOT ready: ", err)
+
+		return false
+	}
+
+	klog.Error("Placement Decision and Cluster Management Addon APIs are ready")
+
+	return true
+}
+
+func CreateClusterManagementAddon(clt client.Client) {
+	cma := &addonV1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "application-manager",
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ClusterManagementAddOn",
+			APIVersion: "addon.open-cluster-management.io/v1alpha1",
+		},
+		Spec: addonV1alpha1.ClusterManagementAddOnSpec{
+			AddOnMeta: addonV1alpha1.AddOnMeta{
+				Description: "Processes events and other requests to managed resources.",
+				DisplayName: "Application Manager",
+			},
+		},
+	}
+
+	err := clt.Create(context.TODO(), cma)
+	if err != nil {
+		klog.Error(err.Error())
+	}
 }
 
 // DetectPlacementDecision - Detect the Placement Decision API every 10 seconds. the controller will be exited when it is ready
 // The controller will be auto restarted by the multicluster-operators-application deployment CR later.
 //nolint:unparam
-func DetectPlacementDecision(ctx context.Context, clReader client.Reader) {
+func DetectPlacementDecision(ctx context.Context, clReader client.Reader, clt client.Client) {
 	if !IsReadyPlacementDecision(clReader) {
 		go wait.UntilWithContext(ctx, func(ctx context.Context) {
 			if IsReadyPlacementDecision(clReader) {
+				CreateClusterManagementAddon(clt)
+
 				os.Exit(1)
 			}
 		}, time.Duration(10)*time.Second)
