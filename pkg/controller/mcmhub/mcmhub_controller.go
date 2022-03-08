@@ -41,7 +41,7 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/go-logr/logr"
 
-	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"

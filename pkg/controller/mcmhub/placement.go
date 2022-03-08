@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
-	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	appSubV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -127,7 +127,10 @@ func (r *ReconcileSubscription) getClustersFromPlacementRef(instance *appSubV1.S
 	pref := instance.Spec.Placement.PlacementRef
 
 	if (len(pref.Kind) > 0 && pref.Kind != "PlacementRule" && pref.Kind != "Placement") ||
-		(len(pref.APIVersion) > 0 && pref.APIVersion != "apps.open-cluster-management.io/v1" && pref.APIVersion != "cluster.open-cluster-management.io/v1alpha1") {
+		(len(pref.APIVersion) > 0 &&
+			pref.APIVersion != "apps.open-cluster-management.io/v1" &&
+			pref.APIVersion != "cluster.open-cluster-management.io/v1alpha1" &&
+			pref.APIVersion != "cluster.open-cluster-management.io/v1beta1") {
 		klog.Warning("Unsupported placement reference:", instance.Spec.Placement.PlacementRef)
 
 		return nil, nil

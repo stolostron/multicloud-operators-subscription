@@ -24,7 +24,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
-	clusterv1alpha1 "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
@@ -76,7 +76,7 @@ var ClusterPredicateFunc = predicate.Funcs{
 
 var PlacementDecisionPredicateFunc = predicate.Funcs{
 	CreateFunc: func(e event.CreateEvent) bool {
-		decision, ok := e.Object.(*clusterv1alpha1.PlacementDecision)
+		decision, ok := e.Object.(*clusterv1beta1.PlacementDecision)
 
 		if !ok {
 			return false
@@ -86,7 +86,7 @@ var PlacementDecisionPredicateFunc = predicate.Funcs{
 		return true
 	},
 	DeleteFunc: func(e event.DeleteEvent) bool {
-		decision, ok := e.Object.(*clusterv1alpha1.PlacementDecision)
+		decision, ok := e.Object.(*clusterv1beta1.PlacementDecision)
 
 		if !ok {
 			return false
@@ -96,8 +96,8 @@ var PlacementDecisionPredicateFunc = predicate.Funcs{
 		return true
 	},
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldDecision := e.ObjectOld.(*clusterv1alpha1.PlacementDecision)
-		newDecision := e.ObjectNew.(*clusterv1alpha1.PlacementDecision)
+		oldDecision := e.ObjectOld.(*clusterv1beta1.PlacementDecision)
+		newDecision := e.ObjectNew.(*clusterv1beta1.PlacementDecision)
 
 		klog.Infof("placement decision updated, %v/%v", newDecision.Namespace, newDecision.Name)
 
