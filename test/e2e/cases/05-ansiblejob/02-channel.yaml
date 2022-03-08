@@ -1,0 +1,9 @@
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: git
+  namespace: default
+spec:
+  type: git
+  pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription.git

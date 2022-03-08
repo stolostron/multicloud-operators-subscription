@@ -146,3 +146,24 @@ else
     exit 1
 fi
 echo "PASSED test case 04-helm-no-match"
+
+### 05-ansiblejob
+echo "STARTING test case 05-ansiblejob"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/05-ansiblejob/
+sleep 10
+
+if kubectl get ansiblejobs.tower.ansible.com | grep prehook-test; then 
+    echo "05-ansiblejob: found ansiblejobs.tower.ansible.com"
+else
+    echo "05-ansiblejob: FAILED: ansiblejobs.tower.ansible.com not found"
+    exit 1
+fi
+if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastprehookjob | grep prehook-test; then 
+    echo "05-ansiblejob: found ansiblejob CR name in subscription output"
+else
+    echo "05-ansiblejob: FAILED: ansiblejob CR name is not in the subscription output"
+    exit 1
+fi
+
+echo "PASSED test case 05-ansiblejob"
