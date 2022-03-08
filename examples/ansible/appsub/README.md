@@ -1,11 +1,10 @@
 Prepare:
-1. A open-cluster-management hub cluster with subscription operator running and at least one managed cluster. See https://open-cluster-management.io "Getting Started" 
+1. An Open Cluster Management hub cluster with subscription operator running and at least one managed cluster with subscription add-on enable. See https://open-cluster-management.io "Get Started" for more details.
 2. An Ansible AWX/Tower environment. See https://github.com/ansible/awx for more details.
 
 Perform:
-1. Fork the https://github.com/open-cluster-management/multicloud-operators-subscription into your personal repo.
-2. Edit the `examples/ansible/appsub/EDITME02-channel.yaml` and `examples/ansible/appsub/EDITME-secret.yaml` files.
-3. `git clone https://github.com/_your_github_id_/multicloud-operators-subscription.git`
-4. `cd multicloud-operators-subscription`
-5. `kubectl apply -f examples/ansible/appsub`
-6. This will create a subscription that watches resources in https://github.com/_your_github_id_/multicloud-operators-subscription/examples/ansible/resources
+1. Edit the `examples/ansible/appsub/EDITME-secret.yaml` file.
+2. `git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git`
+3. `cd multicloud-operators-subscription`
+4. `kubectl apply -f examples/ansible/appsub`
+5. This will create a subscription that watches resources in https://github.com/open-cluster-management-io/multicloud-operators-subscription/tree/main/examples/ansible/resources
