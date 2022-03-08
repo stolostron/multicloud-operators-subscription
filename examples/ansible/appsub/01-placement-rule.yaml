@@ -2,7 +2,7 @@ apiVersion: apps.open-cluster-management.io/v1
 kind: PlacementRule
 metadata:
   name: non-local-cluster
-  namespace: ansible-pre-post
+  namespace: default
 spec:
   # apply to 1 cluster whoevers name not local-cluster
   clusterReplicas: 1
