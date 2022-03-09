@@ -65,7 +65,7 @@ const (
 	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 	// klusterletagentaddon secret token reconcile
-	addonServiceAccountName      = "klusterlet-addon-appmgr"
+	addonServiceAccountName      = "application-manager"
 	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
 )
 
