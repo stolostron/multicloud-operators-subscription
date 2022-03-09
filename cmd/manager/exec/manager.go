@@ -55,6 +55,7 @@ var (
 
 const (
 	AddonName               = "application-manager"
+	AgentImageEnv           = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
 	leaseUpdateJitterFactor = 0.25
 )
 
@@ -234,7 +235,12 @@ func RunManager() {
 
 	// Start addon manager
 	if !Options.Standalone && Options.ClusterName == "" {
-		adddonmgr, err := agentaddon.NewAddonManager(cfg, Options.AgentImage, Options.AgentInstallAll)
+		agentImage, found := os.LookupEnv(AgentImageEnv)
+		if !found {
+			agentImage = Options.AgentImage
+		}
+
+		adddonmgr, err := agentaddon.NewAddonManager(cfg, agentImage, Options.AgentInstallAll)
 		if err != nil {
 			klog.Error("Failed to setup addon manager, error:", err)
 			os.Exit(1)
