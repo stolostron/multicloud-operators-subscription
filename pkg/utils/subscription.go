@@ -30,7 +30,7 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	addonV1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
-	clusterapi "open-cluster-management.io/api/cluster/v1alpha1"
+	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
@@ -65,7 +65,7 @@ const (
 	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 	// klusterletagentaddon secret token reconcile
-	addonServiceAccountName      = "klusterlet-addon-appmgr"
+	addonServiceAccountName      = "application-manager"
 	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
 )
 

@@ -19,7 +19,7 @@ import (
 	"k8s.io/klog/v2"
 
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
-	placement "open-cluster-management.io/api/cluster/v1alpha1"
+	placement "open-cluster-management.io/api/cluster/v1beta1"
 	workV1 "open-cluster-management.io/api/work/v1"
 	chnapis "open-cluster-management.io/multicloud-operators-channel/pkg/apis"
 )

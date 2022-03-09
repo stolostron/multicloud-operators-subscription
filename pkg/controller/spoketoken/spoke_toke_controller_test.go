@@ -34,7 +34,7 @@ const (
 
 var (
 	sakey = types.NamespacedName{
-		Name:      "klusterlet-addon-appmgr",
+		Name:      "application-manager",
 		Namespace: "open-cluster-management-agent-addon",
 	}
 
@@ -57,30 +57,30 @@ var (
 
 	sa1 = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "klusterlet-addon-appmgr",
+			Name:      "application-manager",
 			Namespace: "open-cluster-management-agent-addon",
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "klusterlet-addon-appmgr-token-1",
+				Name: "application-manager-token-1",
 			},
 			{
-				Name: "klusterlet-addon-appmgr-dockercfg-tlxd5",
+				Name: "application-manager-dockercfg-tlxd5",
 			},
 		},
 	}
 
 	sa2 = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "klusterlet-addon-appmgr",
+			Name:      "application-manager",
 			Namespace: "open-cluster-management-agent-addon",
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "klusterlet-addon-appmgr-token-2",
+				Name: "application-manager-token-2",
 			},
 			{
-				Name: "klusterlet-addon-appmgr-dockercfg-tlxd5",
+				Name: "application-manager-dockercfg-tlxd5",
 			},
 		},
 	}
@@ -92,17 +92,17 @@ var (
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "klusterlet-addon-appmgr-token-2",
+				Name: "application-manager-token-2",
 			},
 			{
-				Name: "klusterlet-addon-appmgr-dockercfg-tlxd5",
+				Name: "application-manager-dockercfg-tlxd5",
 			},
 		},
 	}
 
 	secret1 = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "klusterlet-addon-appmgr-token-1",
+			Name:      "application-manager-token-1",
 			Namespace: "open-cluster-management-agent-addon",
 		},
 		Data: map[string][]byte{
@@ -112,7 +112,7 @@ var (
 
 	secret2 = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "klusterlet-addon-appmgr-token-2",
+			Name:      "application-manager-token-2",
 			Namespace: "open-cluster-management-agent-addon",
 		},
 		Data: map[string][]byte{
