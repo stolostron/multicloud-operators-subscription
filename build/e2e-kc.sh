@@ -153,17 +153,39 @@ kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/05-ansiblejob/
 sleep 10
 
-if kubectl get ansiblejobs.tower.ansible.com | grep prehook-test; then 
-    echo "05-ansiblejob: found ansiblejobs.tower.ansible.com"
-else
-    echo "05-ansiblejob: FAILED: ansiblejobs.tower.ansible.com not found"
-    exit 1
-fi
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastprehookjob | grep prehook-test; then 
     echo "05-ansiblejob: found ansiblejob CR name in subscription output"
 else
     echo "05-ansiblejob: FAILED: ansiblejob CR name is not in the subscription output"
     exit 1
 fi
-
+if kubectl get ansiblejobs.tower.ansible.com | grep prehook-test; then 
+    echo "05-ansiblejob: found ansiblejobs.tower.ansible.com"
+else
+    echo "05-ansiblejob: FAILED: ansiblejobs.tower.ansible.com not found"
+    exit 1
+fi
+kubectl delete -f test/e2e/cases/05-ansiblejob/
+sleep 5
 echo "PASSED test case 05-ansiblejob"
+
+### 06-ansiblejob-post
+echo "STARTING test case 06-ansiblejob-post"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/06-ansiblejob-post/
+sleep 30
+
+if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastposthookjob | grep posthook-test; then 
+    echo "06-ansiblejob-post: found ansiblejob CR name in subscription output"
+else
+    echo "06-ansiblejob-post: FAILED: ansiblejob CR name is not in the subscription output"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com | grep posthook-test; then 
+    echo "06-ansiblejob-post: found ansiblejobs.tower.ansible.com"
+else
+    echo "06-ansiblejob-post: FAILED: ansiblejobs.tower.ansible.com not found"
+    kubectl get subscriptionreports.apps.open-cluster-management.io ansible-hook
+    exit 1
+fi
+echo "PASSED test case 06-ansiblejob-post"
