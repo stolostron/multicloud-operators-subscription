@@ -105,6 +105,7 @@ go-bindata:
 
 test: ensure-kubebuilder-tools
 	@echo ${TEST_GIT_REPO_URL}
+	go test -timeout 300s -v ./addon/...
 	go test -timeout 300s -v ./pkg/... 
 
 .PHONY: deploy-standalone
