@@ -303,7 +303,7 @@ func (r *ReconcileSubscription) gitHelmResourceString(sub *appv1.Subscription, c
 			return ""
 		}
 
-		res, err := generateResrouceList(r.cfg, rls)
+		res, err := generateResrouceList(r.Client, r.cfg, r.restMapper, rls)
 		if err != nil {
 			klog.Error(err.Error())
 			return ""
