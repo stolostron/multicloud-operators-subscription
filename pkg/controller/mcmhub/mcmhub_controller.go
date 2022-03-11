@@ -17,6 +17,7 @@ package mcmhub
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,6 +46,7 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -680,32 +682,34 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 		return true, nil
 	}
 
-	// need to wait for managed cluster reporting back
-	// When placmentdecision doesn't have target cluster decision list, managed clusters status is empty.
-	// In this case, check the clusters list by checking the placementdecision
-	// If it's indeed empty cluster list then treat the subscription as completed.
-	managedStatus := subIns.Status.Statuses
-	if len(managedStatus) == 0 {
-		clusters, err := GetClustersByPlacement(subIns, r.Client, r.logger)
-		if err != nil {
-			return false, err
-		}
-
-		return len(clusters) == 0, nil
+	appsubReport := &appSubStatusV1alpha1.SubscriptionReport{}
+	if err := r.Get(context.TODO(), subKey, appsubReport); err != nil {
+		return false, err
 	}
 
-	for cluster, cSt := range managedStatus {
-		if len(cSt.SubscriptionPackageStatus) == 0 {
-			continue
-		}
+	// if there are no cluster matches or
+	// not all subscriptions are deployed/inprogress in matching clusters
+	if appsubReport.Summary.Clusters == "0" {
+		return false, nil
+	}
 
-		for pkg, pSt := range cSt.SubscriptionPackageStatus {
-			if pSt.Phase != subv1.SubscriptionSubscribed {
-				r.logger.Error(fmt.Errorf("cluster %s package %s is at status %s", cluster, pkg, pSt.Phase),
-					"subscription is not completed")
-				return false, nil
-			}
-		}
+	numClusters, err := strconv.Atoi(appsubReport.Summary.Clusters)
+	if err != nil {
+		return false, err
+	}
+
+	numDeployed, err := strconv.Atoi(appsubReport.Summary.Deployed)
+	if err != nil {
+		return false, err
+	}
+
+	numInProgress, err := strconv.Atoi(appsubReport.Summary.InProgress)
+	if err != nil {
+		return false, err
+	}
+
+	if (numDeployed + numInProgress) != numClusters {
+		return false, nil
 	}
 
 	return true, nil
