@@ -34,6 +34,7 @@ import (
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	managedClusterView "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/view/v1beta1"
 
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -1284,6 +1285,24 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 	}
 
 	return sec, cm
+}
+
+// IsReadyManagedClusterView check if managed cluster view API is ready or not.
+func IsReadyManagedClusterView(clReader client.Reader) bool {
+	viewList := &managedClusterView.ManagedClusterViewList{}
+
+	listopts := &client.ListOptions{}
+
+	err := clReader.List(context.TODO(), viewList, listopts)
+	if err != nil {
+		klog.Error("Managed Cluster View API NOT ready: ", err)
+
+		return false
+	}
+
+	klog.Info("Managed Cluster View API API is ready")
+
+	return true
 }
 
 // IsReadyPlacementDecision check if Placement Decision API is ready or not.

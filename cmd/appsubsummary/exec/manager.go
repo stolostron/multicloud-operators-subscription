@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	managedClusterView "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/view/v1beta1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -78,6 +79,12 @@ func RunManager() {
 
 	// Setup Scheme for all resources
 	if err := appsubapi.AddToScheme(mgr.GetScheme()); err != nil {
+		klog.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup manageClusterView Scheme for manager
+	if err := managedClusterView.AddToScheme(mgr.GetScheme()); err != nil {
 		klog.Error(err, "")
 		os.Exit(1)
 	}

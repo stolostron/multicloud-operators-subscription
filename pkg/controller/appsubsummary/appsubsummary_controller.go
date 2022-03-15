@@ -31,7 +31,7 @@ import (
 	"k8s.io/klog/v2"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	managedClusterView "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/view/v1beta1"
 	subutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -62,6 +62,13 @@ type ClusterSorter []*appsubReportV1alpha1.SubscriptionReportResult
 func (a ClusterSorter) Len() int           { return len(a) }
 func (a ClusterSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ClusterSorter) Less(i, j int) bool { return a[i].Source < a[j].Source }
+
+// AppSubClusterStatus sorts AppSubClusterStatus by Cluster name.
+type AppSubClusterStatusSorter []AppSubClusterStatus
+
+func (a AppSubClusterStatusSorter) Len() int           { return len(a) }
+func (a AppSubClusterStatusSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a AppSubClusterStatusSorter) Less(i, j int) bool { return a[i].Cluster < a[j].Cluster }
 
 func Add(mgr manager.Manager, interval int) error {
 	dsRS := &ReconcileAppSubSummary{
@@ -147,7 +154,13 @@ func (r *ReconcileAppSubSummary) generateAppSubSummary() error {
 
 	r.createOrUpdateAppSubReport(appSubClusterStatusMap)
 
+	if subutils.IsReadyManagedClusterView(r.Client) {
+		r.RefreshManagedClusterViews(appSubClusterStatusMap)
+	}
+
 	runtime.GC()
+
+	PrintMemUsage("AppSub Report refreshed.")
 
 	return nil
 }
@@ -157,7 +170,7 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubReportPerClust
 	cluster := appsubReportPerCluster.Namespace
 
 	for _, result := range appsubReportPerCluster.Results {
-		appsubName, appsubNs := utils.ParseNamespacedName(result.Source)
+		appsubName, appsubNs := subutils.ParseNamespacedName(result.Source)
 
 		if appsubName == "" && appsubNs == "" {
 			continue
@@ -196,13 +209,148 @@ func (r *ReconcileAppSubSummary) UpdateAppSubMapsPerCluster(appsubReportPerClust
 	}
 }
 
+func (r *ReconcileAppSubSummary) RefreshManagedClusterViews(
+	appSubClusterStatusMap map[string]AppSubClustersStatus) {
+	klog.Infof("Start refreshing managedClusterView per app on the first failing cluster, total apps: %v", len(appSubClusterStatusMap))
+
+	TotalFailingClusterCount := 0
+
+	for appsub, clustersStatus := range appSubClusterStatusMap {
+		appsubNs, appsubName := subutils.ParseNamespacedName(appsub)
+		if appsubName == "" && appsubNs == "" {
+			continue
+		}
+
+		newFailingCluster := ""
+
+		sort.Sort(AppSubClusterStatusSorter(clustersStatus.Clusters))
+
+		// Add the managedClusterView for the app on the first failing cluster
+		for _, ClusterStatus := range clustersStatus.Clusters {
+			if ClusterStatus.Phase == "failed" {
+				newFailingCluster = ClusterStatus.Cluster
+
+				TotalFailingClusterCount++
+				if TotalFailingClusterCount > 50 {
+					break
+				}
+
+				r.createManagedClusterViewPerApp(appsubName, appsubNs, newFailingCluster)
+
+				break
+			}
+		}
+
+		// delete all other existing managedClusterView for the app
+
+		if TotalFailingClusterCount > 50 {
+			newFailingCluster = ""
+
+			klog.Infof("Since 50 managedClusterViews have been created, delete managedClusterViews for app: %v/%v", appsubNs, appsubName)
+		}
+
+		r.cleanManagedClusterViewPerApp(appsubName, appsubNs, newFailingCluster)
+	}
+}
+
+func (r *ReconcileAppSubSummary) cleanManagedClusterViewPerApp(appsubName, appsubNs, newFailingCluster string) {
+	viewList := &managedClusterView.ManagedClusterViewList{}
+	listopts := &client.ListOptions{}
+
+	viewSelector := &metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", appsubNs+"."+appsubName),
+		},
+	}
+
+	viewSelectionLabel, err := subutils.ConvertLabels(viewSelector)
+	if err != nil {
+		klog.Error("Failed to convert managed cluster view selector, err:", err)
+
+		return
+	}
+
+	listopts.LabelSelector = viewSelectionLabel
+	err = r.List(context.TODO(), viewList, listopts)
+
+	if err != nil {
+		klog.Error("Failed to list managed cluster views, err:", err)
+
+		return
+	}
+
+	for _, managedClusterView := range viewList.Items {
+		if managedClusterView.Namespace == newFailingCluster {
+			klog.Infof("Keep the managedClusterview for app: %v/%v failing cluster: %v", appsubNs, appsubName, newFailingCluster)
+
+			continue
+		}
+
+		if err = r.Delete(context.TODO(), &managedClusterView); err != nil {
+			klog.Errorf("Error deleting managedClusterView :%v/%v, err:%v", managedClusterView.Namespace, managedClusterView.Name, err)
+		}
+
+		klog.Infof("managedClusterview deleted for app: %v/%v failing cluster: %v", appsubNs, appsubName, managedClusterView.Namespace)
+	}
+}
+
+func (r *ReconcileAppSubSummary) createManagedClusterViewPerApp(appsubName, appsubNs, cluster string) {
+	appManagedClusterView := &managedClusterView.ManagedClusterView{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "SubscriptionReport",
+			APIVersion: "apps.open-cluster-management.io/v1alpha1",
+		},
+	}
+
+	appManagedClusterViewKey := types.NamespacedName{
+		Name:      appsubNs + "-" + appsubName,
+		Namespace: cluster,
+	}
+
+	// Create new managedClusterView for the app on the first failing cluster if it doesn't exist
+	// If it exists, no need to update
+	if err := r.Get(context.TODO(), appManagedClusterViewKey, appManagedClusterView); err != nil {
+		if errors.IsNotFound(err) {
+			klog.Infof("Creating new managed cluster view for app: %v", appManagedClusterViewKey)
+
+			newAppManagedClusterView := &managedClusterView.ManagedClusterView{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ManagedClusterView",
+					APIVersion: "view.open-cluster-management.io/v1beta1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      appManagedClusterViewKey.Name,
+					Namespace: appManagedClusterViewKey.Namespace,
+					Labels: map[string]string{
+						"apps.open-cluster-management.io/hosting-subscription": fmt.Sprintf("%.63s", appsubNs+"."+appsubName),
+					},
+				},
+				Spec: managedClusterView.ViewSpec{
+					Scope: managedClusterView.ViewScope{
+						Group:     "apps.open-cluster-management.io",
+						Kind:      "SubscriptionStatus",
+						Version:   "v1alpha1",
+						Resource:  "subscriptionstatuses",
+						Name:      appsubName,
+						Namespace: appsubNs,
+					},
+				},
+			}
+
+			if err := r.Create(context.TODO(), newAppManagedClusterView); err != nil {
+				klog.Errorf("Error in creating ManagedClusterView:%v, err:%v", appManagedClusterViewKey.String(), err)
+			}
+		}
+	}
+}
+
 func (r *ReconcileAppSubSummary) createOrUpdateAppSubReport(
 	appSubClusterStatusMap map[string]AppSubClustersStatus) {
 	// Find existing appSubReport for app - can assume it exists for now
 	klog.Infof("appSub Cluster FailStatus Map Count: %v", len(appSubClusterStatusMap))
 
 	for appsub, clustersStatus := range appSubClusterStatusMap {
-		appsubNs, appsubName := utils.ParseNamespacedName(appsub)
+		appsubNs, appsubName := subutils.ParseNamespacedName(appsub)
 		if appsubName == "" && appsubNs == "" {
 			continue
 		}
