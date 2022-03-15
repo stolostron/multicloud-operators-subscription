@@ -1,0 +1,18 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: HelmRelease
+metadata:
+  name: ingress
+  namespace: default
+repo:
+  chartName: ingress
+  digest: 36b4d4a27d119125fc6cc437b10f5c2555c14a7142053aa4ab31bd9c94e15dce
+  insecureSkipVerify: true
+  source:
+    helmRepo:
+      urls:
+      - https://raw.githubusercontent.com/open-cluster-management-io/multicloud-operators-subscription/main/testhr/e2e//ingress-0.2.0.tgz
+    type: helmrepo
+  version: 0.2.0
+spec:
+  "": ""
+

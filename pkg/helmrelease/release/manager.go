@@ -123,7 +123,7 @@ func (m *manager) Sync(ctx context.Context) error {
 	// Get the next candidate release to determine if an upgrade is necessary.
 	candidateRelease, err := m.getCandidateRelease(m.namespace, m.releaseName, m.chart, m.values)
 	if err != nil {
-		return fmt.Errorf("failed to get candidate release: %w", err)
+		return fmt.Errorf("failed to get the next candidate release to determine if an upgrade is necessary: %w", err)
 	}
 	if deployedRelease.Manifest != candidateRelease.Manifest {
 		m.isUpgradeRequired = true

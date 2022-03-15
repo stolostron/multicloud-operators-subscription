@@ -1,0 +1,9 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: dev-helmrepo
+  namespace: dev
+spec:
+  type: HelmRepo
+  pathname: https://raw.githubusercontent.com/open-cluster-management-io/multicloud-operators-subscription/main/testhr/e2e/
+  insecureSkipVerify: true

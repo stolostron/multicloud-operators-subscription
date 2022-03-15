@@ -185,7 +185,71 @@ if kubectl get ansiblejobs.tower.ansible.com | grep posthook-test; then
     echo "06-ansiblejob-post: found ansiblejobs.tower.ansible.com"
 else
     echo "06-ansiblejob-post: FAILED: ansiblejobs.tower.ansible.com not found"
-    kubectl get subscriptionreports.apps.open-cluster-management.io ansible-hook
     exit 1
 fi
 echo "PASSED test case 06-ansiblejob-post"
+
+### 07-helm-install-error
+echo "STARTING test case 07-helm-install-error"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/07-helm-install-error/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Failed"; then 
+    echo "07-helm-install-error: found failed phase in subscription status output"
+else
+    echo "07-helm-install-error: FAILED: failed phase is not in the subscription status output"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/07-helm-install-error/
+sleep 10
+echo "PASSED test case 07-helm-install-error"
+
+### 08-helm-upgrade-error
+echo "STARTING test case 08-helm-upgrade-error"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/08-helm-upgrade-error/install
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Deployed"; then 
+    echo "08-helm-upgrade-error: found deployed phase in subscription status output"
+else
+    echo "08-helm-upgrade-error: FAILED: deployed phase is not in the subscription status output"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/08-helm-upgrade-error/upgrade/hub
+kubectl config use-context kind-cluster1
+kubectl apply -f test/e2e/cases/08-helm-upgrade-error/upgrade/managed
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Failed"; then 
+    echo "08-helm-upgrade-error: found failed phase in subscription status output"
+else
+    echo "08-helm-upgrade-error: FAILED: failed phase is not in the subscription status output"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/08-helm-upgrade-error/install
+sleep 10
+echo "PASSED test case 08-helm-upgrade-error"
+
+### 09-helm-missing-phase
+echo "STARTING test case 09-helm-missing-phase"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/09-helm-missing-phase/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io preinstall-hook -o yaml | grep "kind: Deployment"; then 
+    echo "09-helm-missing-phase: found deployment kind in subscription status output"
+else
+    echo "09-helm-missing-phase: FAILED: deployment kind is not in the subscription status output"
+    exit 1
+fi
+if kubectl get subscriptionstatus.apps.open-cluster-management.io preinstall-hook -o yaml | grep "phase"; then 
+    echo "09-helm-missing-phase: FAILED: found phase in the subscription status output"
+    exit 1
+else
+    echo "09-helm-missing-phase: phase is not in subscription status output"
+fi
+kubectl config use-context kind-hub
+echo "PASSED test case 09-helm-missing-phase"
