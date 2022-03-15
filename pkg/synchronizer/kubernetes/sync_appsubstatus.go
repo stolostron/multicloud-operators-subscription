@@ -61,13 +61,13 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 	// If the incoming new appstatus is only one HelmRelease kind resource, skip the appsubstatus sync-up.
 	// Later the helmrelease controller will update the actual resources to the appsubstatus
-	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 {
-		if appsubClusterStatus.SubscriptionPackageStatus[0].Kind == "HelmRelease" {
-			klog.Infof("Don't upate the HelmRelease kind resource to appsub status. appsub: %v/%v",
-				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
+	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 &&
+		appsubClusterStatus.SubscriptionPackageStatus[0].Kind == "HelmRelease" &&
+		appsubClusterStatus.SubscriptionPackageStatus[0].Phase != string(v1alpha1.PackageDeployFailed) {
+		klog.Infof("Don't upate the HelmRelease kind resource to appsub status. appsub: %v/%v",
+			appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
 
-			return nil
-		}
+		return nil
 	}
 
 	skipOrphanDel := false

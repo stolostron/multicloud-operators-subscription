@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
@@ -200,6 +201,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 				Message: err.Error(),
 			})
 			_ = r.updateResourceStatus(instance)
+			r.populateErrorAppSubStatus(err.Error(), instance)
 
 			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 		}
@@ -217,6 +219,24 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance)
+
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	}
+
+	dryRunManager, err := r.newHelmOperatorManager(instance, request, helmOperatorManagerFactory)
+	if err != nil {
+		klog.Error("Failed to create new dry-run HelmOperatorManager: ",
+			helmreleaseNsn(instance), " ", err)
+
+		instance.Status.SetCondition(appv1.HelmAppCondition{
+			Type:    appv1.ConditionIrreconcilable,
+			Status:  appv1.StatusTrue,
+			Reason:  appv1.ReasonReconcileError,
+			Message: err.Error(),
+		})
+		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -232,7 +252,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
 	if instance.GetDeletionTimestamp() != nil {
-		return r.uninstall(instance, manager)
+		return r.uninstall(instance, manager, dryRunManager)
 	}
 
 	instance.Status.SetCondition(appv1.HelmAppCondition{
@@ -252,7 +272,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		klog.Info("Requeue HelmRelease after one minute ")
 
@@ -262,7 +282,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
 	if !manager.IsInstalled() {
-		return r.install(instance, manager)
+		return r.install(instance, manager, dryRunManager)
 	}
 
 	if !contains(instance.GetFinalizers(), finalizer) {
@@ -329,7 +349,8 @@ func hasHelmUpgradeForceAnnotation(hr *appv1.HelmRelease) bool {
 	return value
 }
 
-func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helmoperator.Manager) (reconcile.Result, error) {
+func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helmoperator.Manager,
+	dryRunManager helmoperator.Manager) (reconcile.Result, error) {
 	// If all the Helm release records are deleted, then the Helm operator will try to install the release again.
 	// In that case, if the install errors, then don't perform the uninstall rollback because it might lead to unintended data loss.
 	// See: https://github.com/operator-framework/operator-sdk/issues/4296
@@ -339,9 +360,45 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 		rollbackByUninstall = false
 	}
 
+	klog.Info("Installing (dry-run) Release ", helmreleaseNsn(instance))
+
+	installDryRun := func(install *action.Install) error {
+		install.DryRun = true
+		install.ClientOnly = true
+
+		return nil
+	}
+
+	installedRelease, err := dryRunManager.InstallRelease(context.TODO(), installDryRun)
+	if err != nil {
+		klog.Error("Failed to install (dry-run) HelmRelease ",
+			helmreleaseNsn(instance), " ", err)
+		instance.Status.SetCondition(appv1.HelmAppCondition{
+			Type:    appv1.ConditionReleaseFailed,
+			Status:  appv1.StatusTrue,
+			Reason:  appv1.ReasonInstallError,
+			Message: err.Error(),
+		})
+		_ = r.updateResourceStatus(instance)
+		r.populateErrorAppSubStatus(err.Error(), instance)
+
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	}
+
+	if installedRelease != nil && installedRelease.Manifest != "" && instance.OwnerReferences != nil {
+		r.populateAppSubStatus(installedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageUnknown))
+	}
+
 	klog.Info("Installing Release ", helmreleaseNsn(instance))
 
-	installedRelease, err := manager.InstallRelease(context.TODO())
+	installOpt := func(install *action.Install) error {
+		install.DryRun = false
+		install.ClientOnly = false
+
+		return nil
+	}
+
+	installedRelease, err = manager.InstallRelease(context.TODO(), installOpt)
 	if err != nil {
 		klog.Error("Failed to install HelmRelease ",
 			helmreleaseNsn(instance), " ", err)
@@ -352,7 +409,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		if rollbackByUninstall && installedRelease != nil {
 			// hack for MultiClusterHub to remove CRD outside of Helm/HelmRelease's control
@@ -380,7 +437,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 					Message: errMsg,
 				})
 				_ = r.updateResourceStatus(instance)
-				r.populateErrorAppSubStatus(errMsg, instance, manager)
+				r.populateErrorAppSubStatus(errMsg, instance)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -423,7 +480,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 	}
 
 	if installedRelease != nil && installedRelease.Manifest != "" && instance.OwnerReferences != nil {
-		r.populateAppSubStatus(installedRelease.Manifest, instance, manager)
+		r.populateAppSubStatus(installedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed))
 	}
 
 	return reconcile.Result{}, err
@@ -431,9 +488,14 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 
 func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helmoperator.Manager) (reconcile.Result, error) {
 	klog.Info("Upgrading Release ", helmreleaseNsn(instance))
-
 	force := hasHelmUpgradeForceAnnotation(instance)
-	_, upgradedRelease, err := manager.UpgradeRelease(context.TODO(), helmoperator.ForceUpgrade(force))
+	upgradeOpt := func(upgrade *action.Upgrade) error {
+		upgrade.DryRun = false
+		upgrade.Force = force
+
+		return nil
+	}
+	_, upgradedRelease, err := manager.UpgradeRelease(context.TODO(), upgradeOpt)
 	if err != nil {
 		klog.Error("Failed to upgrade HelmRelease ", helmreleaseNsn(instance), " ", err)
 		instance.Status.SetCondition(appv1.HelmAppCondition{
@@ -443,7 +505,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		// hack for MultiClusterHub to remove CRD outside of Helm/HelmRelease's control
 		// TODO introduce a generic annotation to trigger this feature
@@ -471,7 +533,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 					Message: errMsg,
 				})
 				_ = r.updateResourceStatus(instance)
-				r.populateErrorAppSubStatus(errMsg, instance, manager)
+				r.populateErrorAppSubStatus(errMsg, instance)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -505,26 +567,50 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 	}
 
 	if upgradedRelease != nil && upgradedRelease.Manifest != "" && instance.OwnerReferences != nil {
-		r.populateAppSubStatus(upgradedRelease.Manifest, instance, manager)
+		r.populateAppSubStatus(upgradedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed))
 	}
 
 	return reconcile.Result{}, err
 }
 
-func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager helmoperator.Manager) (reconcile.Result, error) {
+func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager helmoperator.Manager,
+	dryRunManager helmoperator.Manager) (reconcile.Result, error) {
 	if !contains(instance.GetFinalizers(), finalizer) {
 		klog.Info("HelmRelease is terminated, skipping reconciliation ", helmreleaseNsn(instance))
 
 		return reconcile.Result{}, nil
 	}
 
+	klog.Info("Uninstalling (dry-run) Release ", helmreleaseNsn(instance))
+
+	uninstallDryRun := func(uninstall *action.Uninstall) error {
+		uninstall.DryRun = true
+
+		return nil
+	}
+
+	_, err := dryRunManager.UninstallRelease(context.TODO(), uninstallDryRun)
+	if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
+		klog.Error("Failed to uninstall (dry-run) HelmRelease ", helmreleaseNsn(instance), " ", err)
+		r.updateUninstallResourceErrorStatus(instance, err)
+		r.populateErrorAppSubStatus(err.Error(), instance)
+
+		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
+	}
+
 	klog.Info("Uninstalling Release ", helmreleaseNsn(instance))
 
-	_, err := manager.UninstallRelease(context.TODO())
+	uninstallOpt := func(uninstall *action.Uninstall) error {
+		uninstall.DryRun = false
+
+		return nil
+	}
+
+	_, err = manager.UninstallRelease(context.TODO(), uninstallOpt)
 	if err != nil && !errors.Is(err, driver.ErrReleaseNotFound) {
 		klog.Error("Failed to uninstall HelmRelease ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -556,7 +642,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Failed to get API Capabilities to perform cleanup check ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -567,7 +653,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Corrupted release record for ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -582,7 +668,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 	if err != nil {
 		klog.Error("Unable to build kubernetes objects for delete ", helmreleaseNsn(instance), " ", err)
 		r.updateUninstallResourceErrorStatus(instance, err)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -597,7 +683,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				klog.Error("Unable to get resource ", resource.Namespace, "/", resource.Name,
 					" for ", helmreleaseNsn(instance), " ", err)
 				r.updateUninstallResourceErrorStatus(instance, err)
-				r.populateErrorAppSubStatus(err.Error(), instance, manager)
+				r.populateErrorAppSubStatus(err.Error(), instance)
 
 				return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 			}
@@ -624,7 +710,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				Message: message,
 			})
 			_ = r.updateResourceStatus(instance)
-			r.populateErrorAppSubStatus(message, instance, manager)
+			r.populateErrorAppSubStatus(message, instance)
 
 			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 		}
@@ -678,7 +764,7 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 			Message: err.Error(),
 		})
 		_ = r.updateResourceStatus(instance)
-		r.populateErrorAppSubStatus(err.Error(), instance, manager)
+		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
@@ -712,7 +798,7 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 }
 
 func (r *ReconcileHelmRelease) populateAppSubStatus(
-	manifest string, instance *appv1.HelmRelease, manager helmoperator.Manager) {
+	manifest string, instance *appv1.HelmRelease, manager helmoperator.Manager, packagePhase string) {
 	for _, hrOwner := range instance.OwnerReferences {
 		if hrOwner.Kind == "Subscription" {
 
@@ -735,7 +821,7 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 							appSubUnitStatus.Name = file.Head.Metadata.Name
 							appSubUnitStatus.Namespace = instance.Namespace
 
-							appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+							appSubUnitStatus.Phase = packagePhase
 							appSubUnitStatus.Message = ""
 							appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 						}
@@ -768,7 +854,7 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 }
 
 func (r *ReconcileHelmRelease) populateErrorAppSubStatus(
-	errMsg string, instance *appv1.HelmRelease, manager helmoperator.Manager) {
+	errMsg string, instance *appv1.HelmRelease) {
 	for _, hrOwner := range instance.OwnerReferences {
 		if hrOwner.Kind == "Subscription" {
 

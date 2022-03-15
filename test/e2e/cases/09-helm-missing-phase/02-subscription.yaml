@@ -1,0 +1,12 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: preinstall-hook
+spec:
+  channel: dev/dev-helmrepo
+  name: preinstall-hook
+  placement:
+    placementRef:
+      kind: PlacementRule
+      name: nginx-pr
+

@@ -1,0 +1,16 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: ingress
+spec:
+  channel: default/dev-helmrepo
+  name: ingress
+  placement:
+    placementRef:
+      kind: PlacementRule
+      name: nginx-pr
+  packageFilter:
+    version: "0.1.0"
+  packageOverrides:
+  - packageName: ingress
+    packageAlias: ingress
