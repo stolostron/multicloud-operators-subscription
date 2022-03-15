@@ -286,6 +286,9 @@ func (r *ReconcileAppSubSummary) cleanManagedClusterViewPerApp(appsubName, appsu
 			continue
 		}
 
+		// reassign the iteration variable inside the loop to avoid the sonarcloud warning - "Implicit memory aliasing in for loop"
+		managedClusterView := managedClusterView
+
 		if err = r.Delete(context.TODO(), &managedClusterView); err != nil {
 			klog.Errorf("Error deleting managedClusterView :%v/%v, err:%v", managedClusterView.Namespace, managedClusterView.Name, err)
 		}
