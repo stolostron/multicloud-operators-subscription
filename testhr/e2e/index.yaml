@@ -1,0 +1,36 @@
+apiVersion: v1
+entries:
+  ingress:
+  - apiVersion: v2
+    appVersion: 1.17.0
+    created: "2022-03-14T15:44:53.12252298-04:00"
+    description: A Helm chart for Kubernetes
+    digest: 55b60779b46e1f7cab06ee212c65beeca610ec6d84dbdd63f6a38eac990407a5
+    name: ingress
+    type: application
+    urls:
+    - ingress-0.2.0.tgz
+    version: 0.2.0
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2022-03-14T15:44:53.122040505-04:00"
+    description: A Helm chart for Kubernetes
+    digest: 36b4d4a27d119125fc6cc437b10f5c2555c14a7142053aa4ab31bd9c94e15dce
+    name: ingress
+    type: application
+    urls:
+    - ingress-0.1.0.tgz
+    version: 0.1.0
+  preinstall-hook:
+  - apiVersion: v2
+    appVersion: 1.16.0
+    created: "2022-03-14T15:44:53.122975416-04:00"
+    description: A Helm chart for Kubernetes
+    digest: 8dc2e359f00f93d2f1eac4a01f4659dfc77ba57a7be0e47e786d81d46062f780
+    name: preinstall-hook
+    type: application
+    urls:
+    - preinstall-hook-0.1.0.tgz
+    version: 0.1.0
+generated: "2022-03-14T15:44:53.121401083-04:00"
+
