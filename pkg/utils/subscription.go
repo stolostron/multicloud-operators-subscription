@@ -1327,7 +1327,7 @@ func IsReadyPlacementDecision(clReader client.Reader) bool {
 		return false
 	}
 
-	klog.Error("Placement Decision and Cluster Management Addon APIs are ready")
+	klog.Info("Placement Decision and Cluster Management Addon APIs are ready")
 
 	return true
 }
