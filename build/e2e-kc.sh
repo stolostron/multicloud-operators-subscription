@@ -220,8 +220,10 @@ else
 fi
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/08-helm-upgrade-error/upgrade/hub
+sleep 10
 kubectl config use-context kind-cluster1
 kubectl apply -f test/e2e/cases/08-helm-upgrade-error/upgrade/managed
+sleep 10
 if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Failed"; then 
     echo "08-helm-upgrade-error: found failed phase in subscription status output"
 else
