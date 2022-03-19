@@ -1,4 +1,4 @@
-# multicloud-operators-subscription 
+# multicloud-operators-subscription
 
 [![License](https://img.shields.io/:license-apache-blue.svg)](http://www.apache.org/licenses/LICENSE-2.0.html)
 
@@ -68,7 +68,7 @@ Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
-$ clusteradm install addons --names application-manager
+$ clusteradm install addon --names application-manager
 $ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicluster-operators-subscription   1/1     1            1           25s
@@ -85,7 +85,7 @@ $ kubectl config use-context <hub cluster context> # kubectl config use-context 
 $ kubectl get managedclusters
 NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
 <managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
-$ clusteradm enable addons --names application-manager --clusters <managed cluster name> # clusteradm enable addons --names application-manager --clusters cluster1
+$ clusteradm addon enable --names application-manager --clusters <managed cluster name> # clusteradm addon enable --names application-manager --clusters cluster1
 $ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
 NAME                  AVAILABLE   DEGRADED   PROGRESSING
 application-manager   True
