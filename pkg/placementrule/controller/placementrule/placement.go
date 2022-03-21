@@ -325,6 +325,13 @@ func (r *ReconcilePlacementRule) checkUserPermission(annotations map[string]stri
 		return false
 	}
 
+	// According to https://docs.openshift.com/container-platform/4.9/rest_api/authorization_apis/subjectaccessreview-authorization-k8s-io-v1.html
+	// If both allowed is false and denied is false, then the authorizer has no opinion on whether to authorize the action
+	// We should return true in this case
+	if !result.Status.Allowed && !result.Status.Denied {
+		return true
+	}
+
 	if !result.Status.Allowed {
 		return false
 	}
