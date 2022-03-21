@@ -14,10 +14,14 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - description: subscription status
+    - description: subscription state
       jsonPath: .status.phase
-      name: Status
+      name: SubscriptionState
       type: string
+    - description: subscription status reference
+      jsonPath: .status.appstatusReference
+      name: AppstatusReference
+      type: string      
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -436,6 +440,8 @@ spec:
                       type: string
                     type: array
                 type: object
+              appstatusReference:
+                type: string
               lastUpdateTime:
                 format: date-time
                 type: string

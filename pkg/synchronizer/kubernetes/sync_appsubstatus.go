@@ -81,7 +81,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	appsubName := appsubClusterStatus.AppSub.Name
 	pkgstatusNs := appsubClusterStatus.AppSub.Namespace
 
-	if isLocalCluster {
+	if isLocalCluster || sync.standalone && skipOrphanDel {
 		if strings.HasSuffix(appsubName, "-local") {
 			appsubName = appsubName[:len(appsubName)-6]
 		}

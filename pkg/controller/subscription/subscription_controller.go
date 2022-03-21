@@ -16,6 +16,7 @@ package subscription
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -248,6 +249,16 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				instance.Status.Statuses = emptyStatuses
 
 				klog.Errorf("doReconcile got error %v", reconcileErr)
+			}
+
+			// Update AppstatusReference
+			if !r.standalone {
+				appsubStatusName := request.NamespacedName.Name
+				if strings.HasSuffix(appsubStatusName, "-local") {
+					appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
+				}
+
+				instance.Status.AppstatusReference = fmt.Sprintf("kubectl get appsubstatus -n %s %s", request.NamespacedName.Namespace, appsubStatusName)
 			}
 
 			// if the subscription pause lable is true, stop updating subscription status.
