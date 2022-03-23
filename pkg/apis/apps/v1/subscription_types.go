@@ -176,7 +176,7 @@ type ClusterOverrides struct {
 type SubscriptionSpec struct {
 	Channel string `json:"channel"`
 	// When fails to connect to the channel, connect to the secondary channel
-	SecondaryChannel string `json:"secondaryChannel"`
+	SecondaryChannel string `json:"secondaryChannel,omitempty"`
 	// To specify 1 package in channel
 	Package string `json:"name,omitempty"`
 	// To specify more than 1 package in channel
@@ -263,10 +263,11 @@ type AnsibleJobsStatus struct {
 type SubscriptionStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Phase          SubscriptionPhase `json:"phase,omitempty"`
-	Message        string            `json:"message,omitempty"`
-	Reason         string            `json:"reason,omitempty"`
-	LastUpdateTime metav1.Time       `json:"lastUpdateTime,omitempty"`
+	Phase              SubscriptionPhase `json:"phase,omitempty"`
+	AppstatusReference string            `json:"appstatusReference,omitempty"`
+	Message            string            `json:"message,omitempty"`
+	Reason             string            `json:"reason,omitempty"`
+	LastUpdateTime     metav1.Time       `json:"lastUpdateTime,omitempty"`
 
 	// +optional
 	AnsibleJobsStatus AnsibleJobsStatus `json:"ansiblejobs,omitempty"`
@@ -281,7 +282,8 @@ type SubscriptionStatus struct {
 // Subscription is the Schema for the subscriptions API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.phase",description="subscription status"
+// +kubebuilder:printcolumn:name="SubscriptionState",type="string",JSONPath=".status.phase",description="subscription state"
+// +kubebuilder:printcolumn:name="AppstatusReference",type="string",JSONPath=".status.appstatusReference",description="subscription status reference"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="Local placement",type="boolean",JSONPath=".spec.placement.local"
 // +kubebuilder:printcolumn:name="Time window",type="string",JSONPath=".spec.timewindow.windowtype"
