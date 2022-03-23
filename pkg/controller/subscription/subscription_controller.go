@@ -252,14 +252,12 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			}
 
 			// Update AppstatusReference
-			if !r.standalone {
-				appsubStatusName := request.NamespacedName.Name
-				if strings.HasSuffix(appsubStatusName, "-local") {
-					appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
-				}
-
-				instance.Status.AppstatusReference = fmt.Sprintf("kubectl get appsubstatus -n %s %s", request.NamespacedName.Namespace, appsubStatusName)
+			appsubStatusName := request.NamespacedName.Name
+			if strings.HasSuffix(appsubStatusName, "-local") {
+				appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
 			}
+
+			instance.Status.AppstatusReference = fmt.Sprintf("kubectl get appsubstatus -n %s %s", request.NamespacedName.Namespace, appsubStatusName)
 
 			// if the subscription pause lable is true, stop updating subscription status.
 			if subutil.GetPauseLabel(instance) {
