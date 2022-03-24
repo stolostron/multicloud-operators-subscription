@@ -39,6 +39,13 @@ else
     exit 1
 fi
 
+if kubectl get subscriptionstatus.apps.open-cluster-management.io demo-subscription -o yaml | grep InstallSuccessful; then 
+    echo "01-placement: found InstallSuccessful in subscription status output"
+else
+    echo "01-placement: FAILED: InstallSuccessful is not in the subscription status output"
+    exit 1
+fi
+
 if kubectl get pod | grep nginx-ingress-simple-controller | grep Running; then
     echo "01-placement: appsub deployment pod status is Running"
 else
@@ -76,6 +83,13 @@ if kubectl get subscriptions.apps.open-cluster-management.io nginx-sub | grep Su
     echo "02-placementrule: cluster1 subscriptions.apps.open-cluster-management.io status is Subscribed"
 else
     echo "02-placementrule FAILED: cluster1 subscriptions.apps.open-cluster-management.io status is not Subscribed"
+    exit 1
+fi
+
+if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-sub -o yaml | grep InstallSuccessful; then 
+    echo "02-placementrule: found InstallSuccessful in subscription status output"
+else
+    echo "02-placementrule: FAILED: InstallSuccessful is not in the subscription status output"
     exit 1
 fi
 
@@ -255,3 +269,27 @@ else
 fi
 kubectl config use-context kind-hub
 echo "PASSED test case 09-helm-missing-phase"
+
+### 10-cluster-override-ns
+echo "STARTING test 10-cluster-override-ns"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/10-cluster-override-ns/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl -n test-10 get pod | grep nginx-placement | grep Running; then
+    echo "10-cluster-override-ns: appsub deployment pod status is Running"
+else
+    echo "10-cluster-override-ns FAILED: appsub deployment pod status is Running"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/10-cluster-override-ns/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl -n test-10 get pod | grep nginx-placement; then
+    echo "10-cluster-override-ns FAILED: appsub deployment pod is not deleted"
+    exit 1
+else
+    echo "10-cluster-override-ns: appsub deployment pod is deleted"
+fi
+echo "PASSED test case 10-cluster-override-ns"

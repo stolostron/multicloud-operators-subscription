@@ -654,6 +654,10 @@ func (sync *KubeSynchronizer) OverrideResource(hostSub types.NamespacedName, res
 
 			return nil, err
 		}
+
+		if template.GetNamespace() != appsub.Namespace {
+			template = utils.RemoveSubOwnerRef(template)
+		}
 	}
 
 	klog.Infof("overrode template: %v/%v, kind: %v", template.GetNamespace(), template.GetName(), template.GetKind())
