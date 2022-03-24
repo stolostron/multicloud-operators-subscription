@@ -70,6 +70,23 @@ const (
 	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
 )
 
+// PlacementDecisionPredicateFunctions filters PlacementDecision status decisions update
+var PlacementDecisionPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newPd := e.ObjectNew.(*clusterapi.PlacementDecision)
+		oldPd := e.ObjectOld.(*clusterapi.PlacementDecision)
+
+		return !reflect.DeepEqual(newPd.Status.Decisions, oldPd.Status.Decisions)
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		return true
+	},
+
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		return true
+	},
+}
+
 func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	if IsSubscriptionBasicChanged(oSub, nSub) {
 		return true

@@ -28,7 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 )
 
@@ -39,10 +38,6 @@ var (
 	prulens   = "default"
 	prulekey  = types.NamespacedName{
 		Name:      prulename,
-		Namespace: prulens,
-	}
-	pdkey = types.NamespacedName{
-		Name:      prulename + "-decision-1",
 		Namespace: prulens,
 	}
 )
@@ -170,15 +165,6 @@ func TestClusterNames(t *testing.T) {
 	if len(result.Status.Decisions) != 1 || result.Status.Decisions[0].ClusterName != clusters[0].Name {
 		t.Errorf("Failed to get cluster by name, placementrule: %v", result)
 	}
-
-	decision := &clusterapi.PlacementDecision{}
-
-	err = c.Get(ctx, pdkey, decision)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if len(decision.Status.Decisions) != 1 || decision.Status.Decisions[0].ClusterName != clusters[0].Name {
-		t.Errorf("Failed to get cluster by name, placementdecision: %v", decision)
-	}
 }
 
 func TestClusterLabels(t *testing.T) {
@@ -245,15 +231,6 @@ func TestClusterLabels(t *testing.T) {
 
 	if len(result.Status.Decisions) != 1 || result.Status.Decisions[0].ClusterName != clusters[1].Name {
 		t.Errorf("Failed to get cluster by label, placementrule: %v", result)
-	}
-
-	decision := &clusterapi.PlacementDecision{}
-
-	err = c.Get(ctx, pdkey, decision)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if len(decision.Status.Decisions) != 1 || decision.Status.Decisions[0].ClusterName != clusters[1].Name {
-		t.Errorf("Failed to get cluster by label, placementdecision: %v", result)
 	}
 }
 
@@ -350,20 +327,6 @@ func TestAllClusters(t *testing.T) {
 	if result.Status.Decisions[0].ClusterName == "clusteralpha" {
 		t.Errorf("Failed to sort cluster properly, placementrule: %v", result)
 	}
-
-	decision := &clusterapi.PlacementDecision{}
-
-	err = c.Get(ctx, pdkey, decision)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if len(decision.Status.Decisions) != 2 {
-		t.Errorf("Failed to get all clusters, placementdecision: %v", result)
-	}
-
-	// expect order of first clusterbeta "8" then second clusteralpha "10500m" for asc cpu sort
-	if decision.Status.Decisions[0].ClusterName == "clusteralpha" {
-		t.Errorf("Failed to sort cluster properly, placementdecision: %v", result)
-	}
 }
 
 func TestClusterReplica(t *testing.T) {
@@ -423,15 +386,6 @@ func TestClusterReplica(t *testing.T) {
 	if len(result.Status.Decisions) != 1 {
 		t.Errorf("Failed to get 1 from all clusters, placementrule: %v", result)
 	}
-
-	decision := &clusterapi.PlacementDecision{}
-
-	err = c.Get(ctx, pdkey, decision)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if len(decision.Status.Decisions) != 1 {
-		t.Errorf("Failed to get 1 from all clusters, placementdecision: %v", result)
-	}
 }
 
 func TestClusterChange(t *testing.T) {
@@ -447,6 +401,9 @@ func TestClusterChange(t *testing.T) {
 
 	recFn, requests := SetupTestReconcile(newReconciler(mgr))
 	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+
+	recFn2, _ := SetupTestReconcile(genReconciler(mgr))
+	g.Expect(add(mgr, recFn2)).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
@@ -486,15 +443,6 @@ func TestClusterChange(t *testing.T) {
 		t.Errorf("Failed to get all(1) clusters, placementrule: %v", result)
 	}
 
-	decision := &clusterapi.PlacementDecision{}
-
-	err = c.Get(ctx, pdkey, decision)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	if len(decision.Status.Decisions) != 1 {
-		t.Errorf("Failed to get all(1) clusters, placementdecision: %v", result)
-	}
-
 	clinstance = clusters[1].DeepCopy()
 	err = c.Create(context.TODO(), clinstance)
 
@@ -513,10 +461,23 @@ func TestClusterChange(t *testing.T) {
 		t.Errorf("Failed to get all(2) clusters, placementrule: %v", result)
 	}
 
-	err = c.Get(ctx, pdkey, decision)
+	result.Spec.SchedulerName = "test-scheduler"
+	err = c.Update(context.TODO(), result)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	if len(decision.Status.Decisions) != 2 {
-		t.Errorf("Failed to get all(2) clusters, placementdecision: %v", decision)
+	var prDecs = []appv1alpha1.PlacementDecision{}
+	prDecs = append(prDecs, result.Status.Decisions[0])
+	result.Status.Decisions = prDecs
+
+	err = c.Status().Update(context.TODO(), result)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(5 * time.Second)
+
+	err = c.Get(context.TODO(), prulekey, result)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	if len(result.Status.Decisions) != 1 {
+		t.Errorf("Failed to get all(1) clusters, placementrule: %v", result)
 	}
 }
