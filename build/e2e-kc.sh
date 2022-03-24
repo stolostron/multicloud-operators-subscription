@@ -269,3 +269,27 @@ else
 fi
 kubectl config use-context kind-hub
 echo "PASSED test case 09-helm-missing-phase"
+
+### 10-cluster-override-ns
+echo "STARTING test 10-cluster-override-ns"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/10-cluster-override-ns/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl -n test-10 get pod | grep nginx-placement | grep Running; then
+    echo "10-cluster-override-ns: appsub deployment pod status is Running"
+else
+    echo "10-cluster-override-ns FAILED: appsub deployment pod status is Running"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/10-cluster-override-ns/
+sleep 30
+kubectl config use-context kind-cluster1
+if kubectl -n test-10 get pod | grep nginx-placement; then
+    echo "10-cluster-override-ns FAILED: appsub deployment pod is not deleted"
+    exit 1
+else
+    echo "10-cluster-override-ns: appsub deployment pod is deleted"
+fi
+echo "PASSED test case 10-cluster-override-ns"
