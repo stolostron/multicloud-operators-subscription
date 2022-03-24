@@ -95,9 +95,9 @@ Check the the subscription add-on deployment on the _managed_ cluster.
 
 ```shell
 $ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
-$ kubectl -n open-cluster-management-agent-addon get deploy multicluster-operators-subscription
-NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
-multicluster-operators-subscription   1/1     1            1           103s
+$ kubectl -n open-cluster-management-agent-addon get deploy application-manager
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+application-manager   1/1     1            1           103s
 ```
 
 ### What is next
