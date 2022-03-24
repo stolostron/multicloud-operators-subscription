@@ -480,7 +480,8 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 	}
 
 	if installedRelease != nil && installedRelease.Manifest != "" && instance.OwnerReferences != nil {
-		r.populateAppSubStatus(installedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed), string(appv1.ReasonInstallSuccessful))
+		r.populateAppSubStatus(installedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed),
+			instance.Repo.Version+" "+string(appv1.ReasonInstallSuccessful))
 	}
 
 	return reconcile.Result{}, err
@@ -567,7 +568,8 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 	}
 
 	if upgradedRelease != nil && upgradedRelease.Manifest != "" && instance.OwnerReferences != nil {
-		r.populateAppSubStatus(upgradedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed), string(appv1.ReasonUpgradeSuccessful))
+		r.populateAppSubStatus(upgradedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed),
+			instance.Repo.Version+" "+string(appv1.ReasonUpgradeSuccessful))
 	}
 
 	return reconcile.Result{}, err
