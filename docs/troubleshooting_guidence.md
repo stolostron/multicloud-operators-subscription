@@ -9,6 +9,7 @@
     - [Managed Subscription Pod](#managed-subscription-pod)
     - [How subscription status is reported](#how-subscription-status-is-reported)
     - [Hub Backend CLI](#hub-backend-cli)
+    - [Set up ImageContentSourcePolicy when installing ACM downstream build on the managed cluster](#set-up-imagecontentsourcepolicy-when-installing-acm-downstream-build-on-the-managed-cluster)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -404,3 +405,51 @@ This CLI, uses identity details in the Application subscriptionReport, to create
 The CLI can be downloaded here:
 
 https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
+
+
+## Set up ImageContentSourcePolicy when installing ACM downstream build on the managed cluster
+
+### Issue
+
+When creating a managedcluster, the application-manager addon has an image pull error that is caused by the ImageContentSourcePolicy not being deployed there
+
+Steps to reproduce:
+
+1. Tried to create an aws managedcluster
+2. Waited for cluster addons to be ready but the application-manager addon wasn't
+3. Logged into the managed cluster to find the imagecontentsourcepolicy was missing
+4. check the application manager addon pod status on the managed cluster, see the image pull error
+```
+% oc get pods -n open-cluster-management-agent-addon |grep application-manager
+```
+
+### Root Cause
+
+The downstream image that the application manager addon component uses is not public in the development stage during each release. The issue won't happen after each ACM GA.
+
+```
+image: registry.redhat.io/rhacm2/multicluster-operators-subscription-rhel8@sha256:2b7ae3d0c36833becce5d996fbc04e91a720c05e7997fb2aad86ee77a40d1e72  
+```
+
+### Solution
+
+Make sure the ImageContentSourcePolicy CR exists on the managed cluster before getting it imported.
+
+```
+% oc get imagecontentsourcepolicy rhacm-repo  -o yaml 
+apiVersion: operator.openshift.io/v1alpha1
+kind: ImageContentSourcePolicy
+metadata:
+  name: rhacm-repo
+spec:
+  repositoryDigestMirrors:
+  - mirrors:
+    - quay.io:443/acm-d
+    source: registry.redhat.io/rhacm2
+  - mirrors:
+    - quay.io:443/acm-d
+    source: registry.redhat.io/multicluster-engine
+  - mirrors:
+    - registry.redhat.io/openshift4/ose-oauth-proxy
+    source: registry.access.redhat.com/openshift4/ose-oauth-proxy
+```

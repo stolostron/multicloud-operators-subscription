@@ -295,12 +295,9 @@ func (mapper *placementDecisionMapper) Map(obj client.Object) []reconcile.Reques
 			placementDecision := &clusterapi.PlacementDecision{}
 			err := mapper.Get(context.TODO(), types.NamespacedName{Name: obj.GetName(), Namespace: obj.GetNamespace()}, placementDecision)
 
-			if err != nil {
+			if err != nil && !k8serrors.IsNotFound(err) {
 				klog.Error("failed to get placementdecision error:", err)
-				continue
-			}
 
-			if len(placementDecision.Status.Decisions) == 0 {
 				continue
 			}
 
@@ -351,7 +348,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		pdMapper := &placementDecisionMapper{mgr.GetClient()}
 		err = c.Watch(
 			&source.Kind{Type: &clusterapi.PlacementDecision{}},
-			handler.EnqueueRequestsFromMapFunc(pdMapper.Map))
+			handler.EnqueueRequestsFromMapFunc(pdMapper.Map), utils.PlacementDecisionPredicateFunctions)
 
 		if err != nil {
 			return err
