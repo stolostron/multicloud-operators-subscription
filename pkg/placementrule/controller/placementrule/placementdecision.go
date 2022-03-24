@@ -39,7 +39,7 @@ const (
 
 // syncPlacementDecisions create/update/delete placementdecisions based on PlacementRule's status.decisions
 // based on https://github.com/open-cluster-management-io/placement/blob/v0.2.0/pkg/controllers/scheduling/scheduling_controller.go#L339
-func (r *ReconcilePlacementRule) syncPlacementDecisions(ctx context.Context,
+func (r *ReconcilePlacementRuleStatus) syncPlacementDecisions(ctx context.Context,
 	placementRule placementruleapi.PlacementRule) error {
 	klog.Info("syncPlacementDecisions placementrule ", placementRule.Namespace, "/", placementRule.Name)
 
@@ -139,7 +139,7 @@ func (r *ReconcilePlacementRule) syncPlacementDecisions(ctx context.Context,
 
 // createOrUpdatePlacementDecision updates or creates a new PlacementDecision if it does not exist
 // based on https://github.com/open-cluster-management-io/placement/blob/v0.2.0/pkg/controllers/scheduling/scheduling_controller.go#L419
-func (r *ReconcilePlacementRule) createOrUpdatePlacementDecision(
+func (r *ReconcilePlacementRuleStatus) createOrUpdatePlacementDecision(
 	ctx context.Context,
 	placementRule placementruleapi.PlacementRule,
 	placementDecisionName string,
