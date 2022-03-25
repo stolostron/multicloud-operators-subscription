@@ -658,7 +658,7 @@ func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Clie
 		if instance.Spec.Placement.PlacementRef != nil {
 			clusters, err = getClustersFromPlacementRef(instance, kubeclient, logger)
 		} else {
-			clustermap, err := placementutils.PlaceByGenericPlacmentFields(kubeclient, instance.Spec.Placement.GenericPlacementFields, nil, instance)
+			clustermap, err := placementutils.PlaceByGenericPlacmentFields(kubeclient, instance.Spec.Placement.GenericPlacementFields, instance)
 			if err != nil {
 				logger.Error(err, " - Failed to get clusters from generic fields with error.")
 				return nil, err

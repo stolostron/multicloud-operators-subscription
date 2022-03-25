@@ -58,7 +58,7 @@ func (r *ReconcileSubscription) getClustersByPlacement(instance *appSubV1.Subscr
 	if instance.Spec.Placement.PlacementRef != nil {
 		clusters, err = r.getClustersFromPlacementRef(instance)
 	} else {
-		clustermap, err := placementutils.PlaceByGenericPlacmentFields(r.Client, instance.Spec.Placement.GenericPlacementFields, nil, instance)
+		clustermap, err := placementutils.PlaceByGenericPlacmentFields(r.Client, instance.Spec.Placement.GenericPlacementFields, instance)
 		if err != nil {
 			klog.Error("Failed to get clusters from generic fields with error: ", err)
 			return nil, err

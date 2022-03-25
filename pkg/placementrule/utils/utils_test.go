@@ -159,7 +159,7 @@ func TestPlacementRule(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// test PlaceByGenericPlacmentFields
-	clmap, err := PlaceByGenericPlacmentFields(c, placementrule1.Spec.GenericPlacementFields, kubeClient, placementrule1)
+	clmap, err := PlaceByGenericPlacmentFields(c, placementrule1.Spec.GenericPlacementFields, placementrule1)
 
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clmap)).To(gomega.Equal(1))

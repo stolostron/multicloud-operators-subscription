@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,11 +49,8 @@ func Add(mgr manager.Manager) error {
 // newReconciler returns a new reconcile.Reconciler
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	authCfg := mgr.GetConfig()
-	authCfg.QPS = 100.0
-	authCfg.Burst = 200
-	kubeClient := kubernetes.NewForConfigOrDie(authCfg)
 
-	return &ReconcilePlacementRule{Client: mgr.GetClient(), scheme: mgr.GetScheme(), authClient: kubeClient}
+	return &ReconcilePlacementRule{Client: mgr.GetClient(), scheme: mgr.GetScheme(), authConfig: authCfg}
 }
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
@@ -94,7 +91,7 @@ var _ reconcile.Reconciler = &ReconcilePlacementRule{}
 // ReconcilePlacementRule reconciles a PlacementRule object
 type ReconcilePlacementRule struct {
 	client.Client
-	authClient kubernetes.Interface
+	authConfig *rest.Config
 	scheme     *runtime.Scheme
 }
 
