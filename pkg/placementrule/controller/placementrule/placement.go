@@ -23,21 +23,25 @@ import (
 	rbacv1 "k8s.io/api/authorization/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 )
 
 func (r *ReconcilePlacementRule) hubReconcile(instance *appv1alpha1.PlacementRule) error {
-	clmap, err := utils.PlaceByGenericPlacmentFields(r.Client, instance.Spec.GenericPlacementFields, r.authClient, instance)
+	clmap, err := utils.PlaceByGenericPlacmentFields(r.Client, instance.Spec.GenericPlacementFields, instance)
 	if err != nil {
 		klog.Error("Error in preparing clusters by status:", err)
+
 		return err
 	}
 
 	err = r.filteClustersByStatus(instance, clmap /* , clstatusmap */)
 	if err != nil {
 		klog.Error("Error in filtering clusters by status:", err)
+
 		return err
 	}
 
@@ -290,9 +294,19 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 		return nil
 	}
 
+	user, groups := utils.ExtractUserAndGroup(objanno)
+
+	userKubeConfig := r.authConfig
+	userKubeConfig.Impersonate = rest.ImpersonationConfig{
+		UserName: user,
+		Groups:   groups,
+	}
+
+	userKubeClient := kubernetes.NewForConfigOrDie(userKubeConfig)
+
 	for clusterName, cl := range clmap {
 		manageCluster := cl.DeepCopy()
-		if !r.checkUserPermission(objanno, manageCluster) {
+		if !r.checkUserPermission(userKubeClient, manageCluster, user, groups) {
 			delete(clmap, clusterName)
 		}
 	}
@@ -301,35 +315,26 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 }
 
 // checkUserPermission checks if user can get managedCluster KIND resource.
-func (r *ReconcilePlacementRule) checkUserPermission(annotations map[string]string, managedCluster *spokeClusterV1.ManagedCluster) bool {
-	user, groups := utils.ExtractUserAndGroup(annotations)
+func (r *ReconcilePlacementRule) checkUserPermission(userKubeClient *kubernetes.Clientset, managedCluster *spokeClusterV1.ManagedCluster,
+	user string, groups []string) bool {
 	clusterName := managedCluster.GetName()
 
-	sar := &rbacv1.SubjectAccessReview{
-		Spec: rbacv1.SubjectAccessReviewSpec{
+	selfSAR := &rbacv1.SelfSubjectAccessReview{
+		Spec: rbacv1.SelfSubjectAccessReviewSpec{
 			ResourceAttributes: &rbacv1.ResourceAttributes{
 				Name:     clusterName,
 				Group:    "cluster.open-cluster-management.io",
 				Verb:     "get",
 				Resource: "managedclusters",
 			},
-			User:   user,
-			Groups: groups,
 		},
 	}
 
-	result, err := r.authClient.AuthorizationV1().SubjectAccessReviews().Create(context.TODO(), sar, v1.CreateOptions{})
+	result, err := userKubeClient.AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), selfSAR, v1.CreateOptions{})
 	klog.Infof("user: %v, groups: %v, cluster:%v, result:%v, err:%v", user, groups, clusterName, result, err)
 
 	if err != nil {
 		return false
-	}
-
-	// According to https://docs.openshift.com/container-platform/4.9/rest_api/authorization_apis/subjectaccessreview-authorization-k8s-io-v1.html
-	// If both allowed is false and denied is false, then the authorizer has no opinion on whether to authorize the action
-	// We should return true in this case
-	if !result.Status.Allowed && !result.Status.Denied {
-		return true
 	}
 
 	if !result.Status.Allowed {
