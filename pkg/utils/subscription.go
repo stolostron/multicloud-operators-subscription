@@ -687,6 +687,7 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 		klog.V(10).Info("Updating", sub.Status, sub.Status.Statuses["/"])
 
 		sub.Status.LastUpdateTime = metav1.Now()
+
 		err = statusClient.Status().Update(context.TODO(), sub)
 		// want to print out the error log before leave
 		if err != nil {
@@ -695,6 +696,20 @@ func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub 
 	}
 
 	return err
+}
+
+func UpdateLastUpdateTime(clt client.Client, instance *appv1.Subscription) {
+	curSub := &appv1.Subscription{}
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, curSub); err != nil {
+		klog.Warning("Failed to get appsub to update LastUpdateTime", err)
+		return
+	}
+
+	curSub.Status.LastUpdateTime = metav1.Now()
+
+	if err := clt.Status().Update(context.TODO(), curSub); err != nil {
+		klog.Warning("Failed to update LastUpdateTime", err)
+	}
 }
 
 // OverrideResourceBySubscription alter the given template with overrides
