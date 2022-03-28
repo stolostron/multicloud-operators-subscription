@@ -185,6 +185,8 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 	defer klog.Info("exit doSubscription: ", hostkey.String())
 
+	utils.UpdateLastUpdateTime(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription)
+
 	// If webhook is enabled, don't do anything until next reconcilitation.
 	if ghsi.webhookEnabled {
 		klog.Infof("Git Webhook is enabled on subscription %s.", ghsi.Subscription.Name)

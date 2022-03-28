@@ -127,6 +127,8 @@ func (obsi *SubscriberItem) CompareOjbectStoreStatus(initObjectStoreErr error) b
 }
 
 func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyID, secretAccessKey, region string, err error) {
+	utils.UpdateLastUpdateTime(obsi.synchronizer.GetLocalClient(), obsi.Subscription)
+
 	channel := obsi.Channel
 
 	if !primary {

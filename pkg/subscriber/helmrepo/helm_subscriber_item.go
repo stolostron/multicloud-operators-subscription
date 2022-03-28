@@ -179,6 +179,8 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 	var err error
 
+	utils.UpdateLastUpdateTime(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription)
+
 	//Update the secret and config map
 	if hrsi.Channel != nil {
 		sec, cm := utils.FetchChannelReferences(hrsi.synchronizer.GetRemoteNonCachedClient(), *hrsi.Channel)
