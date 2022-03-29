@@ -17,13 +17,10 @@ package mcmhub
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/ghodss/yaml"
-	gerr "github.com/pkg/errors"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/kube"
@@ -43,12 +40,9 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 
 	rHelper "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/controller/helmrelease"
 	rUtils "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/utils"
@@ -139,24 +133,13 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 	return chartDir, nil
 }
 
-func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper, channel, secondChannel *chnv1.Channel,
-	sub *subv1.Subscription, isAdmin bool) ([]*v1.ObjectReference, error) {
-	helmRls, err := helmops.GetSubscriptionChartsOnHub(hubClt, channel, secondChannel, sub)
-	if err != nil {
-		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
-		return nil, err
-	}
-
-	var errMsgs []string
-
+func getHelmTopoResources(helmRls []*releasev1.HelmRelease, hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper,
+	sub *subv1.Subscription, isAdmin bool) []*v1.ObjectReference {
 	resources := []*v1.ObjectReference{}
 	cfg := rest.CopyConfig(hubCfg)
 
 	for _, helmRl := range helmRls {
-		objList, err := generateResourceList(hubClt, rm, cfg, helmRl)
-		if err != nil {
-			return nil, gerr.Wrap(err, "failed to get object lists")
-		}
+		objList := generateResourceList(hubClt, rm, cfg, helmRl)
 
 		for _, obj := range objList {
 			// No need to save the namespace object to the resource list of the appsub
@@ -177,19 +160,16 @@ func getHelmTopoResources(hubClt client.Client, hubCfg *rest.Config, rm meta.RES
 		}
 	}
 
-	if len(errMsgs) > 0 {
-		return resources, errors.New(strings.Join(errMsgs, ","))
-	}
-
-	return resources, nil
+	return resources
 }
 
 //generateResourceList generates the resource list for given HelmRelease
-func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) ([]*v1.ObjectReference, error) {
+func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) []*v1.ObjectReference {
 	chartDir, err := downloadChart(client, s)
 	if err != nil {
-		klog.Error(err, " - Failed to download the chart")
-		return nil, err
+		klog.Warning(err, " - Failed to download the chart")
+
+		return nil
 	}
 
 	var values map[string]interface{}
@@ -198,32 +178,41 @@ func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restcli
 
 	err = json.NewEncoder(reqBodyBytes).Encode(s.Spec)
 	if err != nil {
-		return nil, err
+		klog.Warning(err, " - Failed to encode spec")
+
+		return nil
 	}
 
 	err = yaml.Unmarshal(reqBodyBytes.Bytes(), &values)
 	if err != nil {
-		klog.Error(err, " - Failed to Unmarshal the spec ", s.Spec)
-		return nil, err
+		klog.Warning(err, " - Failed to Unmarshal the spec ", s.Spec)
+
+		return nil
 	}
 
 	klog.V(3).Info("ChartDir: ", chartDir)
 
 	chart, err := loader.LoadDir(chartDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load chart dir: %w", err)
+		klog.Warning("failed to load chart dir: %w", err)
+
+		return nil
 	}
 
 	rcg, err := newRESTClientGetter(rm, cfg, s.Namespace)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get REST client getter from manager: %w", err)
+		klog.Warning("failed to get REST client getter from manager: %w", err)
+
+		return nil
 	}
 
 	kubeClient := kube.New(rcg)
 
 	actionConfig := &action.Configuration{}
 	if err := actionConfig.Init(rcg, s.GetNamespace(), "secret", func(_ string, _ ...interface{}) {}); err != nil {
-		return nil, fmt.Errorf("failed to initialized actionConfig: %w", err)
+		klog.Warning("failed to initialized actionConfig: %w", err)
+
+		return nil
 	}
 
 	install := action.NewInstall(actionConfig)
@@ -235,20 +224,24 @@ func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restcli
 
 	release, err := install.Run(chart, values)
 	if err != nil || release == nil {
-		return nil, err
+		return nil
 	}
 
 	// parse the manifest into individual yaml content
 	caps, err := rHelper.GetCapabilities(actionConfig)
 	if err != nil {
-		return nil, err
+		klog.Warning("failed to helm install dry-run: %w", err)
+
+		return nil
 	}
 
 	manifests := releaseutil.SplitManifests(release.Manifest)
 
 	_, files, err := releaseutil.SortManifests(manifests, caps.APIVersions, releaseutil.InstallOrder)
 	if err != nil {
-		return nil, err
+		klog.Warning("failed to sort manifests: %w", err)
+
+		return nil
 	}
 
 	resources := []*v1.ObjectReference{}
@@ -285,7 +278,7 @@ func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restcli
 		}
 	}
 
-	return resources, nil
+	return resources
 }
 
 func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subscription) {
