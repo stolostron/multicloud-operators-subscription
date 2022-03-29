@@ -166,6 +166,8 @@ func getCertChain(certs string) tls.Certificate {
 	return certChain
 }
 
+// A subscription can have secondary channel to use when it cannot connect to the primary channel
+// This builds connectionOptions *git.CloneOptions based on the channel selection
 func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectionOptions *git.CloneOptions, err error) {
 	channelConnOptions := cloneOptions.PrimaryConnectionOption
 
@@ -261,12 +263,22 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		klog.Error("Failed to get Git clone options with the primary channel. Trying the secondary channel.")
 
 		usingPrimary = false
+	}
 
-		options, err = getConnectionOptions(cloneOptions, false)
-		if err != nil {
+	secondaryOptions, err := getConnectionOptions(cloneOptions, false)
+
+	if err != nil {
+		if !usingPrimary {
+			// we could not get both primary and secondary Git connection options. return error
 			klog.Error("Failed to get Git clone options with the secondary channel.")
 			return "", err
 		}
+		klog.Warning("Failed to get Git clone options with the secondary channel.")
+	}
+
+	// we could not get the connection options with the primary channel but we got it with the secondary channel. Use it instead
+	if !usingPrimary {
+		options = secondaryOptions
 	}
 
 	klog.Info("Cloning ", options.URL, " into ", cloneOptions.DestDir)
@@ -283,28 +295,19 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		if usingPrimary {
 			klog.Error(err, " Failed to git clone with the primary channel: ", err.Error())
 
-			// Get clone options with the secondary channel
-			secondOptions, seconderr := getConnectionOptions(cloneOptions, false)
-
-			if seconderr != nil {
-				klog.Error("Failed to get Git clone options with the secondary channel.")
-
-				return "", errors.New("Failed to get secondary Git clone options : " + Error + seconderr.Error())
-			}
-
-			if secondOptions == nil {
+			if secondaryOptions == nil {
 				return "", errors.New("Failed to clone git: " + options.URL + Error + err.Error())
 			}
 
 			klog.Info("Trying to clone with the secondary channel")
-			klog.Info("Cloning ", secondOptions.URL, " into ", cloneOptions.DestDir)
+			klog.Info("Cloning ", secondaryOptions.URL, " into ", cloneOptions.DestDir)
 
-			repo, err = git.PlainClone(cloneOptions.DestDir, false, secondOptions)
+			repo, err = git.PlainClone(cloneOptions.DestDir, false, secondaryOptions)
 
 			if err != nil {
 				klog.Error("Failed to clone Git with the secondary channel." + Error + err.Error())
 
-				return "", errors.New("Failed to clone git: " + secondOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
+				return "", errors.New("Failed to clone git: " + secondaryOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 			}
 		} else {
 			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
