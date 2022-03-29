@@ -170,7 +170,7 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 	if !primary {
 		if cloneOptions.SecondaryConnectionOption == nil {
 			klog.Error("no secondary channel to try")
-			return nil, errors.New("no secondary channel to try")
+			return nil, nil
 		}
 
 		channelConnOptions = cloneOptions.SecondaryConnectionOption
@@ -282,23 +282,27 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			klog.Error(err, " Failed to git clone with the primary channel: ", err.Error())
 
 			// Get clone options with the secondary channel
-			options, err = getConnectionOptions(cloneOptions, false)
+			secondOptions, seconderr := getConnectionOptions(cloneOptions, false)
 
-			if err != nil {
+			if seconderr != nil {
 				klog.Error("Failed to get Git clone options with the secondary channel.")
 
-				return "", errors.New("Failed to get Git clone options with the secondary channel: " + " err: " + err.Error())
+				return "", errors.New("Failed to get secondary Git clone options : " + " err: " + seconderr.Error())
+			}
+
+			if secondOptions == nil {
+				return "", errors.New("Failed to clone git: " + options.URL + " err: " + err.Error())
 			}
 
 			klog.Info("Trying to clone with the secondary channel")
-			klog.Info("Cloning ", options.URL, " into ", cloneOptions.DestDir)
+			klog.Info("Cloning ", secondOptions.URL, " into ", cloneOptions.DestDir)
 
-			repo, err = git.PlainClone(cloneOptions.DestDir, false, options)
+			repo, err = git.PlainClone(cloneOptions.DestDir, false, secondOptions)
 
 			if err != nil {
 				klog.Error("Failed to clone Git with the secondary channel. err:" + err.Error())
 
-				return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+				return "", errors.New("Failed to clone git: " + secondOptions.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
 			}
 		} else {
 			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
