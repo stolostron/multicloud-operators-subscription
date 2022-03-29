@@ -69,6 +69,8 @@ const (
 	ClientKey = "clientKey"
 	// ClientCert is a client certificate for connecting to a Git server
 	ClientCert = "clientCert"
+
+	Error = " err: "
 )
 
 type kubeResource struct {
@@ -290,11 +292,11 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			if seconderr != nil {
 				klog.Error("Failed to get Git clone options with the secondary channel.")
 
-				return "", errors.New("Failed to get secondary Git clone options : " + " err: " + seconderr.Error())
+				return "", errors.New("Failed to get secondary Git clone options : " + Error + seconderr.Error())
 			}
 
 			if secondOptions == nil {
-				return "", errors.New("Failed to clone git: " + options.URL + " err: " + err.Error())
+				return "", errors.New("Failed to clone git: " + options.URL + Error + err.Error())
 			}
 
 			klog.Info("Trying to clone with the secondary channel")
@@ -303,19 +305,19 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			repo, err = git.PlainClone(cloneOptions.DestDir, false, secondOptions)
 
 			if err != nil {
-				klog.Error("Failed to clone Git with the secondary channel. err:" + err.Error())
+				klog.Error("Failed to clone Git with the secondary channel." + Error + err.Error())
 
-				return "", errors.New("Failed to clone git: " + secondOptions.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+				return "", errors.New("Failed to clone git: " + secondOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 			}
 		} else {
-			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + " err: " + err.Error())
+			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 		}
 	}
 
 	ref, err := repo.Head()
 	if err != nil {
 		klog.Error(err, " Failed to get git repo head")
-		return "", errors.New("failed to get git repo head, err: " + err.Error())
+		return "", errors.New("failed to get git repo head," + Error + err.Error())
 	}
 
 	klog.Infof("Successfully cloned the repo and the current branch is %s", ref.Name().Short())
@@ -331,7 +333,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 		if err != nil {
 			klog.Error(err, " failed to resolve revision")
-			return "", errors.New("failed to resolve revision tag " + cloneOptions.RevisionTag + " err: " + err.Error())
+			return "", errors.New("failed to resolve revision tag " + cloneOptions.RevisionTag + Error + err.Error())
 		}
 
 		klog.Infof("Revision tag %s is resolved to %s", cloneOptions.RevisionTag, revisionHash)
@@ -355,7 +357,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 		if err != nil {
 			klog.Error(err, " Failed to checkout commit")
-			return "", errors.New("failed to checkout commit " + targetCommit + " err: " + err.Error())
+			return "", errors.New("failed to checkout commit " + targetCommit + Error + err.Error())
 		}
 
 		klog.Infof("Successfully checked out commit %s ", targetCommit)
@@ -368,7 +370,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	if err != nil {
 		klog.Error(err, " Failed to get git repo commit")
-		return "", errors.New("failed to get the repo's latest commit hash, err: " + err.Error())
+		return "", errors.New("failed to get the repo's latest commit hash," + Error + err.Error())
 	}
 
 	return commit.ID().String(), nil
