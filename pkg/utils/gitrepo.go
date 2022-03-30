@@ -278,6 +278,11 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	// we could not get the connection options with the primary channel but we got it with the secondary channel. Use it instead
 	if !usingPrimary {
+		if secondaryOptions == nil {
+			// if trying the secondary connection option but nothing there, return error
+			// at this point, we have no Git connection options
+			return "", errors.New("Failed to build git connection options")
+		}
 		options = secondaryOptions
 	}
 
