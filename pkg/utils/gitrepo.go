@@ -1048,6 +1048,12 @@ func checkUserSubAdmin(subjects []rbacv1.Subject, userIdentity, userGroups strin
 					isUserSubAdmin = true
 				}
 			}
+		} else if subject.Kind == "ServiceAccount" && subject.Namespace != "" && subject.Name != "" {
+			if strings.Trim(userIdentity, "") == "system:serviceaccount:"+subject.Namespace+":"+subject.Name {
+				klog.Info("ServiceAccount match. cluster-admin: true")
+
+				isUserSubAdmin = true
+			}
 		}
 	}
 
