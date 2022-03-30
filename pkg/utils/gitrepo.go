@@ -273,6 +273,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			klog.Error("Failed to get Git clone options with the secondary channel.")
 			return "", err
 		}
+
 		klog.Warning("Failed to get Git clone options with the secondary channel.")
 	}
 
@@ -281,8 +282,9 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		if secondaryOptions == nil {
 			// if trying the secondary connection option but nothing there, return error
 			// at this point, we have no Git connection options
-			return "", errors.New("Failed to build git connection options")
+			return "", errors.New("failed to build git connection options")
 		}
+
 		options = secondaryOptions
 	}
 
