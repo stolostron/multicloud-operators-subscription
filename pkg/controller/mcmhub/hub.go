@@ -42,6 +42,7 @@ import (
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubreportv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	awsutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/aws"
 )
 
@@ -103,7 +104,14 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		resources, err = r.GetGitResources(sub, isAdmin)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		resources, err = getHelmTopoResources(r.Client, r.cfg, r.restMapper, primaryChannel, secondaryChannel, sub, isAdmin)
+		helmRls, err := helmops.GetSubscriptionChartsOnHub(r.Client, primaryChannel, secondaryChannel, sub)
+		if err != nil {
+			klog.Error("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
+
+			return err
+		}
+
+		resources = getHelmTopoResources(helmRls, r.Client, r.cfg, r.restMapper, sub, isAdmin)
 	case chnv1alpha1.ChannelTypeObjectBucket:
 		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, isAdmin)
 	}

@@ -293,3 +293,26 @@ else
     echo "10-cluster-override-ns: appsub deployment pod is deleted"
 fi
 echo "PASSED test case 10-cluster-override-ns"
+
+### 11-helm-hub-dryrun
+echo "STARTING test 11-helm-hub-dryrun"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/11-helm-hub-dryrun/
+sleep 30
+if kubectl get subscriptions.apps.open-cluster-management.io ingress-appsub | grep Propagated; then
+    echo "11-helm-hub-dryrun: ingress-appsub status is Propagated"
+else
+    echo "11-helm-hub-dryruns FAILED:  ingress-appsub status is not Propagated"
+    exit 1
+fi
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress-appsub -o yaml | grep InstallError; then
+    echo "11-helm-hub-dryrun: found InstallError in subscription status output"
+else
+    echo "11-helm-hub-dryrun: FAILED: InstallError is not in the subscription status output"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/11-helm-hub-dryrun/
+sleep 20
+echo "PASSED test case 11-helm-hub-dryrun"
