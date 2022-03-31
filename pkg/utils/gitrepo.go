@@ -278,7 +278,8 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		klog.Warning("Failed to get Git clone options with the secondary channel.")
 	}
 
-	// we could not get the connection options with the primary channel but we got it with the secondary channel. Use it instead
+	// we could not get the connection options with the primary channel
+	// but we got it with the secondary channel. Use it instead
 	if !usingPrimary {
 		if secondaryOptions == nil {
 			// if trying the secondary connection option but nothing there, return error
@@ -299,12 +300,14 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 
 	repo, err := git.PlainClone(cloneOptions.DestDir, false, options)
 
+	failMsg := "failed to clone git: "
+
 	if err != nil {
 		if usingPrimary {
 			klog.Error(err, " Failed to git clone with the primary channel: ", err.Error())
 
 			if secondaryOptions == nil {
-				return "", errors.New("Failed to clone git: " + options.URL + Error + err.Error())
+				return "", errors.New(failMsg + options.URL + Error + err.Error())
 			}
 
 			klog.Info("Trying to clone with the secondary channel")
@@ -315,10 +318,10 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			if err != nil {
 				klog.Error("Failed to clone Git with the secondary channel." + Error + err.Error())
 
-				return "", errors.New("Failed to clone git: " + secondaryOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
+				return "", errors.New(failMsg + secondaryOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 			}
 		} else {
-			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
+			return "", errors.New(failMsg + options.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 		}
 	}
 
@@ -1002,6 +1005,12 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 
 						isUserSubAdmin = true
 					}
+				}
+			} else if subject.Kind == "ServiceAccount" && subject.Namespace != "" && subject.Name != "" {
+				if strings.Trim(userIdentity, "") == "system:serviceaccount:"+subject.Namespace+":"+subject.Name {
+					klog.Info("ServiceAccount match. cluster-admin: true")
+
+					isUserSubAdmin = true
 				}
 			}
 		}

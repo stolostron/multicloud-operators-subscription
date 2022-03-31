@@ -820,6 +820,29 @@ metadata:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+
+	// user group: system:serviceaccounts:default
+	// user identity: system:serviceaccounts:default:adminsa
+	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: test-subscription
+  namespace: default
+  annotations:
+    open-cluster-management.io/user-group: c3lzdGVtOnNlcnZpY2VhY2NvdW50cyxzeXN0ZW06c2VydmljZWFjY291bnRzOmRlZmF1bHQsc3lzdGVtOmF1dGhlbnRpY2F0ZWQ=
+    open-cluster-management.io/user-identity: c3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6YWRtaW5zYQ==
+    apps.open-cluster-management.io/cluster-admin: "true"
+  spec:
+    channel: github-ns/github-ch
+    placement:
+      placementRef:
+        name: dev-clusters`
+
+	subscription = &appv1alpha1.Subscription{}
+	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 }
 
 func subAdminClusterRole() *rbacv1.ClusterRole {
@@ -850,6 +873,11 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			{
 				Kind: "Group",
 				Name: "subscription-admin",
+			},
+			{
+				Kind:      "ServiceAccount",
+				Name:      "adminsa",
+				Namespace: "default",
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
