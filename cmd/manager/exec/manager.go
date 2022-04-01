@@ -55,7 +55,6 @@ var (
 
 const (
 	AddonName               = "application-manager"
-	AgentImageEnv           = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
 	leaseUpdateJitterFactor = 0.25
 )
 
@@ -235,10 +234,24 @@ func RunManager() {
 
 	// Start addon manager
 	if !Options.Standalone && Options.ClusterName == "" {
-		agentImage, found := os.LookupEnv(AgentImageEnv)
-		if !found {
-			agentImage = Options.AgentImage
+		klog.Info("Starting addon manager")
+
+		agentImage, err := agentaddon.GetMchImage(cfg)
+		if err != nil {
+			klog.Error("Failed to get MCH image config map, error:", err)
+			os.Exit(1)
 		}
+
+		if agentImage == "" {
+			var found bool
+			agentImage, found = os.LookupEnv(agentaddon.AgentImageEnv)
+
+			if !found {
+				agentImage = Options.AgentImage
+			}
+		}
+
+		klog.Infof("Agent image: %v", agentImage)
 
 		adddonmgr, err := agentaddon.NewAddonManager(cfg, agentImage, Options.AgentInstallAll)
 		if err != nil {

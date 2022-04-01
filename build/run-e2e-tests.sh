@@ -119,8 +119,9 @@ kind get kubeconfig > cluster_config/hub
 # over here, we are build the test server on the fly since, the `go get` will
 # mess up the go.mod file when doing the local test
 echo -e "\nGet the applifecycle-backend-e2e server"
-GO111MODULE=on go get github.com/stolostron/applifecycle-backend-e2e@v0.2.9
-
+export GO111MODULE=on
+go install github.com/stolostron/applifecycle-backend-e2e@v0.2.10
+ls ~/go/bin
 
 export PATH=$PATH:~/go/bin
 E2E_BINARY_NAME="applifecycle-backend-e2e"
@@ -131,7 +132,7 @@ if [ "$E2E_PS" != "" ]; then
     kill -9 $E2E_PS
 fi
 
-${E2E_BINARY_NAME} -cfg cluster_config &
+~/go/bin/${E2E_BINARY_NAME} -cfg cluster_config &
 
 function cleanup()
 {
