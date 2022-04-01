@@ -198,6 +198,9 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if !strings.EqualFold(previousDesiredTag, ghssubitem.desiredTag) {
 		klog.Infof("desired tag has changed from %s to %s. restart to reconcile resources", previousDesiredTag, ghssubitem.desiredTag)
 
+		// reset commit ID to force sync
+		ghssubitem.commitID = ""
+
 		restart = true
 	}
 
