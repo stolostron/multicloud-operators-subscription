@@ -200,6 +200,9 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if !strings.EqualFold(previousSyncTime, ghssubitem.syncTime) {
 		klog.Infof("Manual reconcile time has changed from %s to %s. restart to reconcile resources", previousSyncTime, ghssubitem.syncTime)
 
+		// reset commit ID to force sync
+		ghssubitem.commitID = ""
+
 		restart = true
 	}
 
