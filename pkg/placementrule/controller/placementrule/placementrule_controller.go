@@ -58,7 +58,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Enable the concurrent reconcile in case some placementrule could take longer to generate cluster decisions
 	c, err := controller.New("placementrule-controller", mgr, controller.Options{
 		Reconciler:              r,
-		MaxConcurrentReconciles: 10,
+		MaxConcurrentReconciles: 2,
 	})
 	if err != nil {
 		return err
@@ -122,7 +122,12 @@ func (mapper *ClusterPlacementRuleMapper) Map(obj client.Object) []reconcile.Req
 		requests = append(requests, reconcile.Request{NamespacedName: objkey})
 	}
 
-	klog.Infof("Those placementRules are triggered due to managed Cluster status change: %v", requests)
+	requestNum := len(requests)
+	if requestNum > 20 {
+		requestNum = 20
+	}
+
+	klog.Infof("Those placementRules triggered due to managed Cluster status change. placementRules: %v", requests[:requestNum])
 
 	return requests
 }
@@ -221,10 +226,10 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 		klog.Info("Update placementrule ", instance.Name, " with decisions: ", instance.Status.Decisions)
 		err = r.Status().Update(context.TODO(), instance)
 
-		klog.V(1).Info("Status update", request.NamespacedName, " with err:", err)
+		klog.Info("Status update", request.NamespacedName, " with err:", err)
 	}
 
-	klog.V(1).Info("Reconciling - finished.", request.NamespacedName)
+	klog.Info("Reconciling - finished.", request.NamespacedName)
 
 	return reconcile.Result{}, nil
 }

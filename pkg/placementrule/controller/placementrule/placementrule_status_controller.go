@@ -65,7 +65,7 @@ func genReconciler(mgr manager.Manager) reconcile.Reconciler {
 func addRec(mgr manager.Manager, r reconcile.Reconciler) error {
 	c, err := controller.New("placementrule-status-controller", mgr, controller.Options{
 		Reconciler:              r,
-		MaxConcurrentReconciles: 10,
+		MaxConcurrentReconciles: 2,
 	})
 	if err != nil {
 		return err
