@@ -20,9 +20,13 @@ import (
 
 	"k8s.io/klog/v2"
 
+	"strings"
+
 	rbacv1 "k8s.io/api/authorization/v1"
+	cbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
@@ -31,6 +35,16 @@ import (
 )
 
 func (r *ReconcilePlacementRule) hubReconcile(instance *appv1alpha1.PlacementRule) error {
+	// Return zero cluster decision if ClusterReplicas is set to 0, thus don't need to go through other filters for better performance
+	if instance.Spec.ClusterReplicas != nil {
+		total := int(*instance.Spec.ClusterReplicas)
+		if total == 0 {
+			instance.Status.Decisions = []appv1alpha1.PlacementDecision{}
+
+			return nil
+		}
+	}
+
 	clmap, err := utils.PlaceByGenericPlacmentFields(r.Client, instance.Spec.GenericPlacementFields, instance)
 	if err != nil {
 		klog.Error("Error in preparing clusters by status:", err)
@@ -48,12 +62,14 @@ func (r *ReconcilePlacementRule) hubReconcile(instance *appv1alpha1.PlacementRul
 	err = r.filteClustersByUser(instance, clmap)
 	if err != nil {
 		klog.Error("Error in filtering clusters by user Identity:", err)
+
 		return err
 	}
 
 	err = r.filteClustersByPolicies(instance, clmap /* , clstatusmap */)
 	if err != nil {
 		klog.Error("Error in filtering clusters by policy:", err)
+
 		return err
 	}
 
@@ -276,12 +292,121 @@ func (r *ReconcilePlacementRule) filteClustersByUser(instance *appv1alpha1.Place
 		return nil
 	}
 
+	// If the user has the GET cluster role for managedclusters resource without specific resource name, return all selected clusters.
+	// Thus normal RBAC users won't need to create SelfSubjectAccessReview to check if the user can get each managed cluster
+	if r.IfClusterAdminByClusterRole(user) {
+		klog.Infof("The user has the GET cluster role for managedclusters resource. user: %v", user)
+
+		return nil
+	}
+
+	// Now we have to create SelfSubjectAccessReview for each managed cluster to decide if the user can get the managed cluster
 	err := r.filteClustersByIdentityAnno(instance, clmap)
 	if err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (r *ReconcilePlacementRule) IfClusterAdminByClusterRole(user string) bool {
+	bindingList := &cbacv1.ClusterRoleBindingList{}
+
+	err := r.List(context.TODO(), bindingList)
+
+	if err != nil {
+		klog.Errorf("Failed to fetch clusterRoleBinding list. err: %v", err)
+
+		return false
+	}
+
+	for _, binding := range bindingList.Items {
+		subjectFound := false
+
+		for _, subject := range binding.Subjects {
+			if strings.Trim(subject.Name, "") == strings.Trim(user, "") && strings.Trim(subject.Kind, "") == "User" {
+				subjectFound = true
+
+				break
+			} else if subject.Kind == "ServiceAccount" && subject.Namespace != "" && subject.Name != "" {
+				if strings.Trim(user, "") == "system:serviceaccount:"+subject.Namespace+":"+subject.Name {
+					subjectFound = true
+
+					break
+				}
+			}
+		}
+
+		if subjectFound {
+			klog.Infof("clusterRoleBinding %v found for user %v ", binding.Name, user)
+
+			if binding.RoleRef.APIGroup == "rbac.authorization.k8s.io" && binding.RoleRef.Kind == "ClusterRole" &&
+				r.IfGetManagedCluster(binding.RoleRef.Name) {
+				klog.Infof("clusterRole %v found for user %v ", binding.RoleRef.Name, user)
+
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string) bool {
+	clusterRoleKey := types.NamespacedName{Name: clusterRoleName}
+	clusterRole := &cbacv1.ClusterRole{}
+
+	err := r.Get(context.TODO(), clusterRoleKey, clusterRole)
+
+	if err != nil {
+		klog.Errorf("Failed to fetch clusterRole. clusterRoleKey: %v, err: %v", clusterRoleKey, err)
+
+		return false
+	}
+
+	for _, rule := range clusterRole.Rules {
+		ifGetManagedCluster := false
+
+		for _, apiGroup := range rule.APIGroups {
+			if apiGroup == "cluster.open-cluster-management.io" || apiGroup == "*" {
+				ifGetManagedCluster = true
+
+				break
+			}
+		}
+
+		if !ifGetManagedCluster {
+			continue
+		}
+
+		for _, resource := range rule.Resources {
+			if resource == "managedclusters" || resource == "*" {
+				ifGetManagedCluster = true
+
+				break
+			}
+		}
+
+		if !ifGetManagedCluster {
+			continue
+		}
+
+		for _, verb := range rule.Verbs {
+			if verb == "get" || verb == "*" {
+				ifGetManagedCluster = true
+
+				break
+			}
+		}
+
+		if ifGetManagedCluster && len(rule.ResourceNames) == 0 {
+			klog.Infof("clusterRole: %v, rule: %#v", clusterRole.Name, rule)
+
+			return true
+		}
+	}
+
+	return false
 }
 
 func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) error {
