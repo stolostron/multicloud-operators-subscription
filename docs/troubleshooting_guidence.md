@@ -390,9 +390,9 @@ summary:
   clusters: 10
 ```
 
-## Hub Backend CLI 
+## Hub Backend CLI to get the AppSub Status
 
-The CLI is for getting the package level AppSub Status on a given managed cluster
+This CLI is for getting the package level AppSub Status on a given managed cluster
 
 As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport
 dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a backend CLI, so that the end users can get the detailed status for an application deployed on a specific cluster.
@@ -406,6 +406,21 @@ The CLI can be downloaded here:
 
 https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
 
+## Hub Backend CLI to get the Last Update Time of an AppSub
+
+This CLI is for getting the Last Update Time of an AppSub on a given managed cluster
+
+It may be desirable to find out when an AppSub was last updated on a managed cluster. It is not always practical to login to each managed cluster to retrieve this information. Thus, an utility script was created to simplify the retrieval of the Last Update Time of an AppSub on a managed cluster. This script is designed to run on the Hub cluster. It creates a managedClusterView resource to get the AppSub from the managed cluster, and parses the data to get the Last Update Time.
+
+The CLI can be downloaded from here:
+
+https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getLastUpdateTime.sh
+
+To run the script:
+```
+% getLastUpdateTime.sh -c <managed cluster Name> -s <AppSub Namespace> -n <Appsub Name>
+// the AppSub CR on the managed cluster will be fetched and the Last Update Time will be displayed
+```
 
 ## Set up ImageContentSourcePolicy when installing ACM downstream build on the managed cluster
 
