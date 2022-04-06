@@ -8,7 +8,8 @@
     - [Hub Subscription Pod](#hub-subscription-pod)
     - [Managed Subscription Pod](#managed-subscription-pod)
     - [How subscription status is reported](#how-subscription-status-is-reported)
-    - [Hub Backend CLI](#hub-backend-cli)
+    - [Hub Backend CLI to get the AppSub Status](#hub-backend-cli-to-get-the-appSub-status)
+    - [Hub Backend CLI to get the Last Update Time of an AppSub](#hub-backend-cli-to-get-the-last-update-time-of-an-appsub)
     - [Set up ImageContentSourcePolicy when installing ACM downstream build on the managed cluster](#set-up-imagecontentsourcepolicy-when-installing-acm-downstream-build-on-the-managed-cluster)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->

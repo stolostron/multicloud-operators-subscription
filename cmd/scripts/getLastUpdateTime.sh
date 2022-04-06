@@ -63,7 +63,8 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-if [ "$cluster" == "local-cluster" ]; then
+localcluster=($(oc get managedclusters -l local-cluster=true --no-headers=true -o name | awk -F "/" '{print $2}'))
+if [ "$cluster" == "$localcluster" ]; then
   appName="${appName}-local"
 fi
 
