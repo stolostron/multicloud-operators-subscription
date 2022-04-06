@@ -63,6 +63,10 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+if [ "$cluster" == "local-cluster" ]; then
+  appName="${appName}-local"
+fi
+
 echo "==== Validating AppSub on Hub: ${appNs}/${appName} ===="
 kubectl get appsub -n $appNs $appName > /dev/null
 if [ $? -ne 0 ]; then
