@@ -252,11 +252,15 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 		appSubUnitStatus.APIVersion = resource.Resource.GetAPIVersion()
 		appSubUnitStatus.Kind = resource.Resource.GetKind()
 		appSubUnitStatus.Name = resource.Resource.GetName()
-		appSubUnitStatus.Namespace = resource.Resource.GetNamespace()
 
 		pkgGVR, isNamespaced, err := sync.getGVRfromGVK(resource.Gvk.Group, resource.Gvk.Version, resource.Gvk.Kind)
 
+		if isNamespaced {
+			appSubUnitStatus.Namespace = resource.Resource.GetNamespace()
+		}
+
 		if err != nil {
+			appSubUnitStatus.Namespace = resource.Resource.GetNamespace()
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
