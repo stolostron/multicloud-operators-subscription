@@ -231,6 +231,8 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 	overwrite := false
 	merge := true
 	tplown := sync.Extension.GetHostFromObject(tplunit)
+	isHelmRelease := strings.EqualFold(tplunit.GetAPIVersion(), "apps.open-cluster-management.io/v1") &&
+		strings.EqualFold(tplunit.GetKind(), "HelmRelease")
 
 	tmplAnnotations := tplunit.GetAnnotations()
 
@@ -291,7 +293,7 @@ func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceIn
 		newobj = utils.RemoveSubOwnerRef(newobj)
 	}
 
-	if merge || specialResource {
+	if (merge || specialResource) && !isHelmRelease {
 		if specialResource {
 			klog.Info("One of special resources requiring merge update")
 		}
