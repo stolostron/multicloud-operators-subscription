@@ -286,6 +286,9 @@ func CreateOrUpdateHelmChart(
 			digest = chartVersions[0].Digest
 		}
 
+		// wipe the existing spec, it will be populated by the override helper function later
+		helmRelease.Spec = nil
+
 		helmRelease.Repo = releasev1.HelmReleaseRepo{
 			Source:             source,
 			ConfigMapRef:       channel.Spec.ConfigMapRef,
