@@ -316,3 +316,33 @@ kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/11-helm-hub-dryrun/
 sleep 20
 echo "PASSED test case 11-helm-hub-dryrun"
+
+### 12-helm-update
+echo "STARTING test 12-helm-update"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/12-helm-update/install
+sleep 30
+if kubectl get subscriptions.apps.open-cluster-management.io nginx-helm-sub | grep Propagated; then
+    echo "12-helm-update: nginx-helm-sub status is Propagated"
+else
+    echo "12-helm-updates FAILED: nginx-helm-sub status is not Propagated"
+    exit 1
+fi
+kubectl config use-context kind-cluster1
+if kubectl get deploy nginx-ingress-simple-default-backend| grep "2/2"; then
+    echo "12-helm-update: found 2/2 in deploy nginx-ingress-simple-default-backend"
+else
+    echo "12-helm-update: FAILED: 2/2 is not in in deploy nginx-ingress-simple-default-backend"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/12-helm-update/upgrade
+sleep 120
+kubectl config use-context kind-cluster1
+if kubectl get deploy nginx-ingress-simple-default-backend| grep "1/1"; then
+    echo "12-helm-update: found 1/1 in deploy nginx-ingress-simple-default-backend"
+else
+    echo "12-helm-update: FAILED: 1/1 is not in in deploy nginx-ingress-simple-default-backend"
+    exit 1
+fi
+echo "PASSED test case 12-helm-update"
