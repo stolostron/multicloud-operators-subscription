@@ -113,7 +113,8 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 		// Skip helmrelease on local-cluster
 		if isLocalCluster && len(appsubClusterStatus.SubscriptionPackageStatus) == 1 &&
 			strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].Kind, "HelmRelease") &&
-			strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].APIVersion, "apps.open-cluster-management.io/v1") {
+			strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].APIVersion, "apps.open-cluster-management.io/v1") &&
+			appsubClusterStatus.SubscriptionPackageStatus[0].Phase != string(v1alpha1.PackageDeployFailed) {
 			klog.V(1).Infof("Skip create appsubstatus(%v/%v) for HelmRelease", pkgstatus.Namespace, pkgstatus.Name)
 
 			// Create cluster report so the helm release controller on the standalone could update it
