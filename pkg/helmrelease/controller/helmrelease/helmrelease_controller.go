@@ -252,6 +252,8 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
 	if instance.GetDeletionTimestamp() != nil {
+		r.deleteAppSubStatus(instance)
+
 		return r.uninstall(instance, manager, dryRunManager)
 	}
 
@@ -281,10 +283,6 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
-	if !manager.IsInstalled() {
-		return r.install(instance, manager, dryRunManager)
-	}
-
 	if !contains(instance.GetFinalizers(), finalizer) {
 		klog.V(1).Info("Adding finalizer (", finalizer, ") to ", helmreleaseNsn(instance))
 		controllerutil.AddFinalizer(instance, finalizer)
@@ -292,6 +290,10 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			klog.Error("Failed to add uninstall finalizer to ", helmreleaseNsn(instance))
 			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 		}
+	}
+
+	if !manager.IsInstalled() {
+		return r.install(instance, manager, dryRunManager)
 	}
 
 	if manager.IsUpgradeRequired() {
@@ -802,7 +804,8 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 func (r *ReconcileHelmRelease) populateAppSubStatus(
 	manifest string, instance *appv1.HelmRelease, manager helmoperator.Manager, packagePhase string, helmReleaseMessage string) {
 	for _, hrOwner := range instance.OwnerReferences {
-		if hrOwner.Kind == "Subscription" {
+		if strings.EqualFold(hrOwner.APIVersion, "apps.open-cluster-management.io/v1") &&
+			strings.EqualFold(hrOwner.Kind, "Subscription") {
 
 			caps, err := GetCapabilities(manager.GetActionConfig())
 			if err != nil {
@@ -852,11 +855,14 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 					}
 					err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
 					if err != nil {
-						klog.Infof("failed to get parent appsub, err: %v", err)
+						klog.Warning("failed to get parent appsub, err: ", err)
 					}
 
 					skipOrphanDelete := true
-					r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
+					err = r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
+					if err != nil {
+						klog.Warning("error while sync app sub cluster status: ", err)
+					}
 				}
 			}
 		}
@@ -895,11 +901,37 @@ func (r *ReconcileHelmRelease) populateErrorAppSubStatus(
 			}
 			err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
 			if err != nil {
-				klog.Infof("failed to get parent appsub, err: %v", err)
+				klog.Warning("failed to get parent appsub, err: ", err)
 			}
 
 			skipOrphanDelete := true
-			r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
+			err = r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete)
+			if err != nil {
+				klog.Warning("error while sync app sub cluster status: ", err)
+			}
+		}
+	}
+}
+
+func (r *ReconcileHelmRelease) deleteAppSubStatus(instance *appv1.HelmRelease) {
+	for _, hrOwner := range instance.OwnerReferences {
+		if strings.EqualFold(hrOwner.APIVersion, "apps.open-cluster-management.io/v1") &&
+			strings.EqualFold(hrOwner.Kind, "Subscription") {
+
+			appSubUnitStatuses := []kubesynchronizer.SubscriptionUnitStatus{}
+
+			appsubClusterStatus := kubesynchronizer.SubscriptionClusterStatus{
+				Cluster:                   r.synchronizer.SynchronizerID.Name,
+				AppSub:                    types.NamespacedName{Name: hrOwner.Name, Namespace: instance.GetNamespace()},
+				Action:                    "DELETE",
+				SubscriptionPackageStatus: appSubUnitStatuses,
+			}
+
+			skipOrphanDelete := true
+			err := r.synchronizer.SyncAppsubClusterStatus(nil, appsubClusterStatus, &skipOrphanDelete)
+			if err != nil {
+				klog.Warning("error while sync app sub cluster status: ", err)
+			}
 		}
 	}
 }
