@@ -68,7 +68,7 @@ Deploy the subscription operator on the _hub_ cluster.
 
 ```shell
 $ kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
-$ clusteradm install addon --names application-manager
+$ clusteradm install hub-addon --names application-manager
 $ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
 NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
 multicluster-operators-subscription   1/1     1            1           25s
@@ -115,9 +115,9 @@ After a while, you should see the subscription propagated to the managed cluster
 
 ```Shell
 $ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
-$ kubectl get subscriptions.apps 
+$ kubectl get subscriptions.apps
 NAME        STATUS       AGE    LOCAL PLACEMENT   TIME WINDOW
-nginx-sub   Subscribed   107m   true  
+nginx-sub   Subscribed   107m   true
 $ kubectl get pod
 NAME                                                   READY   STATUS      RESTARTS   AGE
 nginx-ingress-47f79-controller-6f495bb5f9-lpv7z        1/1     Running     0          108m
