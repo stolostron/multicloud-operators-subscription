@@ -85,7 +85,7 @@ $ kubectl config use-context <hub cluster context> # kubectl config use-context 
 $ kubectl get managedclusters
 NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
 <managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
-$ clusteradm addon enable --names application-manager --clusters <managed cluster name> # clusteradm addon enable --names application-manager --clusters cluster1
+$ clusteradm addon enable --name application-manager --cluster <managed cluster name> # clusteradm addon enable --name application-manager --cluster cluster1
 $ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
 NAME                  AVAILABLE   DEGRADED   PROGRESSING
 application-manager   True
