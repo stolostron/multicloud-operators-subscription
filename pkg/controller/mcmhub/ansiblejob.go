@@ -16,7 +16,7 @@ package mcmhub
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 Used only to convert sync time string to a hash
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -213,7 +213,7 @@ func getSyncTimeHash(syncTimeAnnotation string) string {
 		return ""
 	}
 
-	h := sha1.New()
+	h := sha1.New() // #nosec G401 Used only to convert sync time string to a hash
 	_, err := h.Write([]byte(syncTimeAnnotation))
 
 	if err != nil {

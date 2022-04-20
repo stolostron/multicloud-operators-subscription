@@ -619,7 +619,7 @@ func downloadFileLocal(urlP *url.URL,
 	defer closeHelper(sourceFile)
 
 	// Create new file
-	newFile, downloadErr := os.Create(chartZip)
+	newFile, downloadErr := os.Create(filepath.Clean(chartZip))
 	if downloadErr != nil {
 		klog.Error(downloadErr, " - chartZip: ", chartZip)
 		return downloadErr
@@ -689,7 +689,7 @@ func downloadFileHTTP(parentNamespace string, configMap *corev1.ConfigMap,
 
 		var out *os.File
 
-		out, downloadErr = os.Create(chartZip)
+		out, downloadErr = os.Create(filepath.Clean(chartZip))
 		if downloadErr != nil {
 			klog.Error(downloadErr, " - Failed to create: ", chartZip)
 			return downloadErr

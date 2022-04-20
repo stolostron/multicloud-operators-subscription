@@ -377,7 +377,8 @@ func (obsi *SubscriberItem) doSubscription() {
 	var doErr error
 
 	for _, tpl := range tpls {
-		resource, err := obsi.doSubscribeManifest(&tpl)
+		tpl := tpl
+		resource, err := obsi.doSubscribeManifest(&tpl) // this is now the address of the inner tpl
 
 		if err != nil {
 			klog.Errorf("object bucket failed to package deployable, err: %v", err)

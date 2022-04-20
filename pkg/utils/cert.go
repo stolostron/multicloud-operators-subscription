@@ -69,7 +69,7 @@ func GenerateServerCerts(dir string) error {
 	}
 
 	certFilePath := filepath.Join(dir, "tls.crt")
-	certOut, err := os.Create(certFilePath)
+	certOut, err := os.Create(filepath.Clean(certFilePath))
 
 	if err != nil {
 		klog.Errorf("Failed to open tls.crt for writing: %v", err)
