@@ -346,3 +346,17 @@ else
     exit 1
 fi
 echo "PASSED test case 12-helm-update"
+
+### 13-git-res-name
+echo "STARTING test 13-git-res-name"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/13-git-res-name/
+sleep 30
+
+if kubectl get subscriptions.apps.open-cluster-management.io git-app-sub | grep Propagated; then
+    echo "13-git-res-name: hub subscriptions.apps.open-cluster-management.io status is Propagated"
+else
+    echo "13-git-res-name FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
+    exit 1
+fi
+echo "PASSED test case 13-git-res-name"
