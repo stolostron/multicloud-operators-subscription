@@ -235,6 +235,8 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 	for _, resource := range resources {
 		appSubUnitStatus := SubscriptionUnitStatus{}
 
+		resource := resource
+
 		template, err := sync.OverrideResource(hostSub, &resource)
 
 		if err != nil {

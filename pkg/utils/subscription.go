@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"time"
@@ -1411,7 +1412,7 @@ func GetClientConfigFromKubeConfig(kubeconfigFile string) (*rest.Config, error) 
 }
 
 func getClientConfig(kubeConfigFile string) (*rest.Config, error) {
-	kubeConfigBytes, err := ioutil.ReadFile(kubeConfigFile)
+	kubeConfigBytes, err := ioutil.ReadFile(filepath.Clean(kubeConfigFile))
 	if err != nil {
 		return nil, err
 	}
