@@ -16,7 +16,6 @@ package mcmhub
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
@@ -27,7 +26,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/klog/v2"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -389,12 +387,6 @@ func (r *ReconcileSubscription) addObjectReference(objRefMap map[v1.ObjectRefere
 	}
 
 	objRefMap[*objRef] = objRef
-
-	errs := validation.IsDNS1123Subdomain(obj.GetName())
-	if len(errs) > 0 {
-		errs = append([]string{fmt.Sprintf("Invalid %s name '%s'", obj.GetKind(), obj.GetName())}, errs...)
-		return errors.New(strings.Join(errs, ", "))
-	}
 
 	return nil
 }

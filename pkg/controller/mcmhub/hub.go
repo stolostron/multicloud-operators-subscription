@@ -30,7 +30,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -554,12 +553,6 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscr
 		if err != nil {
 			klog.V(5).Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
 			continue
-		}
-
-		errs := validation.IsDNS1123Subdomain(template.GetName())
-		if len(errs) > 0 {
-			errs = append([]string{fmt.Sprintf("Invalid %s name '%s'", template.GetKind(), template.GetName())}, errs...)
-			errMsgs = append(errMsgs, strings.Join(errs, ","))
 		}
 
 		resource := &v1.ObjectReference{
