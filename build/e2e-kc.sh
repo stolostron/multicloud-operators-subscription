@@ -345,6 +345,8 @@ else
     echo "12-helm-update: FAILED: 1/1 is not in in deploy nginx-ingress-simple-default-backend"
     exit 1
 fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/12-helm-update/install
 echo "PASSED test case 12-helm-update"
 
 ### 13-git-res-name
@@ -352,11 +354,52 @@ echo "STARTING test 13-git-res-name"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/13-git-res-name/
 sleep 30
-
 if kubectl get subscriptions.apps.open-cluster-management.io git-app-sub | grep Propagated; then
     echo "13-git-res-name: hub subscriptions.apps.open-cluster-management.io status is Propagated"
 else
     echo "13-git-res-name FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
     exit 1
 fi
+kubectl delete -f test/e2e/cases/13-git-res-name/
 echo "PASSED test case 13-git-res-name"
+
+### 14-helm-appsubstatus
+echo "STARTING test 14-helm-appsubstatus"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/14-helm-appsubstatus/install
+sleep 30
+if kubectl get subscriptionreport.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
+    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionreport is found"
+else
+    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionreport is not found"
+    exit 1
+fi
+kubectl delete subscriptionreport.apps.open-cluster-management.io nginx-helm-sub
+kubectl -n cluster1 delete subscriptionreport.apps.open-cluster-management.io cluster1
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
+    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionstatus is found"
+else
+    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionstatus is not found"
+    exit 1
+fi
+kubectl delete subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/14-helm-appsubstatus/upgrade
+sleep 120
+if kubectl get subscriptionreport.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
+    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionreport is found"
+else
+    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionreport is not found"
+    exit 1
+fi
+kubectl config use-context kind-cluster1
+if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
+    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionstatus is found"
+else
+    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionstatus is not found"
+    exit 1
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/14-helm-appsubstatus/install
+echo "PASSED test case 14-helm-appsubstatus"
