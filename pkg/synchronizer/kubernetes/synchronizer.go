@@ -163,7 +163,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 				SubscriptionPackageStatus: appSubUnitStatuses,
 			}
 
-			err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+			err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil, nil)
 			if err != nil {
 				klog.Warning("error while sync app sub cluster status: ", err)
 			}
@@ -208,7 +208,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	err = sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+	err = sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil, nil)
 	if err != nil {
 		klog.Warning("error while sync app sub cluster status: ", err)
 	}
@@ -299,7 +299,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 		SubscriptionPackageStatus: appSubUnitStatuses,
 	}
 
-	err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil)
+	err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil, nil)
 	if err != nil {
 		klog.Warning("error while sync app sub cluster status: ", err)
 	}

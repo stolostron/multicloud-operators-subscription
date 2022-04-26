@@ -55,7 +55,8 @@ Create the final appsubPackaggeStatus map for containing the final updated appsu
 */
 
 func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription,
-	appsubClusterStatus SubscriptionClusterStatus, skipOrphanDelete *bool) error {
+	appsubClusterStatus SubscriptionClusterStatus,
+	skipOrphanDelete *bool, skipUpdate *bool) error {
 	klog.Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
 		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
 
@@ -74,6 +75,11 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	skipOrphanDel := false
 	if skipOrphanDelete != nil {
 		skipOrphanDel = *skipOrphanDelete
+	}
+
+	skipUpd := false
+	if skipUpdate != nil {
+		skipUpd = *skipUpdate
 	}
 
 	// Get existing appsubstatus on managed cluster, if it exists
@@ -107,6 +113,13 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 			return err
 		}
+	}
+
+	if foundPkgStatus && skipUpd {
+		klog.Infof("Skip update appsubstatus(%v/%v) due to skipUpdate flag",
+			pkgstatus.Namespace, pkgstatus.Name)
+
+		return nil
 	}
 
 	if appsubClusterStatus.Action == "APPLY" {
