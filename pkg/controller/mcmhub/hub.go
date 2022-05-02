@@ -143,7 +143,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		err = r.Create(context.TODO(), dpl)
 
 		//record events
-		addtionalMsg := "Depolyable " + dplkey.String() + " created in the subscription namespace for deploying the subscription to managed clusters"
+		addtionalMsg := "Deployable " + dplkey.String() + " created in the subscription namespace for deploying the subscription to managed clusters"
 		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
 
 		return err
@@ -175,7 +175,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		err = r.Update(context.TODO(), found)
 
 		//record events
-		addtionalMsg := "Depolyable " + dplkey.String() + " updated in the subscription namespace for deploying the subscription to managed clusters"
+		addtionalMsg := "Deployable " + dplkey.String() + " updated in the subscription namespace for deploying the subscription to managed clusters"
 		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
 
 		if err != nil {
@@ -1206,7 +1206,7 @@ func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alp
 		err = r.Create(context.TODO(), targetSubDpl)
 
 		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " created in the subscription namespace"
+		addtionalMsg := "target Deployable " + targetKey.String() + " created in the subscription namespace"
 		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
 
 		return err
@@ -1249,7 +1249,7 @@ func (r *ReconcileSubscription) updateTargetSubscriptionDeployable(sub *appv1alp
 		err = r.Update(context.TODO(), found)
 
 		//record events
-		addtionalMsg := "target Depolyable " + targetKey.String() + " updated in the subscription namespace"
+		addtionalMsg := "target Deployable " + targetKey.String() + " updated in the subscription namespace"
 		r.eventRecorder.RecordEvent(sub, "Deploy", addtionalMsg, err)
 
 		if err != nil {
