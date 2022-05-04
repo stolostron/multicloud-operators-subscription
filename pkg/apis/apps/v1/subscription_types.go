@@ -285,6 +285,7 @@ type SubscriptionStatus struct {
 // +kubebuilder:printcolumn:name="SubscriptionState",type="string",JSONPath=".status.phase",description="subscription state"
 // +kubebuilder:printcolumn:name="AppstatusReference",type="string",JSONPath=".status.appstatusReference",description="subscription status reference"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="Updated",type="date",JSONPath=".status.lastUpdateTime"
 // +kubebuilder:printcolumn:name="Local placement",type="boolean",JSONPath=".spec.placement.local"
 // +kubebuilder:printcolumn:name="Time window",type="string",JSONPath=".spec.timewindow.windowtype"
 // +kubebuilder:resource:shortName=appsub
