@@ -175,20 +175,15 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 			return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 		}
 	} else {
-		// Update if the content has changed
-		if secret.StringData["config"] != string(hubSecret.Data["config"]) ||
-			secret.StringData["name"] != string(hubSecret.Data["name"]) ||
-			secret.StringData["server"] != string(hubSecret.Data["server"]) {
-			klog.Infof("The service account klusterlet-addon-appmgr token secret has changed. Updating %s on the hub cluster.", hubSecretName.String())
-			err = r.hubclient.Update(context.TODO(), secret)
+		// Update
+		err := r.hubclient.Update(context.TODO(), secret)
 
-			if err != nil {
-				klog.Error("Failed to update secret : ", err)
-				return reconcile.Result{RequeueAfter: time.Duration(requeuAfter * time.Minute.Milliseconds())}, err
-			}
-		} else {
-			klog.Info("The service account klusterlet-addon-appmgr token secret has not changed.")
+		if err != nil {
+			klog.Error("Failed to update secret : ", err)
+			return reconcile.Result{RequeueAfter: time.Duration(requeuAfter * time.Minute.Milliseconds())}, err
 		}
+
+		klog.Info("The cluster secret " + secret.Name + " was updated successfully in " + secret.Namespace + " on the hub.")
 	}
 
 	return reconcile.Result{}, nil
