@@ -30,7 +30,7 @@
 
 ------
 
-Subscribes resources from channels and applies them to Kubernetes 
+Subscribes resources from channels and applies them to Kubernetes
 
 ## Quick start
 
