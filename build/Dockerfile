@@ -3,7 +3,7 @@ FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
 RUN  microdnf update -y \ 
         && rpm -e --nodeps tzdata \
         && microdnf install tzdata \
-        && microdnf install git \
+        && microdnf install git-core \
         && microdnf install openssh-clients \
         && microdnf clean all
 
