@@ -19,6 +19,9 @@ spec:
   - JSONPath: .metadata.creationTimestamp
     name: Age
     type: date
+  - jsonPath: .status.lastUpdateTime
+    name: Updated
+    type: date
   - JSONPath: .spec.placement.local
     name: Local placement
     type: boolean

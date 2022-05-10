@@ -26,7 +26,7 @@ spec:
       name: Age
       type: date
     - jsonPath: .status.lastUpdateTime
-      name: Age
+      name: Updated
       type: date
     - jsonPath: .spec.placement.local
       name: Local placement
