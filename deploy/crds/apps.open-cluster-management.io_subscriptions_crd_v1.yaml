@@ -21,9 +21,12 @@ spec:
     - description: subscription status reference
       jsonPath: .status.appstatusReference
       name: AppstatusReference
-      type: string      
+      type: string
     - jsonPath: .metadata.creationTimestamp
       name: Age
+      type: date
+    - jsonPath: .status.lastUpdateTime
+      name: Updated
       type: date
     - jsonPath: .spec.placement.local
       name: Local placement
