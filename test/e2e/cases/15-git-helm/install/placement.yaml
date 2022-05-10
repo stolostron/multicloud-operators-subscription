@@ -1,0 +1,7 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: git-pr
+  namespace: default
+spec:
+  clusterReplicas: 2
