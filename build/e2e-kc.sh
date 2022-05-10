@@ -403,3 +403,27 @@ fi
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/14-helm-appsubstatus/install
 echo "PASSED test case 14-helm-appsubstatus"
+
+### 15-git-helm
+echo "STARTING test 15-git-helm"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/15-git-helm/install
+sleep 30
+if kubectl get subscriptions.apps.open-cluster-management.io git-app-sub | grep Propagated; then
+    echo "15-git-helm: hub subscriptions.apps.open-cluster-management.io status is Propagated"
+else
+    echo "15-git-helm FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
+    exit 1
+fi
+kubectl apply -f test/e2e/cases/15-git-helm/update
+sleep 120
+kubectl config use-context kind-cluster1
+if kubectl get helmrelease.apps.open-cluster-management.io | grep mortgage; then
+    echo "15-git-helm FAILED: helmrelease.apps.open-cluster-management.io still showing mortgage app"
+    exit 1
+else
+    echo "15-git-helm: hub helmrelease.apps.open-cluster-management.io is not showing mortgage app"
+fi
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/15-git-helm/install
+echo "PASSED test case 15-git-helm"

@@ -1,0 +1,10 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: gitops
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
+spec:
+  pathname: 'https://github.com/stolostron/application-lifecycle-samples.git'
+  type: Git
