@@ -60,18 +60,6 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	klog.Infof("cluster: %v, appsub: %v/%v, action: %v, hub:%v, standalone:%v\n", appsubClusterStatus.Cluster,
 		appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name, appsubClusterStatus.Action, sync.hub, sync.standalone)
 
-	// If the incoming new appstatus is only one HelmRelease kind resource, skip the appsubstatus sync-up.
-	// Later the helmrelease controller will update the actual resources to the appsubstatus
-	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 &&
-		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].Kind, "HelmRelease") &&
-		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].APIVersion, "apps.open-cluster-management.io/v1") &&
-		appsubClusterStatus.SubscriptionPackageStatus[0].Phase != string(v1alpha1.PackageDeployFailed) {
-		klog.Infof("Don't upate the HelmRelease kind resource to appsub status. appsub: %v/%v",
-			appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
-
-		return nil
-	}
-
 	skipOrphanDel := false
 	if skipOrphanDelete != nil {
 		skipOrphanDel = *skipOrphanDelete
@@ -113,6 +101,12 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 			return err
 		}
+	}
+
+	// If the incoming new appstatus is only one HelmRelease kind resource, skip the appsubstatus sync-up.
+	// Later the helmrelease controller will update the actual resources to the appsubstatus
+	if shouldSkip(appsubClusterStatus, foundPkgStatus, *pkgstatus) {
+		return nil
 	}
 
 	if foundPkgStatus && skipUpd {
@@ -599,4 +593,25 @@ func getClusterAppsubReport(rClient client.Client, clusterAppsubReportNs string,
 	}
 
 	return appsubReport, nil
+}
+
+func shouldSkip(appsubClusterStatus SubscriptionClusterStatus, foundPkgStatus bool,
+	pkgstatus v1alpha1.SubscriptionStatus) bool {
+	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 &&
+		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].Kind, "HelmRelease") &&
+		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].APIVersion, "apps.open-cluster-management.io/v1") &&
+		appsubClusterStatus.SubscriptionPackageStatus[0].Phase != string(v1alpha1.PackageDeployFailed) {
+		if foundPkgStatus &&
+			appsubClusterStatus.SubscriptionPackageStatus[0].Name != pkgstatus.Statuses.SubscriptionStatus[0].Name {
+			klog.Infof("Update the HelmRelease kind resource to appsub status because HelmRelease changed. appsub: %v/%v",
+				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
+		} else {
+			klog.Infof("Don't update the HelmRelease kind resource to appsub status. appsub: %v/%v",
+				appsubClusterStatus.AppSub.Namespace, appsubClusterStatus.AppSub.Name)
+
+			return true
+		}
+	}
+
+	return false
 }
