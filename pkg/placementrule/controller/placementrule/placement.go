@@ -417,35 +417,35 @@ func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string, clm
 			klog.Infof("return all selected clusters. clusterRole: %v, rule: %#v", clusterRole.Name, rule)
 
 			return true
-		} else {
-			clusterListinClusterRole := map[string]bool{}
-
-			for _, cluster := range rule.ResourceNames {
-				clusterListinClusterRole[cluster] = true
-			}
-
-			for clusterName, _ := range clmap {
-				if _, ok := clusterListinClusterRole[clusterName]; !ok {
-					delete(clmap, clusterName)
-					klog.Infof("cluster %v not found in the cluster role resource name list", clusterName)
-				}
-			}
-
-			return true
 		}
+
+		clusterListinClusterRole := map[string]bool{}
+
+		for _, cluster := range rule.ResourceNames {
+			clusterListinClusterRole[cluster] = true
+		}
+
+		for clusterName, _ := range clmap {
+			if _, ok := clusterListinClusterRole[clusterName]; !ok {
+				delete(clmap, clusterName)
+				klog.Infof("cluster %v not found in the cluster role resource name list", clusterName)
+			}
+		}
+
+		return true
 	}
 
 	return false
 }
 
-func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) error {
+func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) {
 	objanno := instance.GetAnnotations()
 	if objanno == nil {
-		return nil
+		return
 	}
 
 	if _, ok := objanno[appv1alpha1.UserIdentityAnnotation]; !ok {
-		return nil
+		return
 	}
 
 	user, groups := utils.ExtractUserAndGroup(objanno)
@@ -461,7 +461,7 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 
 	r.UnsetImpersonate(user, groups)
 
-	return nil
+	return
 }
 
 // checkUserPermission checks if user can get managedCluster KIND resource.
