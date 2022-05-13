@@ -18,7 +18,7 @@ import (
 	"context"
 	"sort"
 
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	"strings"
 
@@ -292,24 +292,26 @@ func (r *ReconcilePlacementRule) filteClustersByUser(instance *appv1alpha1.Place
 		return nil
 	}
 
-	// If the user has the GET cluster role for managedclusters resource without specific resource name, return all selected clusters.
+	// Check if the user has the GET cluster role for managedclusters resource
+	// if no resource name, return all selected clusters.
+	// if there is resource name list, return all selected clusters in the resource name list
 	// Thus normal RBAC users won't need to create SelfSubjectAccessReview to check if the user can get each managed cluster
-	if r.IfClusterAdminByClusterRole(user) {
-		klog.Infof("The user has the GET cluster role for managedclusters resource. user: %v", user)
+	if r.IfClusterAdminByClusterRole(user, groups, clmap) {
+		klog.Infof("The user/groups has the GET cluster role for managedclusters resource. user: %v, groups: %v", user, groups)
 
 		return nil
 	}
 
-	// Now we have to create SelfSubjectAccessReview for each managed cluster to decide if the user can get the managed cluster
-	err := r.filteClustersByIdentityAnno(instance, clmap)
-	if err != nil {
-		return err
+	klog.Infof("clean up cluster map as the user/groups can't find any clusterRoles for managedclusters resource. user: %v, groups: %v", user, groups)
+
+	for cl := range clmap {
+		delete(clmap, cl)
 	}
 
 	return nil
 }
 
-func (r *ReconcilePlacementRule) IfClusterAdminByClusterRole(user string) bool {
+func (r *ReconcilePlacementRule) IfClusterAdminByClusterRole(user string, groups []string, clmap map[string]*spokeClusterV1.ManagedCluster) bool {
 	bindingList := &cbacv1.ClusterRoleBindingList{}
 
 	err := r.List(context.TODO(), bindingList)
@@ -334,15 +336,23 @@ func (r *ReconcilePlacementRule) IfClusterAdminByClusterRole(user string) bool {
 
 					break
 				}
+			} else if subject.Kind == "Group" {
+				for _, groupName := range groups {
+					if strings.Trim(subject.Name, "") == strings.Trim(groupName, "") {
+						subjectFound = true
+
+						break
+					}
+				}
 			}
 		}
 
 		if subjectFound {
-			klog.Infof("clusterRoleBinding %v found for user %v ", binding.Name, user)
+			klog.Infof("clusterRoleBinding %v found for user:%v, groups:%v ", binding.Name, user, groups)
 
 			if binding.RoleRef.APIGroup == "rbac.authorization.k8s.io" && binding.RoleRef.Kind == "ClusterRole" &&
-				r.IfGetManagedCluster(binding.RoleRef.Name) {
-				klog.Infof("clusterRole %v found for user %v ", binding.RoleRef.Name, user)
+				r.IfGetManagedCluster(binding.RoleRef.Name, clmap) {
+				klog.Infof("clusterRole %v found for user:%v, groups: %v", binding.RoleRef.Name, user, groups)
 
 				return true
 			}
@@ -352,7 +362,7 @@ func (r *ReconcilePlacementRule) IfClusterAdminByClusterRole(user string) bool {
 	return false
 }
 
-func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string) bool {
+func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string, clmap map[string]*spokeClusterV1.ManagedCluster) bool {
 	clusterRoleKey := types.NamespacedName{Name: clusterRoleName}
 	clusterRole := &cbacv1.ClusterRole{}
 
@@ -399,35 +409,48 @@ func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string) boo
 			}
 		}
 
-		if ifGetManagedCluster && len(rule.ResourceNames) == 0 {
-			klog.Infof("clusterRole: %v, rule: %#v", clusterRole.Name, rule)
+		if !ifGetManagedCluster {
+			continue
+		}
+
+		if len(rule.ResourceNames) == 0 {
+			klog.Infof("return all selected clusters. clusterRole: %v, rule: %#v", clusterRole.Name, rule)
 
 			return true
 		}
+
+		clusterListinClusterRole := map[string]bool{}
+
+		for _, cluster := range rule.ResourceNames {
+			clusterListinClusterRole[cluster] = true
+		}
+
+		for clusterName := range clmap {
+			if _, ok := clusterListinClusterRole[clusterName]; !ok {
+				delete(clmap, clusterName)
+				klog.Infof("cluster %v not found in the cluster role resource name list", clusterName)
+			}
+		}
+
+		return true
 	}
 
 	return false
 }
 
-func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) error {
+func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) {
 	objanno := instance.GetAnnotations()
 	if objanno == nil {
-		return nil
+		return
 	}
 
 	if _, ok := objanno[appv1alpha1.UserIdentityAnnotation]; !ok {
-		return nil
+		return
 	}
 
 	user, groups := utils.ExtractUserAndGroup(objanno)
 
-	userKubeConfig := r.authConfig
-	userKubeConfig.Impersonate = rest.ImpersonationConfig{
-		UserName: user,
-		Groups:   groups,
-	}
-
-	userKubeClient := kubernetes.NewForConfigOrDie(userKubeConfig)
+	userKubeClient := r.Impersonate(user, groups)
 
 	for clusterName, cl := range clmap {
 		manageCluster := cl.DeepCopy()
@@ -436,7 +459,7 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 		}
 	}
 
-	return nil
+	r.UnsetImpersonate(user, groups)
 }
 
 // checkUserPermission checks if user can get managedCluster KIND resource.
@@ -467,4 +490,42 @@ func (r *ReconcilePlacementRule) checkUserPermission(userKubeClient *kubernetes.
 	}
 
 	return true
+}
+
+func (r *ReconcilePlacementRule) Impersonate(user string, groups []string) *kubernetes.Clientset {
+	klog.Info("Impersonate user config...")
+
+	userKubeConfig := r.authConfig
+	userKubeConfig.Impersonate = rest.ImpersonationConfig{
+		UserName: user,
+		Groups:   groups,
+	}
+
+	userKubeClient, err := kubernetes.NewForConfig(userKubeConfig)
+	if err != nil {
+		klog.Errorf("Impersonate user failed. user: %v, groups: %v, err: %v", user, groups, err)
+
+		return r.UnsetImpersonate(user, groups)
+	}
+
+	return userKubeClient
+}
+
+func (r *ReconcilePlacementRule) UnsetImpersonate(user string, groups []string) *kubernetes.Clientset {
+	klog.Info("Unset Impersonate user config...")
+
+	userKubeConfig := r.authConfig
+	userKubeConfig.Impersonate = rest.ImpersonationConfig{
+		UserName: "",
+		Groups:   nil,
+	}
+
+	userKubeClient, err := kubernetes.NewForConfig(userKubeConfig)
+	if err != nil {
+		klog.Errorf("Unset Impersonate user failed. user: %v, groups: %v, err: %v", user, groups, err)
+
+		return kubernetes.NewForConfigOrDie(r.authConfig)
+	}
+
+	return userKubeClient
 }
