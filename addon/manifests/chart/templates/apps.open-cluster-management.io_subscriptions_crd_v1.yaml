@@ -504,7 +504,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    - JSONPath: .status.lastUpdateTime
+    - jsonPath: .status.lastUpdateTime
       name: Updated
       type: date
     - jsonPath: .spec.placement.local
