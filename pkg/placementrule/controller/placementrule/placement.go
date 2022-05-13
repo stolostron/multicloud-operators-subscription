@@ -425,7 +425,7 @@ func (r *ReconcilePlacementRule) IfGetManagedCluster(clusterRoleName string, clm
 			clusterListinClusterRole[cluster] = true
 		}
 
-		for clusterName, _ := range clmap {
+		for clusterName := range clmap {
 			if _, ok := clusterListinClusterRole[clusterName]; !ok {
 				delete(clmap, clusterName)
 				klog.Infof("cluster %v not found in the cluster role resource name list", clusterName)
@@ -461,7 +461,6 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 
 	r.UnsetImpersonate(user, groups)
 
-	return
 }
 
 // checkUserPermission checks if user can get managedCluster KIND resource.
