@@ -460,7 +460,6 @@ func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alph
 	}
 
 	r.UnsetImpersonate(user, groups)
-
 }
 
 // checkUserPermission checks if user can get managedCluster KIND resource.
