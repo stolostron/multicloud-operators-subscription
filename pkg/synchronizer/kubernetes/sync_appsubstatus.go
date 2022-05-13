@@ -110,8 +110,15 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	}
 
 	if foundPkgStatus && skipUpd {
-		klog.Infof("Skip update appsubstatus(%v/%v) due to skipUpdate flag",
+		klog.Infof("Skip update appsubstatus(%v/%v) due to skipUpdate flag but update AppsubReport",
 			pkgstatus.Namespace, pkgstatus.Name)
+
+		// Update result in cluster AppsubReport
+		if err := updateAppsubReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
+			appsubName, appsubClusterStatus.Cluster, false,
+			sync.standalone, isLocalCluster); err != nil {
+			return err
+		}
 
 		return nil
 	}
