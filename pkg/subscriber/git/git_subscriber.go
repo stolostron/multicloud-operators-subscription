@@ -144,6 +144,8 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationCurrentNamespaceScoped], "true") {
 		klog.Info("CurrentNamespaceScoped enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.currentNamespaceScoped = true
+	} else {
+		ghssubitem.currentNamespaceScoped = false
 	}
 
 	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
