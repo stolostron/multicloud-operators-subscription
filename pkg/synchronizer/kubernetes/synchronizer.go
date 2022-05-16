@@ -105,7 +105,7 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 	deletepolicy := metav1.DeletePropagationBackground
 	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 
-	if err != nil {
+	if err != nil && !errors.IsNotFound(err) {
 		klog.Errorf("Failed to delete package, appsub: %v, pkgName: %v, pkgNamespace: %v, err: %v",
 			hostSub, pkgStatus.Name, pkgStatus.Namespace, err)
 
