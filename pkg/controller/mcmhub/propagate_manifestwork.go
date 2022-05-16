@@ -484,6 +484,10 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appSubV1.Subscription,
 		subepanno[appSubV1.AnnotationClusterAdmin] = origsubanno[appSubV1.AnnotationClusterAdmin]
 	}
 
+	if !strings.EqualFold(origsubanno[appSubV1.AnnotationCurrentNamespaceScoped], "") {
+		subepanno[appSubV1.AnnotationCurrentNamespaceScoped] = origsubanno[appSubV1.AnnotationCurrentNamespaceScoped]
+	}
+
 	if !strings.EqualFold(origsubanno[appSubV1.AnnotationResourceReconcileOption], "") {
 		subepanno[appSubV1.AnnotationResourceReconcileOption] = origsubanno[appSubV1.AnnotationResourceReconcileOption]
 	}

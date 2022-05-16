@@ -89,6 +89,8 @@ var (
 	AnnotationManagedCluster = SchemeGroupVersion.Group + "/managed-cluster"
 	// AnnotationHostingDeployable sits in templated resource, gives name of hosting deployable, legacy annotation
 	AnnotationHostingDeployable = SchemeGroupVersion.Group + "/hosting-deployable"
+	// AnnotationCurrentNamespaceScoped specifies to deloy resources into subscription namespace
+	AnnotationCurrentNamespaceScoped = SchemeGroupVersion.Group + "/current-namespace-scoped"
 )
 
 const (
