@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -146,7 +145,8 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, rm meta
 	return false, nil
 }
 
-func generateResrouceList(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper, helmRls []*releasev1.HelmRelease) (string, error) {
+func generateResrouceList(hubClt client.Client, hubCfg *rest.Config, rm meta.RESTMapper,
+	helmRls []*releasev1.HelmRelease) (string, error) {
 	res := make([]string, 0)
 	cfg := rest.CopyConfig(hubCfg)
 
@@ -305,11 +305,7 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 
 	chartsDir := os.Getenv(releasev1.ChartsDir)
 	if chartsDir == "" {
-		chartsDir, err = ioutil.TempDir("/tmp", "charts")
-		if err != nil {
-			klog.Error(err, " - Can not create tempdir")
-			return "", err
-		}
+		chartsDir = "/tmp/hr-charts"
 	}
 
 	chartDir, err := rUtils.DownloadChart(configMap, secret, chartsDir, s)
@@ -324,7 +320,8 @@ func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, erro
 }
 
 //generateResourceList generates the resource list for given HelmRelease
-func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
+func generateResourceList(client client.Client, rm meta.RESTMapper,
+	cfg *restclient.Config, s *releasev1.HelmRelease) (kube.ResourceList, error) {
 	chartDir, err := downloadChart(client, s)
 	if err != nil {
 		klog.Error(err, " - Failed to download the chart")
@@ -468,7 +465,8 @@ func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map
 	return anno
 }
 
-func newRESTClientGetter(rm meta.RESTMapper, cfg *restclient.Config, ns string) (genericclioptions.RESTClientGetter, error) {
+func newRESTClientGetter(rm meta.RESTMapper, cfg *restclient.Config,
+	ns string) (genericclioptions.RESTClientGetter, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
 		return nil, err
