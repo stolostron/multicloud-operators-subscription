@@ -299,6 +299,9 @@ func (r *ReconcileSubscription) prepareManifestWorkAppsub(appsub *appSubV1.Subsc
 	subep.Spec.Overrides = appsub.Spec.Overrides
 	subep.Spec.TimeWindow = appsub.Spec.TimeWindow
 	subep.Spec.HookSecretRef = appsub.Spec.HookSecretRef
+	subep.Spec.Allow = appsub.Spec.Allow
+	subep.Spec.Deny = appsub.Spec.Deny
+	subep.Spec.SecondaryChannel = appsub.Spec.SecondaryChannel
 
 	subepanno := r.updateSubAnnotations(appsub, hosting)
 	subep.SetAnnotations(subepanno)
