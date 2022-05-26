@@ -28,6 +28,11 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
+const (
+	localSuffix  = "-local"
+	localCluster = "local-cluster"
+)
+
 /*
 
 use {apiversion, kind, namespace, name} as the key to build new appsubPackaggeStatus map and existing appsubPackaggeStatus map
@@ -74,10 +79,10 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	appsubName := appsubClusterStatus.AppSub.Name
 	pkgstatusNs := appsubClusterStatus.AppSub.Namespace
 	isLocalCluster := (sync.hub && !sync.standalone) ||
-		(appsubClusterStatus.Cluster == "" && strings.HasSuffix(appsubName, "-local"))
+		(appsubClusterStatus.Cluster == localCluster && strings.HasSuffix(appsubName, localSuffix))
 
 	if isLocalCluster || sync.standalone && skipOrphanDel {
-		if strings.HasSuffix(appsubName, "-local") {
+		if strings.HasSuffix(appsubName, localSuffix) {
 			appsubName = appsubName[:len(appsubName)-6]
 		}
 	}
@@ -413,8 +418,8 @@ func updateAppsubReportResult(rClient client.Client, appsubNs, appsubName,
 		// Check if a hosting-subscription exists
 		appsub := &v1.Subscription{}
 
-		if isLocalCluster && !strings.HasSuffix(appsubName, "-local") {
-			appsubName += "-local"
+		if isLocalCluster && !strings.HasSuffix(appsubName, localSuffix) {
+			appsubName += localSuffix
 		}
 
 		if err := rClient.Get(context.TODO(),
@@ -429,11 +434,11 @@ func updateAppsubReportResult(rClient client.Client, appsubNs, appsubName,
 			return nil
 		}
 
-		if strings.HasSuffix(appsubName, "-local") {
+		if strings.HasSuffix(appsubName, localSuffix) {
 			appsubName = appsubName[:len(appsubName)-6]
 		}
 
-		clusterAppsubReportNs = "local-cluster"
+		clusterAppsubReportNs = localCluster
 
 		klog.V(1).Infof("Standalone appsub for helm, continue")
 	}
@@ -512,7 +517,7 @@ func deleteAppsubReportResult(rClient client.Client, appsubNs, appsubName, clust
 			return nil
 		}
 
-		clusterAppsubReportNs = "local-cluster"
+		clusterAppsubReportNs = localCluster
 
 		klog.V(1).Infof("Standalone appsub for helm, continue")
 	}
