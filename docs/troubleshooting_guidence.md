@@ -137,7 +137,7 @@ I0204 02:25:56.525992       1 subscription_controller.go:188] Standalone/Endpoin
 ...
 ```
 
-### Set up log level for the managed subscription pod
+### Set up log level for the managed subscription pod  (ACM <= 2.4)
 
 - Find the managed cluster Name ${CLUSTER_NAME}
 ```
@@ -150,6 +150,7 @@ playback-3node-1   true           https://api.playback-3node-1.demo.red-chesterf
 - On the hub cluster, stop Reconcile
 To patch the managed subscription pod on the managed cluster, you need to first stop reconcile of the KlusterletAddonConfig on hub
 ```
+% CLUSTER_NAME=local-cluster
 % oc annotate klusterletaddonconfig -n ${CLUSTER_NAME} ${CLUSTER_NAME} klusterletaddonconfig-pause=true --overwrite=true
 ```
 
@@ -185,7 +186,7 @@ klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0
 
 - Check more details from the managed subscription pod log.
 
-### Set up memory limit for the managed subscription pod
+### Set up memory limit for the managed subscription pod  (ACM <= 2.4)
 
 - Find the managed cluster Name ${CLUSTER_NAME}
 ```
@@ -229,6 +230,47 @@ search for Deployment. Set spec.replicas to 0:
 klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0          14s
 ```
 
+### Set up new image for the managed subscription pod  (ACM >= 2.5)
+
+Since ACM 2.5, there is no klusterlet-addon-operator any more. The app addon pod (application-manager) running on the managed cluster is deployed by the hub subscription pod.
+
+To override app addon images on the managed cluster:
+
+- In hub ACM CSV, update the image value in the env list under multiclusterhub-operator deployment section
+```
+% oc edit csv -n open-cluster-management advanced-cluster-management.v2.5.0
+
+     deployments:
+      - name: multiclusterhub-operator
+
+        - name: OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION
+          value: quay.io/stolostron/multicluster-operators-subscription@sha256:26416a7b202988264fbf662e0bb4a404ba9e1416972f3682128c5a4477fd2135  ==> <the new subscription image with tag>
+```
+
+- Make sure the new image value is refreshed in the mch configmap
+```
+% oc get configmap -n open-cluster-management mch-image-manifest-2.5.0 -o yaml |grep subscription
+  multicluster_operators_subscription: quay.io/stolostron/multicluster-operators-subscription@sha256:26416a7b202988264fbf662e0bb4a404ba9e1416972f3682128c5a4477fd2135
+```
+
+- On the hub cluster, restart klusterlet-addon-controller-v2 pod
+```
+% oc get pods -n open-cluster-management |grep klusterlet-addon-controller
+klusterlet-addon-controller-v2-8576dd8cff-6k6mg                   1/1     Running   0          4h37m
+klusterlet-addon-controller-v2-8576dd8cff-bznsj                   1/1     Running   0          4h37m
+```
+
+- On the hub cluster, restart multicluster-operators-hub-subscription
+```
+% oc get pods -n open-cluster-management |grep hub-subscription
+multicluster-operators-hub-subscription-66b6f57d56-gt8xv          1/1     Running   0          4h34m
+```
+
+- On the managed cluster, Make sure the application-manager pod is restarted wit the new image.
+```
+% oc get pods -n open-cluster-management-agent-addon  |grep application-manager
+application-manager-7dfdf6fcd5-sbll8           1/1     Running   0          73m
+```
 
 ## How subscription status is reported
 
