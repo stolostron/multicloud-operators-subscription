@@ -274,11 +274,18 @@ application-manager-7dfdf6fcd5-sbll8           1/1     Running   0          73m
 
 ## How subscription status is reported
 
-The ACM subscription status is reported in the following three levels
+In ACM 2.4 and earlier, parent application on the hub has a status field, which is an aggregate of the child application statuses from all the managed clusters. This design is not scalable. In particular The parent application resource would not be able to hold the status from 2k managed clusters. The etcd limit of 1MB for an object would be exceeded.
+
+Since ACM 2.5, application status is redesigned to have 3 levels:
+- subscriptionStatus - package level appsub status on the managed clusters
+- Cluster subscriptionReport - contains all the applications deployed to a particular cluster and its overall status
+- Application subscriptionReport - contains all the managed clusters that a particular application is deployed to and its overall status
+
+Detailed application status is still available on the managed clusters, while the subscriptionReports on the hub are lightweight and more scalable
 
 ### Package level AppSub status
 
-In the appsub Namespace on the managed cluster
+Located in the appsub Namespace on the managed cluster containing detailed status for all the resources deployed by the app.
 
 For every appsub deployed to a managed cluster, there is a SubscriptionStatus CR created in the appsub Namespace on the managed cluster, where every resource is reported with detailed error if exists.
 ```
@@ -333,9 +340,9 @@ statuses:
 
 ### Cluster level AppSub status
 
-In each cluster namespace on the hub
+Located in each cluster namespace on the hub cluster containing only the overall status (success/failure) on each app on that managed cluster.
 
-There is a subscriptionReport in each cluster Namespace on the hub, where the status of each appSub that is deployed to the cluster is displayed. The status could be 
+There is only one cluster subscriptionReport in each cluster Namespace on the hub. The overall status could be
   - Deployed
   - Failed
   - propagationFailed
@@ -369,11 +376,10 @@ results:
 
 ### App level AppSub status
 
-In the parent AppSub namespace on the hub cluster
-
-There is another subscriptionReport in the AppSub Namespace on the hub, where the status of each cluster is shown based on the cluster subscriptionReport. Also we provide the resource list for the AppSub, and an overview summary for showing the total, deployed, failed, propagationFailed and inProgress counts.  
-
-Note that inProcess = total - deployed - failed - propagationFailed
+One app subscriptionReport per application. Located in the AppSub namespace on the hub cluster containing
+ - the overall status (success/failure) of the app for each managed cluster.
+ - list of all resources for the app.
+ - Report summary - includes the total number of total clusters, and number of clusters where the app is in the status: deployed, failed, propagationFailed, and inProgress. Note that inProcess = total - deployed - failed - propagationFailed.
 
 ```
 apiVersion: apps.open-cluster-management.io/v1alpha1
@@ -437,8 +443,7 @@ summary:
 
 This CLI is for getting the package level AppSub Status on a given managed cluster
 
-As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport
-dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a backend CLI, so that the end users can get the detailed status for an application deployed on a specific cluster.
+As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a hub backend CLI, so that the end users can run it on the hub cluster for getting the detailed status for an application deployed on a specific cluster.
 ```
 % getAppSubStatus.sh -c <managed cluster Name> -s <AppSub Namespace> -n <Appsub Name>
 // the relative package level AppSub status CR on the managed cluster will be fetched and displayed.
