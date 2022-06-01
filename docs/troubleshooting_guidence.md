@@ -439,6 +439,14 @@ summary:
   clusters: 10
 ```
 
+### Create one ManagedClusterView per app on the first failing cluster
+
+If an application deployed on multiple clusters have some resource deployment failures, only one managedClusterView CR is created under the first failing cluster NS on the hub cluster. The managedClusterView CR is for fetching the detailed subscription status from the failing cluster,  so that the application owner doesn’t have to access the failing remote cluster.
+
+```
+% oc get managedclusterview -n <failing cluster NS> "<app NS>-<app name>"
+```
+
 ## Hub Backend CLI to get the AppSub Status
 
 This CLI is for getting the package level AppSub Status on a given managed cluster
