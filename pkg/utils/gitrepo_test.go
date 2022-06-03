@@ -985,3 +985,39 @@ func TestGetOwnerAndRepo(t *testing.T) {
 		})
 	}
 }
+
+func TestSkipHooksOnManaged(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		resourcePath string
+		curPath      string
+		wanted       bool
+	}{
+		{
+			desc:         "empty string",
+			resourcePath: "",
+			curPath:      "",
+			wanted:       false,
+		},
+		{
+			desc:         "valid prehook",
+			resourcePath: "myResource",
+			curPath:      "myResource/prehook/my/current/path/",
+			wanted:       true,
+		},
+		{
+			desc:         "valid posthook",
+			resourcePath: "myResource",
+			curPath:      "myResource/posthook/my/current/path/",
+			wanted:       true,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := SkipHooksOnManaged(tC.resourcePath, tC.curPath)
+			if got != tC.wanted {
+				t.Errorf("wanted %v, got %v", tC.wanted, got)
+			}
+		})
+	}
+}
