@@ -200,7 +200,7 @@ data:
 }
 
 func TestGetCertChain(t *testing.T) {
-	validcert := `
+	validCert := `
 -----BEGIN CERTIFICATE-----
 MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAlRuRnThUjU8/prwYxbty
 WPT9pURI3lbsKMiB6Fn/VHOKE13p4D8xgOCADpdRagdT6n4etr9atzDKUSvpMtR3
@@ -217,7 +217,7 @@ AIU+2GKjyT3iMuzZxxFxPFMCAwEAAQ==
 -----END CERTIFICATE-----
 and some more`
 
-	bytearray, _ := pem.Decode([]byte(validcert))
+	byteArr, _ := pem.Decode([]byte(validCert))
 
 	testCases := []struct {
 		desc   string
@@ -239,8 +239,8 @@ and some more`
 		},
 		{
 			desc:   "valid cert",
-			certs:  validcert,
-			wanted: tls.Certificate{Certificate: [][]byte{bytearray.Bytes}},
+			certs:  validCert,
+			wanted: tls.Certificate{Certificate: [][]byte{byteArr.Bytes}},
 		},
 	}
 	for _, tC := range testCases {
@@ -941,5 +941,47 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			Kind: "ClusterRole",
 			Name: appv1.SubscriptionAdmin,
 		},
+	}
+}
+
+func TestGetOwnerAndRepo(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		url    string
+		wanted []string
+	}{
+		{
+			desc:   "invalid url",
+			url:    "",
+			wanted: []string{},
+		},
+		{
+			desc:   "invalid git url length 1",
+			url:    "https:",
+			wanted: []string{},
+		},
+		{
+			desc:   "invalid git url length 2",
+			url:    "https://google.com",
+			wanted: []string{},
+		},
+		{
+			desc:   "valid owner",
+			url:    "https://github.com/open-cluster-management-io",
+			wanted: []string{"github.com", "open-cluster-management-io"},
+		},
+		{
+			desc:   "valid owner and repo",
+			url:    "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
+			wanted: []string{"open-cluster-management-io", "multicloud-operators-subscription"},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got, err := getOwnerAndRepo(tC.url)
+			if !reflect.DeepEqual(got, tC.wanted) {
+				t.Errorf("wanted %v, got %v, err %v", tC.wanted, got, err)
+			}
+		})
 	}
 }
