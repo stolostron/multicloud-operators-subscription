@@ -1070,3 +1070,33 @@ func TestGetKnownHostFromURL(t *testing.T) {
 		})
 	}
 }
+
+func TestGetLatestCommitID(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		url    string
+		branch string
+		wanted string
+	}{
+		{
+			desc:   "get correct SHA",
+			url:    "https://github.com/stolostron/application-lifecycle-samples",
+			branch: "lennysgarage-helloworld",
+			wanted: "156bf795dadb1e5eeb2a03e171ff4b317d403498",
+		},
+		{
+			desc:   "invalid branch",
+			url:    "https://github.com/stolostron/application-lifecycle-samples",
+			branch: "mumbled-garbage-branch-amwdwk",
+			wanted: "",
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got, err := GetLatestCommitID(tC.url, tC.branch)
+			if got != tC.wanted {
+				t.Errorf("wanted %v, got %v, err %v", tC.wanted, got, err)
+			}
+		})
+	}
+}
