@@ -397,20 +397,6 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 	},
 }
 
-// GetSourceFromObject extract the namespacedname of subscription hosting the object resource
-func GetSourceFromObject(obj metav1.Object) string {
-	if obj == nil {
-		return ""
-	}
-
-	objanno := obj.GetAnnotations()
-	if objanno == nil {
-		return ""
-	}
-
-	return objanno[appv1.AnnotationSyncSource]
-}
-
 // GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
 func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 	if obj == nil {
