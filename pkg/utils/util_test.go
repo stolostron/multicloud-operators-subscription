@@ -28,32 +28,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-// https://github.com/kubernetes/kubernetes/issues/82130
-// before we update to latest k8s, let's skip this test case, especially, the
-// CheckAndInstallCRD() is not used by other code
-//func TestKubernetes(t *testing.T) {
-//	g := gomega.NewGomegaWithT(t)
-//
-//	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-//	// channel when it is finished.
-//	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-//	g.Expect(err).NotTo(gomega.HaveOccurred())
-//
-//	c = mgr.GetClient()
-//
-//	//start manager mgr
-//	stopMgr, mgrStopped := StartTestManager(mgr, g)
-//
-//	defer func() {
-//		close(stopMgr)
-//		mgrStopped.Wait()
-//	}()
-//
-//	//Test:  create testfoo crd
-//	err = CheckAndInstallCRD(cfg, "../../deploy/crds/apps.open-cluster-management.io_subscriptions_crd.yaml")
-//	g.Expect(err).NotTo(gomega.HaveOccurred())
-//}
-
 func TestNamespacedNameFormat(t *testing.T) {
 	n := "tname"
 	ns := "tnamespace"

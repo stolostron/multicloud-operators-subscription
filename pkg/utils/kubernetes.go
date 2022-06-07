@@ -15,81 +15,16 @@
 package utils
 
 import (
-	"context"
 	"io/ioutil"
-	"reflect"
 	"strings"
 
-	"github.com/ghodss/yaml"
-	crdv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	crdclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
-
-// CheckAndInstallCRD checks if subscription belongs to this cluster
-// managed cluster annotation matches or no managed cluster annotation (local)
-func CheckAndInstallCRD(crdconfig *rest.Config, pathname string) error {
-	var err error
-
-	crdClient, err := crdclientset.NewForConfig(crdconfig)
-	if err != nil {
-		klog.Fatalf("Error building cluster registry clientset: %s", err.Error())
-		return err
-	}
-
-	var crdobj crdv1.CustomResourceDefinition
-
-	var crddata []byte
-
-	crddata, err = ioutil.ReadFile(pathname) // #nosec G304 pathname is not user supplied. Used only by unit-test.
-
-	if err != nil {
-		klog.Fatal("Loading app crd file", err.Error())
-		return err
-	}
-
-	err = yaml.Unmarshal(crddata, &crdobj)
-
-	if err != nil {
-		klog.Fatal("Unmarshal app crd ", err.Error(), "\n", string(crddata))
-		return err
-	}
-
-	klog.V(10).Info("Loaded Application CRD: ", crdobj, "\n - From - \n", string(crddata))
-
-	crd, err := crdClient.ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), crdobj.GetName(), metav1.GetOptions{})
-	if errors.IsNotFound(err) {
-		klog.Info("Installing SIG Application CRD from File: ", pathname)
-		// Install sig app
-		_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), &crdobj, metav1.CreateOptions{})
-		if err != nil {
-			klog.Fatal("Creating CRD", err.Error())
-			return err
-		}
-	} else {
-		if !reflect.DeepEqual(crd.Spec, crdobj.Spec) {
-			klog.Info("CRD ", crdobj.GetName(), " is being updated with ", pathname)
-			crdobj.Spec.DeepCopyInto(&crd.Spec)
-			_, err = crdClient.ApiextensionsV1().CustomResourceDefinitions().Update(context.TODO(), crd, metav1.UpdateOptions{})
-			if err != nil {
-				klog.Fatal("Updating CRD", err.Error())
-				return err
-			}
-		} else {
-			klog.Info("CRD ", crdobj.GetName(), " exists: ", pathname)
-		}
-		return err
-	}
-
-	return err
-}
 
 func NamespacedNameFormat(str string) types.NamespacedName {
 	nn := types.NamespacedName{}
