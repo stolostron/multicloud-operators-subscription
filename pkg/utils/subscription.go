@@ -595,19 +595,6 @@ func isEqualSubscriptionUnitStatus(a, b *appv1.SubscriptionUnitStatus) bool {
 	return true
 }
 
-// DeleteInClusterPackageStatus deletes a package status
-func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) {
-	if substatus.Statuses != nil {
-		clst := substatus.Statuses["/"]
-		if clst != nil && clst.SubscriptionPackageStatus != nil {
-			klog.V(3).Info("Deleting " + pkgname + " from the package status.")
-			delete(clst.SubscriptionPackageStatus, pkgname)
-		}
-	}
-
-	substatus.LastUpdateTime = metav1.Now()
-}
-
 func UpdateLastUpdateTime(clt client.Client, instance *appv1.Subscription) {
 	curSub := &appv1.Subscription{}
 	if err := clt.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, curSub); err != nil {
