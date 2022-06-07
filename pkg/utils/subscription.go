@@ -636,69 +636,6 @@ func DeleteInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname s
 	substatus.LastUpdateTime = metav1.Now()
 }
 
-// ValidatePackagesInSubscriptionStatus validate the status struture for packages
-func ValidatePackagesInSubscriptionStatus(statusClient client.StatusClient, sub *appv1.Subscription, pkgMap map[string]bool) error {
-	var err error
-
-	updated := false
-
-	if sub.Status.Statuses == nil {
-		sub.Status.Statuses = make(map[string]*appv1.SubscriptionPerClusterStatus)
-		updated = true
-	}
-
-	clst := sub.Status.Statuses["/"]
-	if clst == nil {
-		clst = &appv1.SubscriptionPerClusterStatus{}
-		updated = true
-	}
-
-	klog.V(10).Info("valiating subscription status:", pkgMap, sub.Status, clst)
-
-	if clst.SubscriptionPackageStatus == nil {
-		clst.SubscriptionPackageStatus = make(map[string]*appv1.SubscriptionUnitStatus)
-		updated = true
-	}
-
-	for k := range clst.SubscriptionPackageStatus {
-		if _, ok := pkgMap[k]; !ok {
-			updated = true
-
-			delete(clst.SubscriptionPackageStatus, k)
-		} else {
-			pkgst := clst.SubscriptionPackageStatus[k]
-			if pkgst.Phase == appv1.SubscriptionFailed {
-				updated = true
-			}
-			delete(pkgMap, k)
-		}
-	}
-
-	for k := range pkgMap {
-		updated = true
-		pkgst := &appv1.SubscriptionUnitStatus{}
-		clst.SubscriptionPackageStatus[k] = pkgst
-	}
-
-	klog.V(10).Info("Done checking ", updated, pkgMap, sub.Status, clst)
-
-	if updated {
-		sub.Status.Statuses["/"] = clst
-
-		klog.V(10).Info("Updating", sub.Status, sub.Status.Statuses["/"])
-
-		sub.Status.LastUpdateTime = metav1.Now()
-
-		err = statusClient.Status().Update(context.TODO(), sub)
-		// want to print out the error log before leave
-		if err != nil {
-			klog.V(1).Info("Failed to update status of subscription in subscriber loop", err)
-		}
-	}
-
-	return err
-}
-
 func UpdateLastUpdateTime(clt client.Client, instance *appv1.Subscription) {
 	curSub := &appv1.Subscription{}
 	if err := clt.Get(context.TODO(), types.NamespacedName{Name: instance.GetName(), Namespace: instance.GetNamespace()}, curSub); err != nil {
