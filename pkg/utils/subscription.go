@@ -423,20 +423,6 @@ func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 	return host
 }
 
-// GetHostSubscriptionNSFromObject extract the appsub NS from the hosting-subscription label
-func GetHostSubscriptionNSFromObject(clusterNsManagedSubStatusName string) (string, string) {
-	if clusterNsManagedSubStatusName == "" {
-		return "", ""
-	}
-
-	parsedstr := strings.Split(clusterNsManagedSubStatusName, ".")
-	if len(parsedstr) != 2 {
-		return "", ""
-	}
-
-	return parsedstr[0], parsedstr[1]
-}
-
 // SetInClusterPackageStatus creates status strcuture and fill status
 func SetInClusterPackageStatus(substatus *appv1.SubscriptionStatus, pkgname string, pkgerr error, status interface{}) error {
 	newStatus := substatus.DeepCopy()
