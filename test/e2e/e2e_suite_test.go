@@ -41,6 +41,11 @@ var (
 	clusterCfg         *rest.Config
 )
 
+var _ = ginkgo.Describe("E2E", func() {
+	ginkgo.It(`ginkgo v2 no longer runs BeforeSuite if all tests are skipped 
+or do not exist`, func() {})
+})
+
 // This suite is sensitive to the following environment variables:
 //
 // - MANAGED_CLUSTER_NAME sets the name of the cluster
