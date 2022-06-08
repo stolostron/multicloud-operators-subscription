@@ -13,6 +13,7 @@ if kubectl -n open-cluster-management-agent-addon wait --for=condition=available
     echo "App addon is available"
 else
     echo "FAILED: App addon is not available"
+    kubectl -n open-cluster-management-agent-addon get deploy
     exit 1
 fi
 
