@@ -609,33 +609,6 @@ func GetSubscriptionBranchRef(b string) plumbing.ReferenceName {
 	return ""
 }
 
-func GetChannelConnectionConfig(secret *corev1.Secret, configmap *corev1.ConfigMap) (connCfg *ChannelConnectionCfg, err error) {
-	connCfg = &ChannelConnectionCfg{}
-
-	if secret != nil {
-		user, token, sshKey, passphrase, clientkey, clientcert, err := ParseChannelSecret(secret)
-
-		if err != nil {
-			return nil, err
-		}
-
-		connCfg.User = user
-		connCfg.Password = token
-		connCfg.SSHKey = sshKey
-		connCfg.Passphrase = passphrase
-		connCfg.ClientCert = clientcert
-		connCfg.ClientKey = clientkey
-	}
-
-	if configmap != nil {
-		caCert := configmap.Data[appv1.ChannelCertificateData]
-
-		connCfg.CaCerts = caCert
-	}
-
-	return connCfg, nil
-}
-
 // GetChannelSecret returns username and password for channel
 func GetChannelSecret(client client.Client, chn *chnv1.Channel) (string, string, []byte, []byte, []byte, []byte, error) {
 	username := ""
