@@ -2323,6 +2323,8 @@ open-cluster-management.io/api v0.6.1-0.20220208144021-3297cac74dc5 h1:0Zn4+5qfX
 open-cluster-management.io/api v0.6.1-0.20220208144021-3297cac74dc5/go.mod h1:0IUTh8J+p4pv1THh1r9oO0luX9Z1FLDEAmvzW09qC0o=
 open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220413191652-67d1cc8d57fc h1:PVLeG9gab6YCC+ilbDaLJFGs2mgC/yEFQEarMLU6YmU=
 open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220413191652-67d1cc8d57fc/go.mod h1:G7CbabcOmZxZ7UWSc6Ek4NEZzjcH0xYJSopFj2dyMYo=
+open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220613142140-d7335819a1e0 h1:MhKJ/sitzq3INCUJHDwLhzVsTy1A/R9vk2aWNb91YRE=
+open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220613142140-d7335819a1e0/go.mod h1:EZXt7Is8UjJrIetiTKyZSCXCWYvyxHp7cCOTprT20BM=
 oras.land/oras-go v0.4.0/go.mod h1:VJcU+VE4rkclUbum5C0O7deEZbBYnsnpbGSACwTjOcg=
 oras.land/oras-go v1.1.0 h1:tfWM1RT7PzUwWphqHU6ptPU3ZhwVnSw/9nEGf519rYg=
 oras.land/oras-go v1.1.0/go.mod h1:1A7vR/0KknT2UkJVWh+xMi95I/AhK8ZrxrnUSmXN0bQ=
