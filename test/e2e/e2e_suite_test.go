@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	ginkgo "github.com/onsi/ginkgo"
+	ginkgo "github.com/onsi/ginkgo/v2"
 	gomega "github.com/onsi/gomega"
 
 	"k8s.io/client-go/kubernetes"
@@ -40,6 +40,11 @@ var (
 	hubClusterClient   clusterclient.Interface
 	clusterCfg         *rest.Config
 )
+
+var _ = ginkgo.Describe("E2E", func() {
+	ginkgo.It(`ginkgo v2 no longer runs BeforeSuite if all tests are skipped 
+or do not exist`, func() {})
+})
 
 // This suite is sensitive to the following environment variables:
 //
