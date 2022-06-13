@@ -332,7 +332,6 @@ github.com/containerd/containerd v1.5.7/go.mod h1:gyvv6+ugqY25TiXxcZC3L5yOeYgEw0
 github.com/containerd/containerd v1.5.8/go.mod h1:YdFSv5bTFLpG2HIYmfqDpSYYTDX+mc5qtSuYx1YUb/s=
 github.com/containerd/containerd v1.5.9/go.mod h1:fvQqCfadDGga5HZyn3j4+dx56qj2I9YwBrlSdalvJYQ=
 github.com/containerd/containerd v1.6.1/go.mod h1:1nJz5xCZPusx6jJU8Frfct988y0NpumIq9ODB0kLtoE=
-github.com/containerd/containerd v1.6.2/go.mod h1:sidY30/InSE1j2vdD1ihtKoJz+lWdaXMdiAeIupaf+s=
 github.com/containerd/containerd v1.6.6 h1:xJNPhbrmz8xAMDNoVjHy9YHtWwEQNS+CDkcIRh7t8Y0=
 github.com/containerd/containerd v1.6.6/go.mod h1:ZoP1geJldzCVY3Tonoz7b1IXk8rIX0Nltt5QE4OMNk0=
 github.com/containerd/continuity v0.0.0-20190426062206-aaeac12a7ffc/go.mod h1:GL3xCUCBDV3CZiTSEKksMWbLE66hEyuu9qyDOOqM47Y=
@@ -2321,8 +2320,6 @@ open-cluster-management.io/api v0.5.1-0.20220112073018-2d280a97a052/go.mod h1:0I
 open-cluster-management.io/api v0.6.0/go.mod h1:0IUTh8J+p4pv1THh1r9oO0luX9Z1FLDEAmvzW09qC0o=
 open-cluster-management.io/api v0.6.1-0.20220208144021-3297cac74dc5 h1:0Zn4+5qfXTHCjoa7pg8+fI/Gebr4bQDHWR+d1XPa47c=
 open-cluster-management.io/api v0.6.1-0.20220208144021-3297cac74dc5/go.mod h1:0IUTh8J+p4pv1THh1r9oO0luX9Z1FLDEAmvzW09qC0o=
-open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220413191652-67d1cc8d57fc h1:PVLeG9gab6YCC+ilbDaLJFGs2mgC/yEFQEarMLU6YmU=
-open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220413191652-67d1cc8d57fc/go.mod h1:G7CbabcOmZxZ7UWSc6Ek4NEZzjcH0xYJSopFj2dyMYo=
 open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220613142140-d7335819a1e0 h1:MhKJ/sitzq3INCUJHDwLhzVsTy1A/R9vk2aWNb91YRE=
 open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220613142140-d7335819a1e0/go.mod h1:EZXt7Is8UjJrIetiTKyZSCXCWYvyxHp7cCOTprT20BM=
 oras.land/oras-go v0.4.0/go.mod h1:VJcU+VE4rkclUbum5C0O7deEZbBYnsnpbGSACwTjOcg=
