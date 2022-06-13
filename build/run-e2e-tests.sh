@@ -55,7 +55,7 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
     sed -i -e "s|image: .*:latest$|image: $BUILD_IMAGE|" deploy/standalone/operator.yaml
 
     echo -e "\nDownload and install KinD\n"
-    GO111MODULE=on go get sigs.k8s.io/kind
+    GO111MODULE=on go get sigs.k8s.io/kind@v0.13.0
 
 
 else
@@ -68,7 +68,7 @@ if [ $? != 0 ]; then
         exit $?;
 fi
 
-kind create cluster --image=kindest/node:v1.19.1
+kind create cluster --image=kindest/node:v1.21.1
 if [ $? != 0 ]; then
         exit $?;
 fi
