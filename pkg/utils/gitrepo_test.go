@@ -16,10 +16,13 @@ package utils
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/pem"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -193,6 +196,60 @@ data:
 
 	if len(ret) != 1 {
 		t.Errorf("faild to parse yaml objects, wanted %v, got %v", 1, len(ret))
+	}
+}
+
+func TestGetCertChain(t *testing.T) {
+	validCert := `
+-----BEGIN CERTIFICATE-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAlRuRnThUjU8/prwYxbty
+WPT9pURI3lbsKMiB6Fn/VHOKE13p4D8xgOCADpdRagdT6n4etr9atzDKUSvpMtR3
+CP5noNc97WiNCggBjVWhs7szEe8ugyqF23XwpHQ6uV1LKH50m92MbOWfCtjU9p/x
+qhNpQQ1AZhqNy5Gevap5k8XzRmjSldNAFZMY7Yv3Gi+nyCwGwpVtBUwhuLzgNFK/
+yDtw2WcWmUU7NuC8Q6MWvPebxVtCfVp/iQU6q60yyt6aGOBkhAX0LpKAEhKidixY
+nP9PNVBvxgu3XZ4P36gZV6+ummKdBVnc3NqwBLu5+CcdRdusmHPHd5pHf4/38Z3/
+6qU2a/fPvWzceVTEgZ47QjFMTCTmCwNt29cvi7zZeQzjtwQgn4ipN9NibRH/Ax/q
+TbIzHfrJ1xa2RteWSdFjwtxi9C20HUkjXSeI4YlzQMH0fPX6KCE7aVePTOnB69I/
+a9/q96DiXZajwlpq3wFctrs1oXqBp5DVrCIj8hU2wNgB7LtQ1mCtsYz//heai0K9
+PhE4X6hiE0YmeAZjR0uHl8M/5aW9xCoJ72+12kKpWAa0SFRWLy6FejNYCYpkupVJ
+yecLk/4L1W0l6jQQZnWErXZYe0PNFcmwGXy1Rep83kfBRNKRy5tvocalLlwXLdUk
+AIU+2GKjyT3iMuzZxxFxPFMCAwEAAQ==
+-----END CERTIFICATE-----
+and some more`
+
+	byteArr, _ := pem.Decode([]byte(validCert))
+
+	testCases := []struct {
+		desc   string
+		certs  string
+		wanted tls.Certificate
+	}{
+		{
+			desc:   "invalid cert",
+			certs:  "",
+			wanted: tls.Certificate{},
+		},
+		{
+			desc: "empty cert",
+			certs: `
+-----BEGIN CERTIFICATE-----
+-----END CERTIFICATE-----
+			`,
+			wanted: tls.Certificate{Certificate: [][]byte{{}}},
+		},
+		{
+			desc:   "valid cert",
+			certs:  validCert,
+			wanted: tls.Certificate{Certificate: [][]byte{byteArr.Bytes}},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := getCertChain(tC.certs)
+			if !reflect.DeepEqual(got, tC.wanted) {
+				t.Errorf("wanted %v, got %v", tC.wanted, got)
+			}
+		})
 	}
 }
 
@@ -884,5 +941,162 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 			Kind: "ClusterRole",
 			Name: appv1.SubscriptionAdmin,
 		},
+	}
+}
+
+func TestGetOwnerAndRepo(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		url    string
+		wanted []string
+	}{
+		{
+			desc:   "invalid url",
+			url:    "",
+			wanted: []string{},
+		},
+		{
+			desc:   "invalid git url length 1",
+			url:    "https:",
+			wanted: []string{},
+		},
+		{
+			desc:   "invalid git url length 2",
+			url:    "https://google.com",
+			wanted: []string{},
+		},
+		{
+			desc:   "valid owner",
+			url:    "https://github.com/open-cluster-management-io",
+			wanted: []string{"github.com", "open-cluster-management-io"},
+		},
+		{
+			desc:   "valid owner and repo",
+			url:    "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
+			wanted: []string{"open-cluster-management-io", "multicloud-operators-subscription"},
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got, err := getOwnerAndRepo(tC.url)
+			if !reflect.DeepEqual(got, tC.wanted) {
+				t.Errorf("wanted %v, got %v, err %v", tC.wanted, got, err)
+			}
+		})
+	}
+}
+
+func TestSkipHooksOnManaged(t *testing.T) {
+	testCases := []struct {
+		desc         string
+		resourcePath string
+		curPath      string
+		wanted       bool
+	}{
+		{
+			desc:         "empty string",
+			resourcePath: "",
+			curPath:      "",
+			wanted:       false,
+		},
+		{
+			desc:         "valid prehook",
+			resourcePath: "myResource",
+			curPath:      "myResource/prehook/my/current/path/",
+			wanted:       true,
+		},
+		{
+			desc:         "valid posthook",
+			resourcePath: "myResource",
+			curPath:      "myResource/posthook/my/current/path/",
+			wanted:       true,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := SkipHooksOnManaged(tC.resourcePath, tC.curPath)
+			if got != tC.wanted {
+				t.Errorf("wanted %v, got %v", tC.wanted, got)
+			}
+		})
+	}
+}
+
+func TestGetKnownHostFromURL(t *testing.T) {
+	tmpfile, err := ioutil.TempFile("", "temptest")
+	if err != nil {
+		t.Error("error creating temp file")
+	}
+
+	defer os.Remove(tmpfile.Name()) // clean up
+
+	testCases := []struct {
+		desc        string
+		sshURL      string
+		filepath    string
+		expectError bool
+	}{
+		{
+			desc:        "invalid ssh url",
+			sshURL:      "ssh:\r\n",
+			filepath:    "",
+			expectError: true,
+		},
+		{
+			desc:        "invalid filepath",
+			sshURL:      "",
+			filepath:    "",
+			expectError: true,
+		},
+		{
+			desc:        "valid ssh url with port",
+			sshURL:      "ssh://git@github.com:22/open-cluster-management-io/multicloud-operators-subscription.git",
+			filepath:    tmpfile.Name(),
+			expectError: false,
+		},
+		{
+			desc:        "valid git url",
+			sshURL:      "git@github.com:open-cluster-management-io/multicloud-operators-subscription.git",
+			filepath:    tmpfile.Name(),
+			expectError: false,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := getKnownHostFromURL(tC.sshURL, tC.filepath)
+			if got != nil && !tC.expectError { // If error and we don't expect an error
+				t.Errorf("wanted error %v, got %v", tC.expectError, got)
+			}
+		})
+	}
+}
+
+func TestGetLatestCommitID(t *testing.T) {
+	testCases := []struct {
+		desc   string
+		url    string
+		branch string
+		wanted string
+	}{
+		{
+			desc:   "get correct SHA",
+			url:    "https://github.com/stolostron/application-lifecycle-samples",
+			branch: "lennysgarage-helloworld",
+			wanted: "156bf795dadb1e5eeb2a03e171ff4b317d403498",
+		},
+		{
+			desc:   "invalid branch",
+			url:    "https://github.com/stolostron/application-lifecycle-samples",
+			branch: "mumbled-garbage-branch-amwdwk",
+			wanted: "",
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got, err := GetLatestCommitID(tC.url, tC.branch)
+			if got != tC.wanted {
+				t.Errorf("wanted %v, got %v, err %v", tC.wanted, got, err)
+			}
+		})
 	}
 }
