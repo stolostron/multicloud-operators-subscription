@@ -22,7 +22,7 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -115,48 +115,54 @@ var _ = PDescribe("hub git ops", func() {
 	)
 
 	It("register/de-register a subscription", func() {
-		subIns := subIns.DeepCopy()
-		chnIns := chnIns.DeepCopy()
+		done := make(chan interface{})
+		go func() {
 
-		chnIns.SetNamespace(fmt.Sprintf("%s-hub-git-1", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
+			subIns := subIns.DeepCopy()
+			chnIns := chnIns.DeepCopy()
 
-		subIns.SetNamespace(fmt.Sprintf("%s-hub-git-1", subIns.GetNamespace()))
-		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
+			chnIns.SetNamespace(fmt.Sprintf("%s-hub-git-1", chnIns.GetNamespace()))
+			chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
+			subIns.Spec.Channel = chnKey.String()
 
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
-		Expect(k8sClt.Create(ctx, subIns.DeepCopy())).Should(Succeed())
+			subIns.SetNamespace(fmt.Sprintf("%s-hub-git-1", subIns.GetNamespace()))
+			subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
-		testBranch := "main"
-		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
-			Expect(k8sClt.Delete(ctx, subIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Create(ctx, subIns.DeepCopy())).Should(Succeed())
+
+			testBranch := "main"
+			defer func() {
+				Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+				Expect(k8sClt.Delete(ctx, subIns.DeepCopy())).Should(Succeed())
+			}()
+
+			Eventually(registerSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
+
+			sr := gitOps.GetSubRecords()
+
+			Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
+
+			rr := gitOps.GetRepoRecords()
+
+			branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
+			Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
+
+			Eventually(checkGitRegCommit(testBranch), pullInterval*3, pullInterval).Should(Succeed())
+
+			Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
+			sr = gitOps.GetSubRecords()
+
+			Expect(sr).ShouldNot(HaveKey(subKey))
+
+			rr = gitOps.GetRepoRecords()
+
+			Expect(rr).ShouldNot(HaveKey("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
+			Expect(rr).Should(HaveLen(0))
+			close(done)
 		}()
-
-		Eventually(registerSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
-
-		sr := gitOps.GetSubRecords()
-
-		Expect(sr[subKey]).Should(Equal("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
-
-		rr := gitOps.GetRepoRecords()
-
-		branchInfo := rr["https://"+testutils.GetTestGitRepoURLFromEnvVar()].branchs[testBranch]
-		Expect(branchInfo.registeredSub).Should(HaveKey(subKey))
-
-		Eventually(checkGitRegCommit(testBranch), pullInterval*3, pullInterval).Should(Succeed())
-
-		Eventually(deRegisterSub(subKey), pullInterval*3, pullInterval).Should(Succeed())
-		sr = gitOps.GetSubRecords()
-
-		Expect(sr).ShouldNot(HaveKey(subKey))
-
-		rr = gitOps.GetRepoRecords()
-
-		Expect(rr).ShouldNot(HaveKey("https://" + testutils.GetTestGitRepoURLFromEnvVar()))
-		Expect(rr).Should(HaveLen(0))
-	}, 20*float64(time.Second))
+		Eventually(done, 20*float64(time.Second)).Should(BeClosed())
+	})
 
 	It("register/deRegisterSub the 2nd subscription", func() {
 		subIns := subIns.DeepCopy()
