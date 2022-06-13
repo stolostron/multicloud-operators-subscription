@@ -21,8 +21,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 )
 
@@ -67,14 +65,4 @@ func GetComponentNamespace() (string, error) {
 	}
 
 	return string(nsBytes), nil
-}
-
-func BuildKubeClient(kubeConfigPath string) (*kubernetes.Clientset, error) {
-	hubRestConfig, err := clientcmd.BuildConfigFromFlags("", kubeConfigPath)
-	if err != nil {
-		klog.Errorf("failed to build kubeconfig. Error:%v", err)
-		return nil, err
-	}
-
-	return kubernetes.NewForConfig(hubRestConfig)
 }
