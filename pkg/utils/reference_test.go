@@ -20,6 +20,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -207,6 +208,91 @@ func TestDeleteSubFromObjectOwners(t *testing.T) {
 			t.Logf("got %v", got)
 			if !reflect.DeepEqual(got, tC.newOwerships) {
 				t.Errorf("sub %v is not delete from owner list of %v", tC.ownername, tC.obj.GetName())
+			}
+		})
+	}
+}
+
+func TestIsEqualObjectsDataOwnersLabels(t *testing.T) {
+	ownerName := "sub-a"
+	defaultLabel := "test_value"
+	defaultOwner := []metav1.OwnerReference{
+		{Kind: "Pod", APIVersion: "v1", Name: "poda", UID: "1"},
+	}
+
+	defaultObject := unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      ownerName,
+				"namespace": nssubTest,
+				"labels": map[string]interface{}{
+					"test_label": defaultLabel,
+				},
+			},
+		},
+	}
+	// setting "ownerReferences" under metadata above does not seem to register
+	defaultObject.SetOwnerReferences(defaultOwner)
+
+	testCases := []struct {
+		desc   string
+		obj1   *unstructured.Unstructured
+		obj2   referredObject
+		wanted bool
+	}{
+		{
+			desc: "comparison with same owner same label",
+			obj1: &defaultObject,
+			obj2: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ownerName,
+					Namespace: nssubTest,
+					Labels: map[string]string{
+						"test_label": defaultLabel,
+					},
+					OwnerReferences: defaultOwner,
+				},
+			},
+			wanted: true,
+		},
+		{
+			desc: "comparison with same owner different label",
+			obj1: &defaultObject,
+			obj2: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ownerName,
+					Namespace: nssubTest,
+					Labels: map[string]string{
+						"test_label": "test_different_value",
+					},
+					OwnerReferences: defaultOwner,
+				},
+			},
+			wanted: false,
+		},
+		{
+			desc: "comparison with different owner same label",
+			obj1: &defaultObject,
+			obj2: &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ownerName,
+					Namespace: nssubTest,
+					Labels: map[string]string{
+						"test_label": defaultLabel,
+					},
+					OwnerReferences: []metav1.OwnerReference{
+						{Kind: "Pod", APIVersion: "v1", Name: "podb", UID: "1001"},
+					},
+				},
+			},
+			wanted: false,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := isEqualObjectsDataOwnersLabels(tC.obj1, tC.obj2)
+			if got != tC.wanted {
+				t.Errorf("wanted %v, got %v", tC.wanted, got)
 			}
 		})
 	}
