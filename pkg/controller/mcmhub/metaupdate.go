@@ -115,7 +115,8 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool) (bool, error) {
+func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *subv1.Subscription, insecureSkipVeriy bool,
+	channelNs string) (bool, error) {
 	subanno := sub.GetAnnotations()
 	if len(subanno) == 0 {
 		subanno = make(map[string]string)
@@ -125,6 +126,16 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, sub *su
 	if err != nil {
 		klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
 		return false, err
+	}
+
+	for _, helmRl := range helmRls {
+		if helmRl.Repo.ConfigMapRef != nil && helmRl.Repo.ConfigMapRef.Namespace == "" {
+			helmRl.Repo.ConfigMapRef.Namespace = channelNs
+		}
+
+		if helmRl.Repo.SecretRef != nil && helmRl.Repo.SecretRef.Namespace == "" {
+			helmRl.Repo.SecretRef.Namespace = channelNs
+		}
 	}
 
 	expectTopo, err := generateResrouceList(hubCfg, helmRls)

@@ -92,7 +92,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
 		updateSubDplAnno, err = r.UpdateGitDeployablesAnnotation(sub)
 	case chnv1alpha1.ChannelTypeHelmRepo:
-		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify)
+		updateSubDplAnno, err = UpdateHelmTopoAnnotation(r.Client, r.cfg, sub, channel.Spec.InsecureSkipVerify, channel.Namespace)
 	case chnv1alpha1.ChannelTypeObjectBucket:
 		updateSubDplAnno, err = r.updateObjectBucketAnnotation(sub, channel, objectBucketParent)
 	default:
