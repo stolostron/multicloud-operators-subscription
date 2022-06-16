@@ -129,6 +129,28 @@ func UpdateHelmTopoAnnotation(hubClt client.Client, hubCfg *rest.Config, rm meta
 		return false, err
 	}
 
+	for _, helmRl := range helmRls {
+		if channel != nil {
+			if helmRl.Repo.ConfigMapRef != nil && helmRl.Repo.ConfigMapRef.Namespace == "" {
+				helmRl.Repo.ConfigMapRef.Namespace = channel.Namespace
+			}
+
+			if helmRl.Repo.SecretRef != nil && helmRl.Repo.SecretRef.Namespace == "" {
+				helmRl.Repo.SecretRef.Namespace = channel.Namespace
+			}
+		}
+
+		if secondChannel != nil && helmRl.Repo.AltSource != nil {
+			if helmRl.Repo.AltSource.ConfigMapRef != nil && helmRl.Repo.AltSource.ConfigMapRef.Namespace == "" {
+				helmRl.Repo.AltSource.ConfigMapRef.Namespace = secondChannel.Namespace
+			}
+
+			if helmRl.Repo.AltSource.SecretRef != nil && helmRl.Repo.AltSource.SecretRef.Namespace == "" {
+				helmRl.Repo.AltSource.SecretRef.Namespace = secondChannel.Namespace
+			}
+		}
+	}
+
 	expectTopo, err := generateResrouceList(hubClt, hubCfg, rm, helmRls)
 	if err != nil {
 		klog.Errorf("failed to get the resource info for helm subscription %v, err: %v", ObjectString(sub), err)
