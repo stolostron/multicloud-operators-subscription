@@ -24,7 +24,7 @@ Subscriptions can point to a channel for identifying new or updated resource tem
 
 ![architecture](images/architecture.png)
 
-## Stand-alone deployment
+## Stand-alone deployment 
 
 Deploy the subscription operator.
 
