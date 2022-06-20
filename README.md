@@ -14,7 +14,7 @@
 - [Object storage subscription](#object-storage-subscription)
 - [Community, discussion, contribution, and support](#community,-discussion,-contribution,-and-support)
 
-## Overview
+## Overview 
 
 Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to subscribe to a source repository [channel](https://github.com/open-cluster-management-io/multicloud-operators-channel) that can be the following types: Git repository, Helm release registry, or Object storage repository.
 
