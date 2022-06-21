@@ -560,6 +560,7 @@ spec:
           - list
           - watch
           - update
+          - create
           apiGroups:
           - admissionregistration.k8s.io
           resources:
@@ -596,6 +597,7 @@ spec:
           - list
           - watch
           - update
+          - create
           apiGroups:
           - coordination.k8s.io
           resources:
