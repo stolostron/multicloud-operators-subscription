@@ -35,7 +35,7 @@ require (
 	k8s.io/klog/v2 v2.40.1
 	open-cluster-management.io/addon-framework v0.3.0
 	open-cluster-management.io/api v0.6.1-0.20220208144021-3297cac74dc5
-	open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220413191652-67d1cc8d57fc
+	open-cluster-management.io/multicloud-operators-channel v0.7.1-0.20220613142140-d7335819a1e0
 	sigs.k8s.io/controller-runtime v0.11.0
 	sigs.k8s.io/kustomize/api v0.11.1
 	sigs.k8s.io/kustomize/kyaml v0.13.3
@@ -77,7 +77,7 @@ require (
 	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/containerd/containerd v1.6.2 // indirect
+	github.com/containerd/containerd v1.6.6 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/docker/cli v20.10.12+incompatible // indirect
