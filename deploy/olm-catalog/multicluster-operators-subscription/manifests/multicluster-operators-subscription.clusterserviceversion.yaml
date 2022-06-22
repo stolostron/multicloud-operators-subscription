@@ -606,10 +606,13 @@ spec:
           - get
           - list
           - watch
+          - update
+          - patch
           apiGroups:
           - apps
           resources:
           - deployments
+          - deployments/finalizers
         - verbs:
           - get
           - list
