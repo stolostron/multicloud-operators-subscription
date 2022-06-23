@@ -330,6 +330,7 @@ spec:
           - apps.open-cluster-management.io
           resources:
           - gitopsclusters
+          - gitopsclusters/status
         - verbs:
           - get
           - list
