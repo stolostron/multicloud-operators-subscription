@@ -114,4 +114,24 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		Expect(err).NotTo(HaveOccurred())
 	})
+
+	It("should have an invalid apiversion pkgStatus", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		workload1 := workload1Configmap.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), workload1)
+
+		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
+			Name:       "configmap1",
+			Namespace:  "default",
+			APIVersion: "",
+			Kind:       "ConfigMap",
+		}
+
+		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+		Expect(err).To(HaveOccurred())
+	})
 })
