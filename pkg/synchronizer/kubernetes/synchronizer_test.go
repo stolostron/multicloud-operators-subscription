@@ -22,6 +22,8 @@ import (
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 )
@@ -133,6 +135,40 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		Expect(err).To(HaveOccurred())
+	})
+})
+
+var _ = Describe("test IsResourceNamespaced", func() {
+	It("should pass", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		resource := unstructured.Unstructured{}
+
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "apps/v1",
+			Kind:    "Deployment",
+		})
+
+		isNamespaced := sync.IsResourceNamespaced(&resource)
+		Expect(isNamespaced).To(BeTrue())
+	})
+
+	It("should fail", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		resource := unstructured.Unstructured{}
+
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "",
+			Kind:    "",
+		})
+
+		isNamespaced := sync.IsResourceNamespaced(&resource)
+		Expect(isNamespaced).To(BeFalse())
 	})
 })
 
