@@ -135,3 +135,14 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 		Expect(err).To(HaveOccurred())
 	})
 })
+
+var _ = Describe("test getHostingAppSub", func() {
+	It("should fail", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		subscription, err := sync.getHostingAppSub(hostSub)
+		Expect(err).To(HaveOccurred())
+		Expect(subscription).To(BeNil())
+	})
+})
