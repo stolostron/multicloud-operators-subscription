@@ -95,17 +95,32 @@ func (r *ReconcileSubscription) getManifestWorkFamily(instance *appSubV1.Subscri
 
 	if err != nil && !errors.IsNotFound(err) {
 		klog.Error("Trying to list existing manifestWorks ", instance.GetNamespace(), "/", instance.GetName(), " with error:", err)
+
 		return nil, err
 	}
 
 	manifestWorkList := []*manifestWorkV1.ManifestWork{}
 
 	for _, manifestWork := range exlist.Items {
+		// Due to k8s label max length of 63 characters, the manifestworks containing the same label could belong to different appsubs
+		// need to further check the maniefstwork Name to make sure the manifestWork does belong to the appsub
+		// e.g. The following 2 appsubs are deployed to the same NS `fo-monitoring-incluster`
+		// appsub1: prometheus-stack-incluster-platform-engineering-westeurope01
+		// appsub2: prometheus-stack-incluster-platform-engineering-eastus02
+		// The generated manifestwork labels are exactly the same regardless of the different endings after the first 63 characters
+		// fo-monitoring-incluster.prometheus-stack-incluster-platform-engineering-westeurope01
+		// fo-monitoring-incluster.prometheus-stack-incluster-platform-engineering-eastus02
+		if manifestWork.GetName() != instance.Namespace+"-"+instance.Name {
+			klog.Infof("Skip the manifestWork %v/%v as it doesn't belong to the app %v/%v", manifestWork.Namespace, manifestWork.Name, instance.Namespace, instance.Name)
+
+			continue
+		}
+
 		manifestWorkList = append(manifestWorkList, manifestWork.DeepCopy())
-		klog.V(1).Infof("manifestWork added to manifestWorkList: %v/%v", manifestWork.Namespace, manifestWork.Name)
+		klog.Infof("The manifestWork %v/%v added to the app %v/%v", manifestWork.Namespace, manifestWork.Name, instance.Namespace, instance.Name)
 	}
 
-	klog.V(1).Infof("Total children manifestWorks: %v", len(manifestWorkList))
+	klog.Infof("Total children manifestWorks: %v for the app: %v/%v", len(manifestWorkList), instance.Namespace, instance.Name)
 
 	return manifestWorkList, nil
 }
