@@ -244,7 +244,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 
-			klog.Infof("Failed to overrifde resource. err: %v", err)
+			klog.Infof("Failed to override resource. err: %v", err)
 
 			continue
 		}
