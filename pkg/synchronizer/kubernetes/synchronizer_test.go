@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 )
 
@@ -47,6 +48,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "configmap1",
 			Namespace: "default",
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationHosting: hostSub.Namespace + "/" + hostSub.Name,
+			},
 		},
 	}
 
@@ -60,6 +64,9 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "deployment1",
 			Namespace: "default",
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationHosting: hostSub.Namespace + "/" + hostSub.Name,
+			},
 		},
 		Spec: apps.DeploymentSpec{
 			Replicas: func() *int32 { i := int32(1); return &i }(),
@@ -76,6 +83,20 @@ var (
 						},
 					},
 				},
+			},
+		},
+	}
+
+	workload3Configmap = corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "configmap2",
+			Namespace: "default",
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationHosting: "not owned",
 			},
 		},
 	}
@@ -136,10 +157,30 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		Expect(err).To(HaveOccurred())
 	})
+
+	It("should not be owned by the subscription", func() {
+		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		workload1 := workload3Configmap.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), workload1)
+
+		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
+			Name:       "configmap2",
+			Namespace:  "default",
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		}
+
+		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+		Expect(err).NotTo(HaveOccurred())
+	})
 })
 
 var _ = Describe("test IsResourceNamespaced", func() {
-	It("should pass", func() {
+	It("should pass finding GVR", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -155,7 +196,7 @@ var _ = Describe("test IsResourceNamespaced", func() {
 		Expect(isNamespaced).To(BeTrue())
 	})
 
-	It("should fail", func() {
+	It("should fail finding GVR", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
@@ -173,7 +214,7 @@ var _ = Describe("test IsResourceNamespaced", func() {
 })
 
 var _ = Describe("test getHostingAppSub", func() {
-	It("should fail", func() {
+	It("should fail finding hosting appsub", func() {
 		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
