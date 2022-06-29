@@ -19,6 +19,7 @@ RUN  microdnf update -y \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
+    USER_UID=1001 \
     USER_NAME=multicluster-operators-subscription \
     ZONEINFO=/usr/share/timezone \
     KUSTOMIZE_PLUGIN_HOME=/etc/kustomize/plugin
@@ -37,3 +38,5 @@ COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
      
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
+
+USER ${USER_UID}
