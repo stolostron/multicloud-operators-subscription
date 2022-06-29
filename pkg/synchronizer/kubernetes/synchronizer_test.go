@@ -40,6 +40,10 @@ var (
 		Name:      "subscription-4",
 		Namespace: "default",
 	}
+	hostworkload5 = types.NamespacedName{
+		Name:      "github-resource-subscription-local",
+		Namespace: "default",
+	}
 	hostSub = types.NamespacedName{
 		Name:      "appsub-1",
 		Namespace: "appsub-ns-1",
@@ -109,8 +113,8 @@ var (
 			APIVersion: "apps.open-cluster-management.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "subscription-4",
-			Namespace: "default",
+			Name:      hostworkload4.Name,
+			Namespace: hostworkload4.Namespace,
 			Annotations: map[string]string{
 				appv1alpha1.AnnotationHosting: hostworkload4.Namespace + "/" + hostworkload4.Name,
 			},
@@ -122,10 +126,14 @@ var (
 			APIVersion: "apps.open-cluster-management.io/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "github-resource-subscription-local",
-			Namespace: "default",
+			Name:      hostworkload5.Name,
+			Namespace: hostworkload5.Namespace,
 			Annotations: map[string]string{
-				appv1alpha1.AnnotationHosting: "default/github-resource-subscription-local",
+				appv1alpha1.AnnotationResourceReconcileOption: "merge",
+				appv1alpha1.AnnotationHosting:                 hostworkload5.Namespace + "/" + hostworkload5.Name,
+			},
+			Labels: map[string]string{
+				"label1": "label",
 			},
 		},
 	}
@@ -221,7 +229,7 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 	var err error
 
 	BeforeEach(func() {
-		sync, err = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		sync, err = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, true, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = sync.Start(context.TODO())
@@ -288,6 +296,7 @@ var _ = Describe("test ProcessSubResources", func() {
 			Kind:    "Subscription",
 		})
 		resource.SetAnnotations(make(map[string]string))
+		resource.SetLabels(map[string]string{"app.kubernetes.io/part-of": "appsub-obj-1"})
 		resource.SetOwnerReferences([]metav1.OwnerReference{{
 			APIVersion: "apps.open-cluster-management.io/v1",
 			Kind:       "Subscription",
