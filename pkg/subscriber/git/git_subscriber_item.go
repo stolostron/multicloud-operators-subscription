@@ -642,17 +642,6 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*unstructured.Unstru
 	// Set app label
 	utils.SetPartOfLabel(ghsi.SubscriberItem.Subscription, rsc)
 
-	// If resource namespace is different than the subscription namespace, setting the owner ref
-	// will cause the resource to be deleted by k8s garbage collection
-	if rsc.GetNamespace() == ghsi.Subscription.Namespace {
-		rsc.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion: subscriptionGVK.GroupVersion().String(),
-			Kind:       subscriptionGVK.Kind,
-			Name:       ghsi.Subscription.Name,
-			UID:        ghsi.Subscription.UID,
-		}})
-	}
-
 	return rsc, &validgvk, nil
 }
 

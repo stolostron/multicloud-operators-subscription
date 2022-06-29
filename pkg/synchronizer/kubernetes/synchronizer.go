@@ -93,6 +93,12 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 
 	annotations := pkgObj.GetAnnotations()
 
+	// If the resource has a do-not-delete: "true" annotation, skip the deletion of this resource
+	if annotations[appv1alpha1.AnnotationResourceDoNotDeleteOption] == "true" {
+		klog.Infof("pkgName: %v, pkgNamespace: %v has do-not-delete annotation, skip deleting", pkgStatus.Name, pkgStatus.Namespace)
+		return nil
+	}
+
 	// The resource might not be owned by the subscription if you deployed the susbcription
 	// with subscription-admin role and merge option. In this case, do not delete the resource on subscription deletion.
 	if annotations[appv1alpha1.AnnotationHosting] != (hostSub.Namespace + "/" + hostSub.Name) {
@@ -101,6 +107,7 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 
 		return nil
 	}
+
 
 	deletepolicy := metav1.DeletePropagationBackground
 	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
