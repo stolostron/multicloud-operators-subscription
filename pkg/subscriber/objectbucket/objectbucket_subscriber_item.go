@@ -466,17 +466,6 @@ func (obsi *SubscriberItem) doSubscribeManifest(template *unstructured.Unstructu
 		return nil, errors.New(errmsg)
 	}
 
-	// // If resource namespace is different than the subscription namespace, setting the owner ref
-	// // will cause the resource to be deleted by k8s garbage collection
-	// if template.GetNamespace() == obsi.Subscription.Namespace {
-	// 	template.SetOwnerReferences([]metav1.OwnerReference{{
-	// 		APIVersion: SubscriptionGVK.GroupVersion().String(),
-	// 		Kind:       SubscriptionGVK.Kind,
-	// 		Name:       obsi.Subscription.Name,
-	// 		UID:        obsi.Subscription.UID,
-	// 	}})
-	// }
-
 	validgvk := template.GetObjectKind().GroupVersionKind()
 
 	subAnnotations := obsi.Subscription.GetAnnotations()
