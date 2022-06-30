@@ -55,11 +55,6 @@ var (
 		Version: appv1.SchemeGroupVersion.Version,
 		Kind:    "HelmRelease",
 	}
-
-	subscriptionGVK = schema.GroupVersionKind{
-		Group:   appv1.SchemeGroupVersion.Group,
-		Kind:    "Subscription",
-		Version: appv1.SchemeGroupVersion.Version}
 )
 
 // SubscriberItem - defines the unit of namespace subscription
