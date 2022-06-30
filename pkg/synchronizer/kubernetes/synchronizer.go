@@ -108,7 +108,6 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 		return nil
 	}
 
-
 	deletepolicy := metav1.DeletePropagationBackground
 	err = ri.Delete(context.TODO(), pkgObj.GetName(), metav1.DeleteOptions{PropagationPolicy: &deletepolicy})
 

@@ -72,7 +72,7 @@ var (
 	// AnnotationUserIdentity is subscription user id
 	AnnotationUserIdentity = "open-cluster-management.io/user-identity"
 	// AnnotationResourceReconcileOption is for reconciling existing resource
-	AnnotationResourceReconcileOption = SchemeGroupVersion.Group + "/reconcile-option"
+	AnnotationResourceReconcileOption   = SchemeGroupVersion.Group + "/reconcile-option"
 	AnnotationResourceDoNotDeleteOption = SchemeGroupVersion.Group + "/do-not-delete"
 	// AnnotationResourceReconcileLevel is for resource reconciliation frequency
 	AnnotationResourceReconcileLevel = SchemeGroupVersion.Group + "/reconcile-rate"
