@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -65,7 +66,14 @@ func TestReconcile(t *testing.T) {
 	rec := &ReconcileHelmRelease{
 		mgr,
 		nil,
+		nil,
 	}
+
+	// Create a new controller
+	ctrl, err := controller.New("helmrelease-controller", mgr, controller.Options{Reconciler: rec})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	watchDependentResources(mgr, rec, ctrl)
 
 	t.Log("Setup test reconcile")
 	g.Expect(Add(mgr)).NotTo(gomega.HaveOccurred())

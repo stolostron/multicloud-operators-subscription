@@ -196,6 +196,8 @@ type SubscriptionSpec struct {
 	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
 	Allow         []*AllowDenyItem        `json:"allow,omitempty"`
 	Deny          []*AllowDenyItem        `json:"deny,omitempty"`
+	// WatchHelmNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
+	WatchHelmNamespaceScopedResources bool `json:"watchHelmNamespaceScopedResources,omitempty"`
 }
 
 // SubscriptionPhase defines the phasing of a Subscription

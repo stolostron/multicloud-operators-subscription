@@ -21,7 +21,7 @@ spec:
     - description: subscription status reference
       jsonPath: .status.appstatusReference
       name: AppstatusReference
-      type: string
+      type: string      
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -257,6 +257,9 @@ spec:
                   - kinds
                   type: object
                 type: array
+              watchHelmNamespaceScopedResources:
+                description: WatchHelmNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
+                type: boolean
               placement:
                 description: For hub use only, to specify which clusters to go to
                 properties:

@@ -320,10 +320,24 @@ func (hrsi *SubscriberItem) doSubscription() {
 
 		isHashDiff := hash != hrsi.hash
 		isUnsuccessful := !hrsi.success
+		existsHelmRelease := false
 
-		if isHashDiff || isUnsuccessful {
-			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v",
-				isHashDiff, isUnsuccessful)
+		hrNames := getHelmReleaseNames(indexFile, hrsi.Subscription)
+
+		for _, hrName := range hrNames {
+			existsHelmRelease, err = isHelmReleaseExists(hrsi.synchronizer.GetLocalClient(), hrsi.Subscription.Namespace, hrName)
+			if err != nil {
+				klog.Error("Failed to determine if HelmRelease exists: ", err)
+
+				hrsi.success = false
+
+				return
+			}
+		}
+
+		if isHashDiff || isUnsuccessful || !existsHelmRelease {
+			klog.Infof("Processing Helm Subscription... isHashDiff=%v isUnsuccessful=%v existsHelmRelease=%v",
+				isHashDiff, isUnsuccessful, existsHelmRelease)
 
 			if err := hrsi.processSubscription(indexFile, hash); err != nil {
 				klog.Error("Failed to process helm repo subscription with error:", err)
