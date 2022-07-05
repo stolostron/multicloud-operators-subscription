@@ -92,6 +92,9 @@ spec:
                 - kinds
                 type: object
               type: array
+            watchHelmNamespaceScopedResources:
+              description: WatchHelmNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
+              type: boolean
             hooksecretref:
               description: 'ObjectReference contains enough information to let you
                 inspect or modify the referred object. --- New uses of this type are
@@ -567,6 +570,9 @@ spec:
                   - kinds
                   type: object
                 type: array
+              watchHelmNamespaceScopedResources:
+                description: WatchHelmNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
+                type: boolean
               hooksecretref:
                 description: 'ObjectReference contains enough information to let you
                   inspect or modify the referred object. --- New uses of this type
