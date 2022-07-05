@@ -253,7 +253,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 		}
 
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
-		Expect(err).To(HaveOccurred())
+		Expect(err).To(BeNil())
 	})
 })
 
