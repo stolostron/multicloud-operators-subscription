@@ -33,8 +33,8 @@ import (
 
 var (
 	host = types.NamespacedName{
-		Name:      "cluster1",
-		Namespace: "cluster1",
+		Name:      "cluster2",
+		Namespace: "cluster2",
 	}
 	hostworkload4 = types.NamespacedName{
 		Name:      "subscription-4",
