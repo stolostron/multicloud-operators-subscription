@@ -44,7 +44,7 @@ var (
 func FilteClustersByIdentity(authClient kubernetes.Interface, object runtime.Object, clmap map[string]*spokeClusterV1.ManagedCluster) error {
 	objmeta, err := meta.Accessor(object)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	objanno := objmeta.GetAnnotations()

@@ -173,7 +173,7 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	klog.Info("Polling enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 	ghssubitem.webhookEnabled = false
 
-	var restart bool = false
+	var restart = false
 
 	if strings.EqualFold(previousReconcileLevel, ghssubitem.reconcileRate) && strings.EqualFold(ghssubitem.reconcileRate, "off") {
 		// auto reconcile off but something changed in subscription. restart to reconcile resources

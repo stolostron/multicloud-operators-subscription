@@ -824,7 +824,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 			if err != nil {
 				klog.Warning("Failed to unmarshal YAML file")
 				// Just ignore the YAML
-				return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
+				return crdsAndNamespaceFiles, rbacFiles, otherFiles, err
 			}
 
 			if t.APIVersion != "" && t.Kind != "" {

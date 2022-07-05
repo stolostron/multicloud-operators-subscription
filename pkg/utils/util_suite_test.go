@@ -18,7 +18,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	stdlog "log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -53,7 +52,7 @@ func TestMain(m *testing.M) {
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(fmt.Errorf("got error while start up the envtest, err: %v", err))
+		log.Fatal(fmt.Errorf("got error while start up the envtest, err: %w", err))
 	}
 
 	var c client.Client

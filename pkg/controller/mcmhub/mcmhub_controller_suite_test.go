@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"log"
-	stdlog "log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -61,7 +60,7 @@ func TestMain(m *testing.M) {
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	var c client.Client

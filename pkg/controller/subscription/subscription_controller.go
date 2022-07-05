@@ -35,7 +35,6 @@ import (
 	hrsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	ossub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/objectbucket"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
-	subutil "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -245,7 +244,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				instance.Status.Phase = appv1.SubscriptionFailed
 				instance.Status.Reason = reconcileErr.Error()
 
-				var emptyStatuses appv1.SubscriptionClusterStatusMap = make(appv1.SubscriptionClusterStatusMap)
+				var emptyStatuses = make(appv1.SubscriptionClusterStatusMap)
 				instance.Status.Statuses = emptyStatuses
 
 				klog.Errorf("doReconcile got error %v", reconcileErr)
@@ -253,14 +252,12 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 			// Update AppstatusReference
 			appsubStatusName := request.NamespacedName.Name
-			if strings.HasSuffix(appsubStatusName, "-local") {
-				appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
-			}
+			appsubStatusName = strings.TrimSuffix(appsubStatusName, "-local")
 
 			instance.Status.AppstatusReference = fmt.Sprintf("kubectl get appsubstatus -n %s %s", request.NamespacedName.Namespace, appsubStatusName)
 
 			// if the subscription pause lable is true, stop updating subscription status.
-			if subutil.GetPauseLabel(instance) {
+			if utils.GetPauseLabel(instance) {
 				klog.Info("updating subscription status: ", request.NamespacedName, " is paused")
 
 				return reconcile.Result{}, nil
@@ -300,7 +297,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		klog.Infof("Subscription %v is no longer local subscription. Remove subscription packages.", request.NamespacedName)
 		// no longer local
 		// if the subscription pause lable is true, stop unsubscription here.
-		if subutil.GetPauseLabel(instance) {
+		if utils.GetPauseLabel(instance) {
 			klog.Info("unsubscribing: ", request.NamespacedName, " is paused")
 
 			return reconcile.Result{}, nil
@@ -491,7 +488,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 			klog.V(1).Infof("k: %v, sub: %v, subtype:%v,  unsubscribe %v/%v", k, sub, subtype, subitem.Subscription.Namespace, subitem.Subscription.Name)
 
 			// if the subscription pause lable is true, stop unsubscription here.
-			if subutil.GetPauseLabel(subitem.Subscription) {
+			if utils.GetPauseLabel(subitem.Subscription) {
 				klog.Infof("unsubscription: %v/%v is paused.", subitem.Subscription.Namespace, subitem.Subscription.Name)
 				continue
 			}

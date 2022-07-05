@@ -20,7 +20,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,7 +28,6 @@ import (
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
@@ -189,7 +187,7 @@ var _ = Describe("github subscriber reconcile logic", func() {
 
 		// Test kube resource with no package filter
 		errMsg := subitem.checkFilters(rsc)
-		Expect(errMsg).To(gomega.Equal(""))
+		Expect(errMsg).To(Equal(""))
 
 		matchLabels := make(map[string]string)
 		matchLabels["environment"] = "dev"
@@ -536,8 +534,8 @@ var _ = Describe("github subscriber reconcile options", func() {
 		"propagate them to the synchronizer", func() {
 
 		subAnnotations := make(map[string]string)
-		subAnnotations[appv1.AnnotationClusterAdmin] = "true"
-		subAnnotations[appv1.AnnotationResourceReconcileOption] = "merge"
+		subAnnotations[appv1alpha1.AnnotationClusterAdmin] = "true"
+		subAnnotations[appv1alpha1.AnnotationResourceReconcileOption] = "merge"
 		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subAnnotations)
 		githubsub.Spec.PackageFilter = nil
@@ -559,7 +557,7 @@ data:
 		Expect(err).NotTo(HaveOccurred())
 
 		rscAnnotations := resource.GetAnnotations()
-		Expect(rscAnnotations[appv1.AnnotationClusterAdmin]).To(Equal("true"))
-		Expect(rscAnnotations[appv1.AnnotationResourceReconcileOption]).To(Equal("merge"))
+		Expect(rscAnnotations[appv1alpha1.AnnotationClusterAdmin]).To(Equal("true"))
+		Expect(rscAnnotations[appv1alpha1.AnnotationResourceReconcileOption]).To(Equal("merge"))
 	})
 })

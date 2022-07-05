@@ -17,7 +17,6 @@ package listener
 import (
 	"context"
 	"log"
-	stdlog "log"
 	"os"
 	"sync"
 	"testing"
@@ -52,11 +51,11 @@ func TestMain(m *testing.M) {
 
 	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
 	}
 
 	err = c.Create(context.Background(), &corev1.Namespace{

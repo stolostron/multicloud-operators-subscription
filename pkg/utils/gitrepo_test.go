@@ -37,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -58,12 +57,12 @@ var (
 		},
 	}
 
-	githubsub = &appv1.Subscription{
+	githubsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 		},
-		Spec: appv1.SubscriptionSpec{
+		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: sharedkey.String(),
 		},
 	}
@@ -905,7 +904,7 @@ metadata:
 func subAdminClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appv1.SubscriptionAdmin,
+			Name: appv1alpha1.SubscriptionAdmin,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -939,7 +938,7 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
-			Name: appv1.SubscriptionAdmin,
+			Name: appv1alpha1.SubscriptionAdmin,
 		},
 	}
 }

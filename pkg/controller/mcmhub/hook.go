@@ -28,7 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -76,9 +75,9 @@ type HookProcessor interface {
 	//also the procssed subscription(which should carry all the update status on
 	//the given reconciel), then  WriteStatusToSubscription will append the hook
 	//status info and make a update to the cluster
-	AppendStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
+	AppendStatusToSubscription(*subv1.Subscription) subv1.SubscriptionStatus
 
-	AppendPreHookStatusToSubscription(*appv1.Subscription) appv1.SubscriptionStatus
+	AppendPreHookStatusToSubscription(*subv1.Subscription) subv1.SubscriptionStatus
 
 	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
 }
@@ -346,12 +345,12 @@ func getHookPath(subIns *subv1.Subscription) (string, string) {
 	annotations := subIns.GetAnnotations()
 
 	preHookPath, postHookPath := "", ""
-	if annotations[appv1.AnnotationGithubPath] != "" {
-		preHookPath = fmt.Sprintf("%v/prehook", annotations[appv1.AnnotationGithubPath])
-		postHookPath = fmt.Sprintf("%v/posthook", annotations[appv1.AnnotationGithubPath])
-	} else if annotations[appv1.AnnotationGitPath] != "" {
-		preHookPath = fmt.Sprintf("%v/prehook", annotations[appv1.AnnotationGitPath])
-		postHookPath = fmt.Sprintf("%v/posthook", annotations[appv1.AnnotationGitPath])
+	if annotations[subv1.AnnotationGithubPath] != "" {
+		preHookPath = fmt.Sprintf("%v/prehook", annotations[subv1.AnnotationGithubPath])
+		postHookPath = fmt.Sprintf("%v/posthook", annotations[subv1.AnnotationGithubPath])
+	} else if annotations[subv1.AnnotationGitPath] != "" {
+		preHookPath = fmt.Sprintf("%v/prehook", annotations[subv1.AnnotationGitPath])
+		postHookPath = fmt.Sprintf("%v/posthook", annotations[subv1.AnnotationGitPath])
 	}
 
 	return preHookPath, postHookPath

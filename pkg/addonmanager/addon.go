@@ -58,7 +58,7 @@ type subscriptionAgent struct {
 }
 
 func NewAgent(agentImage string, kubeClient kubernetes.Interface, agentInstallAllStrategy bool) agent.AgentAddon {
-	var agentInstallStrategy *agent.InstallStrategy = nil
+	var agentInstallStrategy *agent.InstallStrategy
 
 	if agentInstallAllStrategy {
 		agentInstallStrategy = agent.InstallAllStrategy(addonDefaultInstallNamespace)
@@ -85,7 +85,7 @@ func (s *subscriptionAgent) Manifests(cluster *clusterv1.ManagedCluster, addon *
 
 		if err != nil {
 			return objects, fmt.Errorf(
-				"error while decoding YAML file %s. Err was: %s", file, err)
+				"error while decoding YAML file %s. Err was: %w", file, err)
 		}
 
 		objects = append(objects, obj)
@@ -97,7 +97,7 @@ func (s *subscriptionAgent) Manifests(cluster *clusterv1.ManagedCluster, addon *
 
 	if err != nil {
 		return objects, fmt.Errorf(
-			"error while decoding YAML object file %s. Err was: %s", agentDeploymentFile, err)
+			"error while decoding YAML object file %s. Err was: %w", agentDeploymentFile, err)
 	}
 
 	deployment := obj.(*appsv1.Deployment)
