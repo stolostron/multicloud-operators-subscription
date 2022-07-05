@@ -111,26 +111,28 @@ func (s AltSource) String() string {
 
 func (repo HelmReleaseRepo) Clone() HelmReleaseRepo {
 	return HelmReleaseRepo{
-		ChartName:          repo.ChartName,
-		Version:            repo.Version,
-		Digest:             repo.Digest,
-		AltSource:          repo.AltSource,
-		SecretRef:          repo.SecretRef,
-		ConfigMapRef:       repo.ConfigMapRef,
-		InsecureSkipVerify: repo.InsecureSkipVerify,
-		Source:             repo.Source,
+		ChartName:                     repo.ChartName,
+		Version:                       repo.Version,
+		Digest:                        repo.Digest,
+		AltSource:                     repo.AltSource,
+		SecretRef:                     repo.SecretRef,
+		ConfigMapRef:                  repo.ConfigMapRef,
+		InsecureSkipVerify:            repo.InsecureSkipVerify,
+		Source:                        repo.Source,
+		WatchNamespaceScopedResources: repo.WatchNamespaceScopedResources,
 	}
 }
 
 func (repo HelmReleaseRepo) AltSourceToSource() HelmReleaseRepo {
 	return HelmReleaseRepo{
-		ChartName:          repo.ChartName,
-		Version:            repo.Version,
-		Digest:             repo.Digest,
-		AltSource:          repo.AltSource,
-		SecretRef:          repo.AltSource.SecretRef,
-		ConfigMapRef:       repo.AltSource.ConfigMapRef,
-		InsecureSkipVerify: repo.AltSource.InsecureSkipVerify,
+		ChartName:                     repo.ChartName,
+		Version:                       repo.Version,
+		Digest:                        repo.Digest,
+		WatchNamespaceScopedResources: repo.WatchNamespaceScopedResources,
+		AltSource:                     repo.AltSource,
+		SecretRef:                     repo.AltSource.SecretRef,
+		ConfigMapRef:                  repo.AltSource.ConfigMapRef,
+		InsecureSkipVerify:            repo.AltSource.InsecureSkipVerify,
 		Source: &Source{
 			SourceType: repo.AltSource.SourceType,
 			GitHub:     repo.AltSource.GitHub,
@@ -162,6 +164,8 @@ type HelmReleaseRepo struct {
 	ConfigMapRef *corev1.ObjectReference `json:"configMapRef,omitempty"`
 	// InsecureSkipVerify is used to skip repo server's TLS certificate verification
 	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+	// WatchNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
+	WatchNamespaceScopedResources bool `json:"watchNamespaceScopedResources,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -64,4 +64,3 @@ export GITHUB_TOKEN=<github_token>
 make
 make build-images
 ```
-

@@ -137,7 +137,7 @@ I0204 02:25:56.525992       1 subscription_controller.go:188] Standalone/Endpoin
 ...
 ```
 
-### Set up log level for the managed subscription pod
+### Set up log level for the managed subscription pod  (ACM <= 2.4)
 
 - Find the managed cluster Name ${CLUSTER_NAME}
 ```
@@ -150,6 +150,7 @@ playback-3node-1   true           https://api.playback-3node-1.demo.red-chesterf
 - On the hub cluster, stop Reconcile
 To patch the managed subscription pod on the managed cluster, you need to first stop reconcile of the KlusterletAddonConfig on hub
 ```
+% CLUSTER_NAME=local-cluster
 % oc annotate klusterletaddonconfig -n ${CLUSTER_NAME} ${CLUSTER_NAME} klusterletaddonconfig-pause=true --overwrite=true
 ```
 
@@ -185,7 +186,7 @@ klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0
 
 - Check more details from the managed subscription pod log.
 
-### Set up memory limit for the managed subscription pod
+### Set up memory limit for the managed subscription pod  (ACM <= 2.4)
 
 - Find the managed cluster Name ${CLUSTER_NAME}
 ```
@@ -229,14 +230,62 @@ search for Deployment. Set spec.replicas to 0:
 klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0          14s
 ```
 
+### Set up new image for the managed subscription pod  (ACM >= 2.5)
+
+Since ACM 2.5, there is no klusterlet-addon-operator any more. The app addon pod (application-manager) running on the managed cluster is deployed by the hub subscription pod.
+
+To override app addon images on the managed cluster:
+
+- In hub ACM CSV, update the image value in the env list under multiclusterhub-operator deployment section
+```
+% oc edit csv -n open-cluster-management advanced-cluster-management.v2.5.0
+
+     deployments:
+      - name: multiclusterhub-operator
+
+        - name: OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION
+          value: quay.io/stolostron/multicluster-operators-subscription@sha256:26416a7b202988264fbf662e0bb4a404ba9e1416972f3682128c5a4477fd2135  ==> <the new subscription image with tag>
+```
+
+- Make sure the new image value is refreshed in the mch configmap
+```
+% oc get configmap -n open-cluster-management mch-image-manifest-2.5.0 -o yaml |grep subscription
+  multicluster_operators_subscription: quay.io/stolostron/multicluster-operators-subscription@sha256:26416a7b202988264fbf662e0bb4a404ba9e1416972f3682128c5a4477fd2135
+```
+
+- On the hub cluster, restart klusterlet-addon-controller-v2 pod
+```
+% oc get pods -n open-cluster-management |grep klusterlet-addon-controller
+klusterlet-addon-controller-v2-8576dd8cff-6k6mg                   1/1     Running   0          4h37m
+klusterlet-addon-controller-v2-8576dd8cff-bznsj                   1/1     Running   0          4h37m
+```
+
+- On the hub cluster, restart multicluster-operators-hub-subscription
+```
+% oc get pods -n open-cluster-management |grep hub-subscription
+multicluster-operators-hub-subscription-66b6f57d56-gt8xv          1/1     Running   0          4h34m
+```
+
+- On the managed cluster, Make sure the application-manager pod is restarted wit the new image.
+```
+% oc get pods -n open-cluster-management-agent-addon  |grep application-manager
+application-manager-7dfdf6fcd5-sbll8           1/1     Running   0          73m
+```
 
 ## How subscription status is reported
 
-The ACM subscription status is reported in the following three levels
+In ACM 2.4 and earlier, parent application on the hub has a status field, which is an aggregate of the child application statuses from all the managed clusters. This design is not scalable. In particular The parent application resource would not be able to hold the status from 2k managed clusters. The etcd limit of 1MB for an object would be exceeded.
+
+Since ACM 2.5, application status is redesigned to have 3 levels:
+- subscriptionStatus - package level appsub status on the managed clusters
+- Cluster subscriptionReport - contains all the applications deployed to a particular cluster and its overall status
+- Application subscriptionReport - contains all the managed clusters that a particular application is deployed to and its overall status
+
+Detailed application status is still available on the managed clusters, while the subscriptionReports on the hub are lightweight and more scalable
 
 ### Package level AppSub status
 
-In the appsub Namespace on the managed cluster
+Located in the appsub Namespace on the managed cluster containing detailed status for all the resources deployed by the app.
 
 For every appsub deployed to a managed cluster, there is a SubscriptionStatus CR created in the appsub Namespace on the managed cluster, where every resource is reported with detailed error if exists.
 ```
@@ -291,9 +340,9 @@ statuses:
 
 ### Cluster level AppSub status
 
-In each cluster namespace on the hub
+Located in each cluster namespace on the hub cluster containing only the overall status (success/failure) on each app on that managed cluster.
 
-There is a subscriptionReport in each cluster Namespace on the hub, where the status of each appSub that is deployed to the cluster is displayed. The status could be 
+There is only one cluster subscriptionReport in each cluster Namespace on the hub. The overall status could be
   - Deployed
   - Failed
   - propagationFailed
@@ -327,11 +376,10 @@ results:
 
 ### App level AppSub status
 
-In the parent AppSub namespace on the hub cluster
-
-There is another subscriptionReport in the AppSub Namespace on the hub, where the status of each cluster is shown based on the cluster subscriptionReport. Also we provide the resource list for the AppSub, and an overview summary for showing the total, deployed, failed, propagationFailed and inProgress counts.  
-
-Note that inProcess = total - deployed - failed - propagationFailed
+One app subscriptionReport per application. Located in the AppSub namespace on the hub cluster containing
+ - the overall status (success/failure) of the app for each managed cluster.
+ - list of all resources for the app.
+ - Report summary - includes the total number of total clusters, and number of clusters where the app is in the status: deployed, failed, propagationFailed, and inProgress. Note that inProcess = total - deployed - failed - propagationFailed.
 
 ```
 apiVersion: apps.open-cluster-management.io/v1alpha1
@@ -391,12 +439,19 @@ summary:
   clusters: 10
 ```
 
+### Create one ManagedClusterView per app on the first failing cluster
+
+If an application deployed on multiple clusters have some resource deployment failures, only one managedClusterView CR is created under the first failing cluster NS on the hub cluster. The managedClusterView CR is for fetching the detailed subscription status from the failing cluster,  so that the application owner doesn’t have to access the failing remote cluster.
+
+```
+% oc get managedclusterview -n <failing cluster NS> "<app NS>-<app name>"
+```
+
 ## Hub Backend CLI to get the AppSub Status
 
 This CLI is for getting the package level AppSub Status on a given managed cluster
 
-As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport
-dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a backend CLI, so that the end users can get the detailed status for an application deployed on a specific cluster.
+As a result, either the cluster level or the app level subscription Report doesn’t directly provide the detailed status for an application. It turns out holding such detailed status for all applications in the cluster level subscriptionReport increases the size of the cluster subscriptionReport dramatically. Accordingly it impacts the whole performance of the hub cluster. It is necessary to provide a hub backend CLI, so that the end users can run it on the hub cluster for getting the detailed status for an application deployed on a specific cluster.
 ```
 % getAppSubStatus.sh -c <managed cluster Name> -s <AppSub Namespace> -n <Appsub Name>
 // the relative package level AppSub status CR on the managed cluster will be fetched and displayed.

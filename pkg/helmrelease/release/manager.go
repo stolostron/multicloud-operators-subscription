@@ -17,19 +17,30 @@
 package release
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
+	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/klog/v2"
 
+	jsonpatch "gomodules.xyz/jsonpatch/v3"
 	"helm.sh/helm/v3/pkg/action"
 	cpb "helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/kube"
 	rpb "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/storage"
 	"helm.sh/helm/v3/pkg/storage/driver"
+	apiextv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	apiextv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apitypes "k8s.io/apimachinery/pkg/types"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 )
@@ -47,6 +58,7 @@ type Manager interface {
 	RollbackRelease(context.Context) error
 	GetDeployedRelease() (*rpb.Release, error)
 	GetActionConfig() *action.Configuration
+	ReconcileRelease(context.Context) (*rpb.Release, error)
 }
 
 type manager struct {
@@ -216,4 +228,137 @@ func (m manager) RollbackRelease(ctx context.Context) error {
 	rollback.Force = true
 
 	return rollback.Run(m.releaseName)
+}
+
+// ReconcileRelease creates or patches resources as necessary to match the
+// deployed release's manifest.
+// copied from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/release/manager.go
+func (m manager) ReconcileRelease(ctx context.Context) (*rpb.Release, error) {
+	err := reconcileRelease(ctx, m.kubeClient, m.deployedRelease.Manifest)
+	return m.deployedRelease, err
+}
+
+// copied from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/release/manager.go
+func reconcileRelease(_ context.Context, kubeClient kube.Interface, expectedManifest string) error {
+	expectedInfos, err := kubeClient.Build(bytes.NewBufferString(expectedManifest), false)
+	if err != nil {
+		return err
+	}
+	return expectedInfos.Visit(func(expected *resource.Info, err error) error {
+		if err != nil {
+			return fmt.Errorf("visit error: %w", err)
+		}
+
+		helper := resource.NewHelper(expected.Client, expected.Mapping)
+		existing, err := helper.Get(expected.Namespace, expected.Name)
+		if apierrors.IsNotFound(err) {
+			if _, err := helper.Create(expected.Namespace, true, expected.Object); err != nil {
+				return fmt.Errorf("create error: %s", err)
+			}
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("could not get object: %w", err)
+		}
+
+		// Replicate helm's patch creation, which will create a Three-Way-Merge patch for
+		// native kubernetes Objects and fall back to a JSON merge patch for unstructured Objects such as CRDs
+		// We also extend the JSON merge patch by ignoring "remove" operations for fields added by kubernetes
+		// Reference in the helm source code:
+		// https://github.com/helm/helm/blob/1c9b54ad7f62a5ce12f87c3ae55136ca20f09c98/pkg/kube/client.go#L392
+		patch, patchType, err := createPatch(existing, expected)
+		if err != nil {
+			return fmt.Errorf("error creating patch: %w", err)
+		}
+
+		if patch == nil {
+			// nothing to do
+			return nil
+		}
+
+		_, err = helper.Patch(expected.Namespace, expected.Name, patchType, patch,
+			&metav1.PatchOptions{})
+		if err != nil {
+			return fmt.Errorf("patch error: %w", err)
+		}
+		return nil
+	})
+}
+
+// copied from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/release/manager.go
+// which operator-sdk copied from https://github.com/helm/helm
+func createPatch(existing runtime.Object, expected *resource.Info) ([]byte, apitypes.PatchType, error) {
+	existingJSON, err := json.Marshal(existing)
+	if err != nil {
+		return nil, apitypes.StrategicMergePatchType, err
+	}
+	expectedJSON, err := json.Marshal(expected.Object)
+	if err != nil {
+		return nil, apitypes.StrategicMergePatchType, err
+	}
+
+	// Get a versioned object
+	versionedObject := kube.AsVersioned(expected)
+
+	// Unstructured objects, such as CRDs, may not have an not registered error
+	// returned from ConvertToVersion. Anything that's unstructured should
+	// use the jsonpatch.CreateMergePatch. Strategic Merge Patch is not supported
+	// on objects like CRDs.
+	_, isUnstructured := versionedObject.(runtime.Unstructured)
+
+	// On newer K8s versions, CRDs aren't unstructured but have a dedicated type
+	_, isV1CRD := versionedObject.(*apiextv1.CustomResourceDefinition)
+	_, isV1beta1CRD := versionedObject.(*apiextv1beta1.CustomResourceDefinition)
+	isCRD := isV1CRD || isV1beta1CRD
+
+	if isUnstructured || isCRD {
+		// fall back to generic JSON merge patch
+		patch, err := createJSONMergePatch(existingJSON, expectedJSON)
+		return patch, apitypes.JSONPatchType, err
+	}
+
+	patchMeta, err := strategicpatch.NewPatchMetaFromStruct(versionedObject)
+	if err != nil {
+		return nil, apitypes.StrategicMergePatchType, err
+	}
+
+	patch, err := strategicpatch.CreateThreeWayMergePatch(expectedJSON, expectedJSON, existingJSON, patchMeta, true)
+	if err != nil {
+		return nil, apitypes.StrategicMergePatchType, err
+	}
+	// An empty patch could be in the form of "{}" which represents an empty map out of the 3-way merge;
+	// filter them out here too to avoid sending the apiserver empty patch requests.
+	if len(patch) == 0 || bytes.Equal(patch, []byte("{}")) {
+		return nil, apitypes.StrategicMergePatchType, nil
+	}
+	return patch, apitypes.StrategicMergePatchType, nil
+}
+
+// copied from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/release/manager.go
+// which operator-sdk copied from https://github.com/helm/helm
+func createJSONMergePatch(existingJSON, expectedJSON []byte) ([]byte, error) {
+	ops, err := jsonpatch.CreatePatch(existingJSON, expectedJSON)
+	if err != nil {
+		return nil, err
+	}
+
+	// We ignore the "remove" operations from the full patch because they are
+	// fields added by Kubernetes or by the user after the existing release
+	// resource has been applied. The goal for this patch is to make sure that
+	// the fields managed by the Helm chart are applied.
+	// All "add" operations without a value (null) can be ignored
+	patchOps := make([]jsonpatch.JsonPatchOperation, 0)
+	for _, op := range ops {
+		if op.Operation != "remove" && !(op.Operation == "add" && op.Value == nil) {
+			patchOps = append(patchOps, op)
+		}
+	}
+
+	// If there are no patch operations, return nil. Callers are expected
+	// to check for a nil response and skip the patch operation to avoid
+	// unnecessary chatter with the API server.
+	if len(patchOps) == 0 {
+		return nil, nil
+	}
+
+	return json.Marshal(patchOps)
 }
