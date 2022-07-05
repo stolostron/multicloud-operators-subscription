@@ -34,7 +34,6 @@ import (
 	"k8s.io/client-go/discovery"
 	cached "k8s.io/client-go/discovery/cached"
 	"k8s.io/client-go/rest"
-	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
@@ -164,7 +163,7 @@ func getHelmTopoResources(helmRls []*releasev1.HelmRelease, hubClt client.Client
 }
 
 //generateResourceList generates the resource list for given HelmRelease
-func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *restclient.Config, s *releasev1.HelmRelease) []*v1.ObjectReference {
+func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *rest.Config, s *releasev1.HelmRelease) []*v1.ObjectReference {
 	chartDir, err := downloadChart(client, s)
 	if err != nil {
 		klog.Warning(err, " - Failed to download the chart")
@@ -292,40 +291,7 @@ func (r *ReconcileSubscription) overridePrehookTopoAnnotation(subIns *subv1.Subs
 	subIns.SetAnnotations(anno)
 }
 
-func (r *ReconcileSubscription) appendAnsiblejobToSubsriptionAnnotation(anno map[string]string, subKey types.NamespacedName) map[string]string {
-	if len(anno) == 0 {
-		anno = map[string]string{}
-	}
-
-	applied := r.hooks.GetLastAppliedInstance(subKey)
-
-	topo := anno[subv1.AnnotationTopo]
-
-	tPreJobs := applied.pre
-	tPostJobs := applied.post
-
-	if len(tPreJobs) != 0 {
-		if len(topo) == 0 {
-			topo = tPreJobs
-		} else {
-			topo = fmt.Sprintf("%s,%s", topo, tPreJobs)
-		}
-	}
-
-	if len(tPostJobs) != 0 {
-		if len(topo) == 0 {
-			topo = tPostJobs
-		} else {
-			topo = fmt.Sprintf("%s,%s", topo, tPostJobs)
-		}
-	}
-
-	anno[subv1.AnnotationTopo] = topo
-
-	return anno
-}
-
-func newRESTClientGetter(rm meta.RESTMapper, cfg *restclient.Config, ns string) (genericclioptions.RESTClientGetter, error) {
+func newRESTClientGetter(rm meta.RESTMapper, cfg *rest.Config, ns string) (genericclioptions.RESTClientGetter, error) {
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
 	if err != nil {
 		return nil, err

@@ -17,7 +17,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -40,7 +39,7 @@ func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema
 
 	mapping, err := sync.RestMapper.RESTMapping(pkgGK, version)
 	if err != nil {
-		return schema.GroupVersionResource{}, false, fmt.Errorf("failed to get GVR from restmapping: %v", err)
+		return schema.GroupVersionResource{}, false, fmt.Errorf("failed to get GVR from restmapping: %w", err)
 	}
 
 	var isNamespaced = true
@@ -134,7 +133,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 	klog.Infof("Prepare to purge all resources deployed by the appsub: %v", hostSub.String())
 
 	appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{
-		TypeMeta: metaV1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "SubscriptionStatus",
 			APIVersion: "apps.open-cluster-management.io/v1alpha1",
 		},
@@ -145,9 +144,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 
 	// Handle appsubstatus on local-cluster
 	if sync.hub && !sync.standalone {
-		if strings.HasSuffix(appsubStatusName, "-local") {
-			appsubStatusName = appsubStatusName[:len(appsubStatusName)-6]
-		}
+		appsubStatusName = strings.TrimSuffix(appsubStatusName, "-local")
 	}
 
 	appSubStatusKey := types.NamespacedName{

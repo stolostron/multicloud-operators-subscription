@@ -33,7 +33,6 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
@@ -54,12 +53,12 @@ var (
 		},
 	}
 
-	helmsub = &appv1.Subscription{
+	helmsub = &appv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmkey.Name,
 			Namespace: helmkey.Namespace,
 		},
-		Spec: appv1.SubscriptionSpec{
+		Spec: appv1alpha1.SubscriptionSpec{
 			Channel: helmkey.String(),
 		},
 	}
@@ -71,14 +70,14 @@ func TestGetPackageAlias(t *testing.T) {
 	pkgAlias := GetPackageAlias(githubsub, "")
 	g.Expect(pkgAlias).To(gomega.Equal(""))
 
-	pkgOverrides1 := &appv1.Overrides{}
+	pkgOverrides1 := &appv1alpha1.Overrides{}
 	pkgOverrides1.PackageName = "pkgName1"
 
-	pkgOverrides2 := &appv1.Overrides{}
+	pkgOverrides2 := &appv1alpha1.Overrides{}
 	pkgOverrides2.PackageName = "pkgName2"
 	pkgOverrides2.PackageAlias = "pkgName2Alias"
 
-	packageOverrides := make([]*appv1.Overrides, 0)
+	packageOverrides := make([]*appv1alpha1.Overrides, 0)
 	packageOverrides = append(packageOverrides, pkgOverrides1, pkgOverrides2)
 
 	githubsub.Spec.PackageOverrides = packageOverrides

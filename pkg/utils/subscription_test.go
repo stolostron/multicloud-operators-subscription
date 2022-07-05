@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -283,10 +282,10 @@ var _ = Describe("subscription(s)", func() {
 })
 
 func TestDeleteSubscriptionCRD(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	c = mgr.GetClient()
 
@@ -299,24 +298,24 @@ func TestDeleteSubscriptionCRD(t *testing.T) {
 	}()
 
 	crdx, err := clientsetx.NewForConfig(cfg)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	runtimeClient, err := client.New(cfg, client.Options{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	slist := &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 
 	DeleteSubscriptionCRD(runtimeClient, crdx)
 
 	slist = &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
-	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+	g.Expect(!errors.IsNotFound(err)).To(BeTrue())
 
 	slist = &appv1.SubscriptionList{}
 	err = runtimeClient.List(context.TODO(), slist, &client.ListOptions{})
-	g.Expect(!errors.IsNotFound(err)).To(gomega.BeTrue())
+	g.Expect(!errors.IsNotFound(err)).To(BeTrue())
 }
 
 func TestIsEqaulSubscriptionStatus(t *testing.T) {
@@ -633,90 +632,90 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 }
 
 func TestGetReconcileRate(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	chnAnnotations := make(map[string]string)
 	subAnnotations := make(map[string]string)
 
 	// defaut medium
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("medium"))
 
 	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "off"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("off"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("off"))
 
 	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "low"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("low"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("low"))
 
 	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "medium"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("medium"))
 
 	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "high"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("high"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("high"))
 
 	// Subscription can override reconcile level to be off
 	subAnnotations[appv1.AnnotationResourceReconcileLevel] = "off"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("off"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("off"))
 
 	// Subscription can not override reconcile level to be something other than off
 	subAnnotations[appv1.AnnotationResourceReconcileLevel] = "low"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("high"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("high"))
 
 	// If annotation has unknown value, default to medium
 	chnAnnotations[appv1.AnnotationResourceReconcileLevel] = "mediumhigh"
-	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(gomega.Equal("medium"))
+	g.Expect(GetReconcileRate(chnAnnotations, subAnnotations)).To(Equal("medium"))
 }
 
 func TestGetReconcileInterval(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	// these intervals are not used if off. Just default values
 	loopPeriod, retryInterval, retries := GetReconcileInterval("off", chnv1.ChannelTypeGit)
 
-	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
-	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
-	g.Expect(retries).To(gomega.Equal(1))
+	g.Expect(loopPeriod).To(Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(Equal(90 * time.Second))
+	g.Expect(retries).To(Equal(1))
 
 	// if reconcile rate is unknown, just default values
 	loopPeriod, retryInterval, retries = GetReconcileInterval("unknown", chnv1.ChannelTypeGit)
 
-	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
-	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
-	g.Expect(retries).To(gomega.Equal(1))
+	g.Expect(loopPeriod).To(Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(Equal(90 * time.Second))
+	g.Expect(retries).To(Equal(1))
 
 	loopPeriod, retryInterval, retries = GetReconcileInterval("low", chnv1.ChannelTypeGit)
 
-	g.Expect(loopPeriod).To(gomega.Equal(1 * time.Hour))
-	g.Expect(retryInterval).To(gomega.Equal(3 * time.Minute))
-	g.Expect(retries).To(gomega.Equal(3))
+	g.Expect(loopPeriod).To(Equal(1 * time.Hour))
+	g.Expect(retryInterval).To(Equal(3 * time.Minute))
+	g.Expect(retries).To(Equal(3))
 
 	loopPeriod, retryInterval, retries = GetReconcileInterval("medium", chnv1.ChannelTypeGit)
 
-	g.Expect(loopPeriod).To(gomega.Equal(3 * time.Minute))
-	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
-	g.Expect(retries).To(gomega.Equal(1))
+	g.Expect(loopPeriod).To(Equal(3 * time.Minute))
+	g.Expect(retryInterval).To(Equal(90 * time.Second))
+	g.Expect(retries).To(Equal(1))
 
 	loopPeriod, retryInterval, retries = GetReconcileInterval("medium", chnv1.ChannelTypeHelmRepo)
 
-	g.Expect(loopPeriod).To(gomega.Equal(15 * time.Minute))
-	g.Expect(retryInterval).To(gomega.Equal(90 * time.Second))
-	g.Expect(retries).To(gomega.Equal(1))
+	g.Expect(loopPeriod).To(Equal(15 * time.Minute))
+	g.Expect(retryInterval).To(Equal(90 * time.Second))
+	g.Expect(retries).To(Equal(1))
 
 	loopPeriod, retryInterval, retries = GetReconcileInterval("high", chnv1.ChannelTypeGit)
 
-	g.Expect(loopPeriod).To(gomega.Equal(2 * time.Minute))
-	g.Expect(retryInterval).To(gomega.Equal(60 * time.Second))
-	g.Expect(retries).To(gomega.Equal(1))
+	g.Expect(loopPeriod).To(Equal(2 * time.Minute))
+	g.Expect(retryInterval).To(Equal(60 * time.Second))
+	g.Expect(retries).To(Equal(1))
 }
 
 func TestSetPartOfLabel(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
+	g := NewGomegaWithT(t)
 
 	// No app label in subscription
 	sub := &appv1.Subscription{}
 	obj := &unstructured.Unstructured{}
 	SetPartOfLabel(sub, obj)
 	labels := obj.GetLabels()
-	g.Expect(labels).To(gomega.BeNil())
+	g.Expect(labels).To(BeNil())
 
 	// Has app label in subscription
 	subLabels := make(map[string]string)
@@ -724,6 +723,6 @@ func TestSetPartOfLabel(t *testing.T) {
 	sub.Labels = subLabels
 	SetPartOfLabel(sub, obj)
 	labels = obj.GetLabels()
-	g.Expect(labels).NotTo(gomega.BeNil())
-	g.Expect(labels["app.kubernetes.io/part-of"]).To(gomega.Equal("testApp"))
+	g.Expect(labels).NotTo(BeNil())
+	g.Expect(labels["app.kubernetes.io/part-of"]).To(Equal("testApp"))
 }

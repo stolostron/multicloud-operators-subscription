@@ -22,10 +22,8 @@ import (
 	"strings"
 
 	gerr "github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -33,11 +31,9 @@ import (
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	"github.com/ghodss/yaml"
-	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubreportv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
@@ -75,7 +71,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 
 	chnAnnotations := primaryChannel.GetAnnotations()
 
-	if chnAnnotations[appv1.AnnotationResourceReconcileLevel] != "" {
+	if chnAnnotations[appv1alpha1.AnnotationResourceReconcileLevel] != "" {
 		// When channel reconcile rate is changed, this label is used to trigger
 		// managed cluster to pick up the channel change and adjust reconcile rate.
 		sublabels := sub.GetLabels()
@@ -84,8 +80,8 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 			sublabels = make(map[string]string)
 		}
 
-		sublabels[appv1.AnnotationResourceReconcileLevel] = chnAnnotations[appv1.AnnotationResourceReconcileLevel]
-		klog.Info("Adding subscription label ", appv1.AnnotationResourceReconcileLevel, ": ", chnAnnotations[appv1.AnnotationResourceReconcileLevel])
+		sublabels[appv1alpha1.AnnotationResourceReconcileLevel] = chnAnnotations[appv1alpha1.AnnotationResourceReconcileLevel]
+		klog.Info("Adding subscription label ", appv1alpha1.AnnotationResourceReconcileLevel, ": ", chnAnnotations[appv1alpha1.AnnotationResourceReconcileLevel])
 		sub.SetLabels(sublabels)
 	}
 
@@ -196,7 +192,7 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	return chNameSpace, chName, chType
 }
 
-func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1.Channel, *chnv1.Channel, error) {
+func GetSubscriptionRefChannel(clt client.Client, s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, *chnv1alpha1.Channel, error) {
 	primaryChannel, err := parseGetChannel(clt, s.Spec.Channel)
 
 	if err != nil {
@@ -218,7 +214,7 @@ func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1
 	return primaryChannel, secondaryChannel, err
 }
 
-func parseGetChannel(clt client.Client, channelName string) (*chnv1.Channel, error) {
+func parseGetChannel(clt client.Client, channelName string) (*chnv1alpha1.Channel, error) {
 	if channelName == "" {
 		return nil, nil
 	}
@@ -233,7 +229,7 @@ func parseGetChannel(clt client.Client, channelName string) (*chnv1.Channel, err
 	}
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	channel := &chnv1.Channel{}
+	channel := &chnv1alpha1.Channel{}
 	err := clt.Get(context.TODO(), chkey, channel)
 
 	if err != nil {
@@ -317,7 +313,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 	}
 
 	appsubReport := &appsubreportv1alpha1.SubscriptionReport{
-		TypeMeta: metaV1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "SubscriptionReport",
 			APIVersion: "apps.open-cluster-management.io/v1alpha1",
 		},
@@ -435,7 +431,7 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	region := ""
 
 	if channel.Spec.SecretRef != nil {
-		channelSecret := &corev1.Secret{}
+		channelSecret := &v1.Secret{}
 		chnseckey := types.NamespacedName{
 			Name:      channel.Spec.SecretRef.Name,
 			Namespace: channel.Namespace,
@@ -514,7 +510,7 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscr
 	var folderName *string
 
 	annotations := sub.GetAnnotations()
-	bucketPath := annotations[appv1.AnnotationBucketPath]
+	bucketPath := annotations[appv1alpha1.AnnotationBucketPath]
 
 	if bucketPath != "" {
 		folderName = &bucketPath

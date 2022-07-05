@@ -24,7 +24,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -262,14 +261,14 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			u := &subv1.Subscription{}
 
 			if err := k8sClt.Get(ctx, subKey, u); err != nil {
-				return fmt.Errorf("failed to get subscription %s, err: %s", subKey, err.Error())
+				return fmt.Errorf("failed to get subscription %s, err: %w", subKey, err)
 			}
 
 			fmt.Printf("subscription= %+v\n", u)
 
 			appsubReport := &appsubReportV1alpha1.SubscriptionReport{}
 			if err := k8sClt.Get(ctx, appsubReportKey, appsubReport); err != nil {
-				return fmt.Errorf("failed to get the appsub AppsubReport %s, err: %s", appsubReportKey, err.Error())
+				return fmt.Errorf("failed to get the appsub AppsubReport %s, err: %w", appsubReportKey, err)
 			}
 
 			fmt.Printf("AppsubReport= %+v\n", appsubReport)
@@ -302,7 +301,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
 		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
-		Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
@@ -394,7 +393,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
 		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
-		Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
@@ -556,7 +555,7 @@ var _ = Describe("given a subscription pointing to a git path,where post hook fo
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
 		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
-		Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 
@@ -818,7 +817,7 @@ var _ = Describe("given a subscription pointing to a git path,where both pre and
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
 		err := yaml.Unmarshal([]byte(testCluster), &testManagedCluster)
-		Expect(err).NotTo(gomega.HaveOccurred())
+		Expect(err).NotTo(HaveOccurred())
 
 		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, testPath.chnIns.DeepCopy())).Should(Succeed())

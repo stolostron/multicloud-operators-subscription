@@ -31,61 +31,56 @@ linters:
   enable-all: true
   disable:
     - bodyclose
+    - contextcheck
+    - cyclop
     - depguard
     - dupl
+    - forbidigo
+    - funlen
+    - errchkjson
     - exhaustive
     - exhaustruct
     - exhaustivestruct
-    - funlen
+    - forcetypeassert
     - gci
     - gochecknoglobals
     - gochecknoinits
+    - gocognit
     - goconst
+    - gocritic
     - gocyclo
-
     - godot
     - goerr113
     - gofumpt
     - golint
     - gomnd
+    - gomoddirectives
     - gosec
     - ifshort
-    - ireturn
     - ineffassign
     - interfacer
-    - maintidx
+    - ireturn
+    - maintidx 
     - maligned
     - nakedret
     - nestif
     - nilnil
     - nlreturn
     - noctx
-    - nonamedreturns
     - nolintlint
+    - nonamedreturns
     - paralleltest
     - prealloc
     - predeclared
     - scopelint
-    - stylecheck
     - tagliatelle
     - tenv
-    - thelper
     - testpackage
-    - unused
+    - typecheck
+    - thelper
     - varnamelen
     - wastedassign
     - wrapcheck
-    - gosimple
-    - nilerr
-    - forcetypeassert
-    - cyclop
-    - errchkjson
-    - errorlint
-    - contextcheck
-    - forbidigo
-    - gocritic
-    - gomoddirectives
-    - staticcheck
   fast: false
 
 linters-settings:
