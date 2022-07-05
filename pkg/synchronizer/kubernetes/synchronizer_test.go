@@ -107,6 +107,19 @@ var (
 			},
 		},
 	}
+	workload4Configmap = corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "configmap2",
+			Namespace: "default",
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationResourceDoNotDeleteOption: "true",
+			},
+		},
+	}
 	workload4Subscription = appv1alpha1.Subscription{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Subscription",
@@ -204,9 +217,6 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 	})
 
 	It("should not be owned by the subscription", func() {
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
-		Expect(err).NotTo(HaveOccurred())
-
 		workload1 := workload3Configmap.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
 
@@ -221,6 +231,23 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should not delete if the resource has do-not-delete annotation", func() {
+		workload1 := workload4Configmap.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), workload1)
+
+		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
+			Name:       "configmap2",
+			Namespace:  "default",
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		}
+
+		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+		Expect(err).To(BeNil())
 	})
 })
 
