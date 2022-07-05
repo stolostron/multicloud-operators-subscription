@@ -217,9 +217,6 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 	})
 
 	It("should not be owned by the subscription", func() {
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
-		Expect(err).NotTo(HaveOccurred())
-
 		workload1 := workload3Configmap.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
 
@@ -237,9 +234,6 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 	})
 
 	It("should not delete if the resource has do-not-delete annotation", func() {
-		sync, err := CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
-		Expect(err).NotTo(HaveOccurred())
-
 		workload1 := workload4Configmap.DeepCopy()
 		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
 
