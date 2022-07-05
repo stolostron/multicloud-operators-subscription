@@ -58,7 +58,7 @@ type subscriptionAgent struct {
 }
 
 func NewAgent(agentImage string, kubeClient kubernetes.Interface, agentInstallAllStrategy bool) agent.AgentAddon {
-	var agentInstallStrategy *agent.InstallStrategy = nil
+	var agentInstallStrategy *agent.InstallStrategy
 
 	if agentInstallAllStrategy {
 		agentInstallStrategy = agent.InstallAllStrategy(addonDefaultInstallNamespace)

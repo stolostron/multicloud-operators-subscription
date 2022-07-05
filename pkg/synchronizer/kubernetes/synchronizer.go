@@ -43,7 +43,7 @@ func (sync *KubeSynchronizer) getGVRfromGVK(group, version, kind string) (schema
 		return schema.GroupVersionResource{}, false, fmt.Errorf("failed to get GVR from restmapping: %v", err)
 	}
 
-	var isNamespaced bool = true
+	var isNamespaced = true
 
 	if mapping.Scope.Name() != "namespace" {
 		isNamespaced = false

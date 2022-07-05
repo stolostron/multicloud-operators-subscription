@@ -84,7 +84,6 @@ linters:
     - contextcheck
     - forbidigo
     - gocritic
-    - revive
     - gomoddirectives
     - staticcheck
   fast: false

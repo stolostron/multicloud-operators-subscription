@@ -287,7 +287,7 @@ func (r *ReconcileSubscription) IsNamespacedResource(group, version, kind string
 		return true
 	}
 
-	var isNamespaced bool = true
+	var isNamespaced = true
 
 	if mapping.Scope.Name() != "namespace" {
 		isNamespaced = false
