@@ -86,6 +86,7 @@ linters:
     - gocritic
     - revive
     - gomoddirectives
+    - staticcheck
   fast: false
 
 linters-settings:
