@@ -182,7 +182,22 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 
 	options := &git.CloneOptions{
 		URL:               channelConnOptions.RepoURL,
+		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		ReferenceName:     cloneOptions.Branch,
+	}
+
+	// The destination directory needs to be created here
+	err = os.RemoveAll(cloneOptions.DestDir)
+
+	if err != nil {
+		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
+	}
+
+	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
+
+	if err != nil {
+		return nil, err
 	}
 
 	// If branch name is provided, clone the specified branch only.
@@ -236,18 +251,6 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 			klog.Info("Setting clone depth to 20")
 			options.Depth = 20
 		}
-	}
-
-	err = os.RemoveAll(cloneOptions.DestDir)
-
-	if err != nil {
-		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
-	}
-
-	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
-
-	if err != nil {
-		return nil, err
 	}
 
 	return options, nil
