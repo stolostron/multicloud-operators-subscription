@@ -5,6 +5,7 @@ run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
   timeout: 20m
+  go: '1.17'
 
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
