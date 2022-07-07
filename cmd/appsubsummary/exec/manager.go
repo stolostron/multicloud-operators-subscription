@@ -30,9 +30,9 @@ import (
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost             = "0.0.0.0"
-	metricsPort         int = 8391
-	operatorMetricsPort int = 8691
+	metricsHost         = "0.0.0.0"
+	metricsPort         = 8391
+	operatorMetricsPort = 8691
 )
 
 // RunManager starts the actual manager.

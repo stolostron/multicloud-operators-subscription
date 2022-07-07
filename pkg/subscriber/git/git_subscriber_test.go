@@ -20,7 +20,6 @@ import (
 
 	"github.com/ghodss/yaml"
 	. "github.com/onsi/ginkgo/v2"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,7 +29,6 @@ import (
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -111,7 +109,7 @@ var (
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 			Annotations: map[string]string{
-				appv1alpha1.AnnotationGitBranch: "main",
+				appv1.AnnotationGitBranch: "main",
 			},
 		},
 		Spec: chnv1alpha1.ChannelSpec{
@@ -119,19 +117,19 @@ var (
 			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
 		},
 	}
-	githubsub = &appv1alpha1.Subscription{
+	githubsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 			Annotations: map[string]string{
-				appv1alpha1.AnnotationGitBranch: "main",
+				appv1.AnnotationGitBranch: "main",
 			},
 		},
-		Spec: appv1alpha1.SubscriptionSpec{
+		Spec: appv1.SubscriptionSpec{
 			Channel: sharedkey.String(),
 		},
 	}
-	subitem = &appv1alpha1.SubscriberItem{
+	subitem = &appv1.SubscriberItem{
 		Subscription: githubsub,
 		Channel:      githubchn,
 	}
@@ -149,12 +147,12 @@ var (
 			Pathname: "https://bitbucket.org/ekdjbdfh/testrepo.git",
 		},
 	}
-	bitbucketsub = &appv1alpha1.Subscription{
+	bitbucketsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bitbucketsharedkey.Name,
 			Namespace: bitbucketsharedkey.Namespace,
 		},
-		Spec: appv1alpha1.SubscriptionSpec{
+		Spec: appv1.SubscriptionSpec{
 			Channel: bitbucketsharedkey.String(),
 		},
 	}
@@ -189,13 +187,13 @@ var _ = Describe("github subscriber reconcile logic", func() {
 
 		// Test kube resource with no package filter
 		errMsg := subitem.checkFilters(rsc)
-		Expect(errMsg).To(gomega.Equal(""))
+		Expect(errMsg).To(Equal(""))
 
 		matchLabels := make(map[string]string)
 		matchLabels["environment"] = "dev"
 		lblSelector := &metav1.LabelSelector{}
 		lblSelector.MatchLabels = matchLabels
-		pkgFilter := &appv1alpha1.PackageFilter{}
+		pkgFilter := &appv1.PackageFilter{}
 		pkgFilter.LabelSelector = lblSelector
 		githubsub.Spec.PackageFilter = pkgFilter
 
@@ -312,7 +310,7 @@ var _ = Describe("test subscribe invalid resource", func() {
 	It("should clone the target repo", func() {
 		subitem := &SubscriberItem{}
 		subAnnotations := make(map[string]string)
-		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
+		subAnnotations[appv1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subAnnotations)
 		subitem.Subscription = githubsub
 		subitem.Channel = githubchn
@@ -371,7 +369,7 @@ data:
 		filterRef := &corev1.LocalObjectReference{}
 		filterRef.Name = "path-config-map"
 
-		packageFilter := &appv1alpha1.PackageFilter{}
+		packageFilter := &appv1.PackageFilter{}
 		packageFilter.FilterRef = filterRef
 
 		githubsub.Spec.PackageFilter = packageFilter
@@ -419,14 +417,14 @@ data:
 		filterRef := &corev1.LocalObjectReference{}
 		filterRef.Name = "path-config-map"
 
-		packageFilter := &appv1alpha1.PackageFilter{}
+		packageFilter := &appv1.PackageFilter{}
 		packageFilter.FilterRef = filterRef
 
 		githubsub.Spec.PackageFilter = packageFilter
 
 		subanno := make(map[string]string)
-		subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
-		subanno[appv1alpha1.AnnotationGitBranch] = "main"
+		subanno[appv1.AnnotationGitPath] = "test/github/helmcharts"
+		subanno[appv1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subanno)
 
 		githubsub.Spec.Package = "chart1"
@@ -538,7 +536,7 @@ var _ = Describe("github subscriber reconcile options", func() {
 		subAnnotations := make(map[string]string)
 		subAnnotations[appv1.AnnotationClusterAdmin] = "true"
 		subAnnotations[appv1.AnnotationResourceReconcileOption] = "merge"
-		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
+		subAnnotations[appv1.AnnotationGitBranch] = "main"
 		githubsub.SetAnnotations(subAnnotations)
 		githubsub.Spec.PackageFilter = nil
 

@@ -132,7 +132,7 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		obssubitem.reconcileRate = "off"
 	}
 
-	var restart bool = false
+	var restart = false
 
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, obssubitem.reconcileRate) {
 		// reconcile frequency has changed. restart the go routine

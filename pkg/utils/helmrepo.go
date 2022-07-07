@@ -30,7 +30,6 @@ import (
 	clientsetx "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -670,7 +669,7 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 			}
 		}
 		// now get rid of the crd
-		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "helmreleases.apps.open-cluster-management.io", v1.DeleteOptions{})
+		err = crdx.ApiextensionsV1().CustomResourceDefinitions().Delete(context.TODO(), "helmreleases.apps.open-cluster-management.io", metav1.DeleteOptions{})
 		if err != nil {
 			klog.Infof("Deleting helmrelease CRD failed. err: %s", err.Error())
 		} else {

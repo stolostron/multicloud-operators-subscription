@@ -1,10 +1,11 @@
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the multicloudlab/tools repo.
-  golangci-lint-version: 1.28.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.46.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
   timeout: 20m
+  go: '1.17'
 
   # which dirs to skip: they won't be analyzed;
   # can use regexp here: generated.*, regexp is applied on full path;
@@ -29,31 +30,56 @@ run:
 linters:
   enable-all: true
   disable:
-    - exhaustive
-    - maligned
+    - bodyclose
+    - contextcheck
+    - cyclop
     - depguard
     - dupl
+    - forbidigo
+    - funlen
+    - errchkjson
+    - exhaustive
+    - exhaustruct
+    - exhaustivestruct
+    - forcetypeassert
+    - gci
     - gochecknoglobals
     - gochecknoinits
     - goconst
+    - gocritic
     - gocyclo
-    - gosec
-    - nakedret
-    - prealloc
-    - scopelint
-    - funlen
-    - bodyclose
-
-    - testpackage
-    - stylecheck
-    - noctx
-    - gomnd
-    - goerr113
     - godot
+    - goerr113
     - gofumpt
-    - nestif
+    - golint
+    - gomnd
+    - gomoddirectives
+    - gosec
+    - ifshort
     - ineffassign
-    - unused
+    - interfacer
+    - ireturn
+    - maintidx 
+    - maligned
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - nlreturn
+    - noctx
+    - nonamedreturns
+    - paralleltest
+    - prealloc
+    - predeclared
+    - scopelint
+    - staticcheck
+    - tagliatelle
+    - tenv
+    - testpackage
+    - thelper
+    - varnamelen
+    - wastedassign
+    - wrapcheck
   fast: false
 
 linters-settings:
@@ -65,6 +91,10 @@ linters-settings:
     # report about assignment of errors to blank identifier: `num, _ := strconv.Atoi(numStr)`;
     # default is false: such cases aren't reported by default.
     check-blank: false
+  nolintlint:
+    # Disable to ensure that all nolint directives actually have an effect.
+    # Default: false
+    allow-unused: true
   govet:
     # report about shadowed variables
     check-shadowing: false
