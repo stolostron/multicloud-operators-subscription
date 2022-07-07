@@ -63,6 +63,7 @@ linters:
     - maligned
     - nakedret
     - nestif
+    - nilerr
     - nilnil
     - nlreturn
     - noctx

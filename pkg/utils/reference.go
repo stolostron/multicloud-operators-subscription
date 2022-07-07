@@ -212,7 +212,7 @@ func DeleteReferredObjects(clt client.Client, rq types.NamespacedName, gvk schem
 			u.SetOwnerReferences(newOwers)
 			err := clt.Update(context.TODO(), u)
 			if err != nil {
-				return err
+				return nil
 			}
 		}
 	}

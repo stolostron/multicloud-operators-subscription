@@ -815,7 +815,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+path)
-			return crdsAndNamespaceFiles, rbacFiles, otherFiles, err
+			return crdsAndNamespaceFiles, rbacFiles, otherFiles, nil
 		}
 
 		resources := ParseKubeResoures(file)
