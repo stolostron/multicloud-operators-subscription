@@ -14,29 +14,8 @@
 
 -include /opt/build-harness/Makefile.prow
 
-MANAGED_CLUSTER_NAME ?= cluster1
-TEST_TMP :=/tmp
-export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
-K8S_VERSION ?=1.19.2
-GOHOSTOS ?=$(shell go env GOHOSTOS)
-GOHOSTARCH ?= $(shell go env GOHOSTARCH)
-KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
-KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
-
-LOCAL_OS := $(shell uname)
-ifeq ($(LOCAL_OS),Linux)
-    TARGET_OS ?= linux
-    XARGS_FLAGS="-r"
-else ifeq ($(LOCAL_OS),Darwin)
-    TARGET_OS ?= darwin
-    XARGS_FLAGS=
-else
-    $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
-endif
-
 FINDFILES=find . \( -path ./.git -o -path ./.github \) -prune -o -type f
 XARGS = xargs -0 ${XARGS_FLAGS}
-CLEANXARGS = xargs ${XARGS_FLAGS}
 
 IMG ?= $(shell cat COMPONENT_NAME 2> /dev/null)
 REGISTRY = quay.io/stolostron
@@ -79,19 +58,7 @@ lint-go:
 
 .PHONY: test
 
-# download the kubebuilder-tools to get kube-apiserver binaries from it
-ensure-kubebuilder-tools:
-ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
-	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
-	mkdir -p '$(KUBEBUILDER_ASSETS)'
-	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
-	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
-else
-	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
-endif
-.PHONY: ensure-kubebuilder-tools
-
-test: ensure-kubebuilder-tools
+test:
 	@echo ${TEST_GIT_REPO_URL}
 	go test -timeout 300s -v ./addon/...
 	go test -timeout 300s -v ./pkg/... 

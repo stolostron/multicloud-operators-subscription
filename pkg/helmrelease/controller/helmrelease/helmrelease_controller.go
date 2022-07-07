@@ -27,14 +27,20 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
+	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
+	rpb "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
 	"k8s.io/klog/v2"
@@ -49,6 +55,7 @@ import (
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/internal/util/k8sutil"
 	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 )
@@ -71,17 +78,6 @@ func Add(mgr manager.Manager) error {
 		return err
 	}
 
-	return add(mgr, newReconciler(mgr, synchronizer))
-}
-
-// newReconciler returns a new reconcile.Reconciler
-func newReconciler(mgr manager.Manager, synchronizer *kubesynchronizer.KubeSynchronizer) reconcile.Reconciler {
-
-	return &ReconcileHelmRelease{mgr, synchronizer}
-}
-
-// add adds a new Controller to mgr with r as the reconcile.Reconciler
-func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	chartsDir := os.Getenv(appv1.ChartsDir)
 	if chartsDir == "" {
 		chartsDir = "/tmp/hr-charts"
@@ -91,6 +87,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return err
 		}
 	}
+
+	r := &ReconcileHelmRelease{mgr, synchronizer, nil}
 
 	klog.Info("The MaxConcurrentReconciles is set to: ", defaultMaxConcurrent)
 
@@ -106,16 +104,22 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	watchDependentResources(mgr, r, c)
+
 	return nil
 }
 
 // blank assignment to verify that ReconcileHelmRelease implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileHelmRelease{}
 
+// ReleaseHookFunc defines a function signature for release hooks.
+type ReleaseHookFunc func(*rpb.Release) error
+
 // ReconcileHelmRelease reconciles a HelmRelease object
 type ReconcileHelmRelease struct {
 	manager.Manager
 	synchronizer *kubesynchronizer.KubeSynchronizer
+	releaseHook  ReleaseHookFunc
 }
 
 // Reconcile reads that state of the cluster for a HelmRelease object and makes changes based on the state read
@@ -308,6 +312,30 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	// no longer being attempted.
 	instance.Status.RemoveCondition(appv1.ConditionReleaseFailed)
 
+	if instance.Repo.WatchNamespaceScopedResources {
+		klog.Info("Reapplying Release ", helmreleaseNsn(instance))
+
+		expectedRelease, err := manager.ReconcileRelease(ctx)
+		if err != nil {
+			klog.Error(err, "Failed to reconcile release")
+			instance.Status.SetCondition(appv1.HelmAppCondition{
+				Type:    appv1.ConditionReleaseFailed,
+				Status:  appv1.StatusTrue,
+				Reason:  appv1.ReasonReconcileError,
+				Message: err.Error(),
+			})
+			_ = r.updateResourceStatus(instance)
+			return reconcile.Result{}, err
+		}
+
+		if r.releaseHook != nil {
+			if err := r.releaseHook(expectedRelease); err != nil {
+				klog.Error(err, "Failed to run release hook")
+				return reconcile.Result{}, err
+			}
+		}
+	}
+
 	return r.ensureStatusReasonPopulated(instance, manager)
 }
 
@@ -459,6 +487,13 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
 
+	if r.releaseHook != nil {
+		if err := r.releaseHook(installedRelease); err != nil {
+			klog.Error(err, "Failed to run release hook")
+			return reconcile.Result{}, err
+		}
+	}
+
 	klog.Info("Installed HelmRelease ", helmreleaseNsn(instance))
 
 	message := ""
@@ -547,6 +582,13 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
 	instance.Status.RemoveCondition(appv1.ConditionReleaseFailed)
+
+	if r.releaseHook != nil {
+		if err := r.releaseHook(upgradedRelease); err != nil {
+			klog.Error(err, "Failed to run release hook")
+			return reconcile.Result{}, err
+		}
+	}
 
 	klog.Info("Upgraded HelmRelease ", "force=", force, " for ", helmreleaseNsn(instance))
 	message := ""
@@ -975,4 +1017,87 @@ func joinErrors(errs []error) string {
 		es = append(es, e.Error())
 	}
 	return strings.Join(es, "; ")
+}
+
+// coped and modified from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/controller/controller.go
+func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c controller.Controller) {
+	owner := &unstructured.Unstructured{}
+	owner.SetGroupVersionKind(
+		schema.GroupVersionKind{
+			Group:   "apps.open-cluster-management.io",
+			Version: "v1",
+			Kind:    "HelmRelease"},
+	)
+
+	var m sync.RWMutex
+	watches := map[schema.GroupVersionKind]struct{}{}
+	releaseHook := func(release *rpb.Release) error {
+		resources := releaseutil.SplitManifests(release.Manifest)
+		for _, resource := range resources {
+			var u unstructured.Unstructured
+			if err := yaml.Unmarshal([]byte(resource), &u); err != nil {
+				return err
+			}
+
+			gvk := u.GroupVersionKind()
+			if gvk.Empty() {
+				continue
+			}
+
+			var setWatchOnResource = func(dependent runtime.Object) error {
+				unstructuredObj := dependent.(*unstructured.Unstructured)
+				gvkDependent := unstructuredObj.GroupVersionKind()
+				if gvkDependent.Empty() {
+					return nil
+				}
+
+				m.RLock()
+				_, ok := watches[gvkDependent]
+				m.RUnlock()
+				if ok {
+					return nil
+				}
+
+				restMapper := mgr.GetRESTMapper()
+				useOwnerRef, err := k8sutil.SupportsOwnerReference(restMapper, owner, dependent, "")
+				if err != nil {
+					return err
+				}
+
+				if useOwnerRef { // Setup watch using owner references.
+					err = c.Watch(&source.Kind{Type: unstructuredObj}, &handler.EnqueueRequestForOwner{OwnerType: owner},
+						libpredicate.DependentPredicate{})
+					if err != nil {
+						return err
+					}
+				}
+				m.Lock()
+				watches[gvkDependent] = struct{}{}
+				m.Unlock()
+				klog.Info("Watching dependent resource", "ownerApiVersion", owner.GroupVersionKind().GroupVersion(),
+					"ownerKind", owner.GroupVersionKind().Kind, "apiVersion", gvkDependent.GroupVersion(), "kind", gvkDependent.Kind)
+				return nil
+			}
+
+			// List is not actually a resource and therefore cannot have a
+			// watch on it. The watch will be on the kinds listed in the list
+			// and will therefore need to be handled individually.
+			listGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "List"}
+			if gvk == listGVK {
+				errListItem := u.EachListItem(func(obj runtime.Object) error {
+					return setWatchOnResource(obj)
+				})
+				if errListItem != nil {
+					return errListItem
+				}
+			} else {
+				err := setWatchOnResource(&u)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	r.releaseHook = releaseHook
 }

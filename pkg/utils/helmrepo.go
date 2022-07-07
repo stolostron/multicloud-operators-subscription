@@ -254,14 +254,15 @@ func CreateOrUpdateHelmChart(
 					}},
 				},
 				Repo: releasev1.HelmReleaseRepo{
-					Source:             source,
-					ConfigMapRef:       channel.Spec.ConfigMapRef,
-					InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
-					SecretRef:          channel.Spec.SecretRef,
-					ChartName:          packageName,
-					Version:            version,
-					Digest:             digest,
-					AltSource:          altSource,
+					Source:                        source,
+					ConfigMapRef:                  channel.Spec.ConfigMapRef,
+					InsecureSkipVerify:            channel.Spec.InsecureSkipVerify,
+					SecretRef:                     channel.Spec.SecretRef,
+					ChartName:                     packageName,
+					Version:                       version,
+					Digest:                        digest,
+					AltSource:                     altSource,
+					WatchNamespaceScopedResources: sub.Spec.WatchHelmNamespaceScopedResources,
 				},
 			}
 		} else {
@@ -289,14 +290,15 @@ func CreateOrUpdateHelmChart(
 		helmRelease.Spec = nil
 
 		helmRelease.Repo = releasev1.HelmReleaseRepo{
-			Source:             source,
-			ConfigMapRef:       channel.Spec.ConfigMapRef,
-			InsecureSkipVerify: channel.Spec.InsecureSkipVerify,
-			SecretRef:          channel.Spec.SecretRef,
-			ChartName:          packageName,
-			Version:            version,
-			Digest:             digest,
-			AltSource:          altSource,
+			Source:                        source,
+			ConfigMapRef:                  channel.Spec.ConfigMapRef,
+			InsecureSkipVerify:            channel.Spec.InsecureSkipVerify,
+			SecretRef:                     channel.Spec.SecretRef,
+			ChartName:                     packageName,
+			Version:                       version,
+			Digest:                        digest,
+			AltSource:                     altSource,
+			WatchNamespaceScopedResources: sub.Spec.WatchHelmNamespaceScopedResources,
 		}
 	}
 
