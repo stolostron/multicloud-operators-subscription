@@ -37,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -57,12 +57,12 @@ var (
 		},
 	}
 
-	githubsub = &appv1alpha1.Subscription{
+	githubsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
 			Namespace: sharedkey.Namespace,
 		},
-		Spec: appv1alpha1.SubscriptionSpec{
+		Spec: appv1.SubscriptionSpec{
 			Channel: sharedkey.String(),
 		},
 	}
@@ -281,7 +281,7 @@ func TestGetSubscriptionBranch(t *testing.T) {
 	g.Expect(branch.Short()).To(gomega.Equal(""))
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGitBranch] = "notmaster"
+	subanno[appv1.AnnotationGitBranch] = "notmaster"
 	githubsub.SetAnnotations(subanno)
 
 	branchRef := plumbing.NewBranchReferenceName("notmaster")
@@ -411,7 +411,7 @@ spec:
           - deployment.yaml
           - configMap.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -483,7 +483,7 @@ spec:
           - deployment.yaml
           - configMap.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -528,7 +528,7 @@ spec:
   packageOverrides:
     - packageName: kustomize/overlays/production/kustomization.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err := yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -625,7 +625,7 @@ spec:
   placement:
     local: true`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -643,7 +643,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -662,7 +662,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -681,7 +681,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -699,7 +699,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -745,7 +745,7 @@ metadata:
     placement:
       local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -825,7 +825,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -848,7 +848,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -871,7 +871,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -894,7 +894,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -904,7 +904,7 @@ metadata:
 func subAdminClusterRole() *rbacv1.ClusterRole {
 	return &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: appv1alpha1.SubscriptionAdmin,
+			Name: appv1.SubscriptionAdmin,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -938,7 +938,7 @@ func subAdminClusterRoleBinding() *rbacv1.ClusterRoleBinding {
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
-			Name: appv1alpha1.SubscriptionAdmin,
+			Name: appv1.SubscriptionAdmin,
 		},
 	}
 }
