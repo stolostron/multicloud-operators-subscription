@@ -16,13 +16,13 @@ package mcmhub
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +45,6 @@ import (
 	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
@@ -501,7 +500,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
 
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			klog.Info("Subscription: ", request.NamespacedName, " is gone")
 			klog.Infof("Clean up all the manifestWorks owned by appsub: %v", request.NamespacedName)
 
@@ -552,7 +551,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGitHub) {
 			if err := r.hubGitOps.RegisterBranch(instance); err != nil {
 				logger.Error(err, "failed to initialize Git connection")
-				preErr = fmt.Errorf("failed to initialize Git connection, err: %v", err)
+				preErr = fmt.Errorf("failed to initialize Git connection, err: %w", err)
 
 				passedBranchRegistration = false
 
@@ -562,7 +561,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			// register will skip the failed clone repo
 			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementDecisionRv); err != nil {
 				logger.Error(err, "failed to register hooks, skip the subscription reconcile")
-				preErr = fmt.Errorf("failed to register hooks, err: %v", err)
+				preErr = fmt.Errorf("failed to register hooks, err: %w", err)
 
 				passedPrehook = false
 
@@ -655,7 +654,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 // b, for each of the subscription created on managed cluster, it will check if
 // it is 1, propagated and 2, subscribed
 func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedName) (bool, error) {
-	subIns := &subv1.Subscription{}
+	subIns := &appv1.Subscription{}
 	if err := r.Get(context.TODO(), subKey, subIns); err != nil {
 		if k8serrors.IsNotFound(err) {
 			return true, nil
@@ -664,10 +663,10 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 		return false, err
 	}
 
-	subFailSet := map[subv1.SubscriptionPhase]struct{}{
-		subv1.SubscriptionPropagationFailed: {},
-		subv1.SubscriptionFailed:            {},
-		subv1.SubscriptionUnknown:           {},
+	subFailSet := map[appv1.SubscriptionPhase]struct{}{
+		appv1.SubscriptionPropagationFailed: {},
+		appv1.SubscriptionFailed:            {},
+		appv1.SubscriptionUnknown:           {},
 	}
 	//check up the hub cluster status
 	if _, ok := subFailSet[subIns.Status.Phase]; ok {
@@ -720,7 +719,7 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 //the requeue logic is done via set up the RequeueAfter parameter of the
 //reconciel.Result
 func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passedPrehook bool, preErr error,
-	oIns, nIns *subv1.Subscription,
+	oIns, nIns *appv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
 	r.logger.Info("Enter finalCommit...")
 	defer r.logger.Info("Exit finalCommit...")
@@ -820,7 +819,7 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	}
 
 	// post hook will in a apply and don't report back manner
-	if err != r.hooks.ApplyPostHooks(request.NamespacedName) {
+	if !errors.Is(err, r.hooks.ApplyPostHooks(request.NamespacedName)) {
 		r.logger.Error(err, "failed to apply postHook, skip the subscription reconcile, err:")
 	}
 

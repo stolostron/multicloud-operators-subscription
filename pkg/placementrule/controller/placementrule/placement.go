@@ -22,10 +22,8 @@ import (
 
 	"strings"
 
-	rbacv1 "k8s.io/api/authorization/v1"
 	cbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -434,60 +432,6 @@ func (r *ReconcilePlacementRule) GetManagedClusters(clusterRoleName string, clma
 	}
 
 	return managedClusters
-}
-
-func (r *ReconcilePlacementRule) filteClustersByIdentityAnno(instance *appv1alpha1.PlacementRule, clmap map[string]*spokeClusterV1.ManagedCluster) {
-	objanno := instance.GetAnnotations()
-	if objanno == nil {
-		return
-	}
-
-	if _, ok := objanno[appv1alpha1.UserIdentityAnnotation]; !ok {
-		return
-	}
-
-	user, groups := utils.ExtractUserAndGroup(objanno)
-
-	userKubeClient := r.Impersonate(user, groups)
-
-	for clusterName, cl := range clmap {
-		manageCluster := cl.DeepCopy()
-		if !r.checkUserPermission(userKubeClient, manageCluster, user, groups) {
-			delete(clmap, clusterName)
-		}
-	}
-
-	r.UnsetImpersonate(user, groups)
-}
-
-// checkUserPermission checks if user can get managedCluster KIND resource.
-func (r *ReconcilePlacementRule) checkUserPermission(userKubeClient *kubernetes.Clientset, managedCluster *spokeClusterV1.ManagedCluster,
-	user string, groups []string) bool {
-	clusterName := managedCluster.GetName()
-
-	selfSAR := &rbacv1.SelfSubjectAccessReview{
-		Spec: rbacv1.SelfSubjectAccessReviewSpec{
-			ResourceAttributes: &rbacv1.ResourceAttributes{
-				Name:     clusterName,
-				Group:    "cluster.open-cluster-management.io",
-				Verb:     "get",
-				Resource: "managedclusters",
-			},
-		},
-	}
-
-	result, err := userKubeClient.AuthorizationV1().SelfSubjectAccessReviews().Create(context.TODO(), selfSAR, v1.CreateOptions{})
-	klog.Infof("user: %v, groups: %v, cluster:%v, result:%v, err:%v", user, groups, clusterName, result, err)
-
-	if err != nil {
-		return false
-	}
-
-	if !result.Status.Allowed {
-		return false
-	}
-
-	return true
 }
 
 func (r *ReconcilePlacementRule) Impersonate(user string, groups []string) *kubernetes.Clientset {

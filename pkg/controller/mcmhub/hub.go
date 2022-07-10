@@ -22,10 +22,8 @@ import (
 	"strings"
 
 	gerr "github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -34,11 +32,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	"github.com/ghodss/yaml"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubreportv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	helmops "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -46,7 +42,7 @@ import (
 )
 
 // doMCMHubReconcile process Subscription on hub - distribute it via manifestWork
-func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription) error {
+func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1.Subscription) error {
 	substr := fmt.Sprintf("%v/%v", sub.GetNamespace(), sub.GetName())
 	klog.V(1).Infof("entry doMCMHubReconcile %v", substr)
 
@@ -100,9 +96,9 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	var resources []*v1.ObjectReference
 
 	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
-	case chnv1alpha1.ChannelTypeGit, chnv1alpha1.ChannelTypeGitHub:
+	case chnv1.ChannelTypeGit, chnv1.ChannelTypeGitHub:
 		resources, err = r.GetGitResources(sub, isAdmin)
-	case chnv1alpha1.ChannelTypeHelmRepo:
+	case chnv1.ChannelTypeHelmRepo:
 		helmRls, err := helmops.GetSubscriptionChartsOnHub(r.Client, primaryChannel, secondaryChannel, sub)
 		if err != nil {
 			klog.Error("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
@@ -111,7 +107,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 		}
 
 		resources = getHelmTopoResources(helmRls, r.Client, r.cfg, r.restMapper, sub, isAdmin)
-	case chnv1alpha1.ChannelTypeObjectBucket:
+	case chnv1.ChannelTypeObjectBucket:
 		resources, err = r.getObjectBucketResources(sub, primaryChannel, secondaryChannel, isAdmin)
 	}
 
@@ -145,7 +141,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1alpha1.Subscription)
 	return err
 }
 
-func (r *ReconcileSubscription) AddAppLabels(s *appv1alpha1.Subscription) {
+func (r *ReconcileSubscription) AddAppLabels(s *appv1.Subscription) {
 	labels := s.GetLabels()
 
 	if labels == nil {
@@ -170,7 +166,7 @@ func (r *ReconcileSubscription) AddAppLabels(s *appv1alpha1.Subscription) {
 }
 
 //GetChannelNamespaceType get the channel namespace and channel type by the given subscription
-func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscription) (string, string, string) {
+func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1.Subscription) (string, string, string) {
 	chNameSpace := ""
 	chName := ""
 	chType := ""
@@ -186,7 +182,7 @@ func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1alpha1.Subscript
 	}
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1alpha1.Channel{}
+	chobj := &chnv1.Channel{}
 	err := r.Get(context.TODO(), chkey, chobj)
 
 	if err == nil {
@@ -243,12 +239,12 @@ func parseGetChannel(clt client.Client, channelName string) (*chnv1.Channel, err
 	return channel, nil
 }
 
-func (r *ReconcileSubscription) getChannel(s *appv1alpha1.Subscription) (*chnv1alpha1.Channel, *chnv1alpha1.Channel, error) {
+func (r *ReconcileSubscription) getChannel(s *appv1.Subscription) (*chnv1.Channel, *chnv1.Channel, error) {
 	return GetSubscriptionRefChannel(r.Client, s)
 }
 
 // GetChannelGeneration get the channel generation
-func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription) (string, error) {
+func (r *ReconcileSubscription) GetChannelGeneration(s *appv1.Subscription) (string, error) {
 	chNameSpace := ""
 	chName := ""
 
@@ -263,7 +259,7 @@ func (r *ReconcileSubscription) GetChannelGeneration(s *appv1alpha1.Subscription
 	}
 
 	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1alpha1.Channel{}
+	chobj := &chnv1.Channel{}
 	err := r.Get(context.TODO(), chkey, chobj)
 
 	if err != nil {
@@ -287,7 +283,7 @@ func (r *ReconcileSubscription) IsNamespacedResource(group, version, kind string
 		return true
 	}
 
-	var isNamespaced bool = true
+	var isNamespaced = true
 
 	if mapping.Scope.Name() != "namespace" {
 		isNamespaced = false
@@ -299,7 +295,7 @@ func (r *ReconcileSubscription) IsNamespacedResource(group, version, kind string
 	return isNamespaced
 }
 
-func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscription, resources []*v1.ObjectReference,
+func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1.Subscription, resources []*v1.ObjectReference,
 	propagationFailedCount, clusterCount int) error {
 	// remove resource.namespace if the resource is cluster scoped
 	for _, resource := range resources {
@@ -317,7 +313,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 	}
 
 	appsubReport := &appsubreportv1alpha1.SubscriptionReport{
-		TypeMeta: metaV1.TypeMeta{
+		TypeMeta: metav1.TypeMeta{
 			Kind:       "SubscriptionReport",
 			APIVersion: "apps.open-cluster-management.io/v1alpha1",
 		},
@@ -407,7 +403,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1alpha1.Subscript
 	return nil
 }
 
-func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*awsutils.Handler, string, error) {
+func (r *ReconcileSubscription) initObjectStore(channel *chnv1.Channel) (*awsutils.Handler, string, error) {
 	var err error
 
 	awshandler := &awsutils.Handler{}
@@ -435,7 +431,7 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	region := ""
 
 	if channel.Spec.SecretRef != nil {
-		channelSecret := &corev1.Secret{}
+		channelSecret := &v1.Secret{}
 		chnseckey := types.NamespacedName{
 			Name:      channel.Spec.SecretRef.Name,
 			Namespace: channel.Namespace,
@@ -488,7 +484,7 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1alpha1.Channel) (*
 	return awshandler, bucket, nil
 }
 
-func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1alpha1.Subscription, channel, secondaryChannel *chnv1alpha1.Channel,
+func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1.Subscription, channel, secondaryChannel *chnv1.Channel,
 	isAdmin bool) ([]*v1.ObjectReference, error) {
 	awsHandler, bucket, err := r.initObjectStore(channel)
 	if err != nil {

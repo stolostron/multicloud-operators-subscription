@@ -34,7 +34,6 @@ import (
 
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -230,7 +229,7 @@ func TestCheckVersion(t *testing.T) {
 	chartDirs := make(map[string]string)
 	chartDirs["../../test/github/helmcharts/chart1/"] = "../../test/github/helmcharts/chart1/"
 
-	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter := &appv1.PackageFilter{}
 	packageFilter.Version = "1.1.1"
 
 	githubsub.Spec.PackageFilter = packageFilter
@@ -248,10 +247,10 @@ func TestCheckVersion(t *testing.T) {
 	g.Expect(ret).To(gomega.BeTrue())
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGitPath] = "test/github/helmcharts"
+	subanno[appv1.AnnotationGitPath] = "test/github/helmcharts"
 	githubsub.SetAnnotations(subanno)
 
-	packageFilter = &appv1alpha1.PackageFilter{}
+	packageFilter = &appv1.PackageFilter{}
 	packageFilter.Version = "2.0.0"
 
 	githubsub.Spec.PackageFilter = packageFilter
@@ -259,13 +258,13 @@ func TestCheckVersion(t *testing.T) {
 	ret = checkVersion(githubsub, chartVersion)
 	g.Expect(ret).To(gomega.BeFalse())
 
-	packageFilter = &appv1alpha1.PackageFilter{}
+	packageFilter = &appv1.PackageFilter{}
 	githubsub.Spec.PackageFilter = packageFilter
 
 	ret = checkVersion(githubsub, chartVersion)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	packageFilter = &appv1alpha1.PackageFilter{}
+	packageFilter = &appv1.PackageFilter{}
 	packageFilter.Version = "v2.0.0"
 
 	githubsub.Spec.PackageFilter = packageFilter
@@ -273,7 +272,7 @@ func TestCheckVersion(t *testing.T) {
 	ret = checkVersion(githubsub, chartVersion)
 	g.Expect(ret).To(gomega.BeFalse())
 
-	packageFilter = &appv1alpha1.PackageFilter{}
+	packageFilter = &appv1.PackageFilter{}
 	githubsub.Spec.PackageFilter = packageFilter
 
 	ret = checkVersion(githubsub, chartVersion)
@@ -315,7 +314,7 @@ spec:
 persistence:
   enabled: false`
 
-	sub2 := &appv1alpha1.Subscription{}
+	sub2 := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(substr2), &sub2)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -360,7 +359,7 @@ func TestCreateHelmCRManifest(t *testing.T) {
 	chartDirs["../../test/github/helmcharts/chart1Upgrade/"] = "../../test/github/helmcharts/chart1Upgrade/"
 	chartDirs["../../test/github/helmcharts/chart2/"] = "../../test/github/helmcharts/chart2/"
 
-	packageFilter := &appv1alpha1.PackageFilter{}
+	packageFilter := &appv1.PackageFilter{}
 	packageFilter.Version = "1.1.1"
 
 	githubsub.Spec.PackageFilter = packageFilter

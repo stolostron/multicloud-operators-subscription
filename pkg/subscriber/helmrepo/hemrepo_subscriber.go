@@ -134,7 +134,7 @@ func (hrs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 		hrssubitem.reconcileRate = "off"
 	}
 
-	var restart bool = false
+	var restart = false
 
 	if previousReconcileLevel != "" && !strings.EqualFold(previousReconcileLevel, hrssubitem.reconcileRate) {
 		// reconcile frequency has changed. restart the go routine

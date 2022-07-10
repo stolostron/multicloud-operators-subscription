@@ -38,7 +38,6 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 var (
@@ -282,7 +281,7 @@ func TestGetSubscriptionBranch(t *testing.T) {
 	g.Expect(branch.Short()).To(gomega.Equal(""))
 
 	subanno := make(map[string]string)
-	subanno[appv1alpha1.AnnotationGitBranch] = "notmaster"
+	subanno[appv1.AnnotationGitBranch] = "notmaster"
 	githubsub.SetAnnotations(subanno)
 
 	branchRef := plumbing.NewBranchReferenceName("notmaster")
@@ -412,7 +411,7 @@ spec:
           - deployment.yaml
           - configMap.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -484,7 +483,7 @@ spec:
           - deployment.yaml
           - configMap.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -529,7 +528,7 @@ spec:
   packageOverrides:
     - packageName: kustomize/overlays/production/kustomization.yaml`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err := yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -626,7 +625,7 @@ spec:
   placement:
     local: true`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -644,7 +643,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -663,7 +662,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -682,7 +681,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -700,7 +699,7 @@ spec:
   placement:
     local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -746,7 +745,7 @@ metadata:
     placement:
       local: true`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -826,7 +825,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription := &appv1alpha1.Subscription{}
+	subscription := &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -849,7 +848,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -872,7 +871,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
@@ -895,7 +894,7 @@ metadata:
       placementRef:
         name: dev-clusters`
 
-	subscription = &appv1alpha1.Subscription{}
+	subscription = &appv1.Subscription{}
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
