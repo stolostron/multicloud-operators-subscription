@@ -1004,6 +1004,34 @@ func TestIsHostingAppsub(t *testing.T) {
 	g.Expect(IsHostingAppsub(appsub)).To(BeTrue())
 }
 
+func TestParseAPIVersion(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// missing "/"
+	apiVersion := "v1"
+
+	// Handle two return values
+	g.Eventually(func() map[string]string {
+		r1, r2 := ParseAPIVersion(apiVersion)
+		return map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]string{"r1": "", "r2": "v1"}))
+
+	// Group & version
+	apiVersion = "apps.open-cluster-management.io/v1"
+	g.Eventually(func() map[string]string {
+		r1, r2 := ParseAPIVersion(apiVersion)
+		return map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]string{"r1": "apps.open-cluster-management.io", "r2": "v1"}))
+
+	// More than just group & version
+	apiVersion = "apps.open-cluster-management.io/v1/v2/v3"
+	g.Eventually(func() map[string]string {
+		r1, r2 := ParseAPIVersion(apiVersion)
+		return map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]string{"r1": "", "r2": ""}))
+
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
