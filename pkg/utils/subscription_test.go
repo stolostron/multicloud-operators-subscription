@@ -985,6 +985,25 @@ func TestIsSameUnstructured(t *testing.T) {
 	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
 }
 
+func TestIsHostingAppsub(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// nil appsub
+	g.Expect(IsHostingAppsub(nil)).To(BeFalse())
+
+	// nil annotations
+	appsub := &appv1.Subscription{}
+	appsub.SetAnnotations(nil)
+
+	g.Expect(IsHostingAppsub(appsub)).To(BeFalse())
+
+	// Contains annotation AnnotationHosting
+	appsub = &appv1.Subscription{}
+	appsub.SetAnnotations(map[string]string{appv1.AnnotationHosting: "testnamespace/testname"})
+
+	g.Expect(IsHostingAppsub(appsub)).To(BeTrue())
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
