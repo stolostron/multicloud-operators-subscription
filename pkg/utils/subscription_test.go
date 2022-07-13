@@ -753,6 +753,55 @@ func TestRemoveSubAnnotations(t *testing.T) {
 	}
 }
 
+func TestRemoveSubOwnerRef(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// newOwnerRefs = 0
+	obj := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"OwnerReferences": []metav1.OwnerReference{},
+			},
+		},
+	}
+
+	expected := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"OwnerReferences": []metav1.OwnerReference{},
+			},
+		},
+	}
+
+	g.Expect(RemoveSubOwnerRef(obj)).To(Equal(expected))
+
+	// newOwnerRefs > 0
+	obj2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"OwnerReferences": []metav1.OwnerReference{
+					{Kind: "newOwnerRefs > 0"},
+				},
+			},
+		},
+	}
+
+	expected2 := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"OwnerReferences": []metav1.OwnerReference{
+					{Kind: "newOwnerRefs > 0"},
+				},
+			},
+		},
+	}
+
+	obj2.SetOwnerReferences([]metav1.OwnerReference{{Kind: "newOwnerRefs > 0"}})
+	expected2.SetOwnerReferences([]metav1.OwnerReference{{Kind: "newOwnerRefs > 0"}})
+
+	g.Expect(*RemoveSubOwnerRef(obj2)).To(Equal(*expected2))
+}
+
 func TestIsSubscriptionBasicChanged(t *testing.T) {
 	var tests = []struct {
 		name     string
