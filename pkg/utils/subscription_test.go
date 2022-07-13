@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 
@@ -627,7 +628,7 @@ func TestGetHostSubscriptionFromObject(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := GetHostSubscriptionFromObject(tt.obj)
-			if actual != tt.expected {
+			if !reflect.DeepEqual(actual, tt.expected) {
 				t.Errorf("(%s): expected %v, actual %v", tt.name, tt.expected, actual)
 			}
 		})
@@ -666,6 +667,86 @@ func TestGetPauseLabel(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			actual := GetPauseLabel(tt.appsub)
 			if actual != tt.expected {
+				t.Errorf("(%s): expected %v, actual %v", tt.name, tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestRemoveSubAnnotations(t *testing.T) {
+	var tests = []struct {
+		name     string
+		obj      *unstructured.Unstructured
+		expected *unstructured.Unstructured
+	}{
+		{
+			name: "No annotations",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": nil,
+					},
+				},
+			},
+			expected: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name: "objanno = 0",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							appv1.AnnotationClusterAdmin:      "true",
+							appv1.AnnotationHosting:           "",
+							appv1.AnnotationSyncSource:        "subnsdpl",
+							appv1.AnnotationHostingDeployable: "",
+							appv1.AnnotationChannelType:       "",
+						},
+					},
+				},
+			},
+			expected: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{},
+				},
+			},
+		},
+		{
+			name: "objanno > 0",
+			obj: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							appv1.AnnotationClusterAdmin:           "true",
+							appv1.AnnotationHosting:                "",
+							appv1.AnnotationSyncSource:             "subnsdpl",
+							appv1.AnnotationHostingDeployable:      "",
+							appv1.AnnotationChannelType:            "",
+							appv1.AnnotationResourceReconcileLevel: "med",
+						},
+					},
+				},
+			},
+			expected: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"metadata": map[string]interface{}{
+						"annotations": map[string]interface{}{
+							appv1.AnnotationResourceReconcileLevel: "med",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := RemoveSubAnnotations(tt.obj)
+			if !reflect.DeepEqual(actual, tt.expected) {
 				t.Errorf("(%s): expected %v, actual %v", tt.name, tt.expected, actual)
 			}
 		})
