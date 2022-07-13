@@ -634,6 +634,44 @@ func TestGetHostSubscriptionFromObject(t *testing.T) {
 	}
 }
 
+func TestGetPauseLabel(t *testing.T) {
+	var tests = []struct {
+		name     string
+		expected bool
+		appsub   *appv1.Subscription
+	}{
+		{
+			name:     "no labels",
+			expected: false,
+			appsub: &appv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: nil,
+				},
+			},
+		},
+		{
+			name:     "LabelSubscriptionPause is true",
+			expected: true,
+			appsub: &appv1.Subscription{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						appv1.LabelSubscriptionPause: "true",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := GetPauseLabel(tt.appsub)
+			if actual != tt.expected {
+				t.Errorf("(%s): expected %v, actual %v", tt.name, tt.expected, actual)
+			}
+		})
+	}
+}
+
 func TestIsSubscriptionBasicChanged(t *testing.T) {
 	var tests = []struct {
 		name     string
