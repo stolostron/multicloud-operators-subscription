@@ -1018,6 +1018,7 @@ func TestParseAPIVersion(t *testing.T) {
 
 	// Group & version
 	apiVersion = "apps.open-cluster-management.io/v1"
+
 	g.Eventually(func() map[string]string {
 		r1, r2 := ParseAPIVersion(apiVersion)
 		return map[string]string{"r1": r1, "r2": r2}
@@ -1025,11 +1026,32 @@ func TestParseAPIVersion(t *testing.T) {
 
 	// More than just group & version
 	apiVersion = "apps.open-cluster-management.io/v1/v2/v3"
+
 	g.Eventually(func() map[string]string {
 		r1, r2 := ParseAPIVersion(apiVersion)
 		return map[string]string{"r1": r1, "r2": r2}
 	}).Should(Equal(map[string]string{"r1": "", "r2": ""}))
+}
 
+func TestParseNamespacedName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// missing "/" invalid namespace
+	namespacedName := "mynamespacename"
+
+	// Handle two return Values
+	g.Eventually(func() map[string]string {
+		r1, r2 := ParseNamespacedName(namespacedName)
+		return map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]string{"r1": "", "r2": ""}))
+
+	// valid namespace & name
+	namespacedName = "mynamespace/name"
+
+	g.Eventually(func() map[string]string {
+		r1, r2 := ParseNamespacedName(namespacedName)
+		return map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]string{"r1": "mynamespace", "r2": "name"}))
 }
 
 func TestSetPartOfLabel(t *testing.T) {
