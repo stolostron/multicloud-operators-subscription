@@ -926,6 +926,12 @@ func TestGetReconcileInterval(t *testing.T) {
 	g.Expect(retryInterval).To(Equal(90 * time.Second))
 	g.Expect(retries).To(Equal(1))
 
+	loopPeriod, retryInterval, retries = GetReconcileInterval("medium", chnv1.ChannelTypeObjectBucket)
+
+	g.Expect(loopPeriod).To(Equal(15 * time.Minute))
+	g.Expect(retryInterval).To(Equal(90 * time.Second))
+	g.Expect(retries).To(Equal(1))
+
 	loopPeriod, retryInterval, retries = GetReconcileInterval("high", chnv1.ChannelTypeGit)
 
 	g.Expect(loopPeriod).To(Equal(2 * time.Minute))
