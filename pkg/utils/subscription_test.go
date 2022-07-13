@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -937,6 +938,51 @@ func TestGetReconcileInterval(t *testing.T) {
 	g.Expect(loopPeriod).To(Equal(2 * time.Minute))
 	g.Expect(retryInterval).To(Equal(60 * time.Second))
 	g.Expect(retries).To(Equal(1))
+}
+
+func TestIsSameUnstructured(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Both empty unstructured objects
+	obj1 := &unstructured.Unstructured{}
+	obj2 := &unstructured.Unstructured{}
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeTrue())
+
+	// Differing GVK
+	obj1, obj2 = &unstructured.Unstructured{}, &unstructured.Unstructured{}
+	obj1.SetGroupVersionKind(schema.GroupVersionKind{Group: "", Kind: "kind", Version: "v1"})
+	obj2.SetGroupVersionKind(schema.GroupVersionKind{Group: "Different group", Kind: "kind", Version: "v1"})
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
+
+	// Differing Name
+	obj1, obj2 = &unstructured.Unstructured{}, &unstructured.Unstructured{}
+	obj1.SetName("obj1")
+	obj2.SetName("Obj2")
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
+
+	// Differing Namespace
+	obj1, obj2 = &unstructured.Unstructured{}, &unstructured.Unstructured{}
+	obj1.SetNamespace("namespace1")
+	obj2.SetNamespace("namespace2")
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
+
+	// Differing Labels
+	obj1, obj2 = &unstructured.Unstructured{}, &unstructured.Unstructured{}
+	obj1.SetLabels(map[string]string{"local-cluster": "true"})
+	obj2.SetLabels(map[string]string{"local-cluster": "false"})
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
+
+	// Differing Annotations
+	obj1, obj2 = &unstructured.Unstructured{}, &unstructured.Unstructured{}
+	obj1.SetAnnotations(map[string]string{appv1.AnnotationGitBranch: "main"})
+	obj2.SetAnnotations(map[string]string{appv1.AnnotationGitBranch: "master"})
+
+	g.Expect(isSameUnstructured(obj1, obj2)).To(BeFalse())
 }
 
 func TestSetPartOfLabel(t *testing.T) {
