@@ -29,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -571,6 +572,63 @@ func TestIsEmptySubscriptionStatus(t *testing.T) {
 			actual := isEmptySubscriptionStatus(tt.given)
 			if actual != tt.expected {
 				t.Errorf("(%v): expected %v, actual %v", tt.given, tt.expected, actual)
+			}
+		})
+	}
+}
+
+func TestGetHostSubscriptionFromObject(t *testing.T) {
+	var tests = []struct {
+		name     string
+		expected *types.NamespacedName
+		obj      metav1.Object
+	}{
+		{
+			name:     "nil object",
+			expected: nil,
+			obj:      nil,
+		},
+		{
+			name:     "nil annotations",
+			expected: nil,
+			obj: &metav1.ObjectMeta{
+				Annotations: nil,
+			},
+		},
+		{
+			name:     "empty annotations value",
+			expected: nil,
+			obj: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					appv1.AnnotationHosting: "",
+				},
+			},
+		},
+		{
+			name:     "invalid annotation",
+			expected: nil,
+			obj: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					appv1.AnnotationHosting: "no name slash namespace",
+				},
+			},
+		},
+		{
+			name:     "valid annotation",
+			expected: &types.NamespacedName{Name: "test", Namespace: "testnamespace"},
+			obj: &metav1.ObjectMeta{
+				Annotations: map[string]string{
+					appv1.AnnotationHosting: "testnamespace/test",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := GetHostSubscriptionFromObject(tt.obj)
+			if actual != tt.expected {
+				t.Errorf("(%s): expected %v, actual %v", tt.name, tt.expected, actual)
 			}
 		})
 	}
