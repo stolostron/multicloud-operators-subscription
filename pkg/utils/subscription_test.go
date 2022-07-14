@@ -1010,27 +1010,23 @@ func TestParseAPIVersion(t *testing.T) {
 	// missing "/"
 	apiVersion := "v1"
 
-	// Handle two return values
-	g.Eventually(func() map[string]string {
-		r1, r2 := ParseAPIVersion(apiVersion)
-		return map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]string{"r1": "", "r2": "v1"}))
+	group, version := ParseAPIVersion(apiVersion)
+	g.Expect(group).To(Equal(""))
+	g.Expect(version).To(Equal("v1"))
 
 	// Group & version
 	apiVersion = "apps.open-cluster-management.io/v1"
 
-	g.Eventually(func() map[string]string {
-		r1, r2 := ParseAPIVersion(apiVersion)
-		return map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]string{"r1": "apps.open-cluster-management.io", "r2": "v1"}))
+	group, version = ParseAPIVersion(apiVersion)
+	g.Expect(group).To(Equal("apps.open-cluster-management.io"))
+	g.Expect(version).To(Equal("v1"))
 
 	// More than just group & version
 	apiVersion = "apps.open-cluster-management.io/v1/v2/v3"
 
-	g.Eventually(func() map[string]string {
-		r1, r2 := ParseAPIVersion(apiVersion)
-		return map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]string{"r1": "", "r2": ""}))
+	group, version = ParseAPIVersion(apiVersion)
+	g.Expect(group).To(Equal(""))
+	g.Expect(version).To(Equal(""))
 }
 
 func TestParseNamespacedName(t *testing.T) {
@@ -1039,19 +1035,16 @@ func TestParseNamespacedName(t *testing.T) {
 	// missing "/" invalid namespace
 	namespacedName := "mynamespacename"
 
-	// Handle two return Values
-	g.Eventually(func() map[string]string {
-		r1, r2 := ParseNamespacedName(namespacedName)
-		return map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]string{"r1": "", "r2": ""}))
+	namespace, name := ParseNamespacedName(namespacedName)
+	g.Expect(namespace).To(Equal(""))
+	g.Expect(name).To(Equal(""))
 
 	// valid namespace & name
 	namespacedName = "mynamespace/name"
 
-	g.Eventually(func() map[string]string {
-		r1, r2 := ParseNamespacedName(namespacedName)
-		return map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]string{"r1": "mynamespace", "r2": "name"}))
+	namespace, name = ParseNamespacedName(namespacedName)
+	g.Expect(namespace).To(Equal("mynamespace"))
+	g.Expect(name).To(Equal("name"))
 }
 func TestIsResourceAllowed(t *testing.T) {
 	g := NewGomegaWithT(t)
@@ -1121,12 +1114,9 @@ func TestGetAllowDenyLists(t *testing.T) {
 	// Empty allowed, denied lists
 	sub := appv1.Subscription{}
 
-	g.Eventually(func() map[string]map[string]map[string]string {
-		r1, r2 := GetAllowDenyLists(sub)
-		return map[string]map[string]map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]map[string]map[string]string{
-		"r1": make(map[string]map[string]string),
-		"r2": make(map[string]map[string]string)}))
+	allowedResources, deniedResources := GetAllowDenyLists(sub)
+	g.Expect(allowedResources).To(Equal(make(map[string]map[string]string)))
+	g.Expect(deniedResources).To(Equal(make(map[string]map[string]string)))
 
 	// both allowed & denied Resources, nil APIVersion
 	sub = appv1.Subscription{}
@@ -1137,19 +1127,16 @@ func TestGetAllowDenyLists(t *testing.T) {
 
 	// Function returns two map[string]map[string]string
 	// Need to make the expected maps beforehand
-	r1map := make(map[string]map[string]string)
-	r1map[""] = make(map[string]string)
-	r1map[""]["Git"] = "Git"
-	r2map := make(map[string]map[string]string)
-	r2map[""] = make(map[string]string)
-	r2map[""]["Objectstore"] = "Objectstore"
+	expectedAllowedResources := make(map[string]map[string]string)
+	expectedAllowedResources[""] = make(map[string]string)
+	expectedAllowedResources[""]["Git"] = "Git"
+	expectedDeniedResources := make(map[string]map[string]string)
+	expectedDeniedResources[""] = make(map[string]string)
+	expectedDeniedResources[""]["Objectstore"] = "Objectstore"
 
-	g.Eventually(func() map[string]map[string]map[string]string {
-		r1, r2 := GetAllowDenyLists(sub)
-		return map[string]map[string]map[string]string{"r1": r1, "r2": r2}
-	}).Should(Equal(map[string]map[string]map[string]string{
-		"r1": r1map,
-		"r2": r2map}))
+	allowedResources, deniedResources = GetAllowDenyLists(sub)
+	g.Expect(allowedResources).To(Equal(expectedAllowedResources))
+	g.Expect(deniedResources).To(Equal(expectedDeniedResources))
 }
 
 func TestSetPartOfLabel(t *testing.T) {
