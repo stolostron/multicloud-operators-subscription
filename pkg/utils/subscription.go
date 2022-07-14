@@ -1038,7 +1038,7 @@ func CompareManifestWork(oldManifestWork, newManifestWork *manifestWorkV1.Manife
 
 		err := json.Unmarshal(oldManifestWork.Spec.Workload.Manifests[i].Raw, oldManifest)
 		if err != nil {
-			klog.Errorf("falied to unmarshal old manifestwork, err: %v", err)
+			klog.Errorf("failed to unmarshal old manifestwork, err: %v", err)
 			return false
 		}
 
@@ -1046,7 +1046,7 @@ func CompareManifestWork(oldManifestWork, newManifestWork *manifestWorkV1.Manife
 
 		err = json.Unmarshal(newManifestWork.Spec.Workload.Manifests[i].Raw, newManifest)
 		if err != nil {
-			klog.Errorf("falied to unmarshal new manifestwork, err: %v", err)
+			klog.Errorf("failed to unmarshal new manifestwork, err: %v", err)
 			return false
 		}
 

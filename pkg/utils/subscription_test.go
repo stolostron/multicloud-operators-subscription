@@ -35,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
@@ -1137,6 +1138,100 @@ func TestGetAllowDenyLists(t *testing.T) {
 	allowedResources, deniedResources = GetAllowDenyLists(sub)
 	g.Expect(allowedResources).To(Equal(expectedAllowedResources))
 	g.Expect(deniedResources).To(Equal(expectedDeniedResources))
+}
+
+func TestCompareManifestWork(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Empty manifestWorks
+	oldManifestWork, newManifestWork := &manifestWorkV1.ManifestWork{}, &manifestWorkV1.ManifestWork{}
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeTrue())
+
+	// Differing sizes
+	oldManifestWork = &manifestWorkV1.ManifestWork{}
+	newManifestWork = &manifestWorkV1.ManifestWork{}
+
+	oldManifestWork.Spec.Workload.Manifests = append(oldManifestWork.Spec.Workload.Manifests, manifestWorkV1.Manifest{})
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeFalse())
+
+	// Equal manifestWorks
+	oldManifestWork = &manifestWorkV1.ManifestWork{}
+	newManifestWork = &manifestWorkV1.ManifestWork{}
+
+	// Need json formatted
+	endpointNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "appsubNS",
+			Annotations: map[string]string{
+				appv1.AnnotationHosting: types.NamespacedName{Name: "test", Namespace: "testnamespace"}.String(),
+			},
+		},
+	}
+	manifestNSByte, _ := json.Marshal(endpointNS)
+
+	oldManifestWork.Spec.Workload.Manifests = append(oldManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+
+	newManifestWork.Spec.Workload.Manifests = append(newManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeTrue())
+
+	// Differing manifestWorks
+	oldManifestWork = &manifestWorkV1.ManifestWork{}
+	newManifestWork = &manifestWorkV1.ManifestWork{}
+
+	oldManifestWork.Spec.Workload.Manifests = append(oldManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+	// Need json formatted
+	endpointNS = &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "appsubNS",
+			Annotations: map[string]string{
+				appv1.AnnotationHosting: types.NamespacedName{Name: "test-different", Namespace: "testnamespace"}.String(),
+			},
+		},
+	}
+	manifestNSByte, _ = json.Marshal(endpointNS)
+
+	newManifestWork.Spec.Workload.Manifests = append(newManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeFalse())
+
+	// Fail to unmarshal new manifestwork
+	oldManifestWork = &manifestWorkV1.ManifestWork{}
+	newManifestWork = &manifestWorkV1.ManifestWork{}
+
+	oldManifestWork.Spec.Workload.Manifests = append(oldManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+
+	newManifestWork.Spec.Workload.Manifests = append(newManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: []byte("fail to unmarshal me >;(")}})
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeFalse())
+
+	// Fail to unmarshal old manifestwork
+	oldManifestWork = &manifestWorkV1.ManifestWork{}
+	newManifestWork = &manifestWorkV1.ManifestWork{}
+
+	oldManifestWork.Spec.Workload.Manifests = append(oldManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: []byte("fail to unmarshal me >:(")}})
+
+	newManifestWork.Spec.Workload.Manifests = append(newManifestWork.Spec.Workload.Manifests,
+		manifestWorkV1.Manifest{RawExtension: runtime.RawExtension{Raw: manifestNSByte}})
+
+	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeFalse())
 }
 
 func TestSetPartOfLabel(t *testing.T) {
