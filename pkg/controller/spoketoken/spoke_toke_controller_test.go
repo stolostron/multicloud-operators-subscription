@@ -62,24 +62,6 @@ var (
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "application-manager-token-1",
-			},
-			{
-				Name: "application-manager-dockercfg-tlxd5",
-			},
-		},
-	}
-
-	sa2 = &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "application-manager",
-			Namespace: "open-cluster-management-agent-addon",
-		},
-		Secrets: []corev1.ObjectReference{
-			{
-				Name: "application-manager-token-2",
-			},
-			{
 				Name: "application-manager-dockercfg-tlxd5",
 			},
 		},
@@ -92,9 +74,6 @@ var (
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "application-manager-token-2",
-			},
-			{
 				Name: "application-manager-dockercfg-tlxd5",
 			},
 		},
@@ -102,22 +81,14 @@ var (
 
 	secret1 = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "application-manager-token-1",
-			Namespace: "open-cluster-management-agent-addon",
+			Name:        "application-manager-token-1",
+			Namespace:   "open-cluster-management-agent-addon",
+			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
 		},
 		Data: map[string][]byte{
 			"token": []byte("ZHVtbXkxCg=="),
 		},
-	}
-
-	secret2 = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "application-manager-token-2",
-			Namespace: "open-cluster-management-agent-addon",
-		},
-		Data: map[string][]byte{
-			"token": []byte("dGVzdDIK"),
-		},
+		Type: corev1.SecretTypeServiceAccountToken,
 	}
 )
 
@@ -155,15 +126,14 @@ func TestReconcile(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), clusterNamespace)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), clusterNamespace)
 
-	// Create the cluster namespace. This is where the source service account and its secrets are located.
+	// Create the addon agent namespace. This is where the source service account and its secrets are located.
 	g.Expect(c.Create(context.TODO(), agentNamespace)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), agentNamespace)
 
-	// Create the source service account.
+	// Create the addon agent service account.
 	g.Expect(c.Create(context.TODO(), sa1)).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), sa1)
 
-	// Create the source service account token secret and reconcile.
+	// Create the addon agent service account token secret and reconcile.
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
 
@@ -192,27 +162,8 @@ func TestReconcile(t *testing.T) {
 	g.Expect(secretLabels["apps.open-cluster-management.io/secret-type"]).To(gomega.Equal("acm-cluster"))
 	g.Expect(secretLabels["apps.open-cluster-management.io/cluster-name"]).To(gomega.Equal("cluster1"))
 
-	// Update the source service account token secret and reconcile.
-	g.Expect(c.Create(context.TODO(), secret2)).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), secret2)
-	g.Expect(c.Update(context.TODO(), sa2)).NotTo(gomega.HaveOccurred())
-
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
-
-	theUpdatedSecret := &corev1.Secret{}
-
-	// Check that cluster1/cluster1-cluster-secret is created.
-	g.Expect(c.Get(context.TODO(), secretkey, theUpdatedSecret)).NotTo(gomega.HaveOccurred())
-
-	// Verify the updated secret data
-	configData2 := &Config{}
-
-	g.Expect(string(theUpdatedSecret.Data["config"])).NotTo(gomega.BeEmpty())
-	g.Expect(json.Unmarshal(theUpdatedSecret.Data["config"], configData2)).NotTo(gomega.HaveOccurred())
-	g.Expect(configData2.BearerToken).To(gomega.Equal(string(secret2.Data["token"])))
-
-	// Delete the source service account and reconcile
-	g.Expect(c.Delete(context.TODO(), sa2)).NotTo(gomega.HaveOccurred())
+	// Delete the addon agent service account and reconcile
+	g.Expect(c.Delete(context.TODO(), sa1)).NotTo(gomega.HaveOccurred())
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
