@@ -1249,6 +1249,45 @@ func TestIsSubscriptionResourceChanged(t *testing.T) {
 	g.Expect(IsSubscriptionResourceChanged(oSub, nSub)).To(BeFalse())
 }
 
+func TestIsHubRelatedStatusChanged(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	old, nnew := &appv1.SubscriptionStatus{}, &appv1.SubscriptionStatus{}
+
+	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeFalse())
+
+	// differing phases
+	old = &appv1.SubscriptionStatus{Phase: "a"}
+	nnew = &appv1.SubscriptionStatus{Phase: "b"}
+
+	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeTrue())
+
+	// differing PosthookJob
+	old = &appv1.SubscriptionStatus{}
+	nnew = &appv1.SubscriptionStatus{}
+
+	old.AnsibleJobsStatus = appv1.AnsibleJobsStatus{LastPosthookJob: "aa"}
+	nnew.AnsibleJobsStatus = appv1.AnsibleJobsStatus{LastPosthookJob: "b"}
+
+	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeTrue())
+
+	// differing PrehookJob
+	old = &appv1.SubscriptionStatus{}
+	nnew = &appv1.SubscriptionStatus{}
+
+	old.AnsibleJobsStatus = appv1.AnsibleJobsStatus{LastPrehookJob: "aa"}
+	nnew.AnsibleJobsStatus = appv1.AnsibleJobsStatus{LastPrehookJob: "b"}
+
+	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeTrue())
+
+	// differing statuses
+	old = &appv1.SubscriptionStatus{
+		Statuses: appv1.SubscriptionClusterStatusMap{"/": &appv1.SubscriptionPerClusterStatus{}}}
+	nnew = &appv1.SubscriptionStatus{}
+
+	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeTrue())
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
