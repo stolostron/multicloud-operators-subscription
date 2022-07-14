@@ -1234,6 +1234,21 @@ func TestCompareManifestWork(t *testing.T) {
 	g.Expect(CompareManifestWork(oldManifestWork, newManifestWork)).To(BeFalse())
 }
 
+func TestIsSubscriptionResourceChanged(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// phase = ""
+	oSub, nSub := &appv1.Subscription{}, &appv1.Subscription{}
+
+	g.Expect(IsSubscriptionResourceChanged(oSub, nSub)).To(BeTrue())
+
+	// phase != "" & oSub phase == nsub phase
+	oSub.Status.Phase = "same"
+	nSub.Status.Phase = "same"
+
+	g.Expect(IsSubscriptionResourceChanged(oSub, nSub)).To(BeFalse())
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
