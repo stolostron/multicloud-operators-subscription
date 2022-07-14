@@ -1115,6 +1115,43 @@ func TestIsResourceDenied(t *testing.T) {
 	g.Expect(IsResourceDenied(resource, allowlist, true)).To(BeTrue())
 }
 
+func TestGetAllowDenyLists(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Empty allowed, denied lists
+	sub := appv1.Subscription{}
+
+	g.Eventually(func() map[string]map[string]map[string]string {
+		r1, r2 := GetAllowDenyLists(sub)
+		return map[string]map[string]map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]map[string]map[string]string{
+		"r1": make(map[string]map[string]string),
+		"r2": make(map[string]map[string]string)}))
+
+	// both allowed & denied Resources, nil APIVersion
+	sub = appv1.Subscription{}
+	sub.Spec.Allow = append(sub.Spec.Allow,
+		&appv1.AllowDenyItem{APIVersion: "", Kinds: []string{"Git"}})
+	sub.Spec.Deny = append(sub.Spec.Deny,
+		&appv1.AllowDenyItem{APIVersion: "", Kinds: []string{"Objectstore"}})
+
+	// Function returns two map[string]map[string]string
+	// Need to make the expected maps beforehand
+	r1map := make(map[string]map[string]string)
+	r1map[""] = make(map[string]string)
+	r1map[""]["Git"] = "Git"
+	r2map := make(map[string]map[string]string)
+	r2map[""] = make(map[string]string)
+	r2map[""]["Objectstore"] = "Objectstore"
+
+	g.Eventually(func() map[string]map[string]map[string]string {
+		r1, r2 := GetAllowDenyLists(sub)
+		return map[string]map[string]map[string]string{"r1": r1, "r2": r2}
+	}).Should(Equal(map[string]map[string]map[string]string{
+		"r1": r1map,
+		"r2": r2map}))
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
