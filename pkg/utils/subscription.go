@@ -396,6 +396,38 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 	},
 }
 
+// AddonSATokenSecretPredicateFunctions watches for changes in klusterlet-addon-appmgr
+// service account token secret in open-cluster-management-agent-addon namespace
+var AddonSATokenSecretPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newSecret := e.ObjectNew.(*corev1.Secret)
+
+		if strings.EqualFold(newSecret.Namespace, addonServiceAccountNamespace) && strings.HasPrefix(newSecret.Name, addonServiceAccountName+"-token-") {
+			return true
+		}
+
+		return false
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		secret := e.Object.(*corev1.Secret)
+
+		if strings.EqualFold(secret.Namespace, addonServiceAccountNamespace) && strings.HasPrefix(secret.Name, addonServiceAccountName+"-token-") {
+			return true
+		}
+
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		secret := e.Object.(*corev1.Secret)
+
+		if strings.EqualFold(secret.Namespace, addonServiceAccountNamespace) && strings.HasPrefix(secret.Name, addonServiceAccountName+"-token-") {
+			return true
+		}
+
+		return false
+	},
+}
+
 // GetHostSubscriptionFromObject extract the namespacedname of subscription hosting the object resource
 func GetHostSubscriptionFromObject(obj metav1.Object) *types.NamespacedName {
 	if obj == nil {
