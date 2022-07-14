@@ -1053,6 +1053,67 @@ func TestParseNamespacedName(t *testing.T) {
 		return map[string]string{"r1": r1, "r2": r2}
 	}).Should(Equal(map[string]string{"r1": "mynamespace", "r2": "name"}))
 }
+func TestIsResourceAllowed(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Not admin
+	resource := unstructured.Unstructured{}
+	allowlist := make(map[string]map[string]string)
+
+	g.Expect(IsResourceAllowed(resource, allowlist, false)).To(BeTrue())
+
+	// Not admin but policy
+	resource = unstructured.Unstructured{}
+	resource.SetAPIVersion("policy.open-cluster-management.io/v1")
+
+	allowlist = make(map[string]map[string]string)
+
+	g.Expect(IsResourceAllowed(resource, allowlist, false)).To(BeFalse())
+
+	// Admin, len(allowlist) = 0
+	resource = unstructured.Unstructured{}
+	allowlist = make(map[string]map[string]string)
+
+	g.Expect(IsResourceAllowed(resource, allowlist, true)).To(BeTrue())
+
+	// Admin, allowlist has Kind
+	resource = unstructured.Unstructured{}
+	resource.SetAPIVersion("policy.open-cluster-management.io/v1")
+	resource.SetKind("Deployment")
+
+	allowlist = make(map[string]map[string]string)
+	allowlist[resource.GetAPIVersion()] = make(map[string]string)
+	allowlist[resource.GetAPIVersion()][resource.GetKind()] = "true"
+
+	g.Expect(IsResourceAllowed(resource, allowlist, true)).To(BeTrue())
+}
+
+func TestIsResourceDenied(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Not admin
+	resource := unstructured.Unstructured{}
+	allowlist := make(map[string]map[string]string)
+
+	g.Expect(IsResourceDenied(resource, allowlist, false)).To(BeFalse())
+
+	// Admin, len(allowlist) = 0
+	resource = unstructured.Unstructured{}
+	allowlist = make(map[string]map[string]string)
+
+	g.Expect(IsResourceDenied(resource, allowlist, true)).To(BeFalse())
+
+	// Admin, denylist has Kind
+	resource = unstructured.Unstructured{}
+	resource.SetAPIVersion("policy.open-cluster-management.io/v1")
+	resource.SetKind("Deployment")
+
+	allowlist = make(map[string]map[string]string)
+	allowlist[resource.GetAPIVersion()] = make(map[string]string)
+	allowlist[resource.GetAPIVersion()][resource.GetKind()] = "true"
+
+	g.Expect(IsResourceDenied(resource, allowlist, true)).To(BeTrue())
+}
 
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
