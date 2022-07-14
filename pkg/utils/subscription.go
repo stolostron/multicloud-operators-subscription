@@ -396,7 +396,8 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 	},
 }
 
-// AddonSATokenSecretPredicateFunctions watches for changes in klusterlet-addon-appmgr service account token secret in open-cluster-management-agent-addon namespace
+// AddonSATokenSecretPredicateFunctions watches for changes in klusterlet-addon-appmgr
+// service account token secret in open-cluster-management-agent-addon namespace
 var AddonSATokenSecretPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		newSecret := e.ObjectNew.(*corev1.Secret)
