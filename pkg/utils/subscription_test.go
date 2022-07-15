@@ -1288,6 +1288,19 @@ func TestIsHubRelatedStatusChanged(t *testing.T) {
 	g.Expect(IsHubRelatedStatusChanged(old, nnew)).To(BeTrue())
 }
 
+func TestGetReleaseName(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	base, err := GetReleaseName("shorter than max length")
+
+	g.Expect(base).To(Equal("shorter than max length"))
+	g.Expect(err).NotTo(HaveOccurred())
+
+	base, err = GetReleaseName("larger than max length (52 - len('-delete-registrations')")
+	g.Expect(base[:25]).To(Equal("larger than max length (5"))
+	g.Expect(err).NotTo(HaveOccurred())
+}
+
 func TestSetPartOfLabel(t *testing.T) {
 	g := NewGomegaWithT(t)
 
