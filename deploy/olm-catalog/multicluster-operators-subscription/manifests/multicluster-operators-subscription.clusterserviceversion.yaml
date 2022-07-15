@@ -888,7 +888,7 @@ spec:
               volumes:
               - name: tmp
                 emptyDir: {}
-              serviceAccountName: multicluster-applications
+              serviceAccountName: multicluster-operators
       - name: multicluster-operators-subscription-report
         spec:
           replicas: 1
