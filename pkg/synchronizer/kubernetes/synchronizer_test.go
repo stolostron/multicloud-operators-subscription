@@ -150,6 +150,23 @@ var (
 			},
 		},
 	}
+	workload6Subscription = appv1alpha1.Subscription{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Subscription",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      hostworkload5.Name,
+			Namespace: hostworkload5.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationResourceReconcileOption: "merge",
+				appv1alpha1.AnnotationHosting:                 hostworkload5.Namespace + "/" + hostworkload5.Name,
+			},
+			Labels: map[string]string{
+				"label1": "label",
+			},
+		},
+	}
 )
 
 var _ = Describe("test Delete Single Subscribed Resource", func() {
@@ -307,6 +324,38 @@ var _ = Describe("test ProcessSubResources", func() {
 		}
 	})
 
+	It("should err after overriding", func() {
+		appsub := workload5Subscription.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		// Create a single resource
+		resource := &unstructured.Unstructured{}
+		resource.SetNamespace("default")
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "apps.open-cluster-management.io/v1",
+			Kind:    "Subscription",
+		})
+		resource.SetAnnotations(make(map[string]string))
+		resource.SetLabels(map[string]string{"app.kubernetes.io/part-of": "appsub-obj-1"})
+		resource.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Subscription",
+			Name:       appsub.Name,
+			UID:        appsub.UID,
+		}})
+		resource.SetKind("") // should error with empty kind
+
+		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
+		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
+
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("should create a single new resource", func() {
 		appsub := workload5Subscription.DeepCopy()
 		// Actually creating the subscription
@@ -338,7 +387,7 @@ var _ = Describe("test ProcessSubResources", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("should err after overriding", func() {
+	It("should create a single new resource v1 apiversion", func() {
 		appsub := workload5Subscription.DeepCopy()
 		// Actually creating the subscription
 		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
@@ -350,18 +399,47 @@ var _ = Describe("test ProcessSubResources", func() {
 		resource.SetNamespace("default")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
-			Version: "apps.open-cluster-management.io/v1",
+			Version: "v1",
 			Kind:    "Subscription",
 		})
 		resource.SetAnnotations(make(map[string]string))
 		resource.SetLabels(map[string]string{"app.kubernetes.io/part-of": "appsub-obj-1"})
 		resource.SetOwnerReferences([]metav1.OwnerReference{{
-			APIVersion: "apps.open-cluster-management.io/v1",
+			APIVersion: "v1",
 			Kind:       "Subscription",
 			Name:       appsub.Name,
 			UID:        appsub.UID,
 		}})
-		resource.SetKind("") // should error with empty kind
+
+		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
+		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
+
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("Configmap with missing namespace", func() {
+		appsub := workload6Subscription.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		// Create a single resource configmap
+		resource := &unstructured.Unstructured{}
+		resource.SetNamespace("default-2")
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "ConfigMap",
+		})
+		resource.SetAnnotations(map[string]string{appv1alpha1.AnnotationClusterAdmin: "true"})
+		resource.SetLabels(make(map[string]string))
+		resource.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Name:       "Configmap3",
+		}})
 
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
