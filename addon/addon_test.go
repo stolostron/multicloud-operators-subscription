@@ -94,7 +94,7 @@ func TestManifest(t *testing.T) {
 			addon:             newAddon(AppMgrAddonName, "local-cluster", "test", ""),
 			expectedNamespace: "test",
 			expectedImage:     "quay.io/open-cluster-management/multicluster_operators_subscription:latest",
-			expectedCount:     6,
+			expectedCount:     5,
 		},
 	}
 	AppMgrImage = "quay.io/open-cluster-management/multicluster_operators_subscription:latest"
