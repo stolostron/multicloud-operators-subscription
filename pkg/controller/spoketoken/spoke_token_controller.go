@@ -89,12 +89,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to klusterlet-addon-appmgr service account token secret in open-cluster-management-agent-addon namespace.
-	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForObject{}, utils.AddonSATokenSecretPredicateFunctions)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
