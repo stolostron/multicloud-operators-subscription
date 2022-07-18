@@ -28,12 +28,11 @@ func TestGenerateServerCerts(t *testing.T) {
 	certDir := filepath.Join(os.TempDir(), "certtest")
 
 	err := GenerateServerCerts(certDir)
-	g.Expect(err).Should(gomega.BeNil())
-	
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	invalidCertDir := filepath.Join(os.TempDir(), "c:\file.xls")
 	err = GenerateServerCerts(invalidCertDir)
-	g.Expect(err).To(nil)
+	g.Expect(err).Should(gomega.BeNil())
 
 	tlsKeyFile := filepath.Join(certDir, "tls.key")
 	tlsCrtFile := filepath.Join(certDir, "tls.crt")
