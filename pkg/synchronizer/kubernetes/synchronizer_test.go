@@ -338,6 +338,38 @@ var _ = Describe("test ProcessSubResources", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("should err after overriding", func() {
+		appsub := workload5Subscription.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		// Create a single resource
+		resource := &unstructured.Unstructured{}
+		resource.SetNamespace("default")
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "apps.open-cluster-management.io/v1",
+			Kind:    "Subscription",
+		})
+		resource.SetAnnotations(make(map[string]string))
+		resource.SetLabels(map[string]string{"app.kubernetes.io/part-of": "appsub-obj-1"})
+		resource.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "apps.open-cluster-management.io/v1",
+			Kind:       "Subscription",
+			Name:       appsub.Name,
+			UID:        appsub.UID,
+		}})
+		resource.SetKind("") // should error with empty kind
+
+		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
+		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
+
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("should have 0 resources", func() {
 		appsub := workload5Subscription.DeepCopy()
 		// Actually creating the subscription
