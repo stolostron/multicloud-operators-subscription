@@ -333,6 +333,8 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 				klog.Error(err, "Failed to run release hook")
 				return reconcile.Result{}, err
 			}
+		} else {
+			klog.Warning("releaseHook is nil")
 		}
 	}
 
@@ -492,6 +494,8 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			klog.Error(err, "Failed to run release hook")
 			return reconcile.Result{}, err
 		}
+	} else {
+		klog.Warning("releaseHook is nil")
 	}
 
 	klog.Info("Installed HelmRelease ", helmreleaseNsn(instance))
@@ -588,6 +592,8 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 			klog.Error(err, "Failed to run release hook")
 			return reconcile.Result{}, err
 		}
+	} else {
+		klog.Warning("releaseHook is nil")
 	}
 
 	klog.Info("Upgraded HelmRelease ", "force=", force, " for ", helmreleaseNsn(instance))
@@ -816,6 +822,15 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 	}
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
+	if r.releaseHook != nil {
+		if err := r.releaseHook(expectedRelease); err != nil {
+			klog.Error(err, "Failed to run release hook")
+			return reconcile.Result{}, err
+		}
+	} else {
+		klog.Warning("releaseHook is nil")
+	}
+
 	// ensure the appsub status resource exist
 	skipUpdate := true
 	r.populateAppSubStatus(expectedRelease.Manifest, instance, manager, string(appSubStatusV1alpha1.PackageDeployed),
@@ -1033,6 +1048,11 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 	watches := map[schema.GroupVersionKind]struct{}{}
 	releaseHook := func(release *rpb.Release) error {
 		resources := releaseutil.SplitManifests(release.Manifest)
+
+		if len(resources) == 0 {
+			klog.Warning("Failed to find resources for release ", release.Name)
+		}
+
 		for _, resource := range resources {
 			var u unstructured.Unstructured
 			if err := yaml.Unmarshal([]byte(resource), &u); err != nil {
@@ -1046,6 +1066,8 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 
 			var setWatchOnResource = func(dependent runtime.Object) error {
 				unstructuredObj := dependent.(*unstructured.Unstructured)
+				klog.Info("Setting a watch on ", unstructuredObj.GetName())
+
 				gvkDependent := unstructuredObj.GroupVersionKind()
 				if gvkDependent.Empty() {
 					return nil
