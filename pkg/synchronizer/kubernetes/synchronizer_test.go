@@ -448,7 +448,7 @@ var _ = Describe("test ProcessSubResources", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	It("Configmap with missing namespace", func() {
+	It("Configmap with missing namespace and different subscription", func() {
 		appsub := workload5Subscription.DeepCopy()
 		// Actually creating the subscription
 		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
