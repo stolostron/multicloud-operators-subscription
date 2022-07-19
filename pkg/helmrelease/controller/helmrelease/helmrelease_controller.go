@@ -1066,7 +1066,6 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 
 			var setWatchOnResource = func(dependent runtime.Object) error {
 				unstructuredObj := dependent.(*unstructured.Unstructured)
-				klog.Info("Setting a watch on ", unstructuredObj.GetName())
 
 				gvkDependent := unstructuredObj.GroupVersionKind()
 				if gvkDependent.Empty() {
@@ -1096,8 +1095,8 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 				m.Lock()
 				watches[gvkDependent] = struct{}{}
 				m.Unlock()
-				klog.Info("Watching dependent resource", "ownerApiVersion", owner.GroupVersionKind().GroupVersion(),
-					"ownerKind", owner.GroupVersionKind().Kind, "apiVersion", gvkDependent.GroupVersion(), "kind", gvkDependent.Kind)
+				klog.Info("Watching dependent resource ownerApiVersion ", owner.GroupVersionKind().GroupVersion(),
+					" ownerKind ", owner.GroupVersionKind().Kind, " apiVersion ", gvkDependent.GroupVersion(), " kind ", gvkDependent.Kind)
 				return nil
 			}
 
