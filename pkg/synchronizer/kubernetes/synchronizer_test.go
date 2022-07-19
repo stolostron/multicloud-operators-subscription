@@ -448,6 +448,36 @@ var _ = Describe("test ProcessSubResources", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
+	It("Configmap with missing namespace", func() {
+		appsub := workload5Subscription.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		// Create a single resource configmap
+		resource := &unstructured.Unstructured{}
+		resource.SetNamespace("default-2")
+		resource.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "",
+			Version: "v1",
+			Kind:    "ConfigMap",
+		})
+		resource.SetAnnotations(map[string]string{appv1alpha1.AnnotationClusterAdmin: "true"})
+		resource.SetLabels(make(map[string]string))
+		resource.SetOwnerReferences([]metav1.OwnerReference{{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+			Name:       "Configmap3",
+		}})
+
+		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
+		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
+
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
 	It("should have 0 resources", func() {
 		appsub := workload5Subscription.DeepCopy()
 		// Actually creating the subscription
