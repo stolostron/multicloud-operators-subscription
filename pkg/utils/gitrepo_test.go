@@ -1099,3 +1099,102 @@ func TestGetLatestCommitID(t *testing.T) {
 		})
 	}
 }
+
+func TestCloneGitRepo(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	certPem := []byte(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`)
+	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`)
+
+	primaryConnectionHTTP := &ChannelConnectionCfg{
+		RepoURL:            "https://github.com/stolostron/application-lifecycle-samples.git",
+		User:               "username",
+		Password:           "password",
+		Passphrase:         []byte("passphrase"),
+		ClientKey:          keyPem,
+		ClientCert:         certPem,
+		SSHKey:             []byte("sshKey"),
+		InsecureSkipVerify: true,
+	}
+
+	secondaryConnectionHTTP := &ChannelConnectionCfg{
+		RepoURL:            "https://github.com/stolostron/application-lifecycle-samples.git",
+		User:               "username",
+		Password:           "password",
+		Passphrase:         []byte("passphrase"),
+		ClientKey:          keyPem,
+		ClientCert:         certPem,
+		SSHKey:             []byte("sshKey"),
+		InsecureSkipVerify: true,
+	}
+
+	primaryConnectionSSH := &ChannelConnectionCfg{
+		RepoURL:            "shh://github.com/stolostron/application-lifecycle-samples.git",
+		User:               "username",
+		Password:           "password",
+		Passphrase:         []byte("passphrase"),
+		ClientKey:          keyPem,
+		ClientCert:         certPem,
+		SSHKey:             []byte("sshKey"),
+		InsecureSkipVerify: true,
+	}
+
+	secondaryConnectionSSH := &ChannelConnectionCfg{
+		RepoURL:            "ssh://github.com/stolostron/application-lifecycle-samples.git",
+		User:               "username",
+		Password:           "password",
+		Passphrase:         []byte("passphrase"),
+		ClientKey:          keyPem,
+		ClientCert:         certPem,
+		SSHKey:             []byte("sshKey"),
+		InsecureSkipVerify: true,
+	}
+
+	// Create Temp directory
+	tempDir, err := ioutil.TempDir("", "gitrepo")
+	if err != nil {
+		t.Error(err, " unable to create temp dir to clone repo")
+	}
+
+	defer os.RemoveAll(tempDir)
+
+	cloneOptionsHTTP := &GitCloneOption{
+		CommitHash:                "156bf795dadb1e5eeb2a03e171ff4b317d403498",
+		Branch:                    "lennysgarage-helloworld",
+		DestDir:                   tempDir,
+		PrimaryConnectionOption:   primaryConnectionHTTP,
+		SecondaryConnectionOption: secondaryConnectionHTTP,
+	}
+
+	cloneOptionsSSH := &GitCloneOption{
+		CommitHash:                "156bf795dadb1e5eeb2a03e171ff4b317d403498",
+		Branch:                    "lennysgarage-helloworld",
+		DestDir:                   tempDir,
+		PrimaryConnectionOption:   primaryConnectionSSH,
+		SecondaryConnectionOption: secondaryConnectionSSH,
+	}
+
+	// HTTP Invalid authentication
+	commitID, err := CloneGitRepo(cloneOptionsHTTP)
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(commitID).To(gomega.Equal(""))
+
+	// SSH Invalid authentication
+	commitID, err = CloneGitRepo(cloneOptionsSSH)
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(commitID).To(gomega.Equal(""))
+}
