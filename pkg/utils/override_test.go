@@ -31,11 +31,13 @@ func TestPrepareOverrides(t *testing.T) {
 		Name:      "test",
 		Namespace: "default",
 	}
+
 	var appsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Annotations: map[string]string{},
 		},
 	}
+
 	appsub.Spec.Overrides = append(appsub.Spec.Overrides, appv1.ClusterOverrides{ClusterName: "test", ClusterOverrides: nil})
 
 	// find matching override
