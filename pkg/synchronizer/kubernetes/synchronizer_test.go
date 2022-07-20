@@ -38,11 +38,11 @@ var (
 	}
 	hostworkload4 = types.NamespacedName{
 		Name:      "subscription-4",
-		Namespace: "default",
+		Namespace: "appsub-ns-1",
 	}
 	hostworkload5 = types.NamespacedName{
 		Name:      "github-resource-subscription-local",
-		Namespace: "default",
+		Namespace: "appsub-ns-1",
 	}
 	hostSub = types.NamespacedName{
 		Name:      "appsub-1",
@@ -58,7 +58,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "configmap1",
-			Namespace: "default",
+			Namespace: "appsub-ns-1",
 			Annotations: map[string]string{
 				appv1alpha1.AnnotationHosting: hostSub.Namespace + "/" + hostSub.Name,
 			},
@@ -71,7 +71,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "deployment1",
-			Namespace: "default",
+			Namespace: "appsub-ns-1",
 			Annotations: map[string]string{
 				appv1alpha1.AnnotationHosting: hostSub.Namespace + "/" + hostSub.Name,
 			},
@@ -101,7 +101,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "configmap2",
-			Namespace: "default",
+			Namespace: "appsub-ns-1",
 			Annotations: map[string]string{
 				appv1alpha1.AnnotationHosting: "not owned",
 			},
@@ -114,7 +114,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "configmap2",
-			Namespace: "default",
+			Namespace: "appsub-ns-1",
 			Annotations: map[string]string{
 				appv1alpha1.AnnotationResourceDoNotDeleteOption: "true",
 			},
@@ -192,7 +192,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
 			Name:       "configmap1",
-			Namespace:  "default",
+			Namespace:  "appsub-ns-1",
 			APIVersion: "v1",
 			Kind:       "ConfigMap",
 		}
@@ -207,7 +207,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		pkgStatus = appSubStatusV1alpha1.SubscriptionUnitStatus{
 			Name:       "deployment1",
-			Namespace:  "default",
+			Namespace:  "appsub-ns-1",
 			APIVersion: "apps/v1",
 			Kind:       "Deployment",
 		}
@@ -224,7 +224,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
 			Name:       "configmap1",
-			Namespace:  "default",
+			Namespace:  "appsub-ns-1",
 			APIVersion: "",
 			Kind:       "ConfigMap",
 		}
@@ -241,7 +241,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
 			Name:       "configmap2",
-			Namespace:  "default",
+			Namespace:  "appsub-ns-1",
 			APIVersion: "v1",
 			Kind:       "ConfigMap",
 		}
@@ -258,7 +258,7 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		pkgStatus := appSubStatusV1alpha1.SubscriptionUnitStatus{
 			Name:       "configmap2",
-			Namespace:  "default",
+			Namespace:  "appsub-ns-1",
 			APIVersion: "v1",
 			Kind:       "ConfigMap",
 		}
@@ -333,7 +333,7 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		// Create a single resource
 		resource := &unstructured.Unstructured{}
-		resource.SetNamespace("default")
+		resource.SetNamespace("appsub-ns-1")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
 			Version: "apps.open-cluster-management.io/v1",
@@ -365,7 +365,7 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		// Create a single resource
 		resource := &unstructured.Unstructured{}
-		resource.SetNamespace("default")
+		resource.SetNamespace("appsub-ns-1")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
 			Version: "apps.open-cluster-management.io/v1",
@@ -396,7 +396,7 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		// Create a single resource
 		resource := &unstructured.Unstructured{}
-		resource.SetNamespace("default")
+		resource.SetNamespace("appsub-ns-1")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
 			Version: "v1",
@@ -427,7 +427,7 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		// Create a single resource configmap
 		resource := &unstructured.Unstructured{}
-		resource.SetNamespace("default-2")
+		resource.SetNamespace("appsub-ns-1-2")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
 			Version: "v1",
@@ -457,7 +457,7 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		// Create a single resource configmap
 		resource := &unstructured.Unstructured{}
-		resource.SetNamespace("default-2")
+		resource.SetNamespace("appsub-ns-1-2")
 		resource.SetGroupVersionKind(schema.GroupVersionKind{
 			Group:   "",
 			Version: "v1",
