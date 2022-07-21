@@ -438,7 +438,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 		itemLen int
 	}{
 		{
-			desc: "only one owner, 0 items",
+			desc: "only one owner",
 			refSrt: &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					ResourceVersion: srtGVK.String(),
@@ -448,7 +448,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 					},
 				},
 			},
-			itemLen: 0,
+			itemLen: 3,
 		},
 	}
 
