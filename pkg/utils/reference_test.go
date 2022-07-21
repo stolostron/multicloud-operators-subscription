@@ -339,9 +339,6 @@ func TestListAndDeployReferredObject(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					ResourceVersion: srtGVK.String(),
 					Name:            refSrtName,
-					Labels: map[string]string{
-						"IsReferredBySub-" + refSrtName: "true",
-					},
 				},
 			},
 			sub: &appv1alpha1.Subscription{
@@ -349,9 +346,6 @@ func TestListAndDeployReferredObject(t *testing.T) {
 					Name:      refSrtName,
 					Namespace: "default",
 					UID:       types.UID("sub-uid"),
-					Labels: map[string]string{
-						"IsReferredBySub-" + refSrtName: "true",
-					},
 				},
 				Spec: appv1alpha1.SubscriptionSpec{
 					Channel: chKey.String(),
