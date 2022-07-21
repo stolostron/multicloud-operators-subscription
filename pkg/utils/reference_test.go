@@ -355,33 +355,6 @@ func TestListAndDeployReferredObject(t *testing.T) {
 			deployedSrt: types.NamespacedName{Name: refSrtName, Namespace: "default"},
 			srtOwners:   corev1.ObjectReference{},
 		},
-		{
-			desc: "referLabel == true",
-			refSrt: &corev1.Secret{
-				ObjectMeta: metav1.ObjectMeta{
-					ResourceVersion: srtGVK.String(),
-					Name:            "sub-a",
-					Labels: map[string]string{
-						"IsReferredBySub-" + "sub-a": "true",
-					},
-				},
-			},
-			sub: &appv1alpha1.Subscription{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "sub-a",
-					Namespace: "default",
-					UID:       types.UID("sub-uid"),
-					Labels: map[string]string{
-						"IsReferredBySub-" + "sub-a": "true",
-					},
-				},
-				Spec: appv1alpha1.SubscriptionSpec{
-					Channel: chKey.String(),
-				},
-			},
-			deployedSrt: types.NamespacedName{Name: "sub-a", Namespace: "default"},
-			srtOwners:   corev1.ObjectReference{},
-		},
 	}
 
 	g := NewGomegaWithT(t)
@@ -448,7 +421,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 					},
 				},
 			},
-			itemLen: 3,
+			itemLen: 2,
 		},
 	}
 
