@@ -165,33 +165,6 @@ func (r *ReconcileSubscription) AddAppLabels(s *appv1.Subscription) {
 	s.SetLabels(labels)
 }
 
-//GetChannelNamespaceType get the channel namespace and channel type by the given subscription
-func (r *ReconcileSubscription) GetChannelNamespaceType(s *appv1.Subscription) (string, string, string) {
-	chNameSpace := ""
-	chName := ""
-	chType := ""
-
-	if s.Spec.Channel != "" {
-		strs := strings.Split(s.Spec.Channel, "/")
-		if len(strs) == 2 {
-			chNameSpace = strs[0]
-			chName = strs[1]
-		} else {
-			chNameSpace = s.Namespace
-		}
-	}
-
-	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1.Channel{}
-	err := r.Get(context.TODO(), chkey, chobj)
-
-	if err == nil {
-		chType = string(chobj.Spec.Type)
-	}
-
-	return chNameSpace, chName, chType
-}
-
 func GetSubscriptionRefChannel(clt client.Client, s *appv1.Subscription) (*chnv1.Channel, *chnv1.Channel, error) {
 	primaryChannel, err := parseGetChannel(clt, s.Spec.Channel)
 
@@ -241,32 +214,6 @@ func parseGetChannel(clt client.Client, channelName string) (*chnv1.Channel, err
 
 func (r *ReconcileSubscription) getChannel(s *appv1.Subscription) (*chnv1.Channel, *chnv1.Channel, error) {
 	return GetSubscriptionRefChannel(r.Client, s)
-}
-
-// GetChannelGeneration get the channel generation
-func (r *ReconcileSubscription) GetChannelGeneration(s *appv1.Subscription) (string, error) {
-	chNameSpace := ""
-	chName := ""
-
-	if s.Spec.Channel != "" {
-		strs := strings.Split(s.Spec.Channel, "/")
-		if len(strs) == 2 {
-			chNameSpace = strs[0]
-			chName = strs[1]
-		} else {
-			chNameSpace = s.Namespace
-		}
-	}
-
-	chkey := types.NamespacedName{Name: chName, Namespace: chNameSpace}
-	chobj := &chnv1.Channel{}
-	err := r.Get(context.TODO(), chkey, chobj)
-
-	if err != nil {
-		return "", err
-	}
-
-	return strconv.FormatInt(chobj.Generation, 10), nil
 }
 
 func (r *ReconcileSubscription) IsNamespacedResource(group, version, kind string) bool {
