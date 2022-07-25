@@ -71,8 +71,8 @@ linters:
     - paralleltest
     - prealloc
     - predeclared
-    - scopelint
     - staticcheck
+    - scopelint
     - tagliatelle
     - tenv
     - testpackage
