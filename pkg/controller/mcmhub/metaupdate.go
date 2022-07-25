@@ -253,7 +253,7 @@ func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *rest.Co
 				if resInfo.Object != nil && resInfo.Object.GetObjectKind() != nil {
 					resource := &v1.ObjectReference{
 						Kind:       resInfo.Object.GetObjectKind().GroupVersionKind().Kind,
-						APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Version,
+						APIVersion: resInfo.Object.GetObjectKind().GroupVersionKind().Group + "/" + resInfo.Object.GetObjectKind().GroupVersionKind().Version,
 						Name:       resInfo.Name,
 						Namespace:  resInfo.Namespace,
 					}
