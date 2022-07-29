@@ -78,7 +78,8 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 	appsubName := appsubClusterStatus.AppSub.Name
 	pkgstatusNs := appsubClusterStatus.AppSub.Namespace
 	isLocalCluster := (sync.hub && !sync.standalone) ||
-		(appsubClusterStatus.Cluster == localCluster && strings.HasSuffix(appsubName, localSuffix))
+		(appsubClusterStatus.Cluster == localCluster && strings.HasSuffix(appsubName, localSuffix)) ||
+		(sync.standalone && strings.HasSuffix(appsubName, localSuffix))
 
 	if isLocalCluster || sync.standalone && skipOrphanDel {
 		if strings.HasSuffix(appsubName, localSuffix) {
