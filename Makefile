@@ -138,6 +138,7 @@ build-e2e:
 
 test-e2e: build-e2e deploy-ocm deploy-hub
 	./e2e.test -test.v -ginkgo.v
+	deploy/ocm/verify_app_addon.sh
 
 test-e2e-kc:
 	build/e2e-kc.sh
