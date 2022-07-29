@@ -15,6 +15,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/retry"
+	"k8s.io/klog/v2"
 
 	certificatesv1 "k8s.io/api/certificates/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -25,6 +26,7 @@ import (
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	addonclient "open-cluster-management.io/api/client/addon/clientset/versioned"
 	clusterclient "open-cluster-management.io/api/client/cluster/clientset/versioned"
+	workclient "open-cluster-management.io/api/client/work/clientset/versioned"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 )
 
@@ -38,6 +40,7 @@ var (
 	hubKubeClient      kubernetes.Interface
 	hubAddOnClient     addonclient.Interface
 	hubClusterClient   clusterclient.Interface
+	hubWorkClient      workclient.Interface
 	clusterCfg         *rest.Config
 )
 
@@ -69,6 +72,11 @@ var _ = ginkgo.BeforeSuite(func() {
 		}
 
 		hubAddOnClient, err = addonclient.NewForConfig(clusterCfg)
+		if err != nil {
+			return err
+		}
+
+		hubWorkClient, err = workclient.NewForConfig(clusterCfg)
 		if err != nil {
 			return err
 		}
@@ -181,11 +189,32 @@ var _ = ginkgo.BeforeSuite(func() {
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
+	// Ensure managed cluster Available
+	err = wait.Poll(5*time.Second, 300*time.Second, func() (bool, error) {
+		var err error
+		managedCluster, err = hubClusterClient.ClusterV1().ManagedClusters().Get(
+			context.TODO(), managedClusterName, metav1.GetOptions{})
+
+		if err != nil {
+			return false, err
+		}
+
+		if !meta.IsStatusConditionTrue(managedCluster.Status.Conditions, "ManagedClusterConditionAvailable") {
+			return false, nil
+		}
+
+		return true, nil
+	})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
 	// Create application addon
 	addon := &addonapiv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager",
 			Namespace: managedClusterName,
+		},
+		Spec: addonapiv1alpha1.ManagedClusterAddOnSpec{
+			InstallNamespace: "open-cluster-management-agent-addon",
 		},
 	}
 
@@ -198,13 +227,32 @@ var _ = ginkgo.BeforeSuite(func() {
 		addon, err = hubAddOnClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(
 			context.TODO(), "application-manager", metav1.GetOptions{})
 
+		klog.Infof("addon: %#v", addon)
+
 		if err != nil {
 			return false, err
+		}
+
+		appAddonManifestWorks, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).List(
+			context.TODO(), metav1.ListOptions{})
+
+		if len(appAddonManifestWorks.Items) > 0 {
+			appAddonManifestWork, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(
+				context.TODO(), "addon-application-manager-deploy", metav1.GetOptions{})
+
+			klog.Infof("app Addon ManifestWork created. status: %#v", appAddonManifestWork.Status)
+
+			if err != nil {
+				return false, err
+			}
+
+			return true, nil
 		}
 
 		if !meta.IsStatusConditionTrue(addon.Status.Conditions, "Available") {
 			return false, nil
 		}
+
 		return true, nil
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
