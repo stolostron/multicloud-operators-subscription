@@ -542,3 +542,58 @@ func TestDownloadGitRepo(t *testing.T) {
 
 	assert.Equal(t, commitID, "")
 }
+
+func TestGetKnownHostFromURL(t *testing.T) {
+	tmpfile, err := ioutil.TempFile("", "temptest")
+	if err != nil {
+		t.Error("error creating temp file")
+	}
+
+	defer os.Remove(tmpfile.Name()) // clean up
+
+	testCases := []struct {
+		desc        string
+		sshURL      string
+		filepath    string
+		expectError bool
+	}{
+		{
+			desc:        "invalid ssh url",
+			sshURL:      "ssh:\r\n",
+			filepath:    "",
+			expectError: true,
+		},
+		{
+			desc:        "invalid filepath",
+			sshURL:      "",
+			filepath:    "",
+			expectError: true,
+		},
+		{
+			desc:        "valid ssh url with port",
+			sshURL:      "ssh://git@github.com:22/open-cluster-management-io/multicloud-operators-subscription.git",
+			filepath:    tmpfile.Name(),
+			expectError: false,
+		},
+		{
+			desc:        "valid git url",
+			sshURL:      "git@github.com:open-cluster-management-io/multicloud-operators-subscription.git",
+			filepath:    tmpfile.Name(),
+			expectError: false,
+		},
+		{
+			desc:        "invalid ssh host",
+			sshURL:      "ssh://git@fakegithub.com:22/",
+			filepath:    tmpfile.Name(),
+			expectError: true,
+		},
+	}
+	for _, tC := range testCases {
+		t.Run(tC.desc, func(t *testing.T) {
+			got := getKnownHostFromURL(tC.sshURL, tC.filepath)
+			if got != nil && !tC.expectError { // If error and we don't expect an error
+				t.Errorf("wanted error %v, got %v", tC.expectError, got)
+			}
+		})
+	}
+}
