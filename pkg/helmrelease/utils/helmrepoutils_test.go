@@ -564,6 +564,17 @@ func TestDownloadGitRepo(t *testing.T) {
 
 	assert.NotEqual(t, commitID, "")
 
+	// Http false insecureSkipVerify & invalid caCerts
+	commitID, err = DownloadGitRepo(&corev1.ConfigMap{
+		Data: map[string]string{
+			"caCerts": `-----BEGIN CERTIFICATE-----`,
+		},
+	}, nil, destRepo,
+		[]string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "main", false)
+	assert.NoError(t, err)
+
+	assert.NotEqual(t, commitID, "")
+
 	// Expect ssh to fail with invalid secret
 	secret1 := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
