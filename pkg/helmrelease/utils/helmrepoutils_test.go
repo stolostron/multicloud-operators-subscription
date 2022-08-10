@@ -523,4 +523,22 @@ func TestDownloadGitRepo(t *testing.T) {
 	assert.NoError(t, err)
 
 	assert.NotEqual(t, commitID, "")
+
+	// Expect ssh to fail with invalid secret
+	secret1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "application-manager-token-1",
+			Namespace:   "open-cluster-management-agent-addon",
+			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
+		},
+		Data: map[string][]byte{
+			"token": []byte("ZHVtbXkxCg=="),
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+	commitID, err = DownloadGitRepo(nil, secret1, destRepo,
+		[]string{"ssh://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "", false)
+	assert.Error(t, err)
+
+	assert.Equal(t, commitID, "")
 }
