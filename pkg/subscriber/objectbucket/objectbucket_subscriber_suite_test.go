@@ -20,6 +20,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	"path/filepath"
 
@@ -30,6 +31,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+)
+
+const (
+	k8swait = time.Second * 3
 )
 
 var cfg *rest.Config

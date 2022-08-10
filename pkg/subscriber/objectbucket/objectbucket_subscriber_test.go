@@ -133,6 +133,11 @@ var (
 			},
 		},
 	}
+
+	subitem = &appv1alpha1.SubscriberItem{
+		Subscription: objSub,
+		Channel:      objChannel,
+	}
 )
 
 func TestObjectSubscriber(t *testing.T) {
@@ -211,4 +216,11 @@ func TestObjectSubscriber(t *testing.T) {
 	// check if the app lable is appened to the resource template
 	appLabel := resource.Resource.GetLabels()["app.kubernetes.io/part-of"]
 	g.Expect(appLabel).To(gomega.Equal("appsub-obj-1"))
+
+	// Should subscribe and unsubscribe item
+	g.Expect(defaultSubscriber.SubscribeItem(subitem))
+
+	time.Sleep(k8swait)
+
+	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
 }
