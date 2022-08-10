@@ -416,6 +416,43 @@ func TestDownloadChartFromHelmRepoHTTP(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestDownloadChartFromHelmRepoHTTPConfigMap(t *testing.T) {
+	hr := &appv1.HelmRelease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "subscription-release-test-1-cr",
+			Namespace: "default",
+		},
+		Repo: appv1.HelmReleaseRepo{
+			Source: &appv1.Source{
+				SourceType: appv1.HelmRepoSourceType,
+				HelmRepo: &appv1.HelmRepo{
+					Urls: []string{
+						"https://raw." + testutils.GetTestGitRepoURLFromEnvVar() + "/main/testhr/helmrepo/subscription-release-test-1-0.1.0.tgz"},
+				},
+			},
+			ChartName: "subscription-release-test-1",
+			Digest:    "short",
+		},
+	}
+	dir, err := ioutil.TempDir("/tmp", "charts")
+	assert.NoError(t, err)
+
+	defer os.RemoveAll(dir)
+
+	chartDir, err := DownloadChartFromHelmRepo(&corev1.ConfigMap{
+		Data: map[string]string{
+			"insecureSkipVerify": "true",
+		},
+	}, nil, dir, hr)
+	assert.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(chartDir, "Chart.yaml"))
+	assert.NoError(t, err)
+
+	_, err = os.Stat(filepath.Join(chartDir, "../", "subscription-release-test-1-0.1.0.tgz.short"))
+	assert.NoError(t, err)
+}
+
 func TestDownloadChartFromHelmRepoHTTPNoDigest(t *testing.T) {
 	hr := &appv1.HelmRelease{
 		ObjectMeta: metav1.ObjectMeta{
