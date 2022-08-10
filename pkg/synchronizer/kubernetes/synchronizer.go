@@ -100,7 +100,8 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 
 	// The resource might not be owned by the subscription if you deployed the susbcription
 	// with subscription-admin role and merge option. In this case, do not delete the resource on subscription deletion.
-	if annotations[appv1alpha1.AnnotationHosting] != (hostSub.Namespace + "/" + hostSub.Name) {
+	if annotations[appv1alpha1.AnnotationHosting] != (hostSub.Namespace+"/"+hostSub.Name) &&
+		annotations[appv1alpha1.AnnotationHosting] != (hostSub.Namespace+"/"+hostSub.Name+"-local") {
 		klog.Infof("appsub: %v, pkgName: %v, pkgNamespace: %v, is not owned by the subscription. Skip deleting.",
 			hostSub, pkgStatus.Name, pkgStatus.Namespace)
 
