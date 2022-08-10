@@ -182,7 +182,14 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 				return err
 			}
 		} else {
-			klog.Infof("Update existing appsubstatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
+			if isLocalCluster && foundPkgStatus && len(pkgstatus.Statuses.SubscriptionStatus) == 1 &&
+				strings.EqualFold(pkgstatus.Statuses.SubscriptionStatus[0].Kind, "HelmRelease") &&
+				strings.EqualFold(pkgstatus.Statuses.SubscriptionStatus[0].APIVersion, "apps.open-cluster-management.io/v1") &&
+				pkgstatus.Statuses.SubscriptionStatus[0].Phase == v1alpha1.PackageDeployFailed {
+				klog.Infof("Do not skip orphan delete appsubstatus(%v/%v) for failed HelmRelease", pkgstatus.Namespace, pkgstatus.Name)
+
+				skipOrphanDel = false
+			}
 
 			if !skipOrphanDel {
 				// Update existing appsubstatus - only update subscription unit statuses
