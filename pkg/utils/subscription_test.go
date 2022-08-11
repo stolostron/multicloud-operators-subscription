@@ -1350,33 +1350,6 @@ func TestIsHub(t *testing.T) {
 	g.Expect(IsHub(cfg)).To(BeFalse())
 }
 
-func TestIsSubscriptionBeDeleted(t *testing.T) {
-	g := NewGomegaWithT(t)
-
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
-	g.Expect(err).NotTo(HaveOccurred())
-
-	c = mgr.GetClient()
-
-	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-	mgrStopped := StartTestManager(ctx, mgr, g)
-
-	defer func() {
-		cancel()
-		mgrStopped.Wait()
-	}()
-
-	runtimeClient, err := client.New(cfg, client.Options{})
-	g.Expect(err).NotTo(HaveOccurred())
-
-	sk := types.NamespacedName{
-		Name:      "foo diff",
-		Namespace: "default",
-	}
-
-	g.Expect(IsSubscriptionBeDeleted(runtimeClient, sk)).To(BeTrue())
-}
-
 func TestAllowApplyTemplate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
