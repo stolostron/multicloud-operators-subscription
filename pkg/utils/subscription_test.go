@@ -1370,7 +1370,7 @@ func TestIsSubscriptionBeDeleted(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 
 	sk := types.NamespacedName{
-		Name:      "foo",
+		Name:      "foo diff",
 		Namespace: "default",
 	}
 
