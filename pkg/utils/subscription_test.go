@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	e "errors"
 	"reflect"
 	"testing"
 	"time"
@@ -1319,4 +1320,26 @@ func TestSetPartOfLabel(t *testing.T) {
 	labels = obj.GetLabels()
 	g.Expect(labels).NotTo(BeNil())
 	g.Expect(labels["app.kubernetes.io/part-of"]).To(Equal("testApp"))
+}
+
+func TestSetInClusterPackageStatus(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var pkgErr error
+
+	substatus := &appv1.SubscriptionStatus{}
+
+	// nil status
+	err := SetInClusterPackageStatus(substatus, "foo", pkgErr, nil)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type fakeStatus struct {
+		name string
+	}
+
+	status := fakeStatus{name: "fakeStatus"}
+	pkgErr = e.New("Fake error")
+
+	err = SetInClusterPackageStatus(substatus, "foo", pkgErr, status)
+	g.Expect(err).NotTo(HaveOccurred())
 }
