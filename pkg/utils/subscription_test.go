@@ -1376,3 +1376,77 @@ func TestIsSubscriptionBeDeleted(t *testing.T) {
 
 	g.Expect(IsSubscriptionBeDeleted(runtimeClient, sk)).To(BeTrue())
 }
+
+func TestAllowApplyTemplate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	c = mgr.GetClient()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	runtimeClient, err := client.New(cfg, client.Options{})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Template with subscription kind
+	templateSub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind": "Subscription",
+		},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateSub)).To(BeTrue())
+
+	// Template without subscription kind
+	templateEmpty := &unstructured.Unstructured{
+		Object: map[string]interface{}{},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateEmpty)).To(BeTrue())
+
+	// Fail to get subscription obj
+	templateFail := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "example",
+				"namespace": "ns",
+				"annotations": map[string]interface{}{
+					appv1.AnnotationClusterAdmin: "true",
+					appv1.AnnotationHosting:      "ns/example",
+				},
+			},
+		},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateFail)).To(BeTrue())
+}
+
+func TestOverrideResourceBySubscription(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	templateSub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind": "Subscription",
+		},
+	}
+	i := &appv1.Subscription{}
+
+	returnedTemplate, err := OverrideResourceBySubscription(templateSub, "foo", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
+
+	i.Spec.PackageOverrides = append(i.Spec.PackageOverrides, &appv1.Overrides{PackageName: "foo"})
+
+	returnedTemplate, err = OverrideResourceBySubscription(templateSub, "foodiff", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
+
+	returnedTemplate, err = OverrideResourceBySubscription(templateSub, "foo", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
+}
