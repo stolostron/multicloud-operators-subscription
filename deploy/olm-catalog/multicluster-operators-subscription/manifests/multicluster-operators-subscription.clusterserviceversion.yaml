@@ -56,12 +56,12 @@ metadata:
     categories: "Integration & Delivery,OpenShift Optional"
     olm.skipRange: '<0.1.4'
     certified: 'false'
-    containerImage: quay.io/stolostron/multicluster-operators-subscription:2.6.0
-    createdAt: 2022-06-06T18:00:00Z
+    containerImage: quay.io/stolostron/multicluster-operators-subscription:2.7.0
+    createdAt: 2022-08-010T18:00:00Z
     description: An operator for deploying resources from object Bucket, helm repo or github repo to multiple managed clusters
     repository: https://github.com/open-cluster-management-io/multicloud-operators-subscription
     support: Red Hat
-  name: multicluster-operators-subscription.v0.4.1
+  name: multicluster-operators-subscription.v0.4.2
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -521,7 +521,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-subscription:2.6.0
+                image: quay.io/stolostron/multicluster-operators-subscription:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-placementrule
                 resources:
@@ -563,7 +563,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicloud-integrations:2.6.0
+                image: quay.io/stolostron/multicloud-integrations:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-gitopscluster
                 resources:
@@ -609,7 +609,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-application:2.6.0
+                image: quay.io/stolostron/multicluster-operators-application:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-application
                 resources:
@@ -695,7 +695,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-channel:2.6.0
+                image: quay.io/stolostron/multicluster-operators-channel:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-channel
                 resources:
@@ -776,7 +776,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-subscription:2.6.0
+                image: quay.io/stolostron/multicluster-operators-subscription:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-subscription-report
                 resources:
@@ -859,7 +859,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-subscription:2.6.0
+                image: quay.io/stolostron/multicluster-operators-subscription:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-standalone-subscription
                 resources:
@@ -955,7 +955,7 @@ spec:
                     - ls
                   initialDelaySeconds: 15
                   periodSeconds: 15
-                image: quay.io/stolostron/multicluster-operators-subscription:2.6.0
+                image: quay.io/stolostron/multicluster-operators-subscription:2.7.0
                 imagePullPolicy: IfNotPresent
                 name: multicluster-operators-hub-subscription
                 resources:
@@ -1013,5 +1013,5 @@ spec:
   selector:
     matchLabels:
       app: multicluster-operators-subscription
-  replaces: multicluster-operators-subscription.v0.4.0
-  version: 0.4.1
+  replaces: multicluster-operators-subscription.v0.4.1
+  version: 0.4.2
