@@ -108,6 +108,22 @@ var (
 		},
 	}
 
+	clusterSecret = &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1-cluster-secret",
+			Labels: map[string]string{
+				ArgocdClusterSecretLabel: "fake-secret",
+			},
+		},
+	}
+
+	clusterNoSecret = &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "cluster1-cluster-secret",
+			Labels: map[string]string{},
+		},
+	}
+
 	oldArgocdService = &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "argocd-server",
@@ -232,4 +248,44 @@ func TestPredicate(t *testing.T) {
 	}
 	ret = instance.Update(updateEvt)
 	g.Expect(ret).To(gomega.BeFalse())
+
+	// Test ManagedClusterSecretPredicateFunc
+	instance = ManagedClusterSecretPredicateFunc
+
+	updateEvt = event.UpdateEvent{
+		ObjectNew: clusterSecret,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	updateEvtNoSecret := event.UpdateEvent{
+		ObjectNew: clusterNoSecret,
+	}
+	ret = instance.Update(updateEvtNoSecret)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	createEvt = event.CreateEvent{
+		Object: clusterSecret,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	createEvtNoSecret := event.CreateEvent{
+		Object: clusterNoSecret,
+	}
+	ret = instance.Create(createEvtNoSecret)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	delEvt = event.DeleteEvent{
+		Object: clusterSecret,
+	}
+	ret = instance.Delete(delEvt)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	delEvtNoSecret := event.DeleteEvent{
+		Object: clusterNoSecret,
+	}
+	ret = instance.Delete(delEvtNoSecret)
+	g.Expect(ret).To(gomega.BeFalse())
+
 }
