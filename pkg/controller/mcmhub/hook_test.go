@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"testing"
 	"time"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
@@ -528,6 +529,16 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Consistently(waitForFileNoneFoundInStatus, specTimeOut, pullInterval).Should(Succeed())
 	})
 })
+
+func TestSetSuffix(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	a := &AnsibleHooks{}
+	sf := SuffixFunc(func(g GitOps, s *subv1.Subscription) string { return "" })
+
+	a.SetSuffixFunc(sf)
+	g.Expect(a.suffixFunc).NotTo(BeNil())
+}
 
 /* Subscription managed cluster status update DOES NOT WORK properly so these tests fails
 //Happy path should be, the subscription status is set, then the postHook should

@@ -28,7 +28,6 @@ import (
 	workV1 "open-cluster-management.io/api/work/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	deployable "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/deployable/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -84,9 +83,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = workV1.AddToScheme(k8sManager.GetScheme())
-	Expect(err).NotTo(HaveOccurred())
-
-	err = deployable.AddToScheme(k8sManager.GetScheme())
 	Expect(err).NotTo(HaveOccurred())
 
 	cloneFunc := func(*utils.GitCloneOption) (string, error) {

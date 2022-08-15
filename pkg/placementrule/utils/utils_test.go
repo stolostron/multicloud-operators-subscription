@@ -167,3 +167,11 @@ func TestPlacementRule(t *testing.T) {
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(clmap)).To(gomega.Equal(0))
 }
+
+func TestIfClusterAdmin(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	g.Expect(IfClusterAdmin("admin", []string{"fakegroup"})).To(gomega.BeTrue())
+	g.Expect(IfClusterAdmin("user", []string{"fakegroup"})).To(gomega.BeFalse())
+	g.Expect(IfClusterAdmin("user", []string{"masters"})).To(gomega.BeTrue())
+}
