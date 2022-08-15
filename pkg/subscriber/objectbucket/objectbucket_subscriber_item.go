@@ -110,21 +110,6 @@ func (obsi *SubscriberItem) Stop() {
 	}
 }
 
-// Compare current object store subscription error  with the new object store initialization error.
-func (obsi *SubscriberItem) CompareOjbectStoreStatus(initObjectStoreErr error) bool {
-	if initObjectStoreErr == nil {
-		if obsi.Subscription.Status.Reason == "" {
-			return true
-		}
-	} else {
-		if strings.EqualFold(obsi.Subscription.Status.Reason, initObjectStoreErr.Error()) {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyID, secretAccessKey, region string, err error) {
 	utils.UpdateLastUpdateTime(obsi.synchronizer.GetLocalClient(), obsi.Subscription)
 

@@ -15,9 +15,7 @@
 package utils
 
 import (
-	"encoding/base64"
 	"reflect"
-	"strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/klog/v2"
@@ -313,30 +311,4 @@ var ArgocdServerPredicateFunc = predicate.Funcs{
 		klog.Infof("Delete a ArgoCD Server Service: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 		return true
 	},
-}
-
-// Base64StringDecode decode a base64 string
-func Base64StringDecode(encodedStr string) (string, error) {
-	decodedBytes, err := base64.StdEncoding.DecodeString(encodedStr)
-	if err != nil {
-		klog.Errorf("Failed to base64 decode, err: %v", err)
-		return "", err
-	}
-
-	return string(decodedBytes), nil
-}
-
-// GetManagedClusterNamespace return ACM secret namespace accoding to its secret name
-func GetManagedClusterNamespace(secretName string) string {
-	if secretName == "" {
-		return ""
-	}
-
-	if strings.HasSuffix(secretName, "-cluster-secret") {
-		return strings.TrimSuffix(secretName, "-cluster-secret")
-	}
-
-	klog.Errorf("invalid managed cluster secret name, secretName: %v", secretName)
-
-	return ""
 }

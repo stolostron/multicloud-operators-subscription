@@ -138,35 +138,6 @@ type PolicyPlacementRuleMapper struct {
 	client.Client
 }
 
-// Map triggers all placements
-func (mapper *PolicyPlacementRuleMapper) Map(obj client.Object) []reconcile.Request {
-	cname := obj.GetName()
-
-	klog.Info("In policy Mapper for ", cname)
-
-	plList := &appv1alpha1.PlacementRuleList{}
-
-	listopts := &client.ListOptions{}
-	err := mapper.List(context.TODO(), plList, listopts)
-
-	if err != nil {
-		klog.Error("Failed to list placement rules in mapper with err:", err)
-	}
-
-	var requests []reconcile.Request
-
-	for _, pl := range plList.Items {
-		objkey := types.NamespacedName{
-			Name:      pl.GetName(),
-			Namespace: pl.GetNamespace(),
-		}
-
-		requests = append(requests, reconcile.Request{NamespacedName: objkey})
-	}
-
-	return requests
-}
-
 // Reconcile reads that state of the cluster for a PlacementRule object and makes changes based on the state read
 // and what is in the PlacementRule.Spec
 // a Deployment as an example
