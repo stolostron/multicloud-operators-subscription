@@ -17,10 +17,13 @@ package objectbucket
 import (
 	"context"
 	"encoding/json"
+	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3mem"
 	"github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,6 +35,7 @@ import (
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
+	awsutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/aws"
 )
 
 var c client.Client
@@ -133,6 +137,24 @@ var (
 			},
 		},
 	}
+
+	subitem = &appv1alpha1.SubscriberItem{
+		Subscription: objSub,
+		Channel:      objChannel,
+	}
+
+	testObj = &awsutils.DeployableObject{
+		Name:         "testObj",
+		Version:      "1.1.1",
+		GenerateName: "generateTestObj",
+		Content: []byte(`
+		apiVersion: v1
+		data:
+		database: mongodb
+		kind: ConfigMap
+		metadata:
+		name: cfg-from-ch-qa`),
+	}
 )
 
 func TestObjectSubscriber(t *testing.T) {
@@ -211,4 +233,35 @@ func TestObjectSubscriber(t *testing.T) {
 	// check if the app lable is appened to the resource template
 	appLabel := resource.Resource.GetLabels()["app.kubernetes.io/part-of"]
 	g.Expect(appLabel).To(gomega.Equal("appsub-obj-1"))
+
+	// Should subscribe and unsubscribe item
+	g.Expect(defaultSubscriber.SubscribeItem(subitem))
+
+	time.Sleep(k8swait)
+
+	g.Expect(defaultSubscriber.UnsubscribeItem(sharedkey)).NotTo(gomega.HaveOccurred())
+
+	// Create fake objectstore
+	// Set up a fake S3 server
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	ts := httptest.NewServer(faker.Server())
+
+	defer ts.Close()
+
+	objChannel.Spec.Pathname = ts.URL + "/fake-bucket"
+	awshandler := &awsutils.Handler{}
+	err = awshandler.InitObjectStoreConnection(ts.URL, "test-access-id", "test-secret-access-key", "test-region")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = awshandler.Create("fake-bucket")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	obssubitem.doSubscription()
+
+	// Put items into the bucket
+
+	err = awshandler.Put("fake-bucket", *testObj)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	obssubitem.doSubscription()
 }

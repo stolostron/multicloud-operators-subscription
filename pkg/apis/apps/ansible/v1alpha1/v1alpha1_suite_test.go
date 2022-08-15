@@ -1,4 +1,4 @@
-// Copyright 2021 The Kubernetes Authors.
+// Copyright 2020 The Kubernetes Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,63 +12,44 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package objectbucket
+package v1alpha1
 
 import (
-	"context"
-	stdlog "log"
+	"log"
 	"os"
-	"sync"
-	"testing"
-	"time"
-
 	"path/filepath"
+	"testing"
 
-	"github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
-)
-
-const (
-	k8swait = time.Second * 3
 )
 
 var cfg *rest.Config
+var c client.Client
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "crds"),
-			filepath.Join("..", "..", "..", "hack", "test"),
-		},
+		CRDDirectoryPaths: []string{filepath.Join("..", "..", "..", "..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "..", "..", "..", "hack", "test")},
 	}
 
-	apis.AddToScheme(scheme.Scheme)
+	err := SchemeBuilder.AddToScheme(scheme.Scheme)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	var err error
 	if cfg, err = t.Start(); err != nil {
-		stdlog.Fatal(err)
+		log.Fatal(err)
+	}
+
+	if c, err = client.New(cfg, client.Options{Scheme: scheme.Scheme}); err != nil {
+		log.Fatal(err)
 	}
 
 	code := m.Run()
 
 	t.Stop()
 	os.Exit(code)
-}
-
-// StartTestManager adds recFn
-func StartTestManager(ctx context.Context, mgr manager.Manager, g *gomega.GomegaWithT) *sync.WaitGroup {
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-
-	go func() {
-		wg.Done()
-		mgr.Start(ctx)
-	}()
-
-	return wg
 }

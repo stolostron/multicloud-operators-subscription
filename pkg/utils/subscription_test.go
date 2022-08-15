@@ -17,6 +17,7 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	e "errors"
 	"reflect"
 	"testing"
 	"time"
@@ -1319,4 +1320,106 @@ func TestSetPartOfLabel(t *testing.T) {
 	labels = obj.GetLabels()
 	g.Expect(labels).NotTo(BeNil())
 	g.Expect(labels["app.kubernetes.io/part-of"]).To(Equal("testApp"))
+}
+
+func TestSetInClusterPackageStatus(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	var pkgErr error
+
+	substatus := &appv1.SubscriptionStatus{}
+
+	// nil status
+	err := SetInClusterPackageStatus(substatus, "foo", pkgErr, nil)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	type fakeStatus struct {
+		name string
+	}
+
+	status := fakeStatus{name: "fakeStatus"}
+	pkgErr = e.New("Fake error")
+
+	err = SetInClusterPackageStatus(substatus, "foo", pkgErr, status)
+	g.Expect(err).NotTo(HaveOccurred())
+}
+
+func TestIsHub(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	g.Expect(IsHub(cfg)).To(BeFalse())
+}
+
+func TestAllowApplyTemplate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	c = mgr.GetClient()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	runtimeClient, err := client.New(cfg, client.Options{})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	// Template with subscription kind
+	templateSub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind": "Subscription",
+		},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateSub)).To(BeTrue())
+
+	// Template without subscription kind
+	templateEmpty := &unstructured.Unstructured{
+		Object: map[string]interface{}{},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateEmpty)).To(BeTrue())
+
+	// Fail to get subscription obj
+	templateFail := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"metadata": map[string]interface{}{
+				"name":      "example",
+				"namespace": "ns",
+				"annotations": map[string]interface{}{
+					appv1.AnnotationClusterAdmin: "true",
+					appv1.AnnotationHosting:      "ns/example",
+				},
+			},
+		},
+	}
+	g.Expect(AllowApplyTemplate(runtimeClient, templateFail)).To(BeTrue())
+}
+
+func TestOverrideResourceBySubscription(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	templateSub := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"kind": "Subscription",
+		},
+	}
+	i := &appv1.Subscription{}
+
+	returnedTemplate, err := OverrideResourceBySubscription(templateSub, "foo", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
+
+	i.Spec.PackageOverrides = append(i.Spec.PackageOverrides, &appv1.Overrides{PackageName: "foo"})
+
+	returnedTemplate, err = OverrideResourceBySubscription(templateSub, "foodiff", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
+
+	returnedTemplate, err = OverrideResourceBySubscription(templateSub, "foo", i)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(returnedTemplate).To(Equal(templateSub))
 }

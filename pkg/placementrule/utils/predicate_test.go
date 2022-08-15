@@ -7,6 +7,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
 
@@ -19,6 +20,19 @@ var (
 	oldClusterCond2 = metav1.Condition{
 		Type:   "HubAcceptedManagedCluster",
 		Status: "true",
+	}
+
+	oldDecision = &clusterv1beta1.PlacementDecision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PlacementDecision",
+			APIVersion: "cluster.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1",
+		},
+		Status: clusterv1beta1.PlacementDecisionStatus{
+			Decisions: []clusterv1beta1.ClusterDecision{{ClusterName: "cluster1", Reason: "running"}},
+		},
 	}
 
 	oldCluster = &spokeClusterV1.ManagedCluster{
@@ -62,6 +76,19 @@ var (
 		},
 	}
 
+	newDecision = &clusterv1beta1.PlacementDecision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PlacementDecision",
+			APIVersion: "cluster.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1",
+		},
+		Status: clusterv1beta1.PlacementDecisionStatus{
+			Decisions: []clusterv1beta1.ClusterDecision{{ClusterName: "cluster1", Reason: "running"}},
+		},
+	}
+
 	oldSecret = &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "cluster1-cluster-secret",
@@ -81,6 +108,22 @@ var (
 		},
 	}
 
+	clusterSecret = &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1-cluster-secret",
+			Labels: map[string]string{
+				ArgocdClusterSecretLabel: "fake-secret",
+			},
+		},
+	}
+
+	clusterNoSecret = &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "cluster1-cluster-secret",
+			Labels: map[string]string{},
+		},
+	}
+
 	oldArgocdService = &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "argocd-server",
@@ -88,6 +131,12 @@ var (
 				"app.kubernetes.io/part-of":   "argocd",
 				"app.kubernetes.io/component": "server",
 			},
+		},
+	}
+	oldArgocdService2 = &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "argocd-server",
+			Labels: map[string]string{},
 		},
 	}
 
@@ -178,9 +227,78 @@ func TestPredicate(t *testing.T) {
 	ret = instance.Update(updateEvt)
 	g.Expect(ret).To(gomega.Equal(true))
 
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldArgocdService2,
+		ObjectNew: newArgocdService,
+	}
+
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.Equal(true))
+
 	delEvt = event.DeleteEvent{
 		Object: newArgocdService,
 	}
 	ret = instance.Delete(delEvt)
 	g.Expect(ret).To(gomega.Equal(true))
+
+	// Test PlacementDecisionPredicateFunc
+	instance = PlacementDecisionPredicateFunc
+
+	createEvt = event.CreateEvent{
+		Object: oldDecision,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	delEvt = event.DeleteEvent{
+		Object: oldDecision,
+	}
+	ret = instance.Delete(delEvt)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldDecision,
+		ObjectNew: newDecision,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	// Test ManagedClusterSecretPredicateFunc
+	instance = ManagedClusterSecretPredicateFunc
+
+	updateEvt = event.UpdateEvent{
+		ObjectNew: clusterSecret,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	updateEvtNoSecret := event.UpdateEvent{
+		ObjectNew: clusterNoSecret,
+	}
+	ret = instance.Update(updateEvtNoSecret)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	createEvt = event.CreateEvent{
+		Object: clusterSecret,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	createEvtNoSecret := event.CreateEvent{
+		Object: clusterNoSecret,
+	}
+	ret = instance.Create(createEvtNoSecret)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	delEvt = event.DeleteEvent{
+		Object: clusterSecret,
+	}
+	ret = instance.Delete(delEvt)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	delEvtNoSecret := event.DeleteEvent{
+		Object: clusterNoSecret,
+	}
+	ret = instance.Delete(delEvtNoSecret)
+	g.Expect(ret).To(gomega.BeFalse())
 }
