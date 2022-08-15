@@ -133,6 +133,12 @@ var (
 			},
 		},
 	}
+	oldArgocdService2 = &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "argocd-server",
+			Labels: map[string]string{},
+		},
+	}
 
 	newArgocdService = &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -221,6 +227,14 @@ func TestPredicate(t *testing.T) {
 	ret = instance.Update(updateEvt)
 	g.Expect(ret).To(gomega.Equal(true))
 
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldArgocdService2,
+		ObjectNew: newArgocdService,
+	}
+
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.Equal(true))
+
 	delEvt = event.DeleteEvent{
 		Object: newArgocdService,
 	}
@@ -287,5 +301,4 @@ func TestPredicate(t *testing.T) {
 	}
 	ret = instance.Delete(delEvtNoSecret)
 	g.Expect(ret).To(gomega.BeFalse())
-
 }
