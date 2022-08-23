@@ -20,13 +20,19 @@ import (
 
 // PlacementRuleCMDOptions for command line flag parsing
 type PlacementRuleCMDOptions struct {
-	MetricsAddr string
-	KubeConfig  string
+	MetricsAddr          string
+	KubeConfig           string
+	LeaseDurationSeconds int
+	RenewDeadlineSeconds int
+	RetryPeriodSeconds   int
 }
 
 var options = PlacementRuleCMDOptions{
-	MetricsAddr: "",
-	KubeConfig:  "",
+	MetricsAddr:          "",
+	KubeConfig:           "",
+	LeaseDurationSeconds: 137,
+	RenewDeadlineSeconds: 107,
+	RetryPeriodSeconds:   26,
 }
 
 // ProcessFlags parses command line parameters into options
@@ -45,5 +51,26 @@ func ProcessFlags() {
 		"kubeconfig",
 		options.KubeConfig,
 		"The kube config that points to a external api server.",
+	)
+
+	flag.IntVar(
+		&options.LeaseDurationSeconds,
+		"lease-duration",
+		options.LeaseDurationSeconds,
+		"The lease duration in seconds.",
+	)
+
+	flag.IntVar(
+		&options.RenewDeadlineSeconds,
+		"renew-deadline",
+		options.RenewDeadlineSeconds,
+		"The renew deadline in seconds.",
+	)
+
+	flag.IntVar(
+		&options.RetryPeriodSeconds,
+		"retry-period",
+		options.RetryPeriodSeconds,
+		"The retry period in seconds.",
 	)
 }

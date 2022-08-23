@@ -17,6 +17,7 @@ package exec
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -62,6 +63,9 @@ func RunManager() {
 		}
 	}
 
+	leaseDuration := time.Duration(options.LeaseDurationSeconds) * time.Second
+	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
+	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -69,6 +73,9 @@ func RunManager() {
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "multicloud-operators-appsubsummary-leader.open-cluster-management.io",
 		LeaderElectionNamespace: "kube-system",
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
 	})
 	if err != nil {
 		klog.Error(err, "")
