@@ -17,6 +17,7 @@ package exec
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
@@ -67,12 +68,18 @@ func RunManager() {
 	cfg.QPS = 30.0
 	cfg.Burst = 60
 
+	leaseDuration := time.Duration(options.LeaseDurationSeconds) * time.Second
+	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
+	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "multicloud-operators-placementrule-leader.open-cluster-management.io",
 		LeaderElectionNamespace: "kube-system",
+		LeaseDuration:           &leaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
 	})
 
 	if err != nil {

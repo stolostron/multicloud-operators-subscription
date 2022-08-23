@@ -103,6 +103,9 @@ func RunManager() {
 	cfg.QPS = 100.0
 	cfg.Burst = 200
 
+	leaderElectionLeaseDuration := time.Duration(Options.LeaderElectionLeaseDurationSeconds) * time.Second
+	renewDeadline := time.Duration(Options.RenewDeadlineSeconds) * time.Second
+	retryPeriod := time.Duration(Options.RetryPeriodSeconds) * time.Second
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -110,6 +113,9 @@ func RunManager() {
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        leaderElectionID,
 		LeaderElectionNamespace: "kube-system",
+		LeaseDuration:           &leaderElectionLeaseDuration,
+		RenewDeadline:           &renewDeadline,
+		RetryPeriod:             &retryPeriod,
 	})
 
 	if err != nil {

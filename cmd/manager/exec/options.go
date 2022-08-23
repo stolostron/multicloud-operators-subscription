@@ -20,29 +20,35 @@ import (
 
 // SubscriptionCMDOptions for command line flag parsing
 type SubscriptionCMDOptions struct {
-	MetricsAddr           string
-	KubeConfig            string
-	ClusterName           string
-	HubConfigFilePathName string
-	TLSKeyFilePathName    string
-	TLSCrtFilePathName    string
-	SyncInterval          int
-	DisableTLS            bool
-	Standalone            bool
-	AgentImage            string
-	LeaseDurationSeconds  int
-	Debug                 bool
-	AgentInstallAll       bool
+	MetricsAddr                        string
+	KubeConfig                         string
+	ClusterName                        string
+	HubConfigFilePathName              string
+	TLSKeyFilePathName                 string
+	TLSCrtFilePathName                 string
+	SyncInterval                       int
+	DisableTLS                         bool
+	Standalone                         bool
+	AgentImage                         string
+	LeaseDurationSeconds               int
+	LeaderElectionLeaseDurationSeconds int
+	RenewDeadlineSeconds               int
+	RetryPeriodSeconds                 int
+	Debug                              bool
+	AgentInstallAll                    bool
 }
 
 var Options = SubscriptionCMDOptions{
-	MetricsAddr:          "",
-	KubeConfig:           "",
-	SyncInterval:         60,
-	LeaseDurationSeconds: 60,
-	Standalone:           false,
-	AgentImage:           "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
-	Debug:                false,
+	MetricsAddr:                        "",
+	KubeConfig:                         "",
+	SyncInterval:                       60,
+	LeaseDurationSeconds:               60,
+	LeaderElectionLeaseDurationSeconds: 137,
+	RenewDeadlineSeconds:               107,
+	RetryPeriodSeconds:                 26,
+	Standalone:                         false,
+	AgentImage:                         "quay.io/open-cluster-management/multicloud-operators-subscription:latest",
+	Debug:                              false,
 }
 
 // ProcessFlags parses command line parameters into Options
@@ -89,6 +95,27 @@ func ProcessFlags() {
 		"lease-duration",
 		Options.LeaseDurationSeconds,
 		"The lease duration in seconds.",
+	)
+
+	flag.IntVar(
+		&Options.LeaderElectionLeaseDurationSeconds,
+		"leader-election-lease-duration",
+		Options.LeaderElectionLeaseDurationSeconds,
+		"The leader election lease duration in seconds.",
+	)
+
+	flag.IntVar(
+		&Options.RenewDeadlineSeconds,
+		"renew-deadline",
+		Options.RenewDeadlineSeconds,
+		"The renew deadline in seconds.",
+	)
+
+	flag.IntVar(
+		&Options.RetryPeriodSeconds,
+		"retry-period",
+		Options.RetryPeriodSeconds,
+		"The retry period in seconds.",
 	)
 
 	flag.BoolVar(
