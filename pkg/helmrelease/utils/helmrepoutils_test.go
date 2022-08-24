@@ -549,14 +549,15 @@ func TestDownloadChartFromHelmRepoLocalNoDigest(t *testing.T) {
 }
 
 func TestDownloadGitRepo(t *testing.T) {
+	httpURLs := []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}
+	sshURLs := []string{"ssh://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}
 	dir, err := ioutil.TempDir("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
 
 	destRepo := filepath.Join(dir, "test")
-	commitID, err := DownloadGitRepo(nil, nil, destRepo,
-		[]string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "main", true)
+	commitID, err := DownloadGitRepo(nil, nil, destRepo, httpURLs, "main", true)
 	assert.NoError(t, err)
 
 	_, err = os.Stat(filepath.Join(destRepo, "OWNERS"))
@@ -564,18 +565,48 @@ func TestDownloadGitRepo(t *testing.T) {
 
 	assert.NotEqual(t, commitID, "")
 
-	// Http false insecureSkipVerify & invalid caCerts
+	// Expect HTTP to pass with false insecureSkipVerify & invalid caCerts
 	commitID, err = DownloadGitRepo(&corev1.ConfigMap{
 		Data: map[string]string{
 			"caCerts": `-----BEGIN CERTIFICATE-----`,
 		},
-	}, nil, destRepo,
-		[]string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "main", false)
+	}, nil, destRepo, httpURLs, "main", false)
 	assert.NoError(t, err)
 
 	assert.NotEqual(t, commitID, "")
 
-	// Expect ssh to fail with invalid secret
+	// Expect HTTP to pass with false insecureSkipverify & valid caCerts
+	validCert := `-----BEGIN CERTIFICATE-----
+MIIDfzCCAmegAwIBAgIUFXNRBgbcI8RrO0m5Zm/dXOsAQGAwDQYJKoZIhvcNAQEL
+BQAwTzELMAkGA1UEBhMCQ0ExCzAJBgNVBAgMAk9OMRUwEwYDVQQHDAxEZWZhdWx0
+IENpdHkxHDAaBgNVBAoME0RlZmF1bHQgQ29tcGFueSBMdGQwHhcNMjIwODI0MjAx
+MDI3WhcNMjMwODI0MjAxMDI3WjBPMQswCQYDVQQGEwJDQTELMAkGA1UECAwCT04x
+FTATBgNVBAcMDERlZmF1bHQgQ2l0eTEcMBoGA1UECgwTRGVmYXVsdCBDb21wYW55
+IEx0ZDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMGd5GerpOJD3tzy
+Wm9yDOz7IFarG1Ap+dZEzGOu+pLmnsAd2kQgWi1myNIThnzMX6O46wf6876PaS/Z
+6TTvceTZhKZ2AglQWxtntKZinozzOeoO3whqsjIs7Lh6Hcgm8NH+Yd6dyfvaayqP
+C0Ko0uNVsF0T9aFXdMBRtRuAiv86xshRvJxNA0Wl1Znt0AZ1adXgaER8kZDUpqLV
+EetVNeFfSBrd9ye6VPQaCRuAqEy4uvS9EC1tW6L9ktKMYvBW8pIqRis9GrK0W4Kc
+dSpE1jsot+Zff2shIqNcdxoUVtTBqixX3EX2P/2aw2sSzTSPVn+plXEm15TE1S1J
+NxhAUY0CAwEAAaNTMFEwHQYDVR0OBBYEFNaCruT1JTJmgwhg3NOFDsmhP5TbMB8G
+A1UdIwQYMBaAFNaCruT1JTJmgwhg3NOFDsmhP5TbMA8GA1UdEwEB/wQFMAMBAf8w
+DQYJKoZIhvcNAQELBQADggEBABjPd1qjSH/cFBNo7QJL8xUAIadCJpFMUb+HWf+6
+Cq8A6wfE0+O8oRGv39w5VNj7pbn9aBQPxjlG0w55Lg/xBfeyG/8FtBWaTHfnHE3s
+9Xms7+cVtw4aOC9JqfFV+ACUnWEwtT7pM+fnS+CFODu5WbeXx85M6XaTAj14YQz9
+I6lYQaWOpUX6KYWDkwnmzAUMi5DhCDeQxA+8/7xQugO1G5f6QNIVqqtRr/j8JyJ3
+4acGcICm8DX6fvN36mOKdDvhuFYVtNhDGp3H2htgTh/QeEJO2jTjW39ySv/ke5nn
+nKxJ40dMYqyYtw4xgHrZMx35nF0jnZZn8kgFDzJAuflWRNc=
+-----END CERTIFICATE-----`
+	commitID, err = DownloadGitRepo(&corev1.ConfigMap{
+		Data: map[string]string{
+			"caCerts": validCert,
+		},
+	}, nil, destRepo, httpURLs, "main", false)
+	assert.NoError(t, err)
+
+	assert.NotEqual(t, commitID, "")
+
+	// Expect SSH to fail due to invalid secret preparing SSH clone options
 	secret1 := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "application-manager-token-1",
@@ -587,8 +618,35 @@ func TestDownloadGitRepo(t *testing.T) {
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
 	}
-	commitID, err = DownloadGitRepo(nil, secret1, destRepo,
-		[]string{"ssh://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}, "", false)
+	commitID, err = DownloadGitRepo(nil, secret1, destRepo, sshURLs, "", false)
+	assert.Error(t, err)
+
+	assert.Equal(t, commitID, "")
+
+	// Expect SSH to fail due to invalid handshake authentication
+	sshPassphare := []byte("redhat")
+
+	sshPrivKey := []byte(`-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABA3X5/l67
+/tLNBt/T5kWywKAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIDi6n9EYceR6eKJk
+zLF/qDKpeGVS9WWjY4s5UfyJIUDSAAAAoIS7NOslr9L3xBh+PmugdLu788i31uH/8XcwNP
+MgskdYrllhLbnVxI6vEw4FdK1kJx8GOyPa673+YuYr0V2ZKpzrUtbMsuEnokyBA0gGzM77
+tYny6pJJNYEhf7HPmb2O3zBuuqsCC0O2SHrgFYH350zA4To9Ez5nifkZ0CBx0pn9jWn02V
+1yxIFkpty18DN1/IudjVnOAT3oaPo/L8ybWuE=
+-----END OPENSSH PRIVATE KEY-----`)
+	secret2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "application-manager-token-1",
+			Namespace:   "open-cluster-management-agent-addon",
+			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
+		},
+		Data: map[string][]byte{
+			"sshKey":     sshPrivKey,
+			"passphrase": sshPassphare,
+		},
+		Type: corev1.SecretTypeServiceAccountToken,
+	}
+	commitID, err = DownloadGitRepo(nil, secret2, destRepo, sshURLs, "", true)
 	assert.Error(t, err)
 
 	assert.Equal(t, commitID, "")
