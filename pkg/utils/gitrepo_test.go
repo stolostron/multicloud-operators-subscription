@@ -1114,20 +1114,30 @@ NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
 Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
 6MF9+Yw1Yy0t
 -----END CERTIFICATE-----`)
+
 	keyPem := []byte(`-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
 AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
 EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 -----END EC PRIVATE KEY-----`)
 
+	sshPassphare := []byte("redhat")
+
+	sshPrivKey := []byte(`-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAACmFlczI1Ni1jdHIAAAAGYmNyeXB0AAAAGAAAABA3X5/l67
+/tLNBt/T5kWywKAAAAEAAAAAEAAAAzAAAAC3NzaC1lZDI1NTE5AAAAIDi6n9EYceR6eKJk
+zLF/qDKpeGVS9WWjY4s5UfyJIUDSAAAAoIS7NOslr9L3xBh+PmugdLu788i31uH/8XcwNP
+MgskdYrllhLbnVxI6vEw4FdK1kJx8GOyPa673+YuYr0V2ZKpzrUtbMsuEnokyBA0gGzM77
+tYny6pJJNYEhf7HPmb2O3zBuuqsCC0O2SHrgFYH350zA4To9Ez5nifkZ0CBx0pn9jWn02V
+1yxIFkpty18DN1/IudjVnOAT3oaPo/L8ybWuE=
+-----END OPENSSH PRIVATE KEY-----`)
+
 	primaryConnectionHTTP := &ChannelConnectionCfg{
 		RepoURL:            "https://github.com/stolostron/application-lifecycle-samples.git",
 		User:               "username",
 		Password:           "password",
-		Passphrase:         []byte("passphrase"),
 		ClientKey:          keyPem,
 		ClientCert:         certPem,
-		SSHKey:             []byte("sshKey"),
 		InsecureSkipVerify: true,
 	}
 
@@ -1135,32 +1145,22 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		RepoURL:            "https://github.com/stolostron/application-lifecycle-samples.git",
 		User:               "username",
 		Password:           "password",
-		Passphrase:         []byte("passphrase"),
 		ClientKey:          keyPem,
 		ClientCert:         certPem,
-		SSHKey:             []byte("sshKey"),
 		InsecureSkipVerify: true,
 	}
 
 	primaryConnectionSSH := &ChannelConnectionCfg{
-		RepoURL:            "shh://github.com/stolostron/application-lifecycle-samples.git",
-		User:               "username",
-		Password:           "password",
-		Passphrase:         []byte("passphrase"),
-		ClientKey:          keyPem,
-		ClientCert:         certPem,
-		SSHKey:             []byte("sshKey"),
+		RepoURL:            "ssh://github.com/stolostron/application-lifecycle-samples.git",
+		Passphrase:         sshPassphare,
+		SSHKey:             sshPrivKey,
 		InsecureSkipVerify: true,
 	}
 
 	secondaryConnectionSSH := &ChannelConnectionCfg{
 		RepoURL:            "ssh://github.com/stolostron/application-lifecycle-samples.git",
-		User:               "username",
-		Password:           "password",
-		Passphrase:         []byte("passphrase"),
-		ClientKey:          keyPem,
-		ClientCert:         certPem,
-		SSHKey:             []byte("sshKey"),
+		Passphrase:         sshPassphare,
+		SSHKey:             sshPrivKey,
 		InsecureSkipVerify: true,
 	}
 
