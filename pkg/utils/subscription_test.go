@@ -34,12 +34,95 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	clusterv1beta1 "open-cluster-management.io/api/cluster/v1beta1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+)
+
+var (
+	oldDecision = &clusterv1beta1.PlacementDecision{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PlacementDecision",
+			APIVersion: "cluster.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster1",
+		},
+		Status: clusterv1beta1.PlacementDecisionStatus{
+			Decisions: []clusterv1beta1.ClusterDecision{{ClusterName: "cluster1", Reason: "running"}},
+		},
+	}
+
+	fakeAppsubStatus = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				"apps.open-cluster-management.io/cluster": "true",
+			},
+		},
+	}
+
+	oldAppsubStatus = &appv1alpha1.SubscriptionReport{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ManagedCluster",
+			APIVersion: "cluster.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster1",
+			Namespace: "default",
+			Labels: map[string]string{
+				"apps.open-cluster-management.io/cluster": "true",
+			},
+		},
+	}
+
+	newAppsubStatus = &appv1alpha1.SubscriptionReport{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ManagedCluster",
+			APIVersion: "cluster.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cluster1",
+			Namespace: "default",
+			Labels: map[string]string{
+				"apps.open-cluster-management.io/cluster": "true",
+			},
+		},
+	}
+
+	oldChn = &chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				appv1.AnnotationGitBranch: "master",
+			},
+		},
+	}
+
+	newChn = &chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations: map[string]string{
+				appv1.AnnotationGitBranch: "main",
+			},
+		},
+	}
+	serviceProper = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      addonServiceAccountName,
+			Namespace: addonServiceAccountNamespace,
+		},
+	}
+
+	serviceImproer = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "application-manager-1",
+			Namespace: "open-cluster-management-agent-addon-1",
+		},
+	}
 )
 
 func TestSubscriptionStatusLogic(t *testing.T) {
@@ -1422,4 +1505,249 @@ func TestOverrideResourceBySubscription(t *testing.T) {
 	returnedTemplate, err = OverrideResourceBySubscription(templateSub, "foo", i)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(returnedTemplate).To(Equal(templateSub))
+}
+
+func TestPredicate(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Test PlacementDecisionPredicateFunctions
+	instance := PlacementDecisionPredicateFunctions
+
+	updateEvt := event.UpdateEvent{
+		ObjectOld: oldDecision,
+		ObjectNew: oldDecision,
+	}
+	ret := instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	createEvt := event.CreateEvent{}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeTrue())
+
+	deleteEvt := event.DeleteEvent{}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeTrue())
+
+	// Test AppSubSummaryPredicateFunc
+	instance = AppSubSummaryPredicateFunc
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldAppsubStatus,
+		ObjectNew: newAppsubStatus,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	newApp := newAppsubStatus.DeepCopy()
+	newApp.Labels = map[string]string{}
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldAppsubStatus,
+		ObjectNew: newApp,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: fakeAppsubStatus,
+		ObjectNew: newAppsubStatus,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldAppsubStatus,
+		ObjectNew: fakeAppsubStatus,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+	// Create event
+	createEvt = event.CreateEvent{
+		Object: newApp,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeFalse())
+
+	createEvt = event.CreateEvent{
+		Object: newAppsubStatus,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeTrue())
+	// Delete event
+	deleteEvt = event.DeleteEvent{
+		Object: newApp,
+	}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeFalse())
+
+	deleteEvt = event.DeleteEvent{
+		Object: newAppsubStatus,
+	}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeTrue())
+
+	// Test SubscriptionPredicateFunctions
+	instance = SubscriptionPredicateFunctions
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: &appv1.Subscription{},
+		ObjectNew: &appv1.Subscription{},
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeTrue())
+
+	// Test ChannelPredicateFunctions
+	instance = ChannelPredicateFunctions
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldChn,
+		ObjectNew: newChn,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeTrue())
+
+	updateEvt = event.UpdateEvent{
+		ObjectOld: oldChn,
+		ObjectNew: oldChn,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	createEvt = event.CreateEvent{}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeTrue())
+
+	deleteEvt = event.DeleteEvent{}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeTrue())
+
+	// Test ServiceAccountPredicateFunctions
+	instance = ServiceAccountPredicateFunctions
+
+	updateEvt = event.UpdateEvent{
+		ObjectNew: serviceProper,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeTrue())
+
+	updateEvt = event.UpdateEvent{
+		ObjectNew: serviceImproer,
+	}
+	ret = instance.Update(updateEvt)
+	g.Expect(ret).To(BeFalse())
+
+	createEvt = event.CreateEvent{
+		Object: serviceProper,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeTrue())
+
+	createEvt = event.CreateEvent{
+		Object: serviceImproer,
+	}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(BeFalse())
+
+	deleteEvt = event.DeleteEvent{
+		Object: serviceProper,
+	}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeTrue())
+
+	deleteEvt = event.DeleteEvent{
+		Object: serviceImproer,
+	}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(BeFalse())
+}
+
+func TestIsReadyManagedClusterView(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	// Managed Cluster View should NOT be ready.
+	ret := IsReadyManagedClusterView(mgr.GetAPIReader())
+	g.Expect(ret).To(BeFalse())
+}
+
+func TestIsReadyPlacementDecision(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	// Cluster Management Addon API should NOT be ready.
+	ret := IsReadyPlacementDecision(mgr.GetAPIReader())
+	g.Expect(ret).To(BeFalse())
+}
+func TestFetchChannelReferences(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	runtimeClient, err := client.New(cfg, client.Options{})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	chn := chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "chntest",
+			Namespace: "default",
+		},
+		Spec: chnv1.ChannelSpec{
+			SecretRef: &corev1.ObjectReference{
+				Name:      "chntestSecret",
+				Namespace: "default",
+			},
+			ConfigMapRef: &corev1.ObjectReference{
+				Name:      "chntestConfigMap",
+				Namespace: "default",
+			},
+		},
+	}
+
+	cs, cm := FetchChannelReferences(runtimeClient, chn)
+	g.Expect(cs).To(BeNil()) // Fail to get reference secret
+	g.Expect(cm).To(BeNil()) // Fail to get reference configmap
+}
+
+func TestGetClientConfigFromKubeConfig(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// no kubeconfigFile
+	_, err := GetClientConfigFromKubeConfig("")
+	g.Expect(err).To(HaveOccurred())
+
+	// fake kubconfigFile
+	_, err = GetClientConfigFromKubeConfig("fakekubeconfig.fake")
+	g.Expect(err).To(HaveOccurred())
 }
