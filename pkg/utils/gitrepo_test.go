@@ -57,6 +57,39 @@ var (
 		},
 	}
 
+	chnWithMissingMap = &chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: chnv1.ChannelSpec{
+			ConfigMapRef: &corev1.ObjectReference{
+				Name:      sharedkey.Name,
+				Namespace: sharedkey.Namespace,
+			},
+		},
+	}
+
+	payload = &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-special-map",
+			Namespace: sharedkey.Namespace,
+		},
+	}
+
+	chnWithMap = &chnv1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+		},
+		Spec: chnv1.ChannelSpec{
+			ConfigMapRef: &corev1.ObjectReference{
+				Name:      "my-special-map",
+				Namespace: sharedkey.Namespace,
+			},
+		},
+	}
+
 	githubsub = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sharedkey.Name,
@@ -1197,4 +1230,44 @@ tYny6pJJNYEhf7HPmb2O3zBuuqsCC0O2SHrgFYH350zA4To9Ez5nifkZ0CBx0pn9jWn02V
 	commitID, err = CloneGitRepo(cloneOptionsSSH)
 	g.Expect(err).To(gomega.HaveOccurred())
 	g.Expect(commitID).To(gomega.Equal(""))
+}
+
+func TestGetChannelConfigMap(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	c = mgr.GetClient()
+	g.Expect(c).ToNot(gomega.BeNil())
+
+	g.Expect(mgr.GetCache().WaitForCacheSync(ctx)).Should(gomega.BeTrue())
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	err = c.Create(context.TODO(), payload)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// No ConfigMap
+	g.Expect(GetChannelConfigMap(c, githubchn.DeepCopy())).To(gomega.BeNil())
+
+	// Missing ConfigMap
+	g.Expect(GetChannelConfigMap(c, chnWithMissingMap.DeepCopy())).To(gomega.BeNil())
+
+	// Equal ConfigMap
+	cm := payload.DeepCopy()
+	cm.TypeMeta = metav1.TypeMeta{Kind: "ConfigMap", APIVersion: "v1"}
+	returnedConfigMap := GetChannelConfigMap(c, chnWithMap.DeepCopy())
+
+	if !reflect.DeepEqual(returnedConfigMap, cm) {
+		t.Errorf("wanted %v, got %v", cm, returnedConfigMap)
+	}
 }

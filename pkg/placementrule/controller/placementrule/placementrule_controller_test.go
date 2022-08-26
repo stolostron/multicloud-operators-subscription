@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -69,6 +70,17 @@ var (
 	}
 
 	clusters = []*spokeClusterV1.ManagedCluster{clusteralpha, clusterbeta}
+
+	oldPlacement = &appv1alpha1.PlacementRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      prulename,
+			Namespace: prulens,
+		},
+
+		Status: appv1alpha1.PlacementRuleStatus{
+			Decisions: []appv1alpha1.PlacementDecision{{ClusterName: "cluster1", ClusterNamespace: "default"}},
+		},
+	}
 )
 
 func TestReconcile(t *testing.T) {
@@ -480,4 +492,26 @@ func TestClusterChange(t *testing.T) {
 	if len(result.Status.Decisions) != 1 {
 		t.Errorf("Failed to get all(1) clusters, placementrule: %v", result)
 	}
+}
+
+func TestPredicate(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	// Test placementRuleStatusPredicateFunctions
+	instance := placementRuleStatusPredicateFunctions
+
+	updateEvt := event.UpdateEvent{
+		ObjectOld: oldPlacement,
+		ObjectNew: oldPlacement,
+	}
+	ret := instance.Update(updateEvt)
+	g.Expect(ret).To(gomega.BeFalse())
+
+	createEvt := event.CreateEvent{}
+	ret = instance.Create(createEvt)
+	g.Expect(ret).To(gomega.BeTrue())
+
+	deleteEvt := event.DeleteEvent{}
+	ret = instance.Delete(deleteEvt)
+	g.Expect(ret).To(gomega.BeTrue())
 }
