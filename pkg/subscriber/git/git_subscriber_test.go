@@ -69,6 +69,19 @@ metadata:
     environment: dev
     city: Toronto`
 
+const invalidRscClusterAdmin = `apiVersion: v1
+data:
+  keyOne: "true"
+kind: IsThisConfigMap
+metadata:
+  name: TestConfigMap2
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/cluster-admin: "true"
+  labels:
+    environment: dev
+    city: Toronto`
+
 const correctSecret = `apiVersion: v1
 kind: Secret
 metadata:
@@ -304,6 +317,18 @@ var _ = Describe("test subscribe invalid resource", func() {
 		// By new design, even if the GVK is not valid, function subscribeResource here doesn't return error.
 		// So the invalid resource will go ahead to get deployed, where the error will be recorded in the final subscription status.
 		_, _, err := subitem.subscribeResource([]byte(invalidRsc))
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should not error or panic with cluster-admin", func() {
+		subitem := &SubscriberItem{}
+		subitem.Subscription = githubsub
+		subitem.Channel = githubchn
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		// Test subscribing an invalid kubernetes resource
+		// Invalid resource with cluster-admin annotation
+		_, _, err := subitem.subscribeResource([]byte(invalidRscClusterAdmin))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
