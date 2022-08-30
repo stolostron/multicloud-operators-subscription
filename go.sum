@@ -1667,8 +1667,8 @@ gotest.tools v2.2.0+incompatible/go.mod h1:DsYFclhRJ6vuDpmuTbkuFWG+y2sxOXAzmJt81
 gotest.tools/v3 v3.0.2/go.mod h1:3SzNCllyD9/Y+b5r9JIKQ474KzkZyqLqEfYqMsX94Bk=
 gotest.tools/v3 v3.0.3/go.mod h1:Z7Lb0S5l+klDB31fvDQX8ss/FlKDxtlFlw3Oa8Ymbl8=
 gotest.tools/v3 v3.1.0 h1:rVV8Tcg/8jHUkPUorwjaMTtemIMVXfIPKiOqnhEhakk=
-helm.sh/helm/v3 v3.9.2 h1:bx7kdhr5VAhYoWv9bIdT1C6qWR+/7SIoPCwLx22l78g=
-helm.sh/helm/v3 v3.9.2/go.mod h1:y/dJc/0Lzcn40jgd85KQXnufhFF7sr4v6L/vYMLRaRM=
+helm.sh/helm/v3 v3.9.4 h1:TCI1QhJUeLVOdccfdw+vnSEO3Td6gNqibptB04QtExY=
+helm.sh/helm/v3 v3.9.4/go.mod h1:3eaWAIqzvlRSD06gR9MMwmp2KBKwlu9av1/1BZpjeWY=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190106161140-3f1c8253044a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
 honnef.co/go/tools v0.0.0-20190418001031-e561f6794a2a/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=
@@ -1746,8 +1746,8 @@ open-cluster-management.io/addon-framework v0.4.0 h1:YV9v40ZN4ZAicI1rIvAZDS6x82E
 open-cluster-management.io/addon-framework v0.4.0/go.mod h1:jmhBGZCB7/dgFssh2w1o7JFSpzeEDdRE9olxAR8+fqw=
 open-cluster-management.io/api v0.8.0 h1:hQLNyvvdx0G0iNxq80RWp93epNsUtsqJdLmGbXiYG5o=
 open-cluster-management.io/api v0.8.0/go.mod h1:+OEARSAl2jIhuLItUcS30UgLA3khmA9ihygLVxzEn+U=
-open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220727143815-1e2bae55ee03 h1:QuW1YEWOPk4ByF1+YLZhh14yRHHQYjojoUEjtluZGE0=
-open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220727143815-1e2bae55ee03/go.mod h1:N2C1p+bKL/OINTdvqVy84su32joskcmI6s4V37hSonM=
+open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220830142938-f26e84e80456 h1:pQeDzn2Uu4swKhRh0ohBrky1LtOxUOhPVSOuE65sMAQ=
+open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220830142938-f26e84e80456/go.mod h1:5karF+liJ/ECPLUlQVlju3A1CPSp/+n38Cv2cp4yL9M=
 oras.land/oras-go v1.2.0 h1:yoKosVIbsPoFMqAIFHTnrmOuafHal+J/r+I5bdbVWu4=
 oras.land/oras-go v1.2.0/go.mod h1:pFNs7oHp2dYsYMSS82HaX5l4mpnGO7hbpPN6EWH2ltc=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
