@@ -26,7 +26,7 @@ require (
 	golang.org/x/net v0.0.0-20220728030405-41545e8bf201
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
-	helm.sh/helm/v3 v3.9.2
+	helm.sh/helm/v3 v3.9.4
 	k8s.io/api v0.24.3
 	k8s.io/apiextensions-apiserver v0.24.3
 	k8s.io/apimachinery v0.24.3
@@ -36,7 +36,7 @@ require (
 	k8s.io/klog/v2 v2.70.1
 	open-cluster-management.io/addon-framework v0.4.0
 	open-cluster-management.io/api v0.8.0
-	open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220727143815-1e2bae55ee03
+	open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220830142938-f26e84e80456
 	sigs.k8s.io/controller-runtime v0.12.3
 	sigs.k8s.io/kustomize/api v0.11.5
 	sigs.k8s.io/kustomize/kyaml v0.13.7
