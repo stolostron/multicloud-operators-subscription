@@ -234,6 +234,8 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 	// handle orphan resource
 	sync.kmtx.Lock()
 
+	defer sync.kmtx.Unlock()
+
 	appSubUnitStatuses := []SubscriptionUnitStatus{}
 
 	for _, resource := range resources {
@@ -305,10 +307,10 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 
 	err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil, nil)
 	if err != nil {
-		klog.Warning("error while sync app sub cluster status: ", err)
-	}
+		klog.Error("error while sync app sub cluster status: ", err)
 
-	sync.kmtx.Unlock()
+		return err
+	}
 
 	return nil
 }

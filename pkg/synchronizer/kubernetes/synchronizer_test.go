@@ -32,6 +32,17 @@ import (
 )
 
 var (
+	clusterNamespace = &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "cluster2",
+		},
+		Spec: corev1.NamespaceSpec{},
+	}
+
 	host = types.NamespacedName{
 		Name:      "cluster2",
 		Namespace: "cluster2",
@@ -309,7 +320,7 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 	})
 })
 
-var _ = Describe("test ProcessSubResources", func() {
+var _ = Describe("test ProcessSubResources", Ordered, func() {
 	var sync *KubeSynchronizer
 	var err error
 
@@ -322,6 +333,10 @@ var _ = Describe("test ProcessSubResources", func() {
 			klog.Error(err)
 			return
 		}
+	})
+
+	BeforeAll(func() {
+		Expect(k8sClient.Create(context.TODO(), clusterNamespace)).NotTo(HaveOccurred())
 	})
 
 	It("should err after overriding", func() {
@@ -490,6 +505,10 @@ var _ = Describe("test ProcessSubResources", func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterAll(func() {
+		k8sClient.Delete(context.TODO(), clusterNamespace)
 	})
 })
 
