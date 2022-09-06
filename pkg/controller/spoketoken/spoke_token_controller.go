@@ -18,6 +18,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/url"
+	"strings"
 	"time"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
@@ -129,14 +130,17 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 				klog.Error("Failed to delete the secret from the hub.")
 				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 			}
-		} else {
-			klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
-			return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
+
+			return reconcile.Result{}, nil
 		}
+
+		klog.Errorf("Failed to get serviceaccount %v, error: %v", request.NamespacedName, err)
+
+		return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 	}
 
 	// Get the service account token from the service account's secret list
-	saSecret := r.getServiceAccountTokenSecret(*appmgrsa)
+	saSecret := r.getServiceAccountTokenSecret()
 
 	if saSecret == nil {
 		klog.Error("Failed to find the service account token.")
@@ -244,27 +248,27 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 	return mcSecret
 }
 
-func (r *ReconcileAgentToken) getServiceAccountTokenSecret(sa corev1.ServiceAccount) *corev1.Secret {
-	// Get the service account token from the service account's secret list
-	saSecret := &corev1.Secret{}
+func (r *ReconcileAgentToken) getServiceAccountTokenSecret() *corev1.Secret {
+	// Get all secrets
+	// list thing for rolling update check
+	secretList := &corev1.SecretList{}
+	listopts := &client.ListOptions{Namespace: "open-cluster-management-agent-addon"}
+	err := r.Client.List(context.TODO(), secretList, listopts)
 
-	for _, secret := range sa.Secrets {
-		secretName := types.NamespacedName{
-			Name:      secret.Name,
-			Namespace: sa.Namespace,
-		}
+	if err != nil {
+		klog.Error(err.Error())
+		return nil
+	}
 
-		if err := r.Client.Get(context.TODO(), secretName, saSecret); err != nil {
-			continue
-		}
-
-		// Get the service account token
-		if saSecret.Type == corev1.SecretTypeServiceAccountToken {
-			break
+	for _, secret := range secretList.Items {
+		// Get the application-manager service account token
+		if secret.Type == corev1.SecretTypeServiceAccountToken && strings.HasPrefix(secret.Name, "application-manager-token-") {
+			klog.Info("found the application-manager service account token secret " + secret.Name)
+			return &secret
 		}
 	}
 
-	return saSecret
+	return nil
 }
 
 // getKubeAPIServerAddress - Get the API server address from OpenShift kubernetes cluster. This does not work with other kubernetes.
