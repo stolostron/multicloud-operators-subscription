@@ -19,6 +19,7 @@ jobs:
   images:
     name: images
     runs-on: ubuntu-latest
+    if: ${{ github.repository.fork == false }}
     steps:
       - name: checkout code
         uses: actions/checkout@v3
