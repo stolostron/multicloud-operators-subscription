@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"context"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -178,6 +179,31 @@ var (
 			},
 		},
 	}
+
+	legacyAppSubStatus = &appv1alpha1.Subscription{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Subscription",
+			APIVersion: "apps.open-cluster-management.io/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-fast-2",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			Channel: "default/acm-hive-openshift-releases-chn-2",
+		},
+	}
 )
 
 var _ = Describe("test Delete Single Subscribed Resource", func() {
@@ -284,7 +310,7 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 	var err error
 
 	BeforeEach(func() {
-		sync, err = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, true, false)
+		sync, err = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		err = sync.Start(context.TODO())
@@ -314,6 +340,68 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 		subAnnotations[appv1alpha1.AnnotationResourceReconcileOption] = "merge"
 		subAnnotations[appv1alpha1.AnnotationGitBranch] = "main"
 		appsub.SetAnnotations(subAnnotations)
+
+		err = sync.PurgeAllSubscribedResources(appsub)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should purge legacy unit statuses", func() {
+		appsub := workload5Subscription.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		appsub.Status = appv1alpha1.SubscriptionStatus{
+			LastUpdateTime: metav1.Now(),
+			Statuses: appv1alpha1.SubscriptionClusterStatusMap{
+				"/": &appv1alpha1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*appv1alpha1.SubscriptionUnitStatus{
+						"acm-hive-openshift-releases-chn-1-ClusterImageSet-img4.6.4-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+						"acm-hive-openshift-releases-chn-1-ClusterImageSet-img4.6.5-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				},
+			},
+		}
+		time.Sleep(4 * time.Second)
+		Expect(sync.LocalClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		err = sync.PurgeAllSubscribedResources(appsub)
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	It("should fail to find legacy unit statuses", func() {
+		appsub := legacyAppSubStatus.DeepCopy()
+		// Actually creating the subscription
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		appsub.Status = appv1alpha1.SubscriptionStatus{
+			LastUpdateTime: metav1.Now(),
+			Statuses: appv1alpha1.SubscriptionClusterStatusMap{
+				"/": &appv1alpha1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*appv1alpha1.SubscriptionUnitStatus{
+						"acm-hive-openshift-releases-chn-2-ClusterImageSet-img4.6.6-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+						"acm-hive-openshift-releases-chn-2-ClusterImageSet-img4.6.7-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				},
+			},
+		}
+		time.Sleep(4 * time.Second)
+		Expect(sync.LocalClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
 
 		err = sync.PurgeAllSubscribedResources(appsub)
 		Expect(err).NotTo(HaveOccurred())
