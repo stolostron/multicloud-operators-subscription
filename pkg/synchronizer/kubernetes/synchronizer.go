@@ -202,6 +202,33 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 			appSubUnitStatus.Message = ""
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
 		}
+
+		legacyUnitStatuses := sync.getResourcesByLegacySubStatus(appsub)
+		for _, legacyResource := range legacyUnitStatuses {
+			appSubUnitStatus := SubscriptionUnitStatus{}
+			appSubUnitStatus.Kind = legacyResource.Kind
+			appSubUnitStatus.Name = legacyResource.Name
+			appSubUnitStatus.Namespace = legacyResource.Namespace
+			for _, appsub := range appSubUnitStatuses { // search for resources with same kind to find version
+				if appSubUnitStatus.Kind == appsub.Kind {
+					appSubUnitStatus.APIVersion = appsub.APIVersion
+					break
+				}
+			}
+
+			err := sync.DeleteSingleSubscribedResource(hostSub, legacyResource)
+			if err != nil {
+				appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
+				appSubUnitStatus.Message = err.Error()
+				appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+
+				continue
+			}
+
+			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployed)
+			appSubUnitStatus.Message = ""
+			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+		}
 	}
 
 	appsubClusterStatus := SubscriptionClusterStatus{

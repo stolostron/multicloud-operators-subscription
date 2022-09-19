@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"time"
 
@@ -40,6 +41,88 @@ var (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      hostSub1.Name,
 			Namespace: hostSub1.Namespace,
+		},
+	}
+
+	legacyAppSub = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-fast-0",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1.SubscriptionSpec{
+			Channel: "default/acm-hive-openshift-releases-chn-0",
+		},
+	}
+
+	legacyAppSubNoChannel = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-fast-10",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1.SubscriptionSpec{},
+	}
+
+	legacyAppSubInvalidResource = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-fast-11",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1.SubscriptionSpec{
+			Channel: "default/acm-hive-openshift-releases-chn-11",
+		},
+	}
+
+	legacyAppSubBadChannel = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-fast-12",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1.SubscriptionSpec{
+			Channel: "default",
 		},
 	}
 
@@ -288,5 +371,132 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		// clean up cluster policy report after the test. Or it could fail the first standalone test if the test is done earlier
 		err = k8sClient.Delete(context.TODO(), cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
+
+		s = &KubeSynchronizer{
+			Interval:               0,
+			localCachedClient:      &cachedClient{},
+			remoteCachedClient:     &cachedClient{},
+			LocalClient:            k8sClient,
+			RemoteClient:           k8sClient,
+			hub:                    false,
+			standalone:             false,
+			DynamicClient:          nil,
+			RestMapper:             nil,
+			kmtx:                   sync.Mutex{},
+			SynchronizerID:         &types.NamespacedName{},
+			Extension:              nil,
+			dmtx:                   sync.Mutex{},
+			SkipAppSubStatusResDel: false,
+		}
+
+		// Create appsub for legacy subscription statuses.
+		appsubStatus := legacyAppSub.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsubStatus)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		// Expect empty appsubstatuses
+		expectedAppSubStatuses := []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		appsubStatuses := s.getResourcesByLegacySubStatus(appsubStatus)
+		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
+		// Update appsub with legacy statuses
+		appsubStatus.Status = appv1.SubscriptionStatus{
+			LastUpdateTime: metav1.Now(),
+			Statuses: appv1.SubscriptionClusterStatusMap{
+				"/": &appv1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+						"acm-hive-openshift-releases-chn-0-ClusterImageSet-img4.6.1-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+						"acm-hive-openshift-releases-chn-0-ClusterImageSet-img4.6.3-x86-64-appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Status().Update(context.TODO(), appsubStatus)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		// Expect appsubstatuses to contain two legacy statuses.
+		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		expectedAppSubStatuses = append(expectedAppSubStatuses, appSubStatusV1alpha1.SubscriptionUnitStatus{Name: "img4.6.1-x86-64-appsub", Kind: "ClusterImageSet"})
+		expectedAppSubStatuses = append(expectedAppSubStatuses, appSubStatusV1alpha1.SubscriptionUnitStatus{Name: "img4.6.3-x86-64-appsub", Kind: "ClusterImageSet"})
+		appsubStatuses = s.getResourcesByLegacySubStatus(appsubStatus)
+		Expect(reflect.DeepEqual(appsubStatuses, expectedAppSubStatuses)).To(BeTrue())
+
+		// Empty Spec.Channel
+		appsubNoChannel := legacyAppSubNoChannel.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsubNoChannel)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		appsubStatuses = s.getResourcesByLegacySubStatus(appsubNoChannel)
+		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
+		// Invalid Spec.Channel
+		appsubBadChannel := legacyAppSubBadChannel.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsubBadChannel)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		appsubStatuses = s.getResourcesByLegacySubStatus(appsubBadChannel)
+		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
+		// Invalid resource name
+		appsubInvalidresource := legacyAppSubInvalidResource.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsubInvalidresource)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		appsubInvalidresource.Status = appv1.SubscriptionStatus{
+			LastUpdateTime: metav1.Now(),
+			Statuses: appv1.SubscriptionClusterStatusMap{
+				"/": &appv1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+						"img4.6.1_x86_64_appsub": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Status().Update(context.TODO(), appsubInvalidresource)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		appsubStatuses = s.getResourcesByLegacySubStatus(appsubInvalidresource)
+		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
+		// Empty resource name
+		appsubInvalidresource.Status = appv1.SubscriptionStatus{
+			LastUpdateTime: metav1.Now(),
+			Statuses: appv1.SubscriptionClusterStatusMap{
+				"/": &appv1.SubscriptionPerClusterStatus{
+					SubscriptionPackageStatus: map[string]*appv1.SubscriptionUnitStatus{
+						"": {
+							Phase:          "Subscribed",
+							LastUpdateTime: metav1.Now(),
+						},
+					},
+				},
+			},
+		}
+		Expect(k8sClient.Status().Update(context.TODO(), appsubInvalidresource)).NotTo(HaveOccurred())
+
+		time.Sleep(4 * time.Second)
+
+		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
+		appsubStatuses = s.getResourcesByLegacySubStatus(appsubInvalidresource)
+		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
 	})
 })
