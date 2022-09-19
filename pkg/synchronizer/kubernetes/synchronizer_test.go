@@ -161,6 +161,9 @@ var (
 				"label1": "label",
 			},
 		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			Channel: "appsub-ns-1/acm-hive-openshift-releases-chn-1",
+		},
 	}
 	workload6Subscription = appv1alpha1.Subscription{
 		TypeMeta: metav1.TypeMeta{
@@ -187,11 +190,11 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hive-clusterimagesets-subscription-fast-2",
-			Namespace: "default",
+			Namespace: "appsub-ns-1",
 			Annotations: map[string]string{
 				"apps.open-cluster-management.io/git-branch": "release-2.6",
 				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
-				"meta.helm.sh/release-namespace":             "default",
+				"meta.helm.sh/release-namespace":             "appsub-ns-1",
 			},
 			Generation: 1,
 			Labels: map[string]string{
@@ -201,7 +204,7 @@ var (
 			},
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: "default/acm-hive-openshift-releases-chn-2",
+			Channel: "appsub-ns-1/acm-hive-openshift-releases-chn-2",
 		},
 	}
 )
@@ -350,8 +353,7 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 		// Actually creating the subscription
 		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
 
-		defer k8sClient.Delete(context.TODO(), appsub)
-
+		time.Sleep(4 * time.Second)
 		appsub.Status = appv1alpha1.SubscriptionStatus{
 			LastUpdateTime: metav1.Now(),
 			Statuses: appv1alpha1.SubscriptionClusterStatusMap{
@@ -369,11 +371,17 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 				},
 			},
 		}
-		time.Sleep(4 * time.Second)
-		Expect(sync.LocalClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
+		Expect(k8sClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
+		time.Sleep(8 * time.Second)
+
+		Expect(k8sClient.Get(context.TODO(),
+			types.NamespacedName{Name: appsub.Name,
+				Namespace: appsub.Namespace}, appsub)).NotTo(HaveOccurred())
 
 		err = sync.PurgeAllSubscribedResources(appsub)
 		Expect(err).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
 	})
 
 	It("should fail to find legacy unit statuses", func() {
@@ -381,8 +389,7 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 		// Actually creating the subscription
 		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
 
-		defer k8sClient.Delete(context.TODO(), appsub)
-
+		time.Sleep(4 * time.Second)
 		appsub.Status = appv1alpha1.SubscriptionStatus{
 			LastUpdateTime: metav1.Now(),
 			Statuses: appv1alpha1.SubscriptionClusterStatusMap{
@@ -400,11 +407,17 @@ var _ = Describe("test PurgeAllSubscribedResources", func() {
 				},
 			},
 		}
-		time.Sleep(4 * time.Second)
-		Expect(sync.LocalClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
+		Expect(k8sClient.Status().Update(context.TODO(), appsub)).NotTo(HaveOccurred())
+		time.Sleep(8 * time.Second)
+
+		Expect(k8sClient.Get(context.TODO(),
+			types.NamespacedName{Name: "hive-clusterimagesets-subscription-fast-2",
+				Namespace: "appsub-ns-1"}, appsub)).NotTo(HaveOccurred())
 
 		err = sync.PurgeAllSubscribedResources(appsub)
 		Expect(err).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
 	})
 })
 
