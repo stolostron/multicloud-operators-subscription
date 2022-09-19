@@ -192,8 +192,18 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			}
 
 			if !skipOrphanDel {
+				// Find legacy unit status to be deleted - exist in the appsub itself not the appsubstatus
+				legacyUnitStatuses := sync.getResourcesByLegacySubStatus(appsub)
+				for _, legacyResource := range legacyUnitStatuses {
+					for _, newResource := range newUnitStatus { // search for resources with same kind to find version
+						if legacyResource.Kind == newResource.Kind {
+							legacyResource.APIVersion = newResource.APIVersion
+							break
+						}
+					}
+				}
 				// Update existing appsubstatus - only update subscription unit statuses
-				oldUnitStatuses := pkgstatus.Statuses.SubscriptionStatus
+				oldUnitStatuses := append(pkgstatus.Statuses.SubscriptionStatus, legacyUnitStatuses...)
 
 				// Find unit status to be deleted - exist previously but not in the new unit status
 				deleteUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
@@ -229,6 +239,18 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 						failedUnitStatus.Message = err.Error()
 
 						newUnitStatus = append(newUnitStatus, *failedUnitStatus)
+					}
+				}
+
+				// if legacy statuses exist  - remove them
+				if len(legacyUnitStatuses) != 0 {
+					if err := sync.LocalClient.Get(context.TODO(),
+						client.ObjectKey{Name: appsub.Name, Namespace: appsub.Namespace}, appsub); err != nil {
+						klog.Errorf("failed to get appsub to remove legacy statuses, err: %v", err)
+					}
+					appsub.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
+					if err := sync.LocalClient.Status().Update(context.TODO(), appsub); err != nil {
+						klog.Errorf("failed to remove legacy appsub statuses, err: %v", err)
 					}
 				}
 			}
@@ -633,4 +655,35 @@ func shouldSkip(appsubClusterStatus SubscriptionClusterStatus, foundPkgStatus bo
 	}
 
 	return false
+}
+
+func (sync *KubeSynchronizer) getResourcesByLegacySubStatus(appsub *appv1.Subscription) []v1alpha1.SubscriptionUnitStatus {
+	appsubStatuses := []v1alpha1.SubscriptionUnitStatus{}
+	if appsub == nil {
+		return appsubStatuses
+	}
+
+	if i := strings.Index(appsub.Spec.Channel, "/"); i != -1 {
+		chnNamespace := appsub.Spec.Channel[i+1:]
+		appsubStatusMap := appsub.Status.Statuses
+
+		for _, v := range appsubStatusMap {
+			for pkgName := range v.SubscriptionPackageStatus {
+				// pkgName ex: acm-hive-openshift-releases-chn-0-ClusterImageSet-img4.6.3-x86-64-appsub
+				resource := strings.TrimPrefix(pkgName, chnNamespace+"-") // trim away namespace
+				// grab start of resource name
+				if idx := strings.Index(resource, "-"); idx != -1 {
+					resourceKind := resource[:idx]   // grab kind name
+					resourceName := resource[idx+1:] // grab resource name
+
+					appsubStatus := v1alpha1.SubscriptionUnitStatus{}
+					appsubStatus.Kind = resourceKind
+					appsubStatus.Name = resourceName
+					appsubStatuses = append(appsubStatuses, appsubStatus)
+				}
+			}
+		}
+	}
+
+	return appsubStatuses
 }
