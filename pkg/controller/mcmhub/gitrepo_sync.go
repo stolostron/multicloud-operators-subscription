@@ -208,11 +208,6 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 	objRefList := []*v1.ObjectReference{}
 
 	for _, value := range objRefMap {
-		// No need to save the namespace object to the resource list of the appsub
-		if value.Kind == "Namespace" {
-			continue
-		}
-
 		// respect object customized namespace if the appsub user is subscription admin, or apply it to appsub namespace
 		if isAdmin {
 			if value.Namespace == "" {

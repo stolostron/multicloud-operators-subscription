@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -100,8 +101,21 @@ func TestGetGitResources(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 
-	_, err = rec.GetGitResources(githubsub, false)
+	resources, err := rec.GetGitResources(githubsub, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	// make sure the subscription-test-namespace namespace kind resource is not skipped.
+	// The NS is defined in https://github.com/stolostron/multicloud-operators-subscription/blob/main/test/github/resources/namespace.yml
+	findNSKind := false
+
+	for _, resource := range resources {
+		if strings.EqualFold(resource.Kind, "Namespace") && resource.Name == "subscription-test-namespace" {
+			findNSKind = true
+			break
+		}
+	}
+
+	g.Expect(findNSKind).To(gomega.BeTrue())
 
 	time.Sleep(2 * time.Second)
 
