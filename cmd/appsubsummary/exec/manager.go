@@ -63,7 +63,7 @@ func RunManager() {
 		}
 	}
 
-	leaseDuration := time.Duration(options.LeaseDurationSeconds) * time.Second
+	leaseDuration := time.Duration(options.LeaderElectionLeaseDurationSeconds) * time.Second
 	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
 	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
 	// Create a new Cmd to provide shared dependencies and start components
