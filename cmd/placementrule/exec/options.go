@@ -20,19 +20,19 @@ import (
 
 // PlacementRuleCMDOptions for command line flag parsing
 type PlacementRuleCMDOptions struct {
-	MetricsAddr          string
-	KubeConfig           string
-	LeaseDurationSeconds int
-	RenewDeadlineSeconds int
-	RetryPeriodSeconds   int
+	MetricsAddr                        string
+	KubeConfig                         string
+	LeaderElectionLeaseDurationSeconds int
+	RenewDeadlineSeconds               int
+	RetryPeriodSeconds                 int
 }
 
 var options = PlacementRuleCMDOptions{
-	MetricsAddr:          "",
-	KubeConfig:           "",
-	LeaseDurationSeconds: 137,
-	RenewDeadlineSeconds: 107,
-	RetryPeriodSeconds:   26,
+	MetricsAddr:                        "",
+	KubeConfig:                         "",
+	LeaderElectionLeaseDurationSeconds: 137,
+	RenewDeadlineSeconds:               107,
+	RetryPeriodSeconds:                 26,
 }
 
 // ProcessFlags parses command line parameters into options
@@ -54,10 +54,10 @@ func ProcessFlags() {
 	)
 
 	flag.IntVar(
-		&options.LeaseDurationSeconds,
-		"lease-duration",
-		options.LeaseDurationSeconds,
-		"The lease duration in seconds.",
+		&options.LeaderElectionLeaseDurationSeconds,
+		"leader-election-lease-duration",
+		options.LeaderElectionLeaseDurationSeconds,
+		"The leader election lease duration in seconds.",
 	)
 
 	flag.IntVar(
