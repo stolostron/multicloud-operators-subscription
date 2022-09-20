@@ -20,21 +20,21 @@ import (
 
 // AppSubStatusCMDOptions for command line flag parsing.
 type AppSubStatusCMDOptions struct {
-	MetricsAddr          string
-	KubeConfig           string
-	SyncInterval         int
-	LeaseDurationSeconds int
-	RenewDeadlineSeconds int
-	RetryPeriodSeconds   int
+	MetricsAddr                        string
+	KubeConfig                         string
+	SyncInterval                       int
+	LeaderElectionLeaseDurationSeconds int
+	RenewDeadlineSeconds               int
+	RetryPeriodSeconds                 int
 }
 
 var options = AppSubStatusCMDOptions{
-	MetricsAddr:          "",
-	KubeConfig:           "",
-	SyncInterval:         15,
-	LeaseDurationSeconds: 137,
-	RenewDeadlineSeconds: 107,
-	RetryPeriodSeconds:   26,
+	MetricsAddr:                        "",
+	KubeConfig:                         "",
+	SyncInterval:                       15,
+	LeaderElectionLeaseDurationSeconds: 137,
+	RenewDeadlineSeconds:               107,
+	RetryPeriodSeconds:                 26,
 }
 
 // ProcessFlags parses command line parameters into options.
@@ -63,10 +63,10 @@ func ProcessFlags() {
 	)
 
 	flag.IntVar(
-		&options.LeaseDurationSeconds,
-		"lease-duration",
-		options.LeaseDurationSeconds,
-		"The lease duration in seconds.",
+		&options.LeaderElectionLeaseDurationSeconds,
+		"leader-election-lease-duration",
+		options.LeaderElectionLeaseDurationSeconds,
+		"The leader election lease duration in seconds.",
 	)
 
 	flag.IntVar(

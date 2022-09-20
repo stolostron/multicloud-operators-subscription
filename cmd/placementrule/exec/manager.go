@@ -68,7 +68,7 @@ func RunManager() {
 	cfg.QPS = 30.0
 	cfg.Burst = 60
 
-	leaseDuration := time.Duration(options.LeaseDurationSeconds) * time.Second
+	leaseDuration := time.Duration(options.LeaderElectionLeaseDurationSeconds) * time.Second
 	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
 	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
