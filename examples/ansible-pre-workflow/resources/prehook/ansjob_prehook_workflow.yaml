@@ -1,0 +1,9 @@
+---
+apiVersion: tower.ansible.com/v1alpha1
+kind: AnsibleJob
+metadata:
+  name: prehook-workflow-test
+  namespace: default
+spec:
+  workflow_template_name: Demo Workflow Template
+  tower_auth_secret: toweraccess
