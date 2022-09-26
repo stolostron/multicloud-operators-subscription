@@ -1,0 +1,14 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: PlacementRule
+metadata:
+  name: non-local-cluster
+  namespace: default
+spec:
+  # apply to 1 cluster whoevers name not local-cluster
+  clusterReplicas: 1
+  clusterSelector:
+    matchExpressions:
+    - key: name
+      operator: NotIn
+      values:
+      - local-cluster
