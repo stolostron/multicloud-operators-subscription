@@ -32,10 +32,11 @@ import (
 type AnsibleJobSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	TowerAuthSecretName string          `json:"tower_auth_secret,omitempty"`
-	JobTemplateName     string          `json:"job_template_name,omitempty"`
-	Inventory           string          `json:"inventory,omitempty"`
-	ExtraVars           json.RawMessage `json:"extra_vars,omitempty"`
+	TowerAuthSecretName  string          `json:"tower_auth_secret,omitempty"`
+	JobTemplateName      string          `json:"job_template_name,omitempty"`
+	WorkflowTemplateName string          `json:"workflow_template_name,omitempty"`
+	Inventory            string          `json:"inventory,omitempty"`
+	ExtraVars            json.RawMessage `json:"extra_vars,omitempty"`
 }
 
 type AnsibleJobResult struct {
