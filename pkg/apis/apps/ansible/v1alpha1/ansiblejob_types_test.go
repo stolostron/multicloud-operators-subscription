@@ -29,10 +29,29 @@ var (
 		Namespace: "default",
 	}
 
+	workflowKey = types.NamespacedName{
+		Name:      "foo-workflow",
+		Namespace: "default",
+	}
+
 	deploy = &AnsibleJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      key.Name,
 			Namespace: key.Namespace,
+		},
+		Spec: AnsibleJobSpec{
+			TowerAuthSecretName: "tower-secret",
+		},
+	}
+
+	workflowDeploy = &AnsibleJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowKey.Name,
+			Namespace: workflowKey.Namespace,
+		},
+		Spec: AnsibleJobSpec{
+			TowerAuthSecretName:  "tower-secret",
+			WorkflowTemplateName: "workflow-demo",
 		},
 	}
 )
@@ -56,4 +75,15 @@ func TestAnsible(t *testing.T) {
 	newE := EventTime{metav1.Time{}}
 	newE.UnmarshalJSON([]byte(""))
 	g.Expect(newE).To(gomega.Equal(EventTime{metav1.Time{}}))
+}
+
+func TestAnsibleWorkflow(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	g.Expect(c.Create(context.TODO(), workflowDeploy)).NotTo(gomega.HaveOccurred())
+
+	fetched := &AnsibleJob{}
+	g.Expect(c.Get(context.TODO(), workflowKey, fetched)).NotTo(gomega.HaveOccurred())
+
+	g.Expect(fetched.Spec.WorkflowTemplateName).To(gomega.Equal("workflow-demo"))
 }

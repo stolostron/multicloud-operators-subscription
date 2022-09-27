@@ -202,6 +202,8 @@ else
     echo "06-ansiblejob-post: FAILED: ansiblejobs.tower.ansible.com not found"
     exit 1
 fi
+kubectl delete -f test/e2e/cases/06-ansiblejob-post/
+sleep 5
 echo "PASSED test case 06-ansiblejob-post"
 
 ### 07-helm-install-error
@@ -458,3 +460,31 @@ fi
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/16-helm-recreate
 echo "PASSED test case 16-helm-recreate"
+
+### 17-ansiblejob-pre-workflow
+echo "STARTING test case 17-ansiblejob-pre-workflow"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/17-ansiblejob-pre-workflow/
+sleep 10
+
+if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastprehookjob | grep prehook-workflow-test; then
+    echo "17-ansiblejob-pre-workflow: found ansiblejob CR name in subscription output"
+else
+    echo "17-ansiblejob-pre-workflow: FAILED: ansiblejob CR name is not in the subscription output"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com | grep prehook-workflow-test; then 
+    echo "17-ansiblejob-pre-workflow: found ansiblejobs.tower.ansible.com"
+else
+    echo "17-ansiblejob-pre-workflow: FAILED: ansiblejobs.tower.ansible.com not found"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com -o yaml | grep workflow_template_name; then 
+    echo "17-ansiblejob-pre-workflow: found workflow_template_name in ansiblejobs.tower.ansible.com"
+else
+    echo "17-ansiblejob-pre-workflow: FAILED: workflow_template_name not found in ansiblejobs.tower.ansible.com"
+    exit 1
+fi
+kubectl delete -f test/e2e/cases/17-ansiblejob-pre-workflow/
+sleep 5
+echo "PASSED test case 17-ansiblejob-pre-workflow"
