@@ -99,6 +99,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	gexec.KillAndWait(5 * time.Second)
-	err := testEnv.Stop()
-	Expect(err).ToNot(HaveOccurred())
+	Eventually(func() error {
+		return testEnv.Stop()
+	}, "30s", "5s").ShouldNot(HaveOccurred())
 })
