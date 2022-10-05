@@ -41,6 +41,7 @@ var (
 		"deploy/managed-common/clusterrole2.yaml",
 		"deploy/managed-common/service_account.yaml",
 		"deploy/managed-common/service.yaml",
+		"deploy/managed/metrics_service.yaml",
 	}
 
 	agentDeploymentFile = "deploy/managed/operator.yaml"

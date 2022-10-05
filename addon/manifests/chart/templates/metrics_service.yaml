@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: mc-subscription-metrics
+  name: mc-subscription-metrics
+  namespace: {{ .Release.Namespace }}
+spec:
+  ports:
+    - name: metrics
+      port: 8388
+      protocol: TCP
+      targetPort: 8388
+  selector:
+    component: application-manager
+  sessionAffinity: None
+  type: ClusterIP

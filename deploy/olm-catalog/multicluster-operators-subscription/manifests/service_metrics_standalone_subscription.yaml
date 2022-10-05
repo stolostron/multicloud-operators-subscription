@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: standalone-subscription-metrics
+  name: standalone-subscription-metrics
+spec:
+  ports:
+    - name: metrics
+      port: 8389
+      protocol: TCP
+      targetPort: 8389
+  selector:
+    app: multicluster-operators-standalone-subscription
+  sessionAffinity: None
+  type: ClusterIP

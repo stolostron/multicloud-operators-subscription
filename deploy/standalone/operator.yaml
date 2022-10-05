@@ -2,18 +2,18 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: multicluster-operators-subscription
-  namespace: multicluster-operators
+  namespace: open-cluster-management
   labels:
     name: multicluster-operators-subscription
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: multicluster-operators-subscription
+      app: multicluster-operators-standalone-subscription
   template:
     metadata:
       labels:
-        name: multicluster-operators-subscription
+        app: multicluster-operators-standalone-subscription
     spec:
       serviceAccountName: multicluster-operators
       containers:

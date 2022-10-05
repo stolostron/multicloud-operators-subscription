@@ -13,6 +13,6 @@ spec:
     protocol: TCP
     targetPort: 8443
   selector:
-    name: multicluster-operators-subscription
+    app: multicluster-operators-standalone-subscription
   sessionAffinity: None
   type: ClusterIP
