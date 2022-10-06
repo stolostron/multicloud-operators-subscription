@@ -4,7 +4,7 @@ metadata:
   labels:
     name: multicluster-operators-subscription
   name: multicluster-operators-subscription
-  namespace: multicluster-operators
+  namespace: open-cluster-management
   annotations:
     service.alpha.openshift.io/serving-cert-secret-name: multicluster-operators-subscription
 spec:
