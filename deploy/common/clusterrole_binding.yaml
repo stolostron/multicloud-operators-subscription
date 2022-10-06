@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: multicluster-operators
-  namespace: multicluster-operators
+  namespace: open-cluster-management
 roleRef:
   kind: ClusterRole
   name: multicluster-operators

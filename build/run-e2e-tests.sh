@@ -102,7 +102,7 @@ fi
 sleep 35
 
 echo -e "\nCheck if subscription operator is created\n"
-kubectl rollout status deployment/multicluster-operators-subscription -n multicluster-operators
+kubectl rollout status deployment/multicluster-operators-subscription -n open-cluster-management
 if [ $? != 0 ]; then
     echo "failed to deploy the subscription operator"
     exit $?;
