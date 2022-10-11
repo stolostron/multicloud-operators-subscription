@@ -17,6 +17,8 @@ package utils
 import (
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -1319,4 +1321,24 @@ func TestSetPartOfLabel(t *testing.T) {
 	labels = obj.GetLabels()
 	g.Expect(labels).NotTo(BeNil())
 	g.Expect(labels["app.kubernetes.io/part-of"]).To(Equal("testApp"))
+}
+
+func TestGetCheckSum(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tmpFile, err := ioutil.TempFile("", "temptest")
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	_, err = tmpFile.WriteString("fake kubeconfig data")
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	defer os.Remove(tmpFile.Name()) // clean up the temp fake kubeconfig file
+
+	// test 1: pass a non-existing file name, expect error
+	_, err = GetCheckSum("non_existing_file_name")
+	g.Expect(err).Should(HaveOccurred())
+
+	// test 2: pass a valid file name, expect no error
+	_, err = GetCheckSum(tmpFile.Name())
+	g.Expect(err).ShouldNot(HaveOccurred())
 }
