@@ -116,7 +116,11 @@ func TestLeaseReconcile(t *testing.T) {
 
 	g.Expect(renewTime1.Before(renewTime2)).Should(gomega.BeTrue())
 
-	// test 3: change temp fake kubeconfig file, expect l
+	// test 3: don't change temp fake kubeconfig file, expect no error
+	err = leaseReconciler.CheckHubKubeConfig(context.TODO())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	// test 4: change temp fake kubeconfig file, expect to return error
 	_, err = tmpFile.WriteString("fake kubeconfig data 2")
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
