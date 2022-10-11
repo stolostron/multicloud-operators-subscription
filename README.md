@@ -32,9 +32,9 @@ Deploy the subscription operator.
 $ git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
 $ cd multicloud-operators-subscription
 $ make deploy-standalone
-$ kubectl -n open-cluster-management get deploy  multicluster-operators-standalone-subscription
-NAME                                           READY   UP-TO-DATE   AVAILABLE   AGE
-multicluster-operators-standalone-subscription   1/1     1            1           21m
+$ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
+NAME                                READY   UP-TO-DATE   AVAILABLE   AGE
+multicluster-operators-subscription   1/1     1            1           21m
 ```
 
 Create a Helm channel and subscribe to it.
