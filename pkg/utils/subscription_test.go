@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	e "errors"
+	"io/ioutil"
+	"os"
 	"reflect"
 	"testing"
 	"time"
@@ -1750,4 +1752,24 @@ func TestGetClientConfigFromKubeConfig(t *testing.T) {
 	// fake kubconfigFile
 	_, err = GetClientConfigFromKubeConfig("fakekubeconfig.fake")
 	g.Expect(err).To(HaveOccurred())
+}
+
+func TestGetCheckSum(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	tmpFile, err := ioutil.TempFile("", "temptest")
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	_, err = tmpFile.WriteString("fake kubeconfig data")
+	g.Expect(err).ShouldNot(HaveOccurred())
+
+	defer os.Remove(tmpFile.Name()) // clean up the temp fake kubeconfig file
+
+	// test 1: pass a non-existing file name, expect error
+	_, err = GetCheckSum("non_existing_file_name")
+	g.Expect(err).Should(HaveOccurred())
+
+	// test 2: pass a valid file name, expect no error
+	_, err = GetCheckSum(tmpFile.Name())
+	g.Expect(err).ShouldNot(HaveOccurred())
 }
