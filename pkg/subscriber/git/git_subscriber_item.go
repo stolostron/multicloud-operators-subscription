@@ -38,6 +38,7 @@ import (
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	mcMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics/mc"
 )
 
 const (
@@ -255,13 +256,24 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	}
 
 	//Clone the git repo
+	startTime := time.Now().UnixMilli()
 	commitID, err := ghsi.cloneGitRepo()
+	endTime := time.Now().UnixMilli()
+
 	if err != nil {
 		klog.Error(err, "Unable to clone the git repo ", ghsi.Channel.Spec.Pathname)
 		ghsi.successful = false
 
+		mcMetrics.GitFailedPullTime.
+			WithLabelValues("git", ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+			Observe(float64(endTime - startTime))
+
 		return err
 	}
+
+	mcMetrics.GitSuccessfulPullTime.
+		WithLabelValues("git", ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+		Observe(float64(endTime - startTime))
 
 	klog.Info("Git commit: ", commitID)
 

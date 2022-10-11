@@ -1,0 +1,29 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-simple-subscription
+  labels:
+    app: git-simple-subscription
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-simple-subscription
+  template:
+    metadata:
+      labels:
+        app: git-simple-subscription
+    spec:
+      containers:
+      - name: git-simple-subscription-nginx
+        image: nginx:latest
+        ports:
+        - containerPort: 9876
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
