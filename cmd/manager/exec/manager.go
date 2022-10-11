@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -54,8 +53,7 @@ var (
 )
 
 const (
-	AddonName               = "application-manager"
-	leaseUpdateJitterFactor = 0.25
+	AddonName = "application-manager"
 )
 
 func RunManager() {
@@ -207,16 +205,42 @@ func RunManager() {
 			os.Exit(1)
 		}
 
-		leaseReconciler := leasectrl.LeaseReconciler{
-			HubKubeClient:        hubKubeClient,
-			KubeClient:           managedClusterKubeClient,
-			ClusterName:          Options.ClusterName,
-			LeaseName:            AddonName,
-			LeaseDurationSeconds: int32(Options.LeaseDurationSeconds),
+		hubKubeConfigCheckSum, err := utils.GetCheckSum(Options.HubConfigFilePathName)
+		if err != nil {
+			klog.Error("Failed to get the checksum of the hub kubeconfig file. ", err)
+			os.Exit(1)
 		}
 
-		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
-			time.Duration(Options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
+		leaseReconciler := leasectrl.LeaseReconciler{
+			HubKubeClient:         hubKubeClient,
+			HubConfigFilePathName: Options.HubConfigFilePathName,
+			HubConfigCheckSum:     hubKubeConfigCheckSum,
+			KubeClient:            managedClusterKubeClient,
+			ClusterName:           Options.ClusterName,
+			LeaseName:             AddonName,
+			LeaseDurationSeconds:  int32(Options.LeaseDurationSeconds),
+		}
+
+		ctx, cancel := context.WithCancel(context.TODO())
+
+		go func() {
+			for {
+				err := leaseReconciler.CheckHubKubeConfig(ctx)
+				if err != nil {
+					cancel()
+				}
+
+				select {
+				case <-ctx.Done():
+					klog.Error("hub kubeconfig has changed, restart the controller!")
+					os.Exit(1)
+				default:
+					leaseReconciler.Reconcile(ctx)
+				}
+
+				time.Sleep(time.Duration(Options.LeaseDurationSeconds) * time.Second)
+			}
+		}()
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
 		klog.Error("Failed to setup standalone subscription, error:", err)
 		os.Exit(1)

@@ -16,7 +16,10 @@ package utils
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"reflect"
 	"strings"
 
@@ -142,4 +145,14 @@ func BuildKubeClient(kubeConfigPath string) (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(hubRestConfig)
+}
+
+// GetCheckSum generates a checksum of a kube config file
+func GetCheckSum(kubeconfigfile string) ([32]byte, error) {
+	content, err := ioutil.ReadFile(filepath.Clean(kubeconfigfile))
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("read %s failed, %w", kubeconfigfile, err)
+	}
+
+	return sha256.Sum256(content), nil
 }
