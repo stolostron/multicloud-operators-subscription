@@ -28,8 +28,10 @@ import (
 
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
+	promTestUtils "github.com/prometheus/client_golang/prometheus/testutil"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	mcMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics/mc"
 )
 
 const rsc1 = `apiVersion: v1
@@ -128,6 +130,19 @@ var (
 		Spec: chnv1alpha1.ChannelSpec{
 			Type:     "Git",
 			Pathname: "https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git",
+		},
+	}
+	githubchnfail = &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      sharedkey.Name,
+			Namespace: sharedkey.Namespace,
+			Annotations: map[string]string{
+				appv1.AnnotationGitBranch: "main",
+			},
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:     "Git",
+			Pathname: "https://not-a-real-source-for-the-failed-channel.git",
 		},
 	}
 	githubsub = &appv1.Subscription{
@@ -584,5 +599,36 @@ data:
 		rscAnnotations := resource.GetAnnotations()
 		Expect(rscAnnotations[appv1.AnnotationClusterAdmin]).To(Equal("true"))
 		Expect(rscAnnotations[appv1.AnnotationResourceReconcileOption]).To(Equal("merge"))
+	})
+})
+
+var _ = Describe("test git pull time metrics", func() {
+	BeforeEach(func() {
+		mcMetrics.GitSuccessfulPullTime.Reset()
+		mcMetrics.GitFailedPullTime.Reset()
+	})
+
+	It("should observe the git_successful_pull_time metric for a successful a pull", func() {
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchn
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscription()
+
+		Expect(promTestUtils.CollectAndCount(mcMetrics.GitSuccessfulPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(mcMetrics.GitFailedPullTime)).To(Equal(0))
+	})
+
+	It("should observe the git_failed_pull_time metric for a failed a pull", func() {
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchnfail
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscription()
+
+		Expect(promTestUtils.CollectAndCount(mcMetrics.GitSuccessfulPullTime)).To(Equal(0))
+		Expect(promTestUtils.CollectAndCount(mcMetrics.GitFailedPullTime)).To(Equal(1))
 	})
 })

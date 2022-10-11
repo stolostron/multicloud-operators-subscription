@@ -492,7 +492,7 @@ echo "PASSED test case 17-ansiblejob-pre-workflow"
 ### 18-verify-metrics-service
 echo "STARTING test case 18-verify-metrics-service"
 kubectl config use-context kind-hub
-hubMetrics=`kubectl exec -n open-cluster-management -it deploy/multicluster-operators-subscription -- curl http://localhost:8381/metrics | grep mcmhub-subscription-controller`
+hubMetrics=`kubectl exec -n open-cluster-management deploy/multicluster-operators-subscription -- curl http://localhost:8381/metrics | grep mcmhub-subscription-controller`
 if [ $(echo "$hubMetrics" | wc -l) -gt 20 ] ; then
     echo "18-verify-metrics-service: found controller metrics exposed by the hub's metrics service"
 else
@@ -501,7 +501,7 @@ else
 fi
 
 kubectl config use-context kind-cluster1
-mcMetrics=`kubectl exec -n open-cluster-management-agent-addon -it deploy/application-manager -- curl http://localhost:8388/metrics | grep subscription-controller`
+mcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics | grep subscription-controller`
 if [ $(echo "$mcMetrics" | wc -l) -gt 20 ] ; then
     echo "18-verify-metrics-service: found controller metrics exposed by the managed cluster's metrics service"
 else
@@ -510,3 +510,42 @@ else
 fi
 
 echo "PASSED test case 18-verify-metrics-service"
+
+### 19-verify-git-pull-time-metric
+echo "STARTING test case 19-verify-git-pull-time-metric"
+kubectl config use-context kind-hub
+kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
+kubectl label managedcluster cluster1 purpose=test --overwrite
+
+kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/
+sleep 30
+
+kubectl config use-context kind-cluster1
+kubectl -n git-pull-time-metric-test rollout status deployment/git-simple-subscription
+
+echo "19-verify-git-pull-time-metric: fetching collected managed cluster metrics"
+collectedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
+# SUCCESSFUL metrics for SUCCESSFUL subscription, will be asserted for a value
+IFS=' ' read -a successSubSuccessPullTimeCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_count)
+IFS=' ' read -a successSubSuccessPullTimeSum <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_sum)
+# FAILED metrics for SUCCESSFUL subscription, expected to be unbound
+IFS=' ' read -a successSubFailPullTimeCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_count)
+
+echo "19-verify-git-pull-time-metric: verifying expected git_successful_pull_time metrics for succesful subscription"
+if [ "${successSubSuccessPullTimeCount[1]}" \> 0 ] && [ "${successSubSuccessPullTimeSum[1]}" \> 100 ] ; then
+    echo "19-verify-git-pull-time-metric: git_successful_pull_time metrics collected by the managed cluster's metrics service"
+else
+    echo "19-verify-git-pull-time-metric: FAILED: git_successful_pull_time metrics not collected by the managed cluster's metrics service"
+    exit 1
+fi
+
+echo "19-verify-git-pull-time-metric: verifying no git_failed_pull_time metrics for succesful subscription"
+if [ -z ${successSubFailPullTimeCount+x} ] ; then
+    echo "19-verify-git-pull-time-metric: git_failed_pull_time metrics not collected by the managed cluster's metrics service"
+else
+    echo "19-verify-git-pull-time-metric: FAILED: git_failed_pull_time metrics collected by the managed cluster's metrics service"
+    exit 1
+fi
+
+kubectl --context kind-hub delete -f test/e2e/cases/19-verify-git-pull-time-metric/
+echo "PASSED test case 19-verify-git-pull-time-metric"
