@@ -15,6 +15,8 @@
 package utils
 
 import (
+	"crypto/sha256"
+	"fmt"
 	"io/ioutil"
 	"strings"
 
@@ -65,4 +67,14 @@ func GetComponentNamespace() (string, error) {
 	}
 
 	return string(nsBytes), nil
+}
+
+// GetCheckSum generates a checksum of a kube config file
+func GetCheckSum(kubeconfigfile string) ([32]byte, error) {
+	content, err := ioutil.ReadFile(kubeconfigfile)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("read %s failed, %w", kubeconfigfile, err)
+	}
+
+	return sha256.Sum256(content), nil
 }

@@ -16,6 +16,8 @@ package subscription
 
 import (
 	"context"
+	"io/ioutil"
+	"os"
 	"testing"
 	"time"
 
@@ -71,13 +73,26 @@ func TestLeaseReconcile(t *testing.T) {
 	addontNs, _ := utils.GetComponentNamespace()
 	pod.SetNamespace(addontNs)
 
+	tmpFile, err := ioutil.TempFile("", "temptest")
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	_, err = tmpFile.WriteString("fake kubeconfig data")
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	hubKubeConfigCheckSum, err := utils.GetCheckSum(tmpFile.Name())
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	defer os.Remove(tmpFile.Name()) // clean up the temp fake kubeconfig file
+
 	kubeClient := kubefake.NewSimpleClientset(ns, pod)
 
 	leaseReconciler := &LeaseReconciler{
-		KubeClient:           kubeClient,
-		LeaseName:            leaseName,
-		LeaseDurationSeconds: 1,
-		componentNamespace:   agentNs,
+		KubeClient:            kubeClient,
+		HubConfigFilePathName: tmpFile.Name(),
+		HubConfigCheckSum:     hubKubeConfigCheckSum,
+		LeaseName:             leaseName,
+		LeaseDurationSeconds:  1,
+		componentNamespace:    agentNs,
 	}
 
 	// test1: create lease
@@ -100,4 +115,11 @@ func TestLeaseReconcile(t *testing.T) {
 	renewTime2 := lease.Spec.RenewTime.DeepCopy()
 
 	g.Expect(renewTime1.Before(renewTime2)).Should(gomega.BeTrue())
+
+	// test 3: change temp fake kubeconfig file, expect l
+	_, err = tmpFile.WriteString("fake kubeconfig data 2")
+	g.Expect(err).ShouldNot(gomega.HaveOccurred())
+
+	err = leaseReconciler.CheckHubKubeConfig(context.TODO())
+	g.Expect(err).Should(gomega.HaveOccurred())
 }
