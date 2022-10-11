@@ -16,6 +16,7 @@ package subscription
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	coordinationv1 "k8s.io/api/coordination/v1"
@@ -32,12 +33,31 @@ var (
 
 // LeaseReconciler reconciles a Secret object
 type LeaseReconciler struct {
-	HubKubeClient        kubernetes.Interface
-	KubeClient           kubernetes.Interface
-	ClusterName          string
-	LeaseName            string
-	LeaseDurationSeconds int32
-	componentNamespace   string
+	HubKubeClient         kubernetes.Interface
+	HubConfigFilePathName string
+	HubConfigCheckSum     [32]byte
+	KubeClient            kubernetes.Interface
+	ClusterName           string
+	LeaseName             string
+	LeaseDurationSeconds  int32
+	componentNamespace    string
+}
+
+func (r *LeaseReconciler) CheckHubKubeConfig(ctx context.Context) error {
+	newHubKubeConfigCheckSum, err := utils.GetCheckSum(r.HubConfigFilePathName)
+	if err != nil {
+		klog.Error("Failed to get hub kubeconfig checksum: ", err)
+
+		return fmt.Errorf("failed to get hub kubeconfig checksum, error: %w", err)
+	}
+
+	if newHubKubeConfigCheckSum != r.HubConfigCheckSum {
+		klog.Error("hub kubeconfig has changed, restart the controller!")
+
+		return fmt.Errorf("hub kubeconfig has changed, restart the controller")
+	}
+
+	return nil
 }
 
 func (r *LeaseReconciler) Reconcile(ctx context.Context) {
