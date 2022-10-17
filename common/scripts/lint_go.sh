@@ -17,5 +17,6 @@
 curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.46.2
 
 export GOLANGCI_LINT_CACHE=/tmp/golangci-cache
+export GOROOT=`go env GOROOT`
 rm -rf $GOLANGCI_LINT_CACHE
 GOGC=25 golangci-lint run -c ./common/config/.golangci.yml
