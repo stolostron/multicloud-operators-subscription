@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -309,34 +310,42 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 		failedUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
 		newUnitStatus := []v1alpha1.SubscriptionUnitStatus{}
 
-		for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
-			uS := &v1alpha1.SubscriptionUnitStatus{
-				Name:           resource.Name,
-				APIVersion:     resource.APIVersion,
-				Kind:           resource.Kind,
-				Namespace:      resource.Namespace,
-				Phase:          v1alpha1.PackagePhase(resource.Phase),
-				Message:        resource.Message,
-				LastUpdateTime: metaV1.Time{Time: time.Now()},
-			}
-			newUnitStatus = append(newUnitStatus, *uS)
+		if appsub != nil {
+			// Check if the subscription still exist
+			if err := sync.LocalClient.Get(context.TODO(),
+				client.ObjectKey{Name: appsubName, Namespace: appsub.Namespace}, appsub); err != nil {
+				if k8serrors.IsNotFound(err) {
+					klog.Errorf("failed to get appsub err: %v", err)
+				}
+			} else {
+				for _, resource := range appsubClusterStatus.SubscriptionPackageStatus {
+					uS := &v1alpha1.SubscriptionUnitStatus{
+						Name:           resource.Name,
+						APIVersion:     resource.APIVersion,
+						Kind:           resource.Kind,
+						Namespace:      resource.Namespace,
+						Phase:          v1alpha1.PackagePhase(resource.Phase),
+						Message:        resource.Message,
+						LastUpdateTime: metaV1.Time{Time: time.Now()},
+					}
+					newUnitStatus = append(newUnitStatus, *uS)
 
-			if resource.Phase == string(v1alpha1.PackageDeployFailed) {
-				uS := &v1alpha1.SubscriptionUnitStatus{
-					Name:      resource.Name,
-					Namespace: appsubClusterStatus.AppSub.Namespace,
-					Phase:     v1alpha1.PackagePhase(resource.Phase),
-					Message:   resource.Message,
-					LastUpdateTime: metaV1.Time{
-						Time: time.Now(),
-					},
+					if resource.Phase == string(v1alpha1.PackageDeployFailed) {
+						uS := &v1alpha1.SubscriptionUnitStatus{
+							Name:      resource.Name,
+							Namespace: appsubClusterStatus.AppSub.Namespace,
+							Phase:     v1alpha1.PackagePhase(resource.Phase),
+							Message:   resource.Message,
+							LastUpdateTime: metaV1.Time{
+								Time: time.Now(),
+							},
+						}
+
+						failedUnitStatuses = append(failedUnitStatuses, *uS)
+					}
 				}
 
-				failedUnitStatuses = append(failedUnitStatuses, *uS)
 			}
-		}
-
-		if appsub != nil {
 			sync.recordAppSubStatusEvents(appsub, "Delete", newUnitStatus)
 		}
 
