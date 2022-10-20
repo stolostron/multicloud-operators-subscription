@@ -16,7 +16,6 @@ import (
 	"strings"
 	"time"
 
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -314,7 +313,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			// Check if the subscription still exist
 			if err := sync.LocalClient.Get(context.TODO(),
 				client.ObjectKey{Name: appsubName, Namespace: appsub.Namespace}, appsub); err != nil {
-				if k8serrors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
 					klog.Errorf("failed to get appsub err: %v", err)
 				}
 			} else {
@@ -344,8 +343,8 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 						failedUnitStatuses = append(failedUnitStatuses, *uS)
 					}
 				}
-
 			}
+
 			sync.recordAppSubStatusEvents(appsub, "Delete", newUnitStatus)
 		}
 
