@@ -65,6 +65,30 @@ var (
 		},
 	}
 
+	toBeDeletedType = types.NamespacedName{
+		Name:      "hive-clusterimagesets-subscription-to-be-deleted",
+		Namespace: "default",
+	}
+
+	appToBeDeleted = &appv1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "hive-clusterimagesets-subscription-to-be-deleted",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"apps.open-cluster-management.io/git-branch": "release-2.6",
+				"apps.open-cluster-management.io/git-path":   "clusterImageSets/fast",
+				"meta.helm.sh/release-namespace":             "default",
+			},
+			Generation: 1,
+			Labels: map[string]string{
+				"app":                          "hive-clusterimagesets",
+				"app.kubernetes.io/managed-by": "Helm",
+				"subscription-pause":           "false",
+			},
+		},
+		Spec: appv1.SubscriptionSpec{},
+	}
+
 	legacyAppSubNoChannel = &appv1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "hive-clusterimagesets-subscription-fast-10",
@@ -138,6 +162,15 @@ var (
 	appSubUnitStatus2 = SubscriptionUnitStatus{
 		Name:       "pkg2",
 		Namespace:  hostSub1.Namespace,
+		APIVersion: "v1",
+		Kind:       "ConfigMap",
+		Phase:      string(appSubStatusV1alpha1.PackageDeployFailed),
+		Message:    "Success",
+	}
+
+	rmAppSubUnitStatus = SubscriptionUnitStatus{
+		Name:       "pkg2",
+		Namespace:  appToBeDeleted.Namespace,
 		APIVersion: "v1",
 		Kind:       "ConfigMap",
 		Phase:      string(appSubStatusV1alpha1.PackageDeployFailed),
@@ -497,6 +530,25 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		expectedAppSubStatuses = []appSubStatusV1alpha1.SubscriptionUnitStatus{}
 		appsubStatuses = s.getResourcesByLegacySubStatus(appsubInvalidresource)
 		Expect(appsubStatuses).To(Equal(expectedAppSubStatuses))
+
+		// create appsub for a to be deleted appsub
+		appsubToBeDeleted := appToBeDeleted.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsubToBeDeleted)).NotTo(HaveOccurred())
+		time.Sleep(4 * time.Second)
+
+		appSubUnitStatuses = []SubscriptionUnitStatus{}
+		appSubUnitStatuses = append(appSubUnitStatuses, rmAppSubUnitStatus)
+
+		// Delete
+		rmClusterStatus := SubscriptionClusterStatus{
+			Cluster:                   "cluster1",
+			AppSub:                    toBeDeletedType,
+			Action:                    "DELETE",
+			SubscriptionPackageStatus: appSubUnitStatuses,
+		}
+
+		err = s.SyncAppsubClusterStatus(appsubToBeDeleted, rmClusterStatus, nil, nil)
+		Expect(err).NotTo(HaveOccurred())
 
 	})
 })
