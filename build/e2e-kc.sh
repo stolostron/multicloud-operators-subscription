@@ -549,3 +549,55 @@ fi
 
 kubectl --context kind-hub delete -f test/e2e/cases/19-verify-git-pull-time-metric/
 echo "PASSED test case 19-verify-git-pull-time-metric"
+
+### 20-verify-propagation-time-metric
+echo "STARTING test case 20-verify-propagation-time-metric"
+kubectl config use-context kind-hub
+kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
+kubectl label managedcluster cluster1 purpose=test --overwrite
+
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/common
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/failed-no-placement
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/failed-placement-wrong
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/standalone
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/successful
+sleep 30
+
+echo "20-verify-propagation-time-metric: fetching collected hub cluster metrics"
+collectedMcMetrics=`kubectl exec -n open-cluster-management deploy/multicluster-operators-subscription -- curl http://localhost:8381/metrics`
+
+IFS=' ' read -a successfulPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-successful-time-metric-sub\"" | grep propagation_successful_time_count)
+IFS=' ' read -a failedNoPlPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-fail-no-pl-time-metric-sub\"" | grep propagation_failed_time_count)
+IFS=' ' read -a failedPlWrongPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-fail-pl-wrong-time-metric-sub\"" | grep propagation_failed_time_count)
+IFS=' ' read -a standaloneNoPropagationMetric <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"standalone-sub-no-metric\"" | grep propagation)
+
+echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for succesful propagation"
+if [ "${successfulPropagationCount[1]}" \> 0 ]; then
+    echo "20-verify-propagation-time-metric: propagation_successful_time metrics collected by the hub cluster's metrics service"
+else
+    echo "20-verify-propagation-time-metric: FAILED: propagation_successful_time metrics not collected by the hub cluster's metrics service"
+    exit 1
+fi
+
+echo "20-verify-propagation-time-metric: verifying expected propagation_failed_time for failed propagations"
+if [ "${failedNoPlPropagationCount[1]}" \> 0 ] && [ "${failedPlWrongPropagationCount[1]}" \> 0 ]; then
+    echo "20-verify-propagation-time-metric: propagation_failed_time metrics collected by the hub cluster's metrics service"
+else
+    echo "20-verify-propagation-time-metric: FAILED: propagation_failed_time metrics not collected by the hub cluster's metrics service"
+    exit 1
+fi
+
+echo "20-verify-propagation-time-metric: verifying no git_failed_pull_time metrics for succesful subscription"
+if [ -z ${standaloneNoPropagationMetric+x} ] ; then
+    echo "20-verify-propagation-time-metric: propagation metrics not found on standalone cluster's metrics service"
+else
+    echo "20-verify-propagation-time-metric: FAILED: propagation metrics found on standalone cluster's metrics service"
+    exit 1
+fi
+
+kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/successful
+kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/standalone
+kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/failed-placement-wrong
+kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/failed-no-placement
+kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/common
+echo "PASSED test case 20-verify-propagation-time-metric"

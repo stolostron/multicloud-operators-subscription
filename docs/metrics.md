@@ -27,8 +27,9 @@
   - [Managed Cluster Metrics Service Missing](#managed-cluster-metrics-service-missing)
   - [Standalone Cluster Metrics Service Missing](#standalone-cluster-metrics-service-missing)
 - [Custom Metrics](#custom-metrics)
+  - [Hub Cluster Custom Metrics](#hub-cluster-custom-metrics)
   - [Managed Cluster Custom Metrics](#managed-cluster-custom-metrics)
-    - [Collecting Managed Cluster Metrics for Observability](#collecting-managed-cluster-metrics-for-observability)
+  - [Collecting Custom Metrics for Observability](#collecting-custom-metrics-for-observability)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -282,7 +283,7 @@ EOF
 Create a *Role* for setting the permissions for monitoring:
 
 ```shell
-cat << EOF | oc --context kind-managed1 apply -f -
+cat << EOF | oc apply -f -
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -536,6 +537,23 @@ EOF
 
 Adding to the [default exported metrics by the controller-runtime](https://book.kubebuilder.io/reference/metrics-reference.html#default-exported-metrics-references).
 
+## Hub Cluster Custom Metrics
+
+The following metrics can be scrapped from *Hub Cluster*:
+
+| Name                        | Help                                        |
+| --------------------------- | ------------------------------------------- |
+| propagation_successful_time | Histogram of successful propagation latency |
+| propagation_failed_time     | Histogram of failed propagation latency     |
+
+> Note, for standalone deployments, no propagation occurs, therefore no propagation metrics will be observed.
+
+Common vector labels:
+
+- *subscription_type*
+- *subscription_namespace*
+- *subscription_name*
+
 ## Managed Cluster Custom Metrics
 
 The following metrics can be scrapped from *Managed Clusters*:
@@ -551,9 +569,9 @@ Common vector labels:
 - *subscription_namespace*
 - *subscription_name*
 
-### Collecting Managed Cluster Metrics for Observability
+## Collecting Custom Metrics for Observability
 
-For the [Observability Operator](https://github.com/stolostron/multicluster-observability-operator) to collect the aforementioned metrics from the *Managed Clusters*, you need to configure the `observability-metrics-custom-allowlist` *ConfigMap* in the `open-cluster-management-observability` namespace on the *Hub Cluster*.</br>
+For the [Observability Operator](https://github.com/stolostron/multicluster-observability-operator) to collect the aforementioned metrics, we need to configure the `observability-metrics-custom-allowlist` *ConfigMap* in the `open-cluster-management-observability` namespace on the *Hub Cluster*.</br>
 Note that for *Histogram* type metrics, we have a 3 metrics series created per each *Histogram*, the members of the series are identified by the *bucket*, *count*, and *sum* suffixes to the metric name. Here's an example of a working *ConfigMap*:
 
 ```yaml
@@ -568,4 +586,10 @@ data:
     - git_failed_pull_time_bucket
     - git_failed_pull_time_count
     - git_failed_pull_time_sum
+    - propagation_successful_time_bucket
+    - propagation_successful_time_count
+    - propagation_successful_time_sum
+    - propagation_failed_time_bucket
+    - propagation_failed_time_count
+    - propagation_failed_time_sum
 ```
