@@ -1,0 +1,8 @@
+---
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: app-demo
+  namespace: propagation-time-metric-test
+spec:
+  clusterSet: app-demo
