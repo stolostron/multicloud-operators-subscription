@@ -123,6 +123,13 @@ func TestMain(m *testing.M) {
 		log.Fatal(err)
 	}
 
+	err = c.Create(context.Background(), &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "propagation-test-cases"},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	code := m.Run()
 
 	t.Stop()
