@@ -880,13 +880,13 @@ spec:
                 emptyDir: {}
               - name: multicluster-operators-subscription-tls
                 secret:
-                defaultMode: 420
-                secretName: multicluster-operators-subscription
-                items:
-                - key: tls.crt
-                  path: tls.crt
-                - key: tls.key
-                  path: tls.key
+                  defaultMode: 420
+                  secretName: multicluster-operators-subscription
+                  items:
+                  - key: tls.crt
+                    path: tls.crt
+                  - key: tls.key
+                    path: tls.key
               serviceAccountName: multicluster-operators
       - name: multicluster-operators-hub-subscription
         spec:
@@ -976,13 +976,13 @@ spec:
                 emptyDir: {}
               - name: multicluster-operators-subscription-tls
                 secret:
-                defaultMode: 420
-                secretName: multicluster-operators-subscription
-                items:
-                - key: tls.crt
-                  path: tls.crt
-                - key: tls.key
-                  path: tls.key
+                  defaultMode: 420
+                  secretName: multicluster-operators-subscription
+                  items:
+                  - key: tls.crt
+                    path: tls.crt
+                  - key: tls.key
+                    path: tls.key
               serviceAccountName: multicluster-operators
     strategy: deployment
   installModes:
