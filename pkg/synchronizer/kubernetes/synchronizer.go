@@ -14,6 +14,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	errors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,6 +29,7 @@ import (
 
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -264,6 +266,8 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 	defer sync.kmtx.Unlock()
 
 	appSubUnitStatuses := []SubscriptionUnitStatus{}
+	gotDeployErrs := false
+	startTime := time.Now().UnixMilli()
 
 	for _, resource := range resources {
 		appSubUnitStatus := SubscriptionUnitStatus{}
@@ -276,6 +280,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+			gotDeployErrs = true
 
 			klog.Infof("Failed to override resource. err: %v", err)
 
@@ -299,6 +304,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+			gotDeployErrs = true
 
 			klog.Infof("Failed to get GVR from restmapping: %v", err)
 
@@ -313,6 +319,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 			appSubUnitStatus.Phase = string(appSubStatusV1alpha1.PackageDeployFailed)
 			appSubUnitStatus.Message = err.Error()
 			appSubUnitStatuses = append(appSubUnitStatuses, appSubUnitStatus)
+			gotDeployErrs = true
 
 			klog.Errorf("Failed to apply kind template, pkg: %v/%v, error: %v ",
 				appSubUnitStatus.Namespace, appSubUnitStatus.Name, err)
@@ -333,10 +340,25 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 	}
 
 	err := sync.SyncAppsubClusterStatus(appsub, appsubClusterStatus, nil, nil)
+	endTime := time.Now().UnixMilli()
+
 	if err != nil {
 		klog.Error("error while sync app sub cluster status: ", err)
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(appsub.Namespace, appsub.Name).
+			Observe(float64(endTime - startTime))
 
 		return err
+	}
+
+	if gotDeployErrs {
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(appsub.Namespace, appsub.Name).
+			Observe(float64(endTime - startTime))
+	} else {
+		metrics.LocalDeploymentSuccessfulPullTime.
+			WithLabelValues(appsub.Namespace, appsub.Name).
+			Observe(float64(endTime - startTime))
 	}
 
 	return nil

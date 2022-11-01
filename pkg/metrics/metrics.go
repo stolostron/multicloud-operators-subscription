@@ -12,24 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mc
+package metrics
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
-	ocmMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics"
-	controllerMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
-var GitSuccessfulPullTime = *prometheus.NewHistogramVec(prometheus.HistogramOpts{
-	Name: "git_successful_pull_time",
-	Help: "Histogram of successful git pull latency",
-}, ocmMetrics.SubscriptionVectorLabels)
+const (
+	// Vector label keys
+	LabelSubscriptionNameSpace = "subscription_namespace"
+	LabelSubscriptionName      = "subscription_name"
+)
 
-var GitFailedPullTime = *prometheus.NewHistogramVec(prometheus.HistogramOpts{
-	Name: "git_failed_pull_time",
-	Help: "Histogram of failed git pull latency",
-}, ocmMetrics.SubscriptionVectorLabels)
+var CollectorsForRegistration []prometheus.Collector
 
 func init() {
-	controllerMetrics.Registry.MustRegister(GitSuccessfulPullTime, GitFailedPullTime)
+	metrics.Registry.MustRegister(CollectorsForRegistration...)
 }

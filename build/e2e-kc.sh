@@ -601,3 +601,41 @@ kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/failed-placem
 kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/failed-no-placement
 kubectl delete -f test/e2e/cases/20-verify-propagation-time-metric/common
 echo "PASSED test case 20-verify-propagation-time-metric"
+
+### 21-verify-local-deployment-time-metric
+echo "STARTING test case 21-verify-local-deployment-time-metric"
+kubectl config use-context kind-hub
+kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
+kubectl label managedcluster cluster1 purpose=test --overwrite
+
+kubectl apply -f test/e2e/cases/21-verify-local-deployment-time-metric
+sleep 30
+
+kubectl config use-context kind-cluster1
+kubectl -n local-deployment-metric-test rollout status deployment/git-simple-subscription
+
+echo "21-verify-local-deployment-time-metric: fetching collected managed cluster metrics"
+collectedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
+# grep expected metrics for verifying
+IFS=' ' read -a successfulDeploymentCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"local-deployment-metric-sub\"" | grep local_deployment_successful_time_count)
+IFS=' ' read -a successfulDeploymentSum <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"local-deployment-metric-sub\"" | grep local_deployment_successful_time_sum)
+IFS=' ' read -a failedDeploymentCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"local-deployment-metric-sub\"" | grep local_deployment_failed_time_count)
+
+echo "21-verify-local-deployment-time-metric: verifying expected local_deployment_successful_time metric for succesful subscription"
+if [ "${successfulDeploymentCount[1]}" \> 0 ] && [ "${successfulDeploymentSum[1]}" \> 100 ] ; then
+    echo "21-verify-local-deployment-time-metric: local_deployment_successful_time metric collected by the managed cluster's metrics service"
+else
+    echo "21-verify-local-deployment-time-metric: FAILED: local_deployment_successful_time metrics not collected by the managed cluster's metrics service"
+    exit 1
+fi
+
+echo "21-verify-local-deployment-time-metric: verifying no git_failed_pull_time metrics for succesful subscription"
+if [ -z ${failedDeploymentCount+x} ] ; then
+    echo "21-verify-local-deployment-time-metric: local_deployment_failed_time_count metrics not collected by the managed cluster's metrics service"
+else
+    echo "21-verify-local-deployment-time-metric: FAILED: local_deployment_failed_time_count metrics collected by the managed cluster's metrics service"
+    exit 1
+fi
+
+kubectl --context kind-hub delete -f test/e2e/cases/21-verify-local-deployment-time-metric
+echo "PASSED test case 21-verify-local-deployment-time-metric"
