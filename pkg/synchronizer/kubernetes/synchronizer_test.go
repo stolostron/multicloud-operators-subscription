@@ -20,6 +20,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	promTestUtils "github.com/prometheus/client_golang/prometheus/testutil"
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,7 @@ import (
 	"k8s.io/klog/v2"
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -434,6 +436,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 			klog.Error(err)
 			return
 		}
+
+		metrics.LocalDeploymentFailedPullTime.Reset()
+		metrics.LocalDeploymentSuccessfulPullTime.Reset()
 	})
 
 	BeforeAll(func() {
@@ -470,6 +475,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should create a single new resource", func() {
@@ -501,6 +509,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(Equal(1))
 	})
 
 	It("should create a single new resource v1 apiversion", func() {
@@ -532,6 +543,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("Configmap with missing namespace", func() {
@@ -562,6 +576,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("Configmap with missing namespace and different subscription", func() {
@@ -592,6 +609,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should have 0 resources", func() {
@@ -606,6 +626,9 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
 		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
 	})
 
 	AfterAll(func() {

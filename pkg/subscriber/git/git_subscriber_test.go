@@ -30,8 +30,8 @@ import (
 
 	promTestUtils "github.com/prometheus/client_golang/prometheus/testutil"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
-	mcMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics/mc"
 )
 
 const rsc1 = `apiVersion: v1
@@ -603,12 +603,10 @@ data:
 })
 
 var _ = Describe("test git pull time metrics", func() {
-	BeforeEach(func() {
-		mcMetrics.GitSuccessfulPullTime.Reset()
-		mcMetrics.GitFailedPullTime.Reset()
-	})
-
 	It("should observe the git_successful_pull_time metric for a successful a pull", func() {
+		metrics.GitSuccessfulPullTime.Reset()
+		metrics.GitFailedPullTime.Reset()
+
 		subitem := &SubscriberItem{}
 		subitem.Channel = githubchn
 		subitem.Subscription = githubsub
@@ -616,11 +614,14 @@ var _ = Describe("test git pull time metrics", func() {
 
 		subitem.doSubscription()
 
-		Expect(promTestUtils.CollectAndCount(mcMetrics.GitSuccessfulPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(mcMetrics.GitFailedPullTime)).To(Equal(0))
+		Expect(promTestUtils.CollectAndCount(metrics.GitSuccessfulPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.GitFailedPullTime)).To(Equal(0))
 	})
 
 	It("should observe the git_failed_pull_time metric for a failed a pull", func() {
+		metrics.GitSuccessfulPullTime.Reset()
+		metrics.GitFailedPullTime.Reset()
+
 		subitem := &SubscriberItem{}
 		subitem.Channel = githubchnfail
 		subitem.Subscription = githubsub
@@ -628,7 +629,7 @@ var _ = Describe("test git pull time metrics", func() {
 
 		subitem.doSubscription()
 
-		Expect(promTestUtils.CollectAndCount(mcMetrics.GitSuccessfulPullTime)).To(Equal(0))
-		Expect(promTestUtils.CollectAndCount(mcMetrics.GitFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.GitSuccessfulPullTime)).To(Equal(0))
+		Expect(promTestUtils.CollectAndCount(metrics.GitFailedPullTime)).To(Equal(1))
 	})
 })

@@ -541,33 +541,23 @@ Adding to the [default exported metrics by the controller-runtime](https://book.
 
 The following metrics can be scrapped from *Hub Cluster*:
 
-| Name                        | Help                                        |
-| --------------------------- | ------------------------------------------- |
-| propagation_successful_time | Histogram of successful propagation latency |
-| propagation_failed_time     | Histogram of failed propagation latency     |
+| Name                        | Help                                        | Labels |
+| --------------------------- | ------------------------------------------- | ------ |
+| propagation_successful_time | Histogram of successful propagation latency | *subscription_namespace*<br/>*subscription_name* |
+| propagation_failed_time     | Histogram of failed propagation latency     | *subscription_namespace*<br/>*subscription_name* |
 
-> Note, for standalone deployments, no propagation occurs, therefore no propagation metrics will be observed.
-
-Common vector labels:
-
-- *subscription_type*
-- *subscription_namespace*
-- *subscription_name*
+> Note, for standalone deployments, no propagation occurs, therefore the *propagation_x_time* metrics will NOT be observed.
 
 ## Managed Cluster Custom Metrics
 
 The following metrics can be scrapped from *Managed Clusters*:
 
-| Name                     | Help                                     |
-| ------------------------ | ---------------------------------------- |
-| git_successful_pull_time | Histogram of successful git pull latency |
-| git_failed_pull_time     | Histogram of failed git pull latency     |
-
-Common vector labels:
-
-- *subscription_type*
-- *subscription_namespace*
-- *subscription_name*
+| Name                             | Help                                             | Labels |
+| -------------------------------- | ------------------------------------------------ | ------ |
+| git_successful_pull_time         | Histogram of successful git pull latency         | *subscription_namespace*<br/>*subscription_name* |
+| git_failed_pull_time             | Histogram of failed git pull latency             | *subscription_namespace*<br/>*subscription_name* |
+| local_deployment_successful_time | Histogram of successful local deployment latency | *subscription_namespace*<br/>*subscription_name* |
+| local_deployment_failed_time     | Histogram of failed local deployment latency     | *subscription_namespace*<br/>*subscription_name* |
 
 ## Collecting Custom Metrics for Observability
 
@@ -586,6 +576,12 @@ data:
     - git_failed_pull_time_bucket
     - git_failed_pull_time_count
     - git_failed_pull_time_sum
+    - local_deployment_successful_time_bucket
+    - local_deployment_successful_time_count
+    - local_deployment_successful_time_sum
+    - local_deployment_failed_time_bucket
+    - local_deployment_failed_time_count
+    - local_deployment_failed_time_sum
     - propagation_successful_time_bucket
     - propagation_successful_time_count
     - propagation_successful_time_sum

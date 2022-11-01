@@ -31,7 +31,7 @@ import (
 	channelV1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	hubMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics/hub"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 )
 
 var _ = Describe("test propagation statuses set by the hub reconciler", func() {
@@ -53,8 +53,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			mgrStopped.Wait()
 		}()
 
-		hubMetrics.PropagationFailedPullTime.Reset()
-		hubMetrics.PropagationSuccessfulPullTime.Reset()
+		metrics.PropagationFailedPullTime.Reset()
+		metrics.PropagationSuccessfulPullTime.Reset()
 
 		noPlacementSubscriptionKey := types.NamespacedName{
 			Name:      "test-propagation-no-placement-sub",
@@ -92,8 +92,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
 		Expect(reconciledSubscription.Status.Reason).To(Equal("Placement must be specified"))
 
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationSuccessfulPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should fail for subscriptions configured for both local and remote placements", func() {
@@ -114,8 +114,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			mgrStopped.Wait()
 		}()
 
-		hubMetrics.PropagationFailedPullTime.Reset()
-		hubMetrics.PropagationSuccessfulPullTime.Reset()
+		metrics.PropagationFailedPullTime.Reset()
+		metrics.PropagationSuccessfulPullTime.Reset()
 
 		wrongPlacementSubscriptionKey := types.NamespacedName{
 			Name:      "test-propagation-wrong-placement-sub",
@@ -161,8 +161,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
 		Expect(reconciledSubscription.Status.Reason).To(Equal("local placement and remote placement cannot be used together"))
 
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationSuccessfulPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should not propagate for subscriptions configured for local placement only", func() {
@@ -183,8 +183,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			mgrStopped.Wait()
 		}()
 
-		hubMetrics.PropagationFailedPullTime.Reset()
-		hubMetrics.PropagationSuccessfulPullTime.Reset()
+		metrics.PropagationFailedPullTime.Reset()
+		metrics.PropagationSuccessfulPullTime.Reset()
 
 		localPlacementSubscriptionKey := types.NamespacedName{
 			Name:      "test-propagation-local-placement-sub",
@@ -226,8 +226,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(BeEmpty())
 		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
 
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationFailedPullTime)).To(BeZero())
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationSuccessfulPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should not propagate for subscriptions with a remote placement and no channel", func() {
@@ -248,8 +248,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			mgrStopped.Wait()
 		}()
 
-		hubMetrics.PropagationFailedPullTime.Reset()
-		hubMetrics.PropagationSuccessfulPullTime.Reset()
+		metrics.PropagationFailedPullTime.Reset()
+		metrics.PropagationSuccessfulPullTime.Reset()
 
 		noChannelSubscriptionKey := types.NamespacedName{
 			Name:      "test-propagation-no-channel-sub",
@@ -292,8 +292,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(BeEmpty())
 		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
 
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationFailedPullTime)).To(BeZero())
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationSuccessfulPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
 	})
 
 	It("should successfully propagate for subscriptions with a remote channel and a placement", func() {
@@ -314,8 +314,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			mgrStopped.Wait()
 		}()
 
-		hubMetrics.PropagationFailedPullTime.Reset()
-		hubMetrics.PropagationSuccessfulPullTime.Reset()
+		metrics.PropagationFailedPullTime.Reset()
+		metrics.PropagationSuccessfulPullTime.Reset()
 
 		successfulChannelKey := types.NamespacedName{
 			Name:      "test-propagation-successful-channel",
@@ -414,7 +414,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagated))
 
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationFailedPullTime)).To(BeZero())
-		Expect(promTestUtils.CollectAndCount(hubMetrics.PropagationSuccessfulPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
 	})
 })

@@ -1,0 +1,9 @@
+---
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: gitops
+  namespace: local-deployment-metric-test
+spec:
+  pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription
+  type: git

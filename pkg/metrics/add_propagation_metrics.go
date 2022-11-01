@@ -12,24 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package hub
+package metrics
 
-import (
-	"github.com/prometheus/client_golang/prometheus"
-	ocmMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics"
-	controllerMetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
-)
+import "github.com/prometheus/client_golang/prometheus"
 
 var PropagationSuccessfulPullTime = *prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Name: "propagation_successful_time",
 	Help: "Histogram of successful propagation latency",
-}, ocmMetrics.SubscriptionVectorLabels)
+}, []string{LabelSubscriptionNameSpace, LabelSubscriptionName})
 
 var PropagationFailedPullTime = *prometheus.NewHistogramVec(prometheus.HistogramOpts{
 	Name: "propagation_failed_time",
 	Help: "Histogram of failed propagation latency",
-}, ocmMetrics.SubscriptionVectorLabels)
+}, []string{LabelSubscriptionNameSpace, LabelSubscriptionName})
 
 func init() {
-	controllerMetrics.Registry.MustRegister(PropagationSuccessfulPullTime, PropagationFailedPullTime)
+	CollectorsForRegistration = append(CollectorsForRegistration, PropagationSuccessfulPullTime, PropagationFailedPullTime)
 }

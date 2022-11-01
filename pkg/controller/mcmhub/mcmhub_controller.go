@@ -46,8 +46,8 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
-	hubMetrics "open-cluster-management.io/multicloud-operators-subscription/pkg/utils/metrics/hub"
 )
 
 const clusterRole = `apiVersion: rbac.authorization.k8s.io/v1
@@ -535,29 +535,17 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	if pl == nil {
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "Placement must be specified"
-		subType := "failed-to-get-sub-type"
 
-		primaryChannel, _, err := r.getChannel(instance)
-		if err == nil {
-			subType = string(primaryChannel.Spec.Type)
-		}
-
-		hubMetrics.PropagationFailedPullTime.
-			WithLabelValues(subType, instance.Namespace, instance.Name).
+		metrics.PropagationFailedPullTime.
+			WithLabelValues(instance.Namespace, instance.Name).
 			Observe(0)
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) && (pl.Local != nil && *pl.Local) {
 		logger.Info("both local placement and remote placement are defined in the subscription")
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "local placement and remote placement cannot be used together"
-		subType := "failed-to-get-sub-type"
 
-		primaryChannel, _, err := r.getChannel(instance)
-		if err == nil {
-			subType = string(primaryChannel.Spec.Type)
-		}
-
-		hubMetrics.PropagationFailedPullTime.
-			WithLabelValues(subType, instance.Namespace, instance.Name).
+		metrics.PropagationFailedPullTime.
+			WithLabelValues(instance.Namespace, instance.Name).
 			Observe(0)
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) {
 		primaryChannel, _, err := r.getChannel(instance)
@@ -628,16 +616,16 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 		if err != nil {
 			r.logger.Error(err, "failed to process on doMCMHubReconcile")
-			hubMetrics.PropagationFailedPullTime.
-				WithLabelValues(string(primaryChannel.Spec.Type), instance.Namespace, instance.Name).
+			metrics.PropagationFailedPullTime.
+				WithLabelValues(instance.Namespace, instance.Name).
 				Observe(float64(endTime - startTime))
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
 			returnErr = err
 		} else {
-			hubMetrics.PropagationSuccessfulPullTime.
-				WithLabelValues(string(primaryChannel.Spec.Type), instance.Namespace, instance.Name).
+			metrics.PropagationSuccessfulPullTime.
+				WithLabelValues(instance.Namespace, instance.Name).
 				Observe(float64(endTime - startTime))
 			// Clear prev reconcile errors
 			instance.Status.Phase = appv1.SubscriptionPropagated
