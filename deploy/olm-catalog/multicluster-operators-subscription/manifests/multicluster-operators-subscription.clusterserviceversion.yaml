@@ -879,14 +879,7 @@ spec:
               - name: tmp
                 emptyDir: {}
               - name: multicluster-operators-subscription-tls
-                secret:
-                  defaultMode: 420
-                  secretName: multicluster-operators-subscription
-                  items:
-                  - key: tls.crt
-                    path: tls.crt
-                  - key: tls.key
-                    path: tls.key
+                emptyDir: {}
               serviceAccountName: multicluster-operators
       - name: multicluster-operators-hub-subscription
         spec:
@@ -975,14 +968,7 @@ spec:
               - name: tmp
                 emptyDir: {}
               - name: multicluster-operators-subscription-tls
-                secret:
-                  defaultMode: 420
-                  secretName: multicluster-operators-subscription
-                  items:
-                  - key: tls.crt
-                    path: tls.crt
-                  - key: tls.key
-                    path: tls.key
+                emptyDir: {}
               serviceAccountName: multicluster-operators
     strategy: deployment
   installModes:
