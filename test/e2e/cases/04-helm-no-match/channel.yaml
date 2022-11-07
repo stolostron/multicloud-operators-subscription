@@ -3,6 +3,8 @@ kind: Channel
 metadata:
   name: demo-helmrepo
   namespace: default
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
 spec:
     type: HelmRepo
     pathname: https://charts.helm.sh/stable/

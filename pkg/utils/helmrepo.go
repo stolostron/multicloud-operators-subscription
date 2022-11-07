@@ -104,7 +104,7 @@ func createSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, sub 
 			SourceType: releasev1.GitSourceType,
 			Git: &releasev1.Git{
 				Urls:      []string{channel.Spec.Pathname},
-				ChartPath: chartVersions[0].URLs[0],
+				ChartPath: generateGitChartPath(sub.GetAnnotations()),
 				Branch:    GetSubscriptionBranch(sub).Short(),
 			},
 		}
@@ -142,7 +142,7 @@ func createAltSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, s
 			SourceType: releasev1.GitSourceType,
 			Git: &releasev1.Git{
 				Urls:      []string{channel.Spec.Pathname},
-				ChartPath: chartVersions[0].URLs[0],
+				ChartPath: generateGitChartPath(sub.GetAnnotations()),
 				Branch:    GetSubscriptionBranch(sub).Short(),
 			},
 		}
@@ -170,6 +170,18 @@ func createAltSource(channel *chnv1.Channel, chartVersions repo.ChartVersions, s
 	}
 
 	return altSource, nil
+}
+
+func generateGitChartPath(annotations map[string]string) string {
+	if len(annotations) == 0 {
+		return ""
+	}
+
+	if chartPath, ok := annotations[appv1.AnnotationGitPath]; ok {
+		return chartPath
+	}
+
+	return ""
 }
 
 func CreateOrUpdateHelmChart(

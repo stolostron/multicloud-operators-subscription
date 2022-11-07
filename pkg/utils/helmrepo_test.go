@@ -27,13 +27,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
-
 	releasev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -449,4 +447,45 @@ func TestIsURL(t *testing.T) {
 
 	g.Expect(IsURL("https://charts.helm.sh/stable/packages/nginx-ingress-1.40.1.tgz")).To(gomega.BeTrue())
 	g.Expect(IsURL("nginx-ingress-1.40.1.tgz")).To(gomega.BeFalse())
+}
+
+func Test_generateGitChartPath(t *testing.T) {
+	type args struct {
+		annotations map[string]string
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "found annotation and return chart path",
+			args: args{annotations: map[string]string{appv1.AnnotationGitPath: "foobar"}},
+			want: "foobar",
+		},
+		{
+			name: "nil annotation",
+			args: args{annotations: nil},
+			want: "",
+		},
+		{
+			name: "empty annotation",
+			args: args{annotations: make(map[string]string)},
+			want: "",
+		},
+		{
+			name: "no relevant annotation",
+			args: args{annotations: map[string]string{"foo": "bar"}},
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := generateGitChartPath(tt.args.annotations); got != tt.want {
+				t.Errorf("generateGitChartPath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

@@ -25,7 +25,7 @@ kubectl label managedcluster cluster1 purpose=test --overwrite
 kubectl apply -f test/e2e/cases/01-placement/
 sleep 30
 
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription | grep Propagated; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "01-placement: hub subscriptions.apps.open-cluster-management.io status is Propagated"
 else
     echo "01-placement FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
@@ -33,24 +33,24 @@ else
 fi
 
 kubectl config use-context kind-cluster1
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription | grep Subscribed; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Subscribed; then
     echo "01-placement: cluster1 subscriptions.apps.open-cluster-management.io status is Subscribed"
 else
     echo "01-placement FAILED: cluster1 subscriptions.apps.open-cluster-management.io status is not Subscribed"
     exit 1
 fi
 
-if kubectl get subscriptionstatus.apps.open-cluster-management.io demo-subscription -o yaml | grep InstallSuccessful; then
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep InstallSuccessful; then
     echo "01-placement: found InstallSuccessful in subscription status output"
 else
     echo "01-placement: FAILED: InstallSuccessful is not in the subscription status output"
     exit 1
 fi
 
-if kubectl get pod | grep nginx-ingress-simple-controller | grep Running; then
+if kubectl get pod | grep ingress | grep Running; then
     echo "01-placement: appsub deployment pod status is Running"
 else
-    echo "01-placement FAILED: appsub deployment pod status is Running"
+    echo "01-placement FAILED: appsub deployment pod status is not Running"
     exit 1
 fi
 
@@ -58,7 +58,7 @@ kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/01-placement/
 sleep 30
 kubectl config use-context kind-cluster1
-if kubectl get pod | grep nginx-ingress-simple-controller; then
+if kubectl get pod | grep ingress; then
     echo "01-placement FAILED: appsub deployment pod is not deleted"
     exit 1
 else
@@ -72,7 +72,7 @@ kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/02-placementrule/
 sleep 30
 
-if kubectl get subscriptions.apps.open-cluster-management.io nginx-sub | grep Propagated; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "02-placementrule: hub subscriptions.apps.open-cluster-management.io status is Propagated"
 else
     echo "02-placementrule FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
@@ -80,21 +80,21 @@ else
 fi
 
 kubectl config use-context kind-cluster1
-if kubectl get subscriptions.apps.open-cluster-management.io nginx-sub | grep Subscribed; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Subscribed; then
     echo "02-placementrule: cluster1 subscriptions.apps.open-cluster-management.io status is Subscribed"
 else
     echo "02-placementrule FAILED: cluster1 subscriptions.apps.open-cluster-management.io status is not Subscribed"
     exit 1
 fi
 
-if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-sub -o yaml | grep InstallSuccessful; then
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep InstallSuccessful; then
     echo "02-placementrule: found InstallSuccessful in subscription status output"
 else
     echo "02-placementrule: FAILED: InstallSuccessful is not in the subscription status output"
     exit 1
 fi
 
-if kubectl get pod | grep nginx-ingress- | grep Running; then
+if kubectl get pod | grep ingress | grep Running; then
     echo "02-placementrule: appsub deployment pod status is Running"
 else
     echo "02-placementrule FAILED: appsub deployment pod status is Running"
@@ -105,7 +105,7 @@ kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/02-placementrule/
 sleep 30
 kubectl config use-context kind-cluster1
-if kubectl get pod | grep nginx-ingress-; then
+if kubectl get pod | grep ingress; then
     echo "02-placementrule FAILED: appsub deployment pod is not deleted"
     exit 1
 else
@@ -148,13 +148,13 @@ kubectl label managedcluster cluster1 purpose=test --overwrite
 kubectl apply -f test/e2e/cases/04-helm-no-match/
 sleep 10
 
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription | grep PropagationFailed; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep PropagationFailed; then
     echo "04-helm-no-match: hub subscriptions.apps.open-cluster-management.io status is PropagationFailed"
 else
     echo "04-helm-no-match FAILED: hub subscriptions.apps.open-cluster-management.io status is not PropagationFailed"
     exit 1
 fi
-if kubectl get subscriptions.apps.open-cluster-management.io demo-subscription -o yaml | grep "unable to find any matching Helm chart"; then
+if kubectl get subscriptions.apps.open-cluster-management.io ingress -o yaml | grep "unable to find any matching Helm chart"; then
     echo "04-helm-no-match: hub subscriptions.apps.open-cluster-management.io status contains proper error message"
 else
     echo "04-helm-no-match FAILED: hub subscriptions.apps.open-cluster-management.io status does not contains proper error message"
@@ -165,6 +165,7 @@ echo "PASSED test case 04-helm-no-match"
 ### 05-ansiblejob
 echo "STARTING test case 05-ansiblejob"
 kubectl config use-context kind-hub
+kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/05-ansiblejob/
 sleep 10
 
@@ -187,6 +188,7 @@ echo "PASSED test case 05-ansiblejob"
 ### 06-ansiblejob-post
 echo "STARTING test case 06-ansiblejob-post"
 kubectl config use-context kind-hub
+kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/06-ansiblejob-post/
 sleep 30
 
@@ -325,27 +327,27 @@ echo "STARTING test 12-helm-update"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/12-helm-update/install
 sleep 30
-if kubectl get subscriptions.apps.open-cluster-management.io nginx-helm-sub | grep Propagated; then
-    echo "12-helm-update: nginx-helm-sub status is Propagated"
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
+    echo "12-helm-update: ingress status is Propagated"
 else
-    echo "12-helm-updates FAILED: nginx-helm-sub status is not Propagated"
+    echo "12-helm-updates FAILED: ingress status is not Propagated"
     exit 1
 fi
 kubectl config use-context kind-cluster1
-if kubectl get deploy nginx-ingress-simple-default-backend| grep "2/2"; then
-    echo "12-helm-update: found 2/2 in deploy nginx-ingress-simple-default-backend"
+if kubectl get deploy ingress | grep "2/2"; then
+    echo "12-helm-update: found 2/2 in deploy ingress"
 else
-    echo "12-helm-update: FAILED: 2/2 is not in in deploy nginx-ingress-simple-default-backend"
+    echo "12-helm-update: FAILED: 2/2 is not in in deploy ingress"
     exit 1
 fi
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/12-helm-update/upgrade
 sleep 120
 kubectl config use-context kind-cluster1
-if kubectl get deploy nginx-ingress-simple-default-backend| grep "1/1"; then
-    echo "12-helm-update: found 1/1 in deploy nginx-ingress-simple-default-backend"
+if kubectl get deploy ingress | grep "1/1"; then
+    echo "12-helm-update: found 1/1 in deploy ingress"
 else
-    echo "12-helm-update: FAILED: 1/1 is not in in deploy nginx-ingress-simple-default-backend"
+    echo "12-helm-update: FAILED: 1/1 is not in in deploy ingress"
     exit 1
 fi
 kubectl config use-context kind-hub
@@ -371,36 +373,36 @@ echo "STARTING test 14-helm-appsubstatus"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/14-helm-appsubstatus/install
 sleep 30
-if kubectl get subscriptionreport.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
-    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionreport is found"
+if kubectl get subscriptionreport.apps.open-cluster-management.io ingress | grep ingress; then
+    echo "14-helm-appsubstatus: ingress subscriptionreport is found"
 else
-    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionreport is not found"
+    echo "14-helm-appsubstatus FAILED: ingress subscriptionreport is not found"
     exit 1
 fi
-kubectl delete subscriptionreport.apps.open-cluster-management.io nginx-helm-sub
+kubectl delete subscriptionreport.apps.open-cluster-management.io ingress
 kubectl -n cluster1 delete subscriptionreport.apps.open-cluster-management.io cluster1
 kubectl config use-context kind-cluster1
-if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
-    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionstatus is found"
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress | grep ingress; then
+    echo "14-helm-appsubstatus: ingress subscriptionstatus is found"
 else
-    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionstatus is not found"
+    echo "14-helm-appsubstatus FAILED: ingress subscriptionstatus is not found"
     exit 1
 fi
-kubectl delete subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub
+kubectl delete subscriptionstatus.apps.open-cluster-management.io ingress
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/14-helm-appsubstatus/upgrade
 sleep 120
-if kubectl get subscriptionreport.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
-    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionreport is found"
+if kubectl get subscriptionreport.apps.open-cluster-management.io ingress | grep ingress; then
+    echo "14-helm-appsubstatus: ingress subscriptionreport is found"
 else
-    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionreport is not found"
+    echo "14-helm-appsubstatus FAILED: ingress subscriptionreport is not found"
     exit 1
 fi
 kubectl config use-context kind-cluster1
-if kubectl get subscriptionstatus.apps.open-cluster-management.io nginx-helm-sub | grep nginx-helm-sub; then
-    echo "14-helm-appsubstatus: nginx-helm-sub subscriptionstatus is found"
+if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress | grep ingress; then
+    echo "14-helm-appsubstatus: ingress subscriptionstatus is found"
 else
-    echo "14-helm-appsubstatus FAILED: nginx-helm-sub subscriptionstatus is not found"
+    echo "14-helm-appsubstatus FAILED: ingress subscriptionstatus is not found"
     exit 1
 fi
 kubectl config use-context kind-hub
@@ -436,24 +438,24 @@ echo "STARTING test 16-helm-recreate"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/16-helm-recreate
 sleep 30
-if kubectl get subscriptions.apps.open-cluster-management.io nginx-helm-sub | grep Propagated; then
-    echo "16-helm-recreate: nginx-helm-sub status is Propagated"
+if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
+    echo "16-helm-recreate: ingress status is Propagated"
 else
-    echo "16-helm-recreate FAILED: nginx-helm-sub status is not Propagated"
+    echo "16-helm-recreate FAILED: ingress status is not Propagated"
     exit 1
 fi
 kubectl config use-context kind-cluster1
-if kubectl delete service nginx-ingress-simple-controller; then
-    echo "16-helm-recreate: service nginx-ingress-simple-controller is deleted"
+if kubectl delete service ingress; then
+    echo "16-helm-recreate: service ingress is deleted"
 else
-    echo "16-helm-recreate FAILED: service nginx-ingress-simple-controller is not deleted"
+    echo "16-helm-recreate FAILED: service ingress is not deleted"
     exit 1
 fi
 sleep 10
-if kubectl get service nginx-ingress-simple-controller; then
-    echo "16-helm-recreate: service nginx-ingress-simple-controller is recreated"
+if kubectl get service ingress; then
+    echo "16-helm-recreate: service ingress is recreated"
 else
-    echo "16-helm-recreate FAILED: service nginx-ingress-simple-controller is not recreated"
+    echo "16-helm-recreate FAILED: service ingress is not recreated"
     exit 1
 fi
 
@@ -464,6 +466,7 @@ echo "PASSED test case 16-helm-recreate"
 ### 17-ansiblejob-pre-workflow
 echo "STARTING test case 17-ansiblejob-pre-workflow"
 kubectl config use-context kind-hub
+kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/17-ansiblejob-pre-workflow/
 sleep 10
 

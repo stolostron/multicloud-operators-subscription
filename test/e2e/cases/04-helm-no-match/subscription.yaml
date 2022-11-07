@@ -1,7 +1,7 @@
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
-  name: demo-subscription
+  name: ingress
   namespace: default
 spec:
   channel: default/demo-helmrepo
