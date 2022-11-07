@@ -52,6 +52,8 @@ var (
 		Spec: AnsibleJobSpec{
 			TowerAuthSecretName:  "tower-secret",
 			WorkflowTemplateName: "workflow-demo",
+			JobTags:              "job,tags",
+			SkipTags:             "skip,tags",
 		},
 	}
 )
@@ -86,4 +88,6 @@ func TestAnsibleWorkflow(t *testing.T) {
 	g.Expect(c.Get(context.TODO(), workflowKey, fetched)).NotTo(gomega.HaveOccurred())
 
 	g.Expect(fetched.Spec.WorkflowTemplateName).To(gomega.Equal("workflow-demo"))
+	g.Expect(fetched.Spec.JobTags).To(gomega.Equal("job,tags"))
+	g.Expect(fetched.Spec.SkipTags).To(gomega.Equal("skip,tags"))
 }

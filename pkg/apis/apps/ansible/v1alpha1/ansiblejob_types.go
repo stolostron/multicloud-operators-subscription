@@ -36,6 +36,8 @@ type AnsibleJobSpec struct {
 	JobTemplateName      string          `json:"job_template_name,omitempty"`
 	WorkflowTemplateName string          `json:"workflow_template_name,omitempty"`
 	Inventory            string          `json:"inventory,omitempty"`
+	JobTags              string          `json:"job_tags,omitempty"`
+	SkipTags             string          `json:"skip_tags,omitempty"`
 	ExtraVars            json.RawMessage `json:"extra_vars,omitempty"`
 }
 

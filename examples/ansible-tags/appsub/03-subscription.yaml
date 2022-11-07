@@ -1,0 +1,17 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: ansible-tags
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/github-path: examples/ansible-tags/resources
+    apps.open-cluster-management.io/github-branch: main
+spec:
+  hooksecretref:
+    namespace: default
+    name: toweraccess
+  channel: default/git
+  placement:
+    placementRef:
+      kind: PlacementRule
+      name: non-local-cluster
