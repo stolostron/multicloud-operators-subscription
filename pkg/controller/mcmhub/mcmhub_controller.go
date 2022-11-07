@@ -91,7 +91,7 @@ func Add(mgr manager.Manager) error {
 	return add(mgr, newReconciler(mgr))
 }
 
-//Option provide easy way to test the reconciler
+// Option provide easy way to test the reconciler
 type Option func(*ReconcileSubscription)
 
 func resetHubGitOps(g GitOps) Option {
@@ -551,6 +551,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		primaryChannel, _, err := r.getChannel(instance)
 		if err != nil {
 			klog.Errorf("Failed to find a channel for subscription: %s", instance.GetName())
+			metrics.PropagationFailedPullTime.
+				WithLabelValues(instance.Namespace, instance.Name).
+				Observe(0)
 			return reconcile.Result{}, nil
 		}
 
@@ -562,6 +565,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				preErr = fmt.Errorf("failed to initialize Git connection, err: %w", err)
 
 				passedBranchRegistration = false
+				metrics.PropagationFailedPullTime.
+					WithLabelValues(instance.Namespace, instance.Name).
+					Observe(0)
 
 				return reconcile.Result{}, nil
 			}
@@ -572,6 +578,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				preErr = fmt.Errorf("failed to register hooks, err: %w", err)
 
 				passedPrehook = false
+				metrics.PropagationFailedPullTime.
+					WithLabelValues(instance.Namespace, instance.Name).
+					Observe(0)
 
 				return reconcile.Result{}, nil
 			}
@@ -584,6 +593,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 					logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
 					passedPrehook = false
+					metrics.PropagationFailedPullTime.
+						WithLabelValues(instance.Namespace, instance.Name).
+						Observe(0)
 
 					return reconcile.Result{}, nil
 				}
@@ -598,11 +610,18 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 					if err != nil {
 						logger.Error(err, "failed to check prehook status, skip the subscription reconcile")
+						metrics.PropagationFailedPullTime.
+							WithLabelValues(instance.Namespace, instance.Name).
+							Observe(0)
+
 						return reconcile.Result{}, nil
 					}
 
 					result.RequeueAfter = r.hookRequeueInterval
 					passedPrehook = false
+					metrics.PropagationFailedPullTime.
+						WithLabelValues(instance.Namespace, instance.Name).
+						Observe(0)
 
 					return result, nil
 				}
@@ -727,13 +746,13 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 	return true, nil
 }
 
-//finalCommit will shortcut the prehook logic if the prehook present
+// finalCommit will shortcut the prehook logic if the prehook present
 // if the prohook is completed, then update subscription will be update(1, the
 // main spec, 2, status update)
 // if the prehook, subscription is update then entry the posthook logic
 //
-//the requeue logic is done via set up the RequeueAfter parameter of the
-//reconciel.Result
+// the requeue logic is done via set up the RequeueAfter parameter of the
+// reconciel.Result
 func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passedPrehook bool, preErr error,
 	oIns, nIns *appv1.Subscription,
 	request reconcile.Request, res *reconcile.Result) {
