@@ -642,3 +642,38 @@ fi
 
 kubectl --context kind-hub delete -f test/e2e/cases/21-verify-local-deployment-time-metric
 echo "PASSED test case 21-verify-local-deployment-time-metric"
+
+### 22-ansiblejob-tags
+echo "STARTING test case 22-ansiblejob-tags"
+kubectl config use-context kind-hub
+kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
+kubectl apply -f test/e2e/cases/22-ansiblejob-tags/
+sleep 10
+
+if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastposthookjob | grep posthook-tags-test; then
+    echo "22-ansiblejob-tags: found ansiblejob CR name in subscription output"
+else
+    echo "22-ansiblejob-tags: FAILED: ansiblejob CR name is not in the subscription output"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com | grep posthook-tags-test; then
+    echo "22-ansiblejob-tags: found ansiblejobs.tower.ansible.com"
+else
+    echo "22-ansiblejob-tags: FAILED: ansiblejobs.tower.ansible.com not found"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com -o yaml | grep job_tags; then
+    echo "22-ansiblejob-tags: found job_tags in ansiblejobs.tower.ansible.com"
+else
+    echo "22-ansiblejob-tags: FAILED: job_tags not found in ansiblejobs.tower.ansible.com"
+    exit 1
+fi
+if kubectl get ansiblejobs.tower.ansible.com -o yaml | grep skip_tags; then
+    echo "22-ansiblejob-tags: found skip_tags in ansiblejobs.tower.ansible.com"
+else
+    echo "22-ansiblejob-tags: FAILED: skip_tags not found in ansiblejobs.tower.ansible.com"
+    exit 1
+fi
+kubectl delete -f test/e2e/cases/22-ansiblejob-tags/
+sleep 5
+echo "PASSED test case 22-ansiblejob-tags"
