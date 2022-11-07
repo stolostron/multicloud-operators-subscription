@@ -4,6 +4,8 @@ kind: Channel
 metadata:
   name: git
   namespace: default
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
 spec:
   type: git
   pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription.git

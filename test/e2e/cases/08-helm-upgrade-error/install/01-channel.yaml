@@ -3,6 +3,8 @@ kind: Channel
 metadata:
   name: dev-helmrepo
   namespace: default
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
 spec:
   type: HelmRepo
   pathname: https://raw.githubusercontent.com/open-cluster-management-io/multicloud-operators-subscription/main/testhr/e2e/

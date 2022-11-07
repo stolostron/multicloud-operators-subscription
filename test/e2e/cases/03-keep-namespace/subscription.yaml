@@ -4,17 +4,14 @@ metadata:
   name: demo-subscription
   namespace: test-case-03
 spec:
-  channel: default/demo-helmrepo
-  name: nginx-ingress
+  channel: default/dev-helmrepo
+  name: ingress
   placement:
     placementRef: 
       name: demo-placement
       kind: Placement
+  packageFilter:
+    version: "0.1.0"
   packageOverrides:
-  - packageName: nginx-ingress
-    packageAlias: nginx-ingress-simple
-    packageOverrides:
-    - path: spec
-      value:
-        defaultBackend:
-          replicaCount: 2
+  - packageName: ingress
+    packageAlias: ingress

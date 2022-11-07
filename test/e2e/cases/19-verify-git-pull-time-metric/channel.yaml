@@ -4,6 +4,8 @@ kind: Channel
 metadata:
   name: gitops
   namespace: git-pull-time-metric-test
+  annotations:
+    apps.open-cluster-management.io/reconcile-rate: high
 spec:
   # change to https://github.com/open-cluster-management-io/multicloud-operators-subscription after merge
   pathname: https://github.com/TomerFi/ocm-playground
