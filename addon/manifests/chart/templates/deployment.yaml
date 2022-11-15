@@ -72,6 +72,9 @@ spec:
           - "--alsologtostderr"
           - "--cluster-name={{ .Values.clusterName }}"
           - "--hub-cluster-configfile=/var/run/klusterlet/kubeconfig"
+          - "--leader-election-lease-duration=137"
+          - "--renew-deadline=107"
+          - "--retry-period=26"
         livenessProbe:
           exec:
             command:
