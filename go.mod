@@ -27,19 +27,19 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	gopkg.in/src-d/go-git.v4 v4.13.1
 	helm.sh/helm/v3 v3.9.4
-	k8s.io/api v0.24.3
-	k8s.io/apiextensions-apiserver v0.24.3
-	k8s.io/apimachinery v0.24.3
-	k8s.io/cli-runtime v0.24.3
+	k8s.io/api v0.25.0
+	k8s.io/apiextensions-apiserver v0.25.0
+	k8s.io/apimachinery v0.25.0
+	k8s.io/cli-runtime v0.25.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.70.1
-	open-cluster-management.io/addon-framework v0.4.0
-	open-cluster-management.io/api v0.8.0
+	open-cluster-management.io/addon-framework v0.5.0
+	open-cluster-management.io/api v0.9.0
 	open-cluster-management.io/multicloud-operators-channel v0.8.1-0.20220830142938-f26e84e80456
 	sigs.k8s.io/controller-runtime v0.12.3
-	sigs.k8s.io/kustomize/api v0.11.5
-	sigs.k8s.io/kustomize/kyaml v0.13.7
+	sigs.k8s.io/kustomize/api v0.12.1
+	sigs.k8s.io/kustomize/kyaml v0.13.9
 )
 
 require (
@@ -88,7 +88,6 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
 	github.com/docker/go-units v0.4.0 // indirect
-	github.com/emicklei/go-restful v2.16.0+incompatible // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
@@ -193,20 +192,20 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.24.3 // indirect
-	k8s.io/component-base v0.24.3 // indirect
+	k8s.io/apiserver v0.25.0 // indirect
+	k8s.io/component-base v0.25.0 // indirect
 	k8s.io/kube-aggregator v0.24.3 // indirect
-	k8s.io/kube-openapi v0.0.0-20220627174259-011e075b9cb8 // indirect
+	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/kubectl v0.24.3 // indirect
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
 	oras.land/oras-go v1.2.0 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.5 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
 replace (
 	github.com/chai2010/gettext-go => github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5
-	k8s.io/client-go => k8s.io/client-go v0.24.3
+	k8s.io/client-go => k8s.io/client-go v0.25.0
 )
