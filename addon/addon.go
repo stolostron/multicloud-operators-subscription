@@ -91,6 +91,47 @@ func getValue(cluster *clusterv1.ManagedCluster,
 	return addonfactory.JsonStructToValues(addonValues)
 }
 
+func toAddonResources(config addonapiv1alpha1.AddOnDeploymentConfig) (addonfactory.Values, error) {
+	type resource struct {
+		Memory string `json:"memory"`
+	}
+
+	type resources struct {
+		Requests resource `json:"requests"`
+		Limits   resource `json:"limits"`
+	}
+
+	jsonStruct := struct {
+		Resources resources `json:"resources"`
+	}{
+		Resources: resources{
+			Requests: resource{
+				Memory: "128Mi",
+			},
+			Limits: resource{
+				Memory: "2Gi",
+			},
+		},
+	}
+
+	for _, variable := range config.Spec.CustomizedVariables {
+		if variable.Name == "RequestMemory" {
+			jsonStruct.Resources.Requests.Memory = variable.Value
+		}
+
+		if variable.Name == "LimitsMemory" {
+			jsonStruct.Resources.Limits.Memory = variable.Value
+		}
+	}
+
+	values, err := addonfactory.JsonStructToValues(jsonStruct)
+	if err != nil {
+		return nil, err
+	}
+
+	return values, nil
+}
+
 func newRegistrationOption(kubeClient *kubernetes.Clientset, addonName string) *agent.RegistrationOption {
 	return &agent.RegistrationOption{
 		CSRConfigurations: agent.KubeClientSignerConfigurations(addonName, addonName),
@@ -162,6 +203,8 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 		return addonMgr, err
 	}
 
+	addonGetter := addonfactory.NewAddOnDeloymentConfigGetter(addonClient)
+
 	agentFactory := addonfactory.NewAgentAddonFactory(AppMgrAddonName, ChartFS, ChartDir).
 		// register the supported configuration types
 		WithConfigGVRs(
@@ -170,10 +213,15 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 		WithGetValuesFuncs(
 			getValue,
 			addonfactory.GetValuesFromAddonAnnotation,
-			// get the AddOnDeloymentConfig object and transform it to Values object
+			// get the AddOnDeloymentConfig object and transform nodeSelector and toleration defined in spec.NodePlacement to Values object
 			addonfactory.GetAddOnDeloymentConfigValues(
-				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
+				addonGetter,
 				addonfactory.ToAddOnNodePlacementValues,
+			),
+			// get the AddOnDeloymentConfig object and transform request/limit memory defined in Spec.CustomizedVariables to Values object
+			addonfactory.GetAddOnDeloymentConfigValues(
+				addonGetter,
+				toAddonResources,
 			),
 		).
 		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName))
