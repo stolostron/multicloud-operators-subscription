@@ -12,6 +12,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -20,6 +21,7 @@ import (
 	"open-cluster-management.io/addon-framework/pkg/agent"
 	"open-cluster-management.io/addon-framework/pkg/utils"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
+	addonv1alpha1client "open-cluster-management.io/api/client/addon/clientset/versioned"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	appsubutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -149,6 +151,11 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 		return nil, err
 	}
 
+	addonClient, err := addonv1alpha1client.NewForConfig(kubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	kubeClient, err := kubernetes.NewForConfig(kubeConfig)
 	if err != nil {
 		klog.Errorf("unable to create kube client: %v", err)
@@ -156,13 +163,23 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 	}
 
 	agentFactory := addonfactory.NewAgentAddonFactory(AppMgrAddonName, ChartFS, ChartDir).
-		WithGetValuesFuncs(getValue, addonfactory.GetValuesFromAddonAnnotation).
+		// register the supported configuration types
+		WithConfigGVRs(
+			schema.GroupVersionResource{Group: "addon.open-cluster-management.io", Version: "v1alpha1", Resource: "addondeploymentconfigs"},
+		).
+		WithGetValuesFuncs(
+			getValue,
+			addonfactory.GetValuesFromAddonAnnotation,
+			// get the AddOnDeloymentConfig object and transform it to Values object
+			addonfactory.GetAddOnDeloymentConfigValues(
+				addonfactory.NewAddOnDeloymentConfigGetter(addonClient),
+				addonfactory.ToAddOnNodePlacementValues,
+			),
+		).
 		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName))
 
 	if agentInstallAllStrategy {
-		agentFactory.WithInstallStrategy(&agent.InstallStrategy{
-			Type: agent.InstallAll,
-		})
+		agentFactory.WithInstallStrategy(agent.InstallAllStrategy("open-cluster-management-agent-addon"))
 	}
 
 	agentAddon, err := agentFactory.BuildHelmAgentAddon()
