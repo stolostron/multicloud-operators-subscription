@@ -1,0 +1,14 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: hub-subscription-metrics
+  namespace: openshift-monitoring
+spec:
+  endpoints:
+  - port: metrics
+  namespaceSelector:
+    matchNames:
+    - open-cluster-management
+  selector:
+    matchLabels:
+      app: hub-subscription-metrics
