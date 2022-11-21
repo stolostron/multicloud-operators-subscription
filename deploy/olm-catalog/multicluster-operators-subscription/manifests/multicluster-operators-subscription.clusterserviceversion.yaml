@@ -66,6 +66,10 @@ metadata:
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
+    required:
+    - name: monitoring.coreos.com
+      version: v1
+      kind: ServiceMonitor
     owned:
     - description: Subscribe resources from a channel according to its package filters
       displayName: App Subscription
