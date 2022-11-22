@@ -16,6 +16,7 @@ package listener
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -106,14 +107,28 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 		defer klog.Infof("Exiting: %v()", fnName)
 	}
 
-	http.HandleFunc("/webhook", listener.HandleWebhook)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/webhook", listener.HandleWebhook)
 
 	if listener.TLSKeyFile != "" && listener.TLSCrtFile != "" {
 		klog.Info("Starting the WebHook listener on port 8443 with TLS key and cert files: " + listener.TLSKeyFile + " " + listener.TLSCrtFile)
-		klog.Fatal(http.ListenAndServeTLS(":8443", listener.TLSCrtFile, listener.TLSKeyFile, nil))
+
+		s := &http.Server{
+			Addr:      ":8443",
+			Handler:   mux,
+			TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+		}
+
+		klog.Fatal(s.ListenAndServeTLS(listener.TLSCrtFile, listener.TLSKeyFile))
 	} else {
 		klog.Info("Starting the WebHook listener on port 8443 with no TLS.")
-		klog.Fatal(http.ListenAndServe(":8443", nil))
+
+		s := &http.Server{
+			Addr:    ":8443",
+			Handler: mux,
+		}
+
+		klog.Fatal(s.ListenAndServe())
 	}
 
 	klog.Info("the WebHook listener started on port 8443.")
