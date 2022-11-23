@@ -6,7 +6,7 @@ metadata:
     apps.open-cluster-management.io/github-branch: main
     apps.open-cluster-management.io/github-path: examples/git-simple-sub
     apps.open-cluster-management.io/reconcile-rate: high
-  name: standalone-sub-no-metric
+  name: standalone-successful-time-metric-sub
   namespace: propagation-time-metric-test
 spec:
   channel: propagation-time-metric-test/gitops
