@@ -526,27 +526,35 @@ sleep 30
 kubectl config use-context kind-cluster1
 kubectl -n git-pull-time-metric-test rollout status deployment/git-simple-subscription
 
-echo "19-verify-git-pull-time-metric: fetching collected managed cluster metrics"
-collectedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
-# SUCCESSFUL metrics for SUCCESSFUL subscription, will be asserted for a value
-IFS=' ' read -a successSubSuccessPullTimeCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_count)
-IFS=' ' read -a successSubSuccessPullTimeSum <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_sum)
-# FAILED metrics for SUCCESSFUL subscription, expected to be unbound
-IFS=' ' read -a successSubFailPullTimeCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_count)
+echo "19-verify-git-pull-time-metric: fetching successful managed cluster metrics"
+collectedSuccesfulMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
+# SUCCESSFUL metrics test
+IFS=' ' read -a successPullTimeCount <<< $(echo "$collectedSuccesfulMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_count)
+IFS=' ' read -a successPullTimeSum <<< $(echo "$collectedSuccesfulMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_sum)
 
 echo "19-verify-git-pull-time-metric: verifying expected git_successful_pull_time metrics for succesful subscription"
-if [ "${successSubSuccessPullTimeCount[1]}" \> 0 ] && [ "${successSubSuccessPullTimeSum[1]}" \> 100 ] ; then
+if [ "${successPullTimeCount[1]}" \> 0 ] && [ "${successPullTimeSum[1]}" \> 100 ] ; then
     echo "19-verify-git-pull-time-metric: git_successful_pull_time metrics collected by the managed cluster's metrics service"
 else
     echo "19-verify-git-pull-time-metric: FAILED: git_successful_pull_time metrics not collected by the managed cluster's metrics service"
     exit 1
 fi
 
-echo "19-verify-git-pull-time-metric: verifying no git_failed_pull_time metrics for succesful subscription"
-if [ -z ${successSubFailPullTimeCount+x} ] ; then
-    echo "19-verify-git-pull-time-metric: git_failed_pull_time metrics not collected by the managed cluster's metrics service"
+echo "19-verify-git-pull-time-metric: patching successful subscription and expeting failed metrics"
+kubectl -n git-pull-time-metric-test annotate subscriptions git-pull-time-metric-sub apps.open-cluster-management.io/git-branch=main1 --overwrite
+sleep 120
+
+echo "19-verify-git-pull-time-metric: fetching failed managed cluster metrics"
+collectedFailedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
+# FAILED metrics test
+IFS=' ' read -a failedPullTimeCount <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_count)
+IFS=' ' read -a failedPullTimeSum <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_sum)
+
+echo "19-verify-git-pull-time-metric: verifying expected git_failed_pull_time metrics for succesful subscription"
+if [ "${failedPullTimeCount[1]}" \> 0 ] && [ "${failedPullTimeSum[1]}" \> 100 ] ; then
+    echo "19-verify-git-pull-time-metric: git_failed_pull_time metrics collected by the managed cluster's metrics service"
 else
-    echo "19-verify-git-pull-time-metric: FAILED: git_failed_pull_time metrics collected by the managed cluster's metrics service"
+    echo "19-verify-git-pull-time-metric: FAILED: git_failed_pull_time metrics not collected by the managed cluster's metrics service"
     exit 1
 fi
 
