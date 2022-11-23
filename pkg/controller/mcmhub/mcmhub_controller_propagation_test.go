@@ -165,7 +165,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
 	})
 
-	It("should not propagate for subscriptions configured for local placement only", func() {
+	It("should successfully propagate for subscriptions configured for local placement only", func() {
 		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
 		Expect(mgrErr).NotTo(HaveOccurred())
 
@@ -227,7 +227,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
 
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
 	})
 
 	It("should fail for subscriptions with a remote placement and no channel", func() {

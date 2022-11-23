@@ -580,9 +580,9 @@ collectedMcMetrics=`kubectl exec -n open-cluster-management deploy/multicluster-
 IFS=' ' read -a successfulPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-successful-time-metric-sub\"" | grep propagation_successful_time_count)
 IFS=' ' read -a failedNoPlPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-fail-no-pl-time-metric-sub\"" | grep propagation_failed_time_count)
 IFS=' ' read -a failedPlWrongPropagationCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"propagation-fail-pl-wrong-time-metric-sub\"" | grep propagation_failed_time_count)
-IFS=' ' read -a standaloneNoPropagationMetric <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"standalone-sub-no-metric\"" | grep propagation)
+IFS=' ' read -a standalonePropagationMetric <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"standalone-successful-time-metric-sub\"" | grep propagation_successful_time_count)
 
-echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for succesful propagation"
+echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for successful propagation"
 if [ "${successfulPropagationCount[1]}" \> 0 ]; then
     echo "20-verify-propagation-time-metric: propagation_successful_time metrics collected by the hub cluster's metrics service"
 else
@@ -590,7 +590,7 @@ else
     exit 1
 fi
 
-echo "20-verify-propagation-time-metric: verifying expected propagation_failed_time for failed propagations"
+echo "20-verify-propagation-time-metric: verifying expected propagation_failed_time for failed propagation"
 if [ "${failedNoPlPropagationCount[1]}" \> 0 ] && [ "${failedPlWrongPropagationCount[1]}" \> 0 ]; then
     echo "20-verify-propagation-time-metric: propagation_failed_time metrics collected by the hub cluster's metrics service"
 else
@@ -598,11 +598,11 @@ else
     exit 1
 fi
 
-echo "20-verify-propagation-time-metric: verifying no git_failed_pull_time metrics for succesful subscription"
-if [ -z ${standaloneNoPropagationMetric+x} ] ; then
-    echo "20-verify-propagation-time-metric: propagation metrics not found on standalone cluster's metrics service"
+echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for a standalone deployment"
+if [ "${standalonePropagationMetric[1]}" \> 0 ]; then
+    echo "20-verify-propagation-time-metric: propagation_successful_time metrics collected by the hub cluster's metrics service"
 else
-    echo "20-verify-propagation-time-metric: FAILED: propagation metrics found on standalone cluster's metrics service"
+    echo "20-verify-propagation-time-metric: FAILED: propagation_successful_time metrics not collected by the hub cluster's metrics service"
     exit 1
 fi
 

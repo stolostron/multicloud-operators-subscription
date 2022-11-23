@@ -679,6 +679,10 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				}
 			}
 		}
+
+		metrics.PropagationSuccessfulPullTime.
+			WithLabelValues(instance.Namespace, instance.Name).
+			Observe(0)
 	}
 
 	return result, nil
