@@ -546,8 +546,6 @@ The following metrics can be scrapped from *Hub Cluster*:
 | propagation_successful_time | Histogram of successful propagation latency | *subscription_namespace*<br/>*subscription_name* |
 | propagation_failed_time     | Histogram of failed propagation latency     | *subscription_namespace*<br/>*subscription_name* |
 
-> Note, for standalone deployments, no propagation occurs, therefore the *propagation_x_time* metrics will NOT be observed.
-
 ## Managed Cluster Custom Metrics
 
 The following metrics can be scrapped from *Managed Clusters*:
