@@ -376,7 +376,7 @@ var _ = Describe("test subscribe invalid resource", func() {
 
 		subitem.SubscriberItem.ChannelSecret = chnIncorrectSecret
 		_, err = subitem.cloneGitRepo()
-		Expect(err.Error()).To(Equal("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret"))
+		Expect(err.Error()).To(Equal("sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret"))
 
 		chnIncorrectSecret2 := &corev1.Secret{}
 		err = yaml.Unmarshal([]byte(incorrectSecret2), &chnIncorrectSecret2)
@@ -384,7 +384,7 @@ var _ = Describe("test subscribe invalid resource", func() {
 		subitem.SubscriberItem.ChannelSecret = chnIncorrectSecret2
 
 		_, err = subitem.cloneGitRepo()
-		Expect(err.Error()).To(Equal("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret"))
+		Expect(err.Error()).To(Equal("sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret"))
 
 		err = k8sClient.Delete(context.TODO(), chnSecret)
 		Expect(err).NotTo(HaveOccurred())

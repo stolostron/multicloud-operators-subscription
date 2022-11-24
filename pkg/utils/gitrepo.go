@@ -78,7 +78,7 @@ type kubeResource struct {
 	Kind       string `yaml:"kind"`
 }
 
-//KKubeResource export the kuKubeResource for other package
+// KKubeResource export the kuKubeResource for other package
 type KubeResource struct {
 	kubeResource
 }
@@ -701,7 +701,7 @@ func ParseChannelSecret(secret *corev1.Secret) (string, string, []byte, []byte, 
 		if username == "" || accessToken == "" {
 			klog.Error(err, "sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
 			return username, accessToken, sshKey, passphrase, clientKey, clientCert,
-				errors.New("ssh_key (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
+				errors.New("sshKey (and optionally passphrase) or user and accressToken need to be specified in the channel secret")
 		}
 	}
 

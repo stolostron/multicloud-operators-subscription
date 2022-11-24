@@ -34,10 +34,9 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
-
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 var (
@@ -1269,5 +1268,76 @@ func TestGetChannelConfigMap(t *testing.T) {
 
 	if !reflect.DeepEqual(returnedConfigMap, cm) {
 		t.Errorf("wanted %v, got %v", cm, returnedConfigMap)
+	}
+}
+
+func TestParseChannelSecret(t *testing.T) {
+	type args struct {
+		secret *corev1.Secret
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		want1   string
+		want2   []byte
+		want3   []byte
+		want4   []byte
+		want5   []byte
+		wantErr bool
+	}{
+		{
+			name:    "sshKey need to be specified in the channel secret error",
+			args:    args{&corev1.Secret{}},
+			want:    "",
+			want1:   "",
+			want2:   []byte(nil),
+			want3:   []byte(nil),
+			want4:   []byte(nil),
+			want5:   []byte(nil),
+			wantErr: true,
+		},
+		{
+			name: "clientKey, clientCert",
+			args: args{&corev1.Secret{Data: map[string][]byte{
+				ClientKey: []byte("aaaaaaaaaaa"),
+			}}},
+			want:    "",
+			want1:   "",
+			want2:   []byte(nil),
+			want3:   []byte(nil),
+			want4:   []byte("aaaaaaaaaaa"),
+			want5:   []byte(nil),
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1, got2, got3, got4, got5, err := ParseChannelSecret(tt.args.secret)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseChannelSecret() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ParseChannelSecret() got = %v, want %v", got, tt.want)
+			}
+			if got1 != tt.want1 {
+				t.Errorf("ParseChannelSecret() got1 = %v, want %v", got1, tt.want1)
+			}
+			if !reflect.DeepEqual(got2, tt.want2) {
+				t.Errorf("ParseChannelSecret() got2 = %v, want %v", got2, tt.want2)
+			}
+			if !reflect.DeepEqual(got3, tt.want3) {
+				t.Errorf("ParseChannelSecret() got3 = %v, want %v", got3, tt.want3)
+			}
+			if !reflect.DeepEqual(got4, tt.want4) {
+				t.Errorf("ParseChannelSecret() got4 = %v, want %v", got4, tt.want4)
+			}
+			if !reflect.DeepEqual(got5, tt.want5) {
+				t.Errorf("ParseChannelSecret() got5 = %v, want %v", got5, tt.want5)
+			}
+		})
 	}
 }
