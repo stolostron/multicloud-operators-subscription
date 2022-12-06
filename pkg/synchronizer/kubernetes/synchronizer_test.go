@@ -709,3 +709,89 @@ var _ = Describe("test getHostingAppSub", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
+
+var _ = Describe("test cleanup of resources", func() {
+	var sync *KubeSynchronizer
+	var err error
+
+	BeforeEach(func() {
+		sync, err = CreateSynchronizer(k8sManager.GetConfig(), k8sManager.GetConfig(), k8sManager.GetScheme(), &host, 2, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		err = sync.Start(context.TODO())
+		if err != nil {
+			klog.Error(err)
+			return
+		}
+	})
+	It("should cleanup the appsubstatus, the confimap and deployment without failure", func() {
+		workload1 := workload1Configmap.DeepCopy()
+		workload1.Annotations = map[string]string{appv1alpha1.AnnotationHosting: "appsub-ns-1/appsubstatus-1"}
+		Expect(k8sClient.Create(context.TODO(), workload1)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), workload1)
+
+		workload2 := workload2Deployment.DeepCopy()
+		workload2.Annotations = map[string]string{appv1alpha1.AnnotationHosting: "appsub-ns-1/appsubstatus-1"}
+		Expect(k8sClient.Create(context.TODO(), workload2)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), workload2)
+
+		appSubStatus := &appSubStatusV1alpha1.SubscriptionStatus{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "SubscriptionStatus",
+				APIVersion: "apps.open-cluster-management.io/v1alpha1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "appsubstatus-1",
+				Namespace: "appsub-ns-1",
+			},
+		}
+
+		Expect(k8sClient.Create(context.TODO(), appSubStatus)).NotTo(HaveOccurred())
+		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "appsub-ns-1", Name: "appsubstatus-1"}, appSubStatus)).NotTo(HaveOccurred())
+		defer k8sClient.Delete(context.TODO(), appSubStatus)
+
+		appSubStatus.Statuses = appSubStatusV1alpha1.SubscriptionClusterStatusMap{
+			SubscriptionStatus: []appSubStatusV1alpha1.SubscriptionUnitStatus{
+				{
+					Name:           "configmap1",
+					Namespace:      "appsub-ns-1",
+					APIVersion:     "v1",
+					Kind:           "ConfigMap",
+					LastUpdateTime: metav1.Now(),
+				},
+				{
+					Name:           "deployment1",
+					Namespace:      "appsub-ns-1",
+					APIVersion:     "apps/v1",
+					Kind:           "Deployment",
+					LastUpdateTime: metav1.Now(),
+				},
+			},
+		}
+
+		Expect(k8sClient.Update(context.TODO(), appSubStatus)).NotTo(HaveOccurred())
+
+		startCleanup(sync)
+
+		Eventually(func() bool {
+			if err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "appsub-ns-1", Name: "configmap1"}, workload1); err != nil {
+				return true
+			}
+			return false
+		}).Should(BeTrue())
+		Eventually(func() bool {
+			if err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "appsub-ns-1", Name: "deployment1"}, workload2); err != nil {
+				return true
+			}
+			return false
+		}).Should(BeTrue())
+		Eventually(func() bool {
+			if err := k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "appsub-ns-1", Name: "appsubstatus-1"}, appSubStatus); err != nil {
+				return true
+			}
+			return false
+		}).Should(BeTrue())
+	})
+})
