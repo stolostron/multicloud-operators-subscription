@@ -18,12 +18,15 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -31,6 +34,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
 
@@ -89,6 +94,8 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 
 		return err
 	}
+
+	startCleanup(defaultSynchronizer)
 
 	return mgr.Add(defaultSynchronizer)
 }
@@ -235,4 +242,60 @@ func (sync *KubeSynchronizer) GetRemoteClient() client.Client {
 
 func (sync *KubeSynchronizer) GetRemoteNonCachedClient() client.Client {
 	return sync.RemoteNonCachedClient
+}
+
+// startCleanup looks up all the subscriptionstatuses
+// For each subscriptionstatus that doesn't have a subscription
+// Delete the resources listed inside the subscriptionstatus
+// If all the resources are deleted successfully then delete the subscriptionstatus
+func startCleanup(synchronizer *KubeSynchronizer) {
+	go wait.Until(func() {
+		klog.Info("Starting cleanup")
+
+		ctx := context.Background()
+
+		clt := synchronizer.LocalNonCachedClient
+
+		appsubStatusList := &appv1alpha1.SubscriptionStatusList{}
+
+		if err := clt.List(ctx, appsubStatusList, &client.ListOptions{}); err != nil {
+			klog.Error(err, "failed to list SubscriptionStatus")
+		}
+
+		if appsubStatusList != nil && len(appsubStatusList.Items) > 0 {
+			for _, appsubStatus := range appsubStatusList.Items {
+				appsubStatus := appsubStatus
+
+				appsub := &appv1.Subscription{}
+
+				nsn := types.NamespacedName{Namespace: appsubStatus.Namespace, Name: appsubStatus.Name}
+
+				if err := clt.Get(ctx, nsn, appsub); err != nil {
+					if errors.IsNotFound(err) {
+						klog.Infof("cannot find Subscription namespace: %s , name: %s , deleting resources in SubscriptionStatus",
+							nsn.Namespace, nsn.Name)
+
+						if len(appsubStatus.Statuses.SubscriptionStatus) > 0 {
+							foundErr := false
+
+							for _, unitStatus := range appsubStatus.Statuses.SubscriptionStatus {
+								if err = synchronizer.DeleteSingleSubscribedResource(nsn, unitStatus); err != nil {
+									klog.Error(err, "failed to delete resource")
+									foundErr = true
+								}
+							}
+
+							if !foundErr {
+								if err = clt.Delete(ctx, &appsubStatus, &client.DeleteOptions{}); err != nil {
+									klog.Error(err, "failed to delete SubscriptionStatus")
+								}
+							}
+						}
+					} else {
+						klog.Error(err, "unable to get Subscription")
+					}
+				}
+			}
+		}
+	}, time.Hour*1, make(chan struct{}))
 }
