@@ -304,17 +304,22 @@ echo "STARTING test 11-helm-hub-dryrun"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/11-helm-hub-dryrun/
 sleep 30
-if kubectl get subscriptions.apps.open-cluster-management.io ingress-appsub | grep Propagated; then
+if kubectl get subscriptions.apps.open-cluster-management.io -n default ingress-appsub | grep Propagated; then
     echo "11-helm-hub-dryrun: ingress-appsub status is Propagated"
 else
     echo "11-helm-hub-dryruns FAILED:  ingress-appsub status is not Propagated"
     exit 1
 fi
+sleep 30
 kubectl config use-context kind-cluster1
-if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress-appsub -o yaml | grep InstallError; then
+if kubectl get subscriptionstatus.apps.open-cluster-management.io -n default ingress-appsub -o yaml | grep InstallError; then
     echo "11-helm-hub-dryrun: found InstallError in subscription status output"
 else
     echo "11-helm-hub-dryrun: FAILED: InstallError is not in the subscription status output"
+    kubectl get appsub -n default ingress-appsub -o yaml
+    kubectl get pods -n open-cluster-management-agent-addon  -l component=application-manager
+    kubectl describe pods -n open-cluster-management-agent-addon  -l component=application-manager
+    kubectl logs -n open-cluster-management-agent-addon  -l component=application-manager
     exit 1
 fi
 kubectl config use-context kind-hub
@@ -520,8 +525,8 @@ kubectl config use-context kind-hub
 kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
 kubectl label managedcluster cluster1 purpose=test --overwrite
 
-kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/
-sleep 30
+kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/successful
+sleep 15
 
 kubectl config use-context kind-cluster1
 kubectl -n git-pull-time-metric-test rollout status deployment/git-simple-subscription
@@ -541,10 +546,13 @@ else
 fi
 
 echo "19-verify-git-pull-time-metric: patching successful subscription and expeting failed metrics"
-kubectl -n git-pull-time-metric-test annotate subscriptions git-pull-time-metric-sub apps.open-cluster-management.io/git-branch=main1 --overwrite
-sleep 120
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/failed
+# with high reconcile rate, the updated appsub is handled every 2 minutes. Wait for over 2 minutes to make sure the updated appsub is handled
+sleep 140
 
 echo "19-verify-git-pull-time-metric: fetching failed managed cluster metrics"
+kubectl config use-context kind-cluster1
 collectedFailedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
 # FAILED metrics test
 IFS=' ' read -a failedPullTimeCount <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_count)
@@ -558,7 +566,7 @@ else
     exit 1
 fi
 
-kubectl --context kind-hub delete -f test/e2e/cases/19-verify-git-pull-time-metric/
+kubectl --context kind-hub delete -f test/e2e/cases/19-verify-git-pull-time-metric/successful
 echo "PASSED test case 19-verify-git-pull-time-metric"
 
 ### 20-verify-propagation-time-metric
