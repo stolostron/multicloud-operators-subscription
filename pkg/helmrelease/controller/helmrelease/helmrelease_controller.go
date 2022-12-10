@@ -17,7 +17,7 @@ limitations under the License.
 // install/upgrade/uninstall code ported and modified from:
 // github.com/operator-framework/operator-sdk/internal/helm/controller/reconcile.go
 
-//Package helmrelease controller manages the helmrelease CR
+// Package helmrelease controller manages the helmrelease CR
 package helmrelease
 
 import (
