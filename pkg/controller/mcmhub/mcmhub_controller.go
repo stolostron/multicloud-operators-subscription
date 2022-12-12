@@ -77,10 +77,12 @@ rules:
   - '*'`
 
 const (
-	reconcileName              = "subscription-hub-reconciler"
-	defaultHookRequeueInterval = time.Second * 15
-	INFOLevel                  = 1
-	placementDecisionFlag      = "--fired-by-placementdecision"
+	reconcileName                     = "subscription-hub-reconciler"
+	defaultHookRequeueInterval        = time.Second * 15
+	INFOLevel                         = 1
+	placementDecisionFlag             = "--fired-by-placementdecision"
+	subscriptionActive         string = "Active"
+	subscriptionBlock          string = "Blocked"
 )
 
 var defaulRequeueInterval = time.Second * 3
@@ -119,6 +121,7 @@ func newReconciler(mgr manager.Manager, op ...Option) reconcile.Reconciler {
 		hookRequeueInterval: defaultHookRequeueInterval,
 		hooks:               NewAnsibleHooks(mgr.GetClient(), defaultHookRequeueInterval, setLogger(logger), setGitOps(gitOps)),
 		hubGitOps:           gitOps,
+		clk:                 time.Now,
 	}
 
 	for _, f := range op {
@@ -358,6 +361,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	return nil
 }
 
+type clock func() time.Time
+
 // blank assignment to verify that ReconcileSubscription implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileSubscription{}
 
@@ -375,6 +380,7 @@ type ReconcileSubscription struct {
 	hooks               HookProcessor
 	hubGitOps           GitOps
 	restMapper          meta.RESTMapper
+	clk                 clock
 }
 
 // CreateSubscriptionAdminRBAC checks existence of subscription-admin clusterrole and clusterrolebinding
@@ -766,6 +772,17 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
 		return
+	}
+
+	// time window calculation
+	if nIns.Spec.TimeWindow == nil {
+		nIns.Status.Message = subscriptionActive
+	} else {
+		if utils.IsInWindow(nIns.Spec.TimeWindow, r.clk()) {
+			nIns.Status.Message = subscriptionActive
+		} else {
+			nIns.Status.Message = subscriptionBlock
+		}
 	}
 
 	if !passedBranchRegistration {

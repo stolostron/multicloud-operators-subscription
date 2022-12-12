@@ -357,4 +357,13 @@ func TestSyncAppLabels(t *testing.T) {
 	// Verify that the application labels are synch'd with the existing app label
 	g.Expect(subscription.Labels["app"]).To(gomega.Equal("existingAppLabel"))
 	g.Expect(subscription.Labels["app.kubernetes.io/part-of"]).To(gomega.Equal("existingAppLabel"))
+
+	subscription.Spec.TimeWindow = &appv1alpha1.TimeWindow{WindowType: subscriptionActive}
+	g.Expect(c.Update(context.TODO(), subscription)).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(time.Second * 2)
+
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(labeltest2ExpectedRequest)))
+	g.Expect(c.Get(context.TODO(), labeltest2subkey, subscription)).NotTo(gomega.HaveOccurred())
+	g.Expect(subscription.Status.Message).To(gomega.Equal(subscriptionActive))
 }
