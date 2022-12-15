@@ -27,6 +27,7 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -321,6 +322,9 @@ func (obsi *SubscriberItem) doSubscription() {
 	if err != nil {
 		klog.Error("Failed to list objects in bucket ", obsi.bucket)
 		obsi.successful = false
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(obsi.SubscriberItem.Subscription.Namespace, obsi.SubscriberItem.Subscription.Name).
+			Observe(0)
 
 		return
 	}
@@ -333,6 +337,9 @@ func (obsi *SubscriberItem) doSubscription() {
 		if err != nil {
 			klog.Error("Failed to get object ", key, " in bucket ", obsi.bucket)
 			obsi.successful = false
+			metrics.LocalDeploymentFailedPullTime.
+				WithLabelValues(obsi.SubscriberItem.Subscription.Namespace, obsi.SubscriberItem.Subscription.Name).
+				Observe(0)
 
 			return
 		}
@@ -348,6 +355,9 @@ func (obsi *SubscriberItem) doSubscription() {
 		if err != nil {
 			klog.Error("Failed to unmashall ", obsi.bucket, "/", key, " err:", err)
 			obsi.successful = false
+			metrics.LocalDeploymentFailedPullTime.
+				WithLabelValues(obsi.SubscriberItem.Subscription.Namespace, obsi.SubscriberItem.Subscription.Name).
+				Observe(0)
 
 			return
 		}
