@@ -305,6 +305,9 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, " Unable to sort helm charts and kubernetes resources from the cloned git repo.")
 
 		ghsi.successful = false
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+			Observe(0)
 
 		return err
 	}
@@ -386,6 +389,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
 		}
+
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+			Observe(0)
 
 		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
 	}
