@@ -1,0 +1,8 @@
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddOn
+metadata:
+  name: application-manager
+spec:
+  addOnMeta:
+    description: Synchronizes application on the managed clusters from the hub
+    displayName: Application Manager
