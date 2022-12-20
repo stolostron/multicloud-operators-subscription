@@ -16,22 +16,27 @@ package exec
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
 
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	addonV1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	ocinfrav1 "github.com/openshift/api/config/v1"
+	addonutils "open-cluster-management.io/addon-framework/pkg/utils"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	manifestWorkV1 "open-cluster-management.io/api/work/v1"
 	agentaddon "open-cluster-management.io/multicloud-operators-subscription/addon"
@@ -54,7 +59,8 @@ var (
 )
 
 const (
-	AddonName = "application-manager"
+	AddonName               = "application-manager"
+	leaseUpdateJitterFactor = 0.25
 )
 
 func RunManager() {
@@ -229,24 +235,17 @@ func RunManager() {
 			LeaseDurationSeconds:  int32(Options.LeaseDurationSeconds),
 		}
 
-		ctx, cancel := context.WithCancel(context.TODO())
+		go wait.JitterUntilWithContext(context.TODO(), leaseReconciler.Reconcile,
+			time.Duration(Options.LeaseDurationSeconds)*time.Second, leaseUpdateJitterFactor, true)
 
+		// add liveness probe server
+		cc, err := addonutils.NewConfigChecker("managed-serviceaccount-agent", "/var/run/klusterlet/kubeconfig")
+		if err != nil {
+			klog.Fatalf("unable to create config checker for application-manager addon")
+		}
 		go func() {
-			for {
-				err := leaseReconciler.CheckHubKubeConfig(ctx)
-				if err != nil {
-					cancel()
-				}
-
-				select {
-				case <-ctx.Done():
-					klog.Error("hub kubeconfig has changed, restart the controller!")
-					os.Exit(1)
-				default:
-					leaseReconciler.Reconcile(ctx)
-				}
-
-				time.Sleep(time.Duration(Options.LeaseDurationSeconds) * time.Second)
+			if err = serveHealthProbes(":8000", cc.Check); err != nil {
+				klog.Fatal(err)
 			}
 		}()
 	} else if err := setupStandalone(mgr, hubconfig, id, true); err != nil {
@@ -341,4 +340,26 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 	}
 
 	return nil
+}
+
+// serveHealthProbes serves health probes and configchecker.
+func serveHealthProbes(healthProbeBindAddress string, configCheck healthz.Checker) error {
+	mux := http.NewServeMux()
+	mux.Handle("/healthz", http.StripPrefix("/healthz", &healthz.Handler{Checks: map[string]healthz.Checker{
+		"healthz-ping": healthz.Ping,
+		"configz-ping": configCheck,
+	}}))
+
+	server := http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+		Addr:              healthProbeBindAddress,
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
+	}
+
+	klog.Infof("heath probes server is running...")
+
+	return server.ListenAndServe()
 }
