@@ -3,14 +3,13 @@ package addon
 import (
 	"context"
 	"embed"
-	"fmt"
-	"os"
-	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/openshift/library-go/pkg/assets"
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -32,8 +31,7 @@ const (
 
 	ChartDir = "manifests/chart"
 
-	AgentImageEnv      = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
-	OperatorVersionEnv = "OPERATOR_VERSION"
+	AgentImageEnv = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
 )
 
 //nolint
@@ -244,77 +242,68 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 func GetMchImage(kubeConfig *rest.Config) (string, error) {
 	kubeClient, err := client.New(kubeConfig, client.Options{})
 	if err != nil {
-		klog.Errorf("Unable to kube client: %v", err)
-
-		return "", err
-	}
-
-	_, found := os.LookupEnv(AgentImageEnv)
-	if !found {
-		klog.Info("ACM not detected")
-
-		return "", nil
-	}
-
-	klog.V(2).Info("ACM detected, wait for MCH config map")
-
-	// Get ACM version
-	acmVersion, found := os.LookupEnv(OperatorVersionEnv)
-	if !found {
-		err = fmt.Errorf("%v env var not found", OperatorVersionEnv)
-		klog.Error(err)
+		klog.Errorf("unable to kube client: %v", err)
 
 		return "", err
 	}
 
 	labelSelector := &metav1.LabelSelector{
 		MatchLabels: map[string]string{
-			"ocm-configmap-type":  "image-manifest",
-			"ocm-release-version": acmVersion,
+			"ocm-configmap-type": "image-manifest",
 		},
 	}
 
 	mchSelector, err := appsubutils.ConvertLabels(labelSelector)
 	if err != nil {
-		klog.Error("Failed to convert label", err)
+		klog.Error("failed to convert label", err)
 
 		return "", err
 	}
 
 	mchImageCMList := &corev1.ConfigMapList{}
 
-	for count := 0; count < 60; count++ {
-		klog.Infof("Waiting for MCH config map, count: %v", count)
+	err = kubeClient.List(context.TODO(), mchImageCMList, &client.ListOptions{LabelSelector: mchSelector})
+	if err != nil {
+		if errors.IsNotFound(err) {
+			klog.Info("no mch configmap found - not ACM")
 
-		err = kubeClient.List(context.TODO(), mchImageCMList, &client.ListOptions{LabelSelector: mchSelector})
-		if err != nil {
-			klog.Error(err, "Failed to get configmap for MCH images")
-
-			return "", err
+			return "", nil
 		}
 
-		if len(mchImageCMList.Items) > 0 {
-			data := mchImageCMList.Items[0].Data
+		klog.Error(err, "failed to get configmap for MCH images")
 
-			image := data["multicluster_operators_subscription"]
-			if image == "" {
-				err = fmt.Errorf("appsub image not found in MCH config map")
-				klog.Warning(err)
-
-				return "", err
-			}
-
-			klog.Info("MCH appsubimage: %v", image)
-
-			return image, nil
-		}
-
-		// Not found, sleep ...
-		time.Sleep(10 * time.Second)
+		return "", err
 	}
 
-	err = fmt.Errorf("timed-out waiting for MCH config map for ACM version %v", acmVersion)
-	klog.Warning(err)
+	var image string
 
-	return "", err
+	var newestVersion *semver.Version
+
+	for _, cm := range mchImageCMList.Items {
+		_version := cm.Labels["ocm-release-version"]
+		if _version == "" {
+			continue
+		}
+
+		currentVersion, err := semver.NewVersion(_version)
+		if err != nil {
+			klog.Infof("invalid ocm-release-version %v in MCH configmap: %v", _version, cm.Name)
+
+			continue
+		}
+
+		if newestVersion == nil || newestVersion.LessThan(currentVersion) {
+			currentImage := cm.Data["multicluster_operators_subscription"]
+			if currentImage == "" {
+				klog.Infof("appsub image not found in MCH config map: %v", cm.Name)
+			} else {
+				newestVersion = currentVersion
+				image = currentImage
+			}
+		}
+	}
+
+	klog.Infof("MCH appsubimage: %v", image)
+
+	return image, nil
 }

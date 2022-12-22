@@ -270,7 +270,6 @@ func RunManager() {
 		agentImage, err := agentaddon.GetMchImage(cfg)
 		if err != nil {
 			klog.Error("Failed to get MCH image config map, error:", err)
-			os.Exit(1)
 		}
 
 		if agentImage == "" {
