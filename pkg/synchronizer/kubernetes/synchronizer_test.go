@@ -749,6 +749,7 @@ var _ = Describe("test cleanup of resources", func() {
 		}
 
 		Expect(k8sClient.Create(context.TODO(), appSubStatus)).NotTo(HaveOccurred())
+		time.Sleep(8 * time.Second)
 		Expect(k8sClient.Get(context.TODO(), types.NamespacedName{Namespace: "appsub-ns-1", Name: "appsubstatus-1"}, appSubStatus)).NotTo(HaveOccurred())
 		defer k8sClient.Delete(context.TODO(), appSubStatus)
 

@@ -652,6 +652,12 @@ func getClusterAppsubReport(rClient client.Client, clusterAppsubReportNs string,
 
 func shouldSkip(appsubClusterStatus SubscriptionClusterStatus, foundPkgStatus bool,
 	pkgstatus v1alpha1.SubscriptionStatus) bool {
+	if len(pkgstatus.Statuses.SubscriptionStatus) == 0 {
+		klog.Infof("appsubstatus resouse list is empty, appsubstatus: %v/%v", pkgstatus.Namespace, pkgstatus.Name)
+
+		return false
+	}
+
 	if len(appsubClusterStatus.SubscriptionPackageStatus) == 1 &&
 		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].Kind, "HelmRelease") &&
 		strings.EqualFold(appsubClusterStatus.SubscriptionPackageStatus[0].APIVersion, "apps.open-cluster-management.io/v1") &&
