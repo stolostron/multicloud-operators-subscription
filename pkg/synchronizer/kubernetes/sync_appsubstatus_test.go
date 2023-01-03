@@ -550,5 +550,15 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		err = s.SyncAppsubClusterStatus(appsubToBeDeleted, rmClusterStatus, nil, nil)
 		Expect(err).NotTo(HaveOccurred())
 
+		// shouldSkip should return false when there is appsubstatus with empty status
+		emptyAppsubStatus := appSubStatusV1alpha1.SubscriptionStatus{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "appsubstatus-1",
+				Namespace: "default",
+			},
+			Statuses: appSubStatusV1alpha1.SubscriptionClusterStatusMap{},
+		}
+
+		Expect(shouldSkip(appsubClusterStatus, true, emptyAppsubStatus)).To(BeFalse())
 	})
 })
