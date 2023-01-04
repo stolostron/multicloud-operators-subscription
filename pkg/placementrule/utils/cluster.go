@@ -38,9 +38,25 @@ const (
 
 // ClusterPredicateFunc defines predicate function for cluster related watch, main purpose is to ignore heartbeat without change
 var ClusterPredicateFunc = predicate.Funcs{
+	CreateFunc: func(e event.CreateEvent) bool {
+		newManagedCluster, ok := e.Object.(*spokeClusterV1.ManagedCluster)
+
+		if !ok {
+			return false
+		}
+
+		klog.Infof("new managed cluster created, %v/%v", newManagedCluster.Namespace, newManagedCluster.Name)
+
+		return true
+	},
+
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldcl := e.ObjectOld.(*spokeClusterV1.ManagedCluster)
-		newcl := e.ObjectNew.(*spokeClusterV1.ManagedCluster)
+		oldcl, oldOK := e.ObjectOld.(*spokeClusterV1.ManagedCluster)
+		newcl, newOK := e.ObjectNew.(*spokeClusterV1.ManagedCluster)
+
+		if !oldOK || !newOK {
+			return false
+		}
 
 		//if managed cluster is being deleted
 		if !reflect.DeepEqual(oldcl.DeletionTimestamp, newcl.DeletionTimestamp) {
