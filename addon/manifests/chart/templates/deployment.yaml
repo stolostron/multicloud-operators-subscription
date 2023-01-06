@@ -75,18 +75,6 @@ spec:
           - "--leader-election-lease-duration=137"
           - "--renew-deadline=107"
           - "--retry-period=26"
-        livenessProbe:
-          exec:
-            command:
-            - ls
-          initialDelaySeconds: 15
-          periodSeconds: 15
-        readinessProbe:
-          exec:
-            command:
-            - ls
-          initialDelaySeconds: 15
-          periodSeconds: 15
         volumeMounts:
           - name: klusterlet-config
             mountPath: /var/run/klusterlet
