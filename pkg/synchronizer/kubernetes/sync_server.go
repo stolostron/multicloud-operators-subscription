@@ -26,7 +26,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -244,58 +243,76 @@ func (sync *KubeSynchronizer) GetRemoteNonCachedClient() client.Client {
 	return sync.RemoteNonCachedClient
 }
 
-// startCleanup looks up all the subscriptionstatuses
+// startCleanup starts a goroutine that cleanup all the orphan subscriptionstatuses
+func startCleanup(synchronizer *KubeSynchronizer) {
+	waitDuration := time.Second * 10
+
+	go func() {
+		for {
+			cleanup(synchronizer)
+
+			time.Sleep(waitDuration)
+
+			waitDuration = waitDuration * 2
+
+			if waitDuration > time.Hour*1 {
+				waitDuration = time.Hour * 1
+			}
+		}
+	}()
+}
+
+// cleanup looks up all the subscriptionstatuses
 // For each subscriptionstatus that doesn't have a subscription
 // Delete the resources listed inside the subscriptionstatus
 // If all the resources are deleted successfully then delete the subscriptionstatus
-func startCleanup(synchronizer *KubeSynchronizer) {
-	go wait.Until(func() {
-		klog.Info("Starting cleanup")
+func cleanup(synchronizer *KubeSynchronizer) {
+	klog.Info("Starting cleanup")
 
-		ctx := context.Background()
+	ctx := context.Background()
 
-		clt := synchronizer.LocalNonCachedClient
+	clt := synchronizer.LocalNonCachedClient
 
-		appsubStatusList := &appv1alpha1.SubscriptionStatusList{}
+	appsubStatusList := &appv1alpha1.SubscriptionStatusList{}
 
-		if err := clt.List(ctx, appsubStatusList, &client.ListOptions{}); err != nil {
-			klog.Error(err, "failed to list SubscriptionStatus")
-		}
+	if err := clt.List(ctx, appsubStatusList, &client.ListOptions{}); err != nil {
+		klog.Error(err, "failed to list SubscriptionStatus")
+	}
 
-		if appsubStatusList != nil && len(appsubStatusList.Items) > 0 {
-			for _, appsubStatus := range appsubStatusList.Items {
-				appsubStatus := appsubStatus
+	if appsubStatusList != nil && len(appsubStatusList.Items) > 0 {
+		for _, appsubStatus := range appsubStatusList.Items {
+			appsubStatus := appsubStatus
 
-				appsub := &appv1.Subscription{}
+			appsub := &appv1.Subscription{}
 
-				nsn := types.NamespacedName{Namespace: appsubStatus.Namespace, Name: appsubStatus.Name}
+			nsn := types.NamespacedName{Namespace: appsubStatus.Namespace, Name: appsubStatus.Name}
 
-				if err := clt.Get(ctx, nsn, appsub); err != nil {
-					if errors.IsNotFound(err) {
-						klog.Infof("cannot find Subscription namespace: %s , name: %s , deleting resources in SubscriptionStatus",
-							nsn.Namespace, nsn.Name)
+			if err := clt.Get(ctx, nsn, appsub); err != nil {
+				if errors.IsNotFound(err) {
+					klog.Infof("cannot find Subscription namespace: %s , name: %s , deleting resources in SubscriptionStatus",
+						nsn.Namespace, nsn.Name)
 
-						if len(appsubStatus.Statuses.SubscriptionStatus) > 0 {
-							foundErr := false
+					if len(appsubStatus.Statuses.SubscriptionStatus) > 0 {
+						foundErr := false
 
-							for _, unitStatus := range appsubStatus.Statuses.SubscriptionStatus {
-								if err = synchronizer.DeleteSingleSubscribedResource(nsn, unitStatus); err != nil {
-									klog.Error(err, "failed to delete resource")
-									foundErr = true
-								}
-							}
+						for _, unitStatus := range appsubStatus.Statuses.SubscriptionStatus {
+							if err = synchronizer.DeleteSingleSubscribedResource(nsn, unitStatus); err != nil {
+								klog.Error(err, "failed to delete resource")
 
-							if !foundErr {
-								if err = clt.Delete(ctx, &appsubStatus, &client.DeleteOptions{}); err != nil {
-									klog.Error(err, "failed to delete SubscriptionStatus")
-								}
+								foundErr = true
 							}
 						}
-					} else {
-						klog.Error(err, "unable to get Subscription")
+
+						if !foundErr {
+							if err = clt.Delete(ctx, &appsubStatus, &client.DeleteOptions{}); err != nil {
+								klog.Error(err, "failed to delete SubscriptionStatus")
+							}
+						}
 					}
+				} else {
+					klog.Error(err, "unable to get Subscription")
 				}
 			}
 		}
-	}, time.Hour*1, make(chan struct{}))
+	}
 }
