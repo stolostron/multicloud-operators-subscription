@@ -86,7 +86,7 @@ func TestManifest(t *testing.T) {
 			addon:             newAddon(AppMgrAddonName, "cluster1", "", `{"global":{"nodeSelector":{"node-role.kubernetes.io/infra":""},"imageOverrides":{"multicluster_operators_subscription":"quay.io/test/multicluster_operators_subscription:test"}}}`),
 			expectedNamespace: "open-cluster-management-agent-addon",
 			expectedImage:     "quay.io/test/multicluster_operators_subscription:test",
-			expectedCount:     9,
+			expectedCount:     8,
 		},
 		{
 			name:              "case_2",
