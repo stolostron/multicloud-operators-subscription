@@ -273,6 +273,12 @@ var _ = Describe("test Delete Single Subscribed Resource", func() {
 
 		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
 		Expect(err).To(HaveOccurred())
+
+		// Failed resources with no apiversion are skipped
+		pkgStatus.Phase = "Failed"
+
+		err = sync.DeleteSingleSubscribedResource(hostSub, pkgStatus)
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	It("should not be owned by the subscription", func() {

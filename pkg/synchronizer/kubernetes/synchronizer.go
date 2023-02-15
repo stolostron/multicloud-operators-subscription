@@ -61,6 +61,12 @@ func (sync *KubeSynchronizer) DeleteSingleSubscribedResource(hostSub types.Names
 	pkgGroup, pkgVersion := utils.ParseAPIVersion(pkgStatus.APIVersion)
 
 	if pkgGroup == "" && pkgVersion == "" {
+		if pkgStatus.Phase == "Failed" {
+			klog.Info("phase of resource is failed with no apiVersion info, nothing to delete")
+
+			return nil
+		}
+
 		klog.Infof("invalid apiversion pkgStatus: %v", pkgStatus)
 
 		return fmt.Errorf("invalid apiversion")
