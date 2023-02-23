@@ -120,7 +120,10 @@ kind get kubeconfig > cluster_config/hub
 # mess up the go.mod file when doing the local test
 echo -e "\nGet the applifecycle-backend-e2e server"
 export GO111MODULE=on
-go install github.com/stolostron/applifecycle-backend-e2e@v0.2.10
+git clone --depth 1 --branch release-2.8 https://github.com/stolostron/applifecycle-backend-e2e.git
+cd applifecycle-backend-e2e
+go install
+cd ..
 ls ~/go/bin
 
 export PATH=$PATH:~/go/bin
