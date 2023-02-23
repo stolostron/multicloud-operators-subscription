@@ -1,0 +1,108 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.10.0
+  creationTimestamp: null
+  name: multiclusterapplicationsetreports.apps.open-cluster-management.io
+spec:
+  group: apps.open-cluster-management.io
+  names:
+    kind: MulticlusterApplicationSetReport
+    listKind: MulticlusterApplicationSetReportList
+    plural: multiclusterapplicationsetreports
+    shortNames:
+    - appsetreport
+    - appsetreports
+    singular: multiclusterapplicationsetreport
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MulticlusterApplicationSetReport is the Schema for the MulticlusterApplicationSetReport
+          API.
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          statuses:
+            description: AppConditions defines all the error/warning conditions in
+              all clusters per application
+            properties:
+              clusterConditions:
+                items:
+                  description: ClusterCondition defines all the error/warning conditions
+                    in one cluster per application
+                  properties:
+                    cluster:
+                      type: string
+                    conditions:
+                      items:
+                        description: Condition defines a type of error/warning
+                        properties:
+                          message:
+                            type: string
+                          type:
+                            type: string
+                        type: object
+                      type: array
+                    healthStatus:
+                      type: string
+                    syncStatus:
+                      type: string
+                  type: object
+                type: array
+              resources:
+                items:
+                  description: ResourceRef defines a kind of resource
+                  properties:
+                    apiVersion:
+                      type: string
+                    kind:
+                      type: string
+                    name:
+                      type: string
+                    namespace:
+                      type: string
+                  type: object
+                type: array
+              summary:
+                description: Summary provides a summary of results
+                properties:
+                  clusters:
+                    description: Clusters provides the count of all managed clusters
+                      the application is deployed to
+                    type: string
+                  healthy:
+                    description: Healthy provides the count of healthy applications
+                    type: string
+                  inProgress:
+                    description: InProgress provides the count of applications that
+                      are in the process of being deployed
+                    type: string
+                  notHealthy:
+                    description: NotHealthy provides the count of non-healthy applications
+                    type: string
+                  notSynced:
+                    description: NotSynced provides the count of the out of sync applications
+                    type: string
+                  synced:
+                    description: Synced provides the count of synced applications
+                    type: string
+                type: object
+            type: object
+        required:
+        - metadata
+        type: object
+    served: true
+    storage: true

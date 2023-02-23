@@ -158,6 +158,8 @@ spec:
                 required:
                 - argoNamespace
                 type: object
+              enablePullModel:
+                type: boolean
               placementRef:
                 description: 'ObjectReference contains enough information to let you
                   inspect or modify the referred object. --- New uses of this type
