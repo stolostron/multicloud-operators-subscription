@@ -16,84 +16,79 @@ Ensure that you have a Kubernetes cluster that include a running instance of thi
 
 ## Subscribing to a Helm chart from a public Git repository
 
-Use the following example to create a channel that connects to a public IBM Git repository and subscribes to a MongoDB Helm chart.
+Use the following example to create a channel that connects to a public Git repository and subscribes to a nginx Helm chart.
 
 1. Clone this `multicloud-operators-subscription` GitHub repository.
 1. In the root for your cloned repository, run the following command to create a namespace:
 
    ```shell
-   kubectl apply -f ./examples/git-channel/00-namespace.yaml
+   kubectl apply -f ./examples/local-git-sub/00-namespace.yaml
    ```
 
-   This command creates an `ibmcharts` namespace.
-1. Run the following command to create an `ibm-charts-git` channel within the `ibmcharts` namespace.
+   This command creates an `local-dev-chn-ns` namespace.
+1. Run the following command to create an `gitops-chn` channel within the `local-dev-chn-ns` namespace.
 
    ```shell
-   kubectl apply -f ./examples/git-channel/01-channel.yaml
+   kubectl apply -f ./examples/local-git-sub/channel.yaml
    ```
 
-   The following YAML content is used to define this `ibm-charts-git` channel:
+   The following YAML content is used to define this `gitops` channel:
 
    ```yaml
    apiVersion: apps.open-cluster-management.io/v1
    kind: Channel
    metadata:
-     name: ibm-charts-git
-     namespace: ibmcharts
+     name: gitops-chn
+     namespace: local-dev-chn-ns
    spec:
-       type: Git
-       pathname: https://github.com/IBM/charts.git
+     pathname: 'https://github.com/open-cluster-management-io/ multicloud-operators-subscription.git'
+   type: Git
    ```
 
    The value for the `pathname` field is the Git repository HTTPS URL.
-1. Run the following command to subscribe to the `ibm-charts-git` channel:
+1. Run the following command to subscribe to the `gitops` channel:
 
    ```shell
-   kubectl apply -f ./examples/git-channel/02-subscription.yaml
+   kubectl apply -f ./examples/local-git-sub/subscription.yaml
    ```
 
-   When you review the `./examples/git-channel/02-subscription.yaml` file, the subscription has the following annotations.
+   When you review the `./examples/local-git-sub/subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
     annotations:
-      apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
-      apps.open-cluster-management.io/git-branch: branch1
+      apps.open-cluster-management.io/github-branch: main
+      apps.open-cluster-management.io/github-path: examples/remote-git-sub-op
    ```
 
-   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `stable/ibm-mongodb-dev` directory for the Git repository channel. The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
+   The annotation `apps.open-cluster-management.io/github-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/remote-git-sub-op` directory for the Git repository channel. The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/github-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
 
    ```shell
-   kubectl patch subscriptions.apps.open-cluster-management.io git-mongodb-subscription --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
+   kubectl patch subscriptions.apps.open-cluster-management.io nginx-sub --type='json' -p='[{"op": "replace", "path": "/spec/placement/local", "value": true}]'
    ```
 
-   After a couple of minutes, run the following command to check whether a `helmreleases.apps.open-cluster-management.io` CR is created for the MongoDB Helm chart:
+   After a couple of minutes, run the following command to check whether a `deployments.apps` CR is created for the nginx Helm chart:
 
    ```shell
-   kubectl get helmreleases.apps.open-cluster-management.io --all-namespaces
+   kubectl get deployments -n default
    ```
 
-   Then, run the following command in the same namespace as the MongoDB helmreleases.apps.open-cluster-management.io CR to find the deployment:
-
-   ```shell
-   kubectl get deployments
-   ```
 
 ## Subscribing to Kubernetes resources from a Git repository
 
-In the following example, you create a channel that connects to a Git repository and subscribes to a sample nginx deployment `examples/git-channel/sample-deployment.yaml` YAML file.
+In the following example, you create a channel that connects to a Git repository and subscribes to a sample nginx deployment `examples/github-channel/sample-deployment.yaml` YAML file.
 
 1. Clone this `multicloud-operators-subscription` Git repository.
 1. Run the following command to create a `kuberesources`namespace:
 
    ```shell
-   kubectl apply -f ./examples/git-channel/10-namespace.yaml
+   kubectl apply -f ./examples/github-channel/10-namespace.yaml
    ```
 
 1. Run the following command to create a `sample-kube-resources-git` channel in the `kuberesources` namespace:
 
    ```shell
-   kubectl apply -f ./examples/git-channel/11-channel.yaml
+   kubectl apply -f ./examples/github-channel/11-channel.yaml
    ```
 
    The following YAML content is used to define this `sample-kube-resources-git` channel:
@@ -113,20 +108,20 @@ In the following example, you create a channel that connects to a Git repository
 1. Run the following command to subscribe to the `sample-kube-resources-git` channel:
 
    ```shell
-   kubectl apply -f ./examples/git-channel/12-subscription.yaml
+   kubectl apply -f ./examples/github-channel/12-subscription.yaml
    ```
 
-   When you review the `./examples/git-channel/12-subscription.yaml` file, the subscription has the following annotations.
+   When you review the `./examples/github-channel/12-subscription.yaml` file, the subscription has the following annotations.
 
    ```yaml
     annotations:
-      apps.open-cluster-management.io/git-path: examples/git-channel
+      apps.open-cluster-management.io/git-path: examples/github-channel
       apps.open-cluster-management.io/git-branch: branch1
    ```
 
-   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/git-channel` directory of the Git repository channel.
+   The annotation `apps.open-cluster-management.io/git-path` indicates that the subscription subscribes to all Helm charts and Kubernetes resources that are in the `examples/github-channel` directory of the Git repository channel.
 
-   In `examples/git-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
+   In `examples/github-channel`, there are multiple YAML files, however, only the `sample-deployment.yaml` file is applied. The `.kubernetesignore` file that is within the directory that is defined by the `data.path` field indicates that all other files are to be ignored. The subscription then applies only the `sample-deployment.yaml` file to the cluster.
 
    The subscription subscribes to `master` branch by default. If you want to subscribe to a different branch, you can use annotation `apps.open-cluster-management.io/git-branch`.
 1. Run the following command to place the subscribed resources onto the local cluster:
@@ -147,7 +142,7 @@ In the previous examples, the Git repository that the channel connects to is a p
 
 The `channel` and `subscription` resources support only basic authentication.
 
-Update you channel resource to reference a Kubernetes secret and define the YAML content to create the secret. Within your YAML content, set the `user` field to be a Git user ID and the `accessToken` field to be a Git personal access token.
+Update your channel resource to reference a Kubernetes secret and define the YAML content to create the secret. Within your YAML content, set the `user` field to be a Git user ID and the `accessToken` field to be a Git personal access token.
 
 ```yaml
 apiVersion: v1
@@ -234,9 +229,9 @@ The following example Subscription YAML shows how to specify a different branch:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
-  name: git-mongodb-subscription
+  name: nginx-app-sub
   annotations:
-    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
+    apps.open-cluster-management.io/git-path: examples/remote-git-sub-op
     apps.open-cluster-management.io/git-branch: branch1
 ```
 
@@ -250,10 +245,10 @@ The following example Subscription YAML shows how to specify a different commit:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
-  name: git-mongodb-subscription
+  name: nginx-app-sub
   annotations:
-    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
-    apps.open-cluster-management.io/git-desired-commit: 9374cda5cf3c7cd27d419562614898dc7d841eb7
+    apps.open-cluster-management.io/git-path: examples/remote-git-sub-op
+    apps.open-cluster-management.io/git-desired-commit: 92ebae0b2354c3c78f4318e8359cc8e4caf005c5
     apps.open-cluster-management.io/git-clone-depth: 100
 ```
 
@@ -269,10 +264,10 @@ The following example Subscription YAML shows how to specify a tag:
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
-  name: git-mongodb-subscription
+  name: nginx-app-sub
   annotations:
-    apps.open-cluster-management.io/git-path: stable/ibm-mongodb-dev
-    apps.open-cluster-management.io/git-tag: v1.0
+    apps.open-cluster-management.io/git-path: examples/remote-git-sub-op
+    apps.open-cluster-management.io/git-tag: v0.10.0
     apps.open-cluster-management.io/git-clone-depth: 100
 ```
 

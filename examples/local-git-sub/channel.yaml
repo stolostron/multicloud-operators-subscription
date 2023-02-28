@@ -1,0 +1,8 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: gitops-chn
+  namespace: local-dev-chn-ns
+spec:
+  pathname: 'https://github.com/open-cluster-management-io/multicloud-operators-subscription.git'
+  type: Git

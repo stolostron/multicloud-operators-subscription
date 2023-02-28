@@ -3,7 +3,7 @@ kind: Subscription
 metadata:
   name: sample-kube-resources-subscription
   annotations:
-    apps.open-cluster-management.io/git-path: examples/git-channel
+    apps.open-cluster-management.io/git-path: examples/github-channel
 #    apps.open-cluster-management.io/git-branch: branch1
 spec:
   channel: kuberesources/sample-kube-resources-git
