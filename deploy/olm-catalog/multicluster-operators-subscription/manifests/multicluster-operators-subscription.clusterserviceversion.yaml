@@ -382,6 +382,8 @@ spec:
           resources:
           - applications
           - applications/status
+          - applicationsets
+          - applicationsets/status
         - verbs:
           - get
           - list
