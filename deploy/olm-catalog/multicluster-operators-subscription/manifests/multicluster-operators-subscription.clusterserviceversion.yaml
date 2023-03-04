@@ -488,25 +488,17 @@ spec:
                 command:
                 - /usr/local/bin/propagation
                 livenessProbe:
-                  failureThreshold: 3
-                  httpGet:
-                    path: /healthz
-                    port: 8081
-                    scheme: HTTP
+                  exec:
+                    command:
+                    - ls
                   initialDelaySeconds: 15
-                  periodSeconds: 20
-                  successThreshold: 1
-                  timeoutSeconds: 1
+                  periodSeconds: 15
                 readinessProbe:
-                  failureThreshold: 3
-                  httpGet:
-                    path: /readyz
-                    port: 8081
-                    scheme: HTTP
-                  initialDelaySeconds: 5
-                  periodSeconds: 10
-                  successThreshold: 1
-                  timeoutSeconds: 1
+                  exec:
+                    command:
+                    - ls
+                  initialDelaySeconds: 15
+                  periodSeconds: 15
                 resources:
                   limits:
                     cpu: 500m
