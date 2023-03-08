@@ -481,10 +481,6 @@ spec:
               - name: argocd-pull-integration-controller-manager
                 image: quay.io/stolostron/multicloud-integrations:2.8.0
                 imagePullPolicy: IfNotPresent
-                args:
-                - --health-probe-bind-address=:8081
-                - --metrics-bind-address=127.0.0.1:8080
-                - --leader-elect
                 command:
                 - /usr/local/bin/propagation
                 livenessProbe:
