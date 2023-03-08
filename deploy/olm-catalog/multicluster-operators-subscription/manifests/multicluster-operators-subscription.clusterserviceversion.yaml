@@ -483,6 +483,9 @@ spec:
                 imagePullPolicy: IfNotPresent
                 command:
                 - /usr/local/bin/propagation
+                - --leader-election-lease-duration=137
+                - --renew-deadline=107
+                - --retry-period=26
                 livenessProbe:
                   exec:
                     command:
@@ -515,6 +518,10 @@ spec:
                 command:
                 - /usr/local/bin/gitopssyncresc
                 - --appset-resource-dir=/etc/gitops-resources
+                - --sync-interval=10
+                - --leader-election-lease-duration=137
+                - --renew-deadline=107
+                - --retry-period=26
                 env:
                 - name: WATCH_NAMESPACE
                 - name: POD_NAME
@@ -558,6 +565,10 @@ spec:
                 command:
                 - /usr/local/bin/multiclusterstatusaggregation
                 - --appset-resource-dir=/etc/gitops-resources
+                - --sync-interval=10
+                - --leader-election-lease-duration=137
+                - --renew-deadline=107
+                - --retry-period=26
                 env:
                 - name: WATCH_NAMESPACE
                 - name: POD_NAME
