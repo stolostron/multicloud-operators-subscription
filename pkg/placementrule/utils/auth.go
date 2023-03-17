@@ -78,7 +78,7 @@ func FilteClustersByIdentity(authClient kubernetes.Interface, object runtime.Obj
 	return nil
 }
 
-// filterClusterByUserIdentity filters cluster by checking if user can act on on resources
+// filterClusterByUserIdentity filters cluster by checking if user can act on resources
 func filterClusterByUserIdentity(
 	obj runtime.Object,
 	clusters []*spokeClusterV1.ManagedCluster,

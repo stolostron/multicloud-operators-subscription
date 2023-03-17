@@ -1,4 +1,4 @@
-FROM registry.ci.openshift.org/stolostron/builder:go1.19-linux AS plugin-builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.20-linux AS plugin-builder
 ENV POLICY_GENERATOR_TAG=v1.10.0
 
 WORKDIR /policy-generator

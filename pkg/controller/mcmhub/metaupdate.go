@@ -102,7 +102,7 @@ func ObjectString(obj metav1.Object) string {
 	return fmt.Sprintf("%v/%v", obj.GetNamespace(), obj.GetName())
 }
 
-//downloadChart downloads the chart
+// downloadChart downloads the chart
 func downloadChart(client client.Client, s *releasev1.HelmRelease) (string, error) {
 	configMap, err := rUtils.GetConfigMap(client, s.Namespace, s.Repo.ConfigMapRef)
 	if err != nil {
@@ -162,7 +162,7 @@ func getHelmTopoResources(helmRls []*releasev1.HelmRelease, hubClt client.Client
 	return resources
 }
 
-//generateResourceList generates the resource list for given HelmRelease
+// generateResourceList generates the resource list for given HelmRelease
 func generateResourceList(client client.Client, rm meta.RESTMapper, cfg *rest.Config, s *releasev1.HelmRelease) []*v1.ObjectReference {
 	chartDir, err := downloadChart(client, s)
 	if err != nil {

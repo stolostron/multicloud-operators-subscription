@@ -514,7 +514,7 @@ func getOverrides(packageName string, sub *appv1.Subscription) appv1.ClusterOver
 	return dploverrides
 }
 
-//FilterCharts filters the indexFile by name, version, digest
+// FilterCharts filters the indexFile by name, version, digest
 func FilterCharts(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
 	//Removes all entries from the indexFile with non matching name
 	err := removeNoMatchingName(sub, indexFile)
@@ -533,8 +533,8 @@ func FilterCharts(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
 	return nil
 }
 
-//takeLatestVersion if the indexFile contains multiple versions for a given chart, then
-//only the latest is kept.
+// takeLatestVersion if the indexFile contains multiple versions for a given chart, then
+// only the latest is kept.
 func takeLatestVersion(indexFile *repo.IndexFile) (err error) {
 	indexFile.SortEntries()
 
@@ -555,7 +555,7 @@ func takeLatestVersion(indexFile *repo.IndexFile) (err error) {
 	return nil
 }
 
-//checkDigest Checks if the digest matches
+// checkDigest Checks if the digest matches
 func checkDigest(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
 	if sub != nil {
 		if sub.Spec.PackageFilter != nil {
@@ -572,7 +572,7 @@ func checkDigest(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool 
 	return true
 }
 
-//removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
+// removeNoMatchingName Deletes entries that the name doesn't match the name provided in the subscription
 func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
 	if sub.Spec.Package != "" {
 		keys := make([]string, 0)
@@ -594,8 +594,8 @@ func removeNoMatchingName(sub *appv1.Subscription, indexFile *repo.IndexFile) er
 	return nil
 }
 
-//filterOnVersion filters the indexFile with the version, and Digest provided in the subscription
-//The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/Masterminds/semver)
+// filterOnVersion filters the indexFile with the version, and Digest provided in the subscription
+// The version provided in the subscription can be an expression like ">=1.2.3" (see https://github.com/Masterminds/semver)
 func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
 	keys := make([]string, 0)
 	for k := range indexFile.Entries {
@@ -622,7 +622,7 @@ func filterOnVersion(sub *appv1.Subscription, indexFile *repo.IndexFile) {
 	klog.V(4).Info("After version matching:", indexFile)
 }
 
-//checkKeywords Checks if the charts has at least 1 keyword from the packageFilter.Keywords array
+// checkKeywords Checks if the charts has at least 1 keyword from the packageFilter.Keywords array
 func checkKeywords(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
 	var labelSelector *metav1.LabelSelector
 	if sub.Spec.PackageFilter != nil {
@@ -632,7 +632,7 @@ func checkKeywords(sub *appv1.Subscription, chartVersion *repo.ChartVersion) boo
 	return KeywordsChecker(labelSelector, chartVersion.Keywords)
 }
 
-//checkVersion checks if the version matches
+// checkVersion checks if the version matches
 func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool {
 	if sub.Spec.PackageFilter != nil {
 		if sub.Spec.PackageFilter.Version != "" {
@@ -660,7 +660,7 @@ func checkVersion(sub *appv1.Subscription, chartVersion *repo.ChartVersion) bool
 	return true
 }
 
-//DeleteHelmReleaseCRD deletes the HelmRelease CRD
+// DeleteHelmReleaseCRD deletes the HelmRelease CRD
 func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
 	hrlist := &releasev1.HelmReleaseList{}
 	err := runtimeClient.List(context.TODO(), hrlist, &client.ListOptions{})
@@ -690,7 +690,7 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 	}
 }
 
-//IsURL return true if string is a valid URL
+// IsURL return true if string is a valid URL
 func IsURL(str string) bool {
 	u, err := url.Parse(str)
 	return err == nil && u.Scheme != "" && u.Host != ""
