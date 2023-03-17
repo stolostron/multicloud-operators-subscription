@@ -233,12 +233,12 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 	}
 }
 
-//helper for test
+// helper for test
 func (h *HubGitOps) GetSubRecords() map[types.NamespacedName]string {
 	return h.subRecords
 }
 
-//helper for test
+// helper for test
 func (h *HubGitOps) GetRepoRecords() map[string]*RepoRegistery {
 	return h.repoRecords
 }
@@ -621,7 +621,7 @@ type gitSortResult struct {
 	kubRes     []string
 }
 
-//repoRoot is the local path of the git
+// repoRoot is the local path of the git
 // destPath will specify a sub-directory for finding all the relative resource
 func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger logr.Logger) (gitSortResult, error) {
 	resourcePath := filepath.Join(repoRoot, destPath)
@@ -737,8 +737,8 @@ func (h *HubGitOps) HasHookFolders(subIns *subv1.Subscription) bool {
 	return preErr == nil || postErr == nil
 }
 
-//GetHooks will provided the ansibleJobs at the given hookPath(if given a
-//posthook path, then posthook ansiblejob is returned)
+// GetHooks will provided the ansibleJobs at the given hookPath(if given a
+// posthook path, then posthook ansiblejob is returned)
 func (h *HubGitOps) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error) {
 	fullPath := fmt.Sprintf("%v/%v", h.GetRepoRootDirctory(subIns), hookPath)
 	if _, err := os.Stat(fullPath); err != nil {

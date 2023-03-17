@@ -34,7 +34,7 @@ const (
 	AgentImageEnv = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
 )
 
-//nolint
+//nolint:all
 //go:embed manifests
 //go:embed manifests/chart
 //go:embed manifests/chart/templates/_helpers.tpl
@@ -146,7 +146,7 @@ func newRegistrationOption(kubeClient *kubernetes.Clientset, addonName string) *
 	}
 }
 
-//nolint
+//nolint:all
 func applyManifestFromFile(file, clusterName, addonName string, kubeClient *kubernetes.Clientset) error {
 	groups := agent.DefaultGroups(clusterName, addonName)
 	config := struct {

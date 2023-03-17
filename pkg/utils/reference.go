@@ -39,7 +39,7 @@ var SubscriptionGVK = schema.GroupVersionKind{
 	Kind:    "Subscription",
 	Version: appv1.SchemeGroupVersion.Version}
 
-//SercertReferredMarker is used as a label key to filter out the secert coming from reference
+// SercertReferredMarker is used as a label key to filter out the secert coming from reference
 var SercertReferredMarker = "IsReferredBySub-"
 
 type referredObject interface {
@@ -47,13 +47,13 @@ type referredObject interface {
 	metav1.Object
 }
 
-//ListAndDeployReferredObject handles the create/update reconciler request
+// ListAndDeployReferredObject handles the create/update reconciler request
 // the idea is, first it will try to get the referred secret from the subscription namespace
 // if it can't find it,
-////it could be it's a brand new secret request or it's trying to use a differenet one.
-//// to address these, we will try to list the sercert within the subscription namespace with the subscription label.
-//// if we are seeing these secret, we will delete the label of the reconciled subscription.
-///// then we will create a new secret and label it
+// //it could be it's a brand new secret request or it's trying to use a differenet one.
+// // to address these, we will try to list the sercert within the subscription namespace with the subscription label.
+// // if we are seeing these secret, we will delete the label of the reconciled subscription.
+// /// then we will create a new secret and label it
 // if we can find a secret at the subscription namespace, it means there must be some other subscription is
 // using it. In this case, we will just add an extra label to it
 func ListAndDeployReferredObject(clt client.Client, instance *appv1.Subscription, gvk schema.GroupVersionKind, refObj referredObject) error {

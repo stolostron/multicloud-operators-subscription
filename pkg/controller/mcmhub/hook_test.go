@@ -44,7 +44,7 @@ const (
 	pullInterval = time.Second * 3
 )
 
-//Prehook should:
+// Prehook should:
 // 1. download from git, if the subscription asks for the prehook
 // 2. create the prehook resource on the cluster, while keep the subscription
 // wait for the prehook resource status
@@ -134,10 +134,10 @@ func newHookTest() *hookTest {
 }
 
 // happyPath is defined as the following:
-//asumming the github have the ansible YAML
-//subscription, with prehook, after reconcile, should be able to
-//detect the ansibleJob instance from cluster and the subscription status
-//shouldn't be propagated
+// asumming the github have the ansible YAML
+// subscription, with prehook, after reconcile, should be able to
+// detect the ansibleJob instance from cluster and the subscription status
+// shouldn't be propagated
 var _ = Describe("multiple reconcile signal of the same subscription instance spec", func() {
 	var (
 		testPath = newHookTest()

@@ -73,7 +73,7 @@ func NextStatusReconcile(tw *appv1alpha1.TimeWindow, t time.Time) time.Duration 
 	return NextStartPoint(tw, uniCurTime) + 1*time.Minute
 }
 
-//NextStartPoint will map the container's time to the location time specified by user
+// NextStartPoint will map the container's time to the location time specified by user
 // then it will handle the window type as will the hour ange and daysofweek
 // for hour range and daysofweek, it will handle as the following
 // if hour range is empty and weekday is empty then retrun 0
@@ -208,7 +208,7 @@ func parseTimeWithKitchenFormat(tstr string, loc *time.Location) time.Time {
 // next time will be:
 // if current time is bigger than the last time point of the window, nextTime will be daysofweek offset + the hour offset
 // if current time is smaller than the lastSlot time point, nextTime will be a duration till next time
-//slot start point or a 0(if current time is within a time window)
+// slot start point or a 0(if current time is within a time window)
 func generateNextPoint(slots []hourRangesInTime, rdays runDays, uniCurTime time.Time, blocked bool) time.Duration {
 	if len(slots) == 0 && len(rdays) == 0 {
 		return time.Duration(0)
