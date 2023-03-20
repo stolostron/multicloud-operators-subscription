@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -114,9 +115,10 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 		klog.Info("Starting the WebHook listener on port 8443 with TLS key and cert files: " + listener.TLSKeyFile + " " + listener.TLSCrtFile)
 
 		s := &http.Server{
-			Addr:      ":8443",
-			Handler:   mux,
-			TLSConfig: &tls.Config{MinVersion: tls.VersionTLS12},
+			Addr:              ":8443",
+			Handler:           mux,
+			ReadHeaderTimeout: 32 * time.Second,
+			TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
 		}
 
 		klog.Fatal(s.ListenAndServeTLS(listener.TLSCrtFile, listener.TLSKeyFile))
@@ -124,8 +126,9 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 		klog.Info("Starting the WebHook listener on port 8443 with no TLS.")
 
 		s := &http.Server{
-			Addr:    ":8443",
-			Handler: mux,
+			Addr:              ":8443",
+			ReadHeaderTimeout: 32 * time.Second,
+			Handler:           mux,
 		}
 
 		klog.Fatal(s.ListenAndServe())

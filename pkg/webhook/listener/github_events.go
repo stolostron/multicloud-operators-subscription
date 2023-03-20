@@ -192,7 +192,11 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 		return nil, "", nil, errors.New("Unsupported Content-Type: " + contentType)
 	}
 
-	defer r.Body.Close()
+	defer func() {
+		if err := r.Body.Close(); err != nil {
+			klog.Error("Error closing request: ", err)
+		}
+	}()
 
 	signature = r.Header.Get(githubSignatureHeader)
 
