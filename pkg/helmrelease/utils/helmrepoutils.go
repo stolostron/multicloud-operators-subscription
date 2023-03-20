@@ -50,7 +50,7 @@ import (
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 )
 
-//GetHelmRepoClient returns an *http.client to access the helm repo
+// GetHelmRepoClient returns an *http.client to access the helm repo
 func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skipCertVerify bool) (rest.HTTPClient, error) {
 	/* #nosec G402 */
 	transport := &http.Transport{
@@ -107,7 +107,7 @@ func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skip
 	return httpClient, nil
 }
 
-//DownloadChart downloads the charts
+// DownloadChart downloads the charts
 func DownloadChart(configMap *corev1.ConfigMap,
 	secret *corev1.Secret,
 	chartsDir string,
@@ -133,7 +133,7 @@ func DownloadChart(configMap *corev1.ConfigMap,
 	}
 }
 
-//DownloadChartFromGit downloads a chart into the charsDir
+// DownloadChartFromGit downloads a chart into the charsDir
 func DownloadChartFromGit(configMap *corev1.ConfigMap, secret *corev1.Secret, destRepo string, s *appv1.HelmRelease) (chartDir string, err error) {
 	if s.Repo.Source.GitHub == nil && s.Repo.Source.Git == nil {
 		err := fmt.Errorf("git type, need Repo.Source.Git or Repo.Source.GitHub to be populated.")
@@ -159,7 +159,7 @@ func DownloadChartFromGit(configMap *corev1.ConfigMap, secret *corev1.Secret, de
 	return chartDir, nil
 }
 
-//DownloadGitRepo downloads a git repo into the charsDir
+// DownloadGitRepo downloads a git repo into the charsDir
 func DownloadGitRepo(configMap *corev1.ConfigMap,
 	secret *corev1.Secret,
 	destRepo string,
@@ -492,7 +492,7 @@ func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerif
 	return nil
 }
 
-//DownloadChartFromHelmRepo downloads a chart into the chartDir
+// DownloadChartFromHelmRepo downloads a chart into the chartDir
 func DownloadChartFromHelmRepo(configMap *corev1.ConfigMap,
 	secret *corev1.Secret,
 	destRepo string,
@@ -566,7 +566,7 @@ func downloadChartFromURL(configMap *corev1.ConfigMap,
 	return chartDir, nil
 }
 
-//downloadFile downloads a files and post it in the chartsDir.
+// downloadFile downloads a files and post it in the chartsDir.
 func downloadFile(parentNamespace string, configMap *corev1.ConfigMap,
 	fileURL string,
 	secret *corev1.Secret,
@@ -685,7 +685,11 @@ func downloadFileHTTP(parentNamespace string, configMap *corev1.ConfigMap,
 
 		klog.V(5).Info("Download chart form helmrepo succeeded: ", fileURL)
 
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				klog.Error("Error closing response: ", err)
+			}
+		}()
 
 		var out *os.File
 

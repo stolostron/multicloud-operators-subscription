@@ -532,7 +532,11 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 		return nil, "", err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			klog.Error("Error closing response: ", err)
+		}
+	}()
 
 	hash = hashKey(body)
 	indexfile, err := loadIndex(body)
