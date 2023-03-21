@@ -78,7 +78,7 @@ type kubeResource struct {
 	Kind       string `yaml:"kind"`
 }
 
-//KKubeResource export the kuKubeResource for other package
+// KKubeResource export the kuKubeResource for other package
 type KubeResource struct {
 	kubeResource
 }
@@ -412,8 +412,8 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 	cmd := exec.Command("ssh-keyscan", sshhostname) // #nosec G204 the variable is generated within this function.
 
 	if sshhostport != "" {
-		cmd = exec.Command("ssh-keyscan", sshhostname, "-p", sshhostport) // #nosec G204 the variable is generated within this function.
-		klog.Infof("Running command ssh-keyscan %s -p %s", sshhostname, sshhostport)
+		cmd = exec.Command("ssh-keyscan", "-p", sshhostport, sshhostname) // #nosec G204 the variable is generated within this function.
+		klog.Infof("Running command ssh-keyscan -p %s %s", sshhostport, sshhostname)
 	}
 
 	stdout, err := cmd.Output()
