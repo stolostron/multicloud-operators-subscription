@@ -275,6 +275,71 @@ spec:
   insecureSkipVerify: true
 ```
 
+## GitHub SSH connection
+GitHub offers two ways to connect via SSH. The default connection via port `22` or by using SSH over the HTTPS port `443`. Use the following channel configurations to configure your connection type.
+
+1. Create a secret to contain your private SSH key in `sshKey` field under `data`. If the key is passphrase protected, specify the password in `passphrase` field. This secret must be in the same namespace as the channel CR. It is easier to create this secret using a kubectl command like `kubectl create secret generic git-ssh-key --from-file=sshKey=./.ssh/id_rsa` and then add base64 encoded `passphrase`.
+
+```
+apiVersion: v1
+kind: Secret
+metadata:
+  name: git-ssh-key
+  namespace: channel-ns
+data:
+  sshKey: LS0tLS1CRUdJTiBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0KYjNCbGJuTnphQzFyWlhrdGRqRUFBQUFBQ21GbGN6STFOaTFqZEhJQUFBQUdZbU55ZVhCMEFBQUFHQUFBQUJDK3YySHhWSIwCm8zejh1endzV3NWODMvSFVkOEtGeVBmWk5OeE5TQUgcFA3Yk1yR2tlRFFPd3J6MGIKOUlRM0tKVXQzWEE0Zmd6NVlrVFVhcTJsZWxxVk1HcXI2WHF2UVJ5Mkc0NkRlRVlYUGpabVZMcGVuaGtRYU5HYmpaMmZOdQpWUGpiOVhZRmd4bTNnYUpJU3BNeTFLWjQ5MzJvOFByaDZEdzRYVUF1a28wZGdBaDdndVpPaE53b0pVYnNmYlZRc0xMS1RrCnQwblZ1anRvd2NEVGx4TlpIUjcwbGVUSHdGQTYwekM0elpMNkRPc3RMYjV2LzZhMjFHRlMwVmVXQ3YvMlpMOE1sbjVUZWwKSytoUWtxRnJBL3BUc1ozVXNjSG1GUi9PV25FPQotLS0tLUVORCBPUEVOU1NIIFBSSVZBVEUgS0VZLS0tLS0K
+  passphrase: cGFzc3cwcmQK
+type: Opaque
+```
+
+2. GitHub offers two ways to connect via SSH. The first way is connecting through the default port `22` or by using SSH over the HTTPS port `443`. 
+
+Using the default port `22` configure the channel with the secret like this.
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: my-channel
+  namespace: channel-ns
+spec:
+  secretRef:
+    name: git-ssh-key
+  pathname: ssh://git@github.com/<GitHub repository>
+  type: Git
+```
+
+Using SSH over HTTPS port `443` configure the channel with the secret like this. Note the hostname for port `443` is `ssh.github.com`, not `github.com`.
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: my-channel
+  namespace: channel-ns
+spec:
+  secretRef:
+    name: git-ssh-key
+  pathname: ssh://git@ssh.github.com:443/<GitHub repository>
+  type: Git
+```
+
+3. The subscription controller does `ssh-keyscan` with the provided Git hostname to build the known_hosts list to prevent MITM attack in SSH connection. If you want to skip this and make insecure connection, use `insecureSkipVerify: true` in the channel configuration.
+
+```
+apiVersion: apps.open-cluster-management.io/v1
+kind: Channel
+metadata:
+  name: my-channel
+  namespace: channel-ns
+spec:
+  secretRef:
+    name: git-ssh-key
+  pathname: <GitHub SSH URL>
+  type: Git
+  insecureSkipVerify: true
+```
+
 ## Updating channel secret and config map
 
 If Git channel connection configuration, such as CA certificates, credentials, or SSH key, requires an update, create new secret and config map in the same namespace and update the channel to reference the new secret and configmap.
