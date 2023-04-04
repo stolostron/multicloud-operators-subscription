@@ -256,14 +256,14 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 			klog.Info("found the application-manager-dockercfg secret " + secret.Name)
 
 			// application-manager-token secret is owned by the dockercfg secret
-			tokenSecret := &corev1.Secret{}
-			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: "open-cluster-management-agent-addon"}, tokenSecret)
+			dockerSecret := &corev1.Secret{}
+			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: "open-cluster-management-agent-addon"}, dockerSecret)
 			if err != nil {
 				klog.Error(err.Error())
 				return ""
 			}
 
-			anno := tokenSecret.GetAnnotations()
+			anno := dockerSecret.GetAnnotations()
 			klog.Info("found the application-manager-token secret " + anno["openshift.io/token-secret.name"])
 
 			return anno["openshift.io/token-secret.value"]

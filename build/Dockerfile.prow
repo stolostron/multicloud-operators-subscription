@@ -20,6 +20,7 @@ RUN  microdnf update -y \
         && microdnf install tzdata \
         && microdnf install git-core \
         && microdnf install openssh-clients \
+        && microdnf install net-tools \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
