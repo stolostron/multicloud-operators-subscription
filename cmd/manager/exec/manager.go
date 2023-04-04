@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	_ "net/http/pprof" // include the default Go profiler mux
 	"os"
 	"strings"
 	"time"
@@ -298,6 +299,14 @@ func RunManager() {
 			}
 		}()
 	}
+
+	// start the golang profiler
+	go func() {
+		klog.Info("Starting profiling endpoint at http://127.0.0.1:6060/debug/pprof/")
+
+		err := http.ListenAndServe("127.0.0.1:6060", nil)
+		klog.Error(err.Error())
+	}()
 
 	// Start the Cmd
 	if err := mgr.Start(sig); err != nil {
