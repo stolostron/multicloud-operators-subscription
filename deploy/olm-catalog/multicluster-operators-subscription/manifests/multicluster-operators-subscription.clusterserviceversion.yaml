@@ -500,10 +500,10 @@ spec:
                   periodSeconds: 15
                 resources:
                   limits:
-                    cpu: 500m
-                    memory: 128Mi
+                    cpu: 100m
+                    memory: 512Mi
                   requests:
-                    cpu: 10m
+                    cpu: 25m
                     memory: 64Mi
                 securityContext:
                   allowPrivilegeEscalation: false
