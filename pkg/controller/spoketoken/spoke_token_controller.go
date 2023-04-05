@@ -244,6 +244,7 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 	// Grab application-manager service account
 	sa := &corev1.ServiceAccount{}
+
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "application-manager", Namespace: "open-cluster-management-agent-addon"}, sa)
 	if err != nil {
 		klog.Error(err.Error())
@@ -257,6 +258,7 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 
 			// application-manager-token secret is owned by the dockercfg secret
 			dockerSecret := &corev1.Secret{}
+
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: "open-cluster-management-agent-addon"}, dockerSecret)
 			if err != nil {
 				klog.Error(err.Error())
