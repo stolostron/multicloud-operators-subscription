@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 const (
@@ -33,11 +32,6 @@ const (
 )
 
 var (
-	sakey = types.NamespacedName{
-		Name:      "application-manager",
-		Namespace: "open-cluster-management-agent-addon",
-	}
-
 	secretkey = types.NamespacedName{
 		Name:      clusterName + secretSuffix,
 		Namespace: clusterName,
@@ -58,18 +52,6 @@ var (
 	sa1 = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager",
-			Namespace: "open-cluster-management-agent-addon",
-		},
-		Secrets: []corev1.ObjectReference{
-			{
-				Name: "application-manager-dockercfg-1",
-			},
-		},
-	}
-
-	saToBeIgnored = &corev1.ServiceAccount{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "sa-to-be-ignored",
 			Namespace: "open-cluster-management-agent-addon",
 		},
 		Secrets: []corev1.ObjectReference{
@@ -101,10 +83,6 @@ var (
 	}
 )
 
-var expectedRequest = reconcile.Request{NamespacedName: sakey}
-
-const timeout = time.Second * 5
-
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -117,11 +95,8 @@ func TestReconcile(t *testing.T) {
 
 	clusterID := types.NamespacedName{Name: clusterName, Namespace: clusterName}
 
-	rec := newReconciler(mgr, c, &clusterID, host).(*ReconcileAgentToken)
-
-	recFn, requests := SetupTestReconcile(rec)
-
-	g.Expect(add(mgr, recFn)).NotTo(gomega.HaveOccurred())
+	// Temporarily only wait 6 seconds. real controller will be every minute.
+	Add(mgr, 6, cfg, &clusterID, false)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
 	mgrStopped := StartTestManager(ctx, mgr, g)
@@ -149,9 +124,8 @@ func TestReconcile(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
 
-	time.Sleep(time.Second * 2)
-
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	// the spoken token update loop is triggerred every 6 sec in the test.
+	time.Sleep(time.Second * 10)
 
 	theSecret := &corev1.Secret{}
 
@@ -177,25 +151,11 @@ func TestReconcile(t *testing.T) {
 	// Delete the addon agent service account and reconcile
 	g.Expect(c.Delete(context.TODO(), sa1)).NotTo(gomega.HaveOccurred())
 
-	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+	time.Sleep(time.Second * 9) // would need to change this if we change controller loop interval.
 
 	theDeletedSecret := &corev1.Secret{}
-
 	// Check that cluster1/cluster1-cluster-secret is deleted upon the deletion of the service account.
 	g.Expect(kerrors.IsNotFound(c.Get(context.TODO(), secretkey, theDeletedSecret))).To(gomega.BeTrue())
 
-	// Verify that service accounts other than open-cluster-management-agent-addon/klusterlet-addon-appmgr-
-	// trigger a reconcile.
-	unexpectedSakey := types.NamespacedName{
-		Name:      saToBeIgnored.Name,
-		Namespace: saToBeIgnored.Namespace,
-	}
-
-	unexpectedRequest := reconcile.Request{NamespacedName: unexpectedSakey}
-
-	// Create the service account to be ignored.
-	g.Expect(c.Create(context.TODO(), saToBeIgnored)).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), saToBeIgnored)
-
-	g.Eventually(requests, timeout).ShouldNot(gomega.Receive(gomega.Equal(unexpectedRequest)))
+	Add(mgr, 6, cfg, &clusterID, false)
 }

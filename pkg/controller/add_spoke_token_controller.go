@@ -18,5 +18,5 @@ import "open-cluster-management.io/multicloud-operators-subscription/pkg/control
 
 func init() {
 	// AddToManagerMCMFuncs is a list of functions to create controllers and add them to a manager.
-	AddToManagerMCMFuncs = append(AddToManagerMCMFuncs, spoketoken.Add)
+	AddToManagerSpokeFuncs = append(AddToManagerSpokeFuncs, spoketoken.Add)
 }

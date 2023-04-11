@@ -338,6 +338,13 @@ func setupStandalone(mgr manager.Manager, hubconfig *rest.Config, id *types.Name
 		return err
 	}
 
+	// Setup spoke token controller
+	if err := controller.AddSpokeToManager(mgr, Options.SyncInterval, hubconfig, id, isHub, standalone); err != nil {
+		klog.Error("Failed to initialize controller with error: ", err)
+
+		return err
+	}
+
 	if standalone && !Options.Debug {
 		// Setup Webhook listner
 		if err := webhook.AddToManager(mgr, hubconfig, Options.TLSKeyFilePathName, Options.TLSCrtFilePathName, Options.DisableTLS, false); err != nil {

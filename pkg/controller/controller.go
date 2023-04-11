@@ -24,6 +24,8 @@ import (
 // AddToManagerMCMFuncs is a list of functions to add all MCM Controllers (with config to hub) to the Manager
 var AddToManagerMCMFuncs []func(manager.Manager, *rest.Config, *types.NamespacedName, bool) error
 
+var AddToManagerSpokeFuncs []func(manager.Manager, int, *rest.Config, *types.NamespacedName, bool) error
+
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
 
@@ -80,6 +82,16 @@ func AddHubToManager(m manager.Manager) error {
 func AddAppSubSummaryToManager(m manager.Manager, interval int) error {
 	for _, f := range AddAppSubSummaryToManagerFuncs {
 		if err := f(m, interval); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func AddSpokeToManager(m manager.Manager, interval int, cfg *rest.Config, syncid *types.NamespacedName, hub, standalone bool) error {
+	for _, f := range AddToManagerSpokeFuncs {
+		if err := f(m, interval, cfg, syncid, standalone); err != nil {
 			return err
 		}
 	}
