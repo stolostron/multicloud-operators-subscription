@@ -19,6 +19,9 @@ spec:
         component: "application-manager"
     spec:
       serviceAccountName: {{ template "application-manager.fullname" . }}
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: subscription-controller
         image: "{{ .Values.global.imageOverrides.multicluster_operators_subscription }}"
