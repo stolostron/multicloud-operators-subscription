@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -32,6 +34,7 @@ import (
 	"k8s.io/klog/v2"
 	addonV1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
@@ -123,6 +126,7 @@ func RunManager() {
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
 		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
+		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}},
 	})
 
 	if err != nil {
