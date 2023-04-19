@@ -19,6 +19,7 @@ import (
 	"os"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
@@ -26,6 +27,7 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -78,6 +80,7 @@ func RunManager() {
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
 		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
+		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})
 	if err != nil {
 		klog.Error(err, "")

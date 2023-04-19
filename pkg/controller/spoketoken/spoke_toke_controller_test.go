@@ -62,7 +62,7 @@ var (
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "application-manager-dockercfg-tlxd5",
+				Name: "application-manager-dockercfg-1",
 			},
 		},
 	}
@@ -74,7 +74,19 @@ var (
 		},
 		Secrets: []corev1.ObjectReference{
 			{
-				Name: "application-manager-dockercfg-tlxd5",
+				Name: "application-manager-dockercfg-1",
+			},
+		},
+	}
+
+	dockerSecret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "application-manager-dockercfg-1",
+			Namespace: "open-cluster-management-agent-addon",
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": "application-manager",
+				"openshift.io/token-secret.name":     "application-manager-token-1",
+				"openshift.io/token-secret.value":    "dummy-1",
 			},
 		},
 	}
@@ -84,9 +96,6 @@ var (
 			Name:        "application-manager-token-1",
 			Namespace:   "open-cluster-management-agent-addon",
 			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
-		},
-		Data: map[string][]byte{
-			"token": []byte("ZHVtbXkxCg=="),
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
 	}
@@ -133,6 +142,9 @@ func TestReconcile(t *testing.T) {
 	// Create the addon agent service account.
 	g.Expect(c.Create(context.TODO(), sa1)).NotTo(gomega.HaveOccurred())
 
+	g.Expect(c.Create(context.TODO(), dockerSecret)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), dockerSecret)
+
 	// Create the addon agent service account token secret and reconcile.
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
@@ -153,7 +165,7 @@ func TestReconcile(t *testing.T) {
 
 	configData := &Config{}
 	g.Expect(json.Unmarshal(theSecret.Data["config"], configData)).NotTo(gomega.HaveOccurred())
-	g.Expect(configData.BearerToken).To(gomega.Equal(string(secret1.Data["token"])))
+	g.Expect(configData.BearerToken).To(gomega.Equal(dockerSecret.Annotations["openshift.io/token-secret.value"]))
 	g.Expect(configData.TLSClientConfig["insecure"]).To(gomega.BeTrue())
 
 	// Verify the labels

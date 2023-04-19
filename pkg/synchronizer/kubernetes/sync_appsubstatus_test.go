@@ -198,8 +198,6 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 
 		s := &KubeSynchronizer{
 			Interval:               0,
-			localCachedClient:      &cachedClient{},
-			remoteCachedClient:     &cachedClient{},
 			LocalClient:            k8sClient,
 			RemoteClient:           k8sClient,
 			hub:                    true,
@@ -291,8 +289,6 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 
 		s = &KubeSynchronizer{
 			Interval:               0,
-			localCachedClient:      &cachedClient{},
-			remoteCachedClient:     &cachedClient{},
 			LocalClient:            k8sClient,
 			RemoteClient:           k8sClient,
 			hub:                    false,
@@ -407,8 +403,6 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 
 		s = &KubeSynchronizer{
 			Interval:               0,
-			localCachedClient:      &cachedClient{},
-			remoteCachedClient:     &cachedClient{},
 			LocalClient:            k8sClient,
 			RemoteClient:           k8sClient,
 			hub:                    false,

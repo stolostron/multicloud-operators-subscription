@@ -30,7 +30,7 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/utils"
 )
 
-//newHelmOperatorManagerFactory create a new manager returns a helmManagerFactory
+// newHelmOperatorManagerFactory create a new manager returns a helmManagerFactory
 func (r ReconcileHelmRelease) newHelmOperatorManagerFactory(
 	s *appv1.HelmRelease) (helmoperator.ManagerFactory, error) {
 	if s.GetDeletionTimestamp() != nil {
@@ -50,7 +50,7 @@ func (r ReconcileHelmRelease) newHelmOperatorManagerFactory(
 	return f, nil
 }
 
-//newHelmOperatorManager returns a newly created helm operator manager
+// newHelmOperatorManager returns a newly created helm operator manager
 func (r ReconcileHelmRelease) newHelmOperatorManager(
 	s *appv1.HelmRelease, request reconcile.Request, factory helmoperator.ManagerFactory) (helmoperator.Manager, error) {
 	o := &unstructured.Unstructured{}
@@ -73,7 +73,7 @@ func (r ReconcileHelmRelease) newHelmOperatorManager(
 	return manager, nil
 }
 
-//downloadChart downloads the chart
+// downloadChart downloads the chart
 func downloadChart(client client.Client, s *appv1.HelmRelease) (string, error) {
 	configMap, err := utils.GetConfigMap(client, s.Namespace, s.Repo.ConfigMapRef)
 	if err != nil {
