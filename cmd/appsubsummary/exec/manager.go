@@ -17,7 +17,6 @@ package exec
 import (
 	"fmt"
 	"os"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
@@ -66,9 +65,11 @@ func RunManager() {
 		}
 	}
 
-	leaseDuration := time.Duration(options.LeaderElectionLeaseDurationSeconds) * time.Second
-	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
-	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
+	klog.Info("Leader election settings",
+		"leaseDuration", options.LeaderElectionLeaseDuration,
+		"renewDeadline", options.LeaderElectionRenewDeadline,
+		"retryPeriod", options.LeaderElectionRetryPeriod)
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -76,9 +77,9 @@ func RunManager() {
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "multicloud-operators-appsubsummary-leader.open-cluster-management.io",
 		LeaderElectionNamespace: "kube-system",
-		LeaseDuration:           &leaseDuration,
-		RenewDeadline:           &renewDeadline,
-		RetryPeriod:             &retryPeriod,
+		LeaseDuration:           &options.LeaderElectionLeaseDuration,
+		RenewDeadline:           &options.LeaderElectionRenewDeadline,
+		RetryPeriod:             &options.LeaderElectionRetryPeriod,
 		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
 		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})

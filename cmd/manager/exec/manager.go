@@ -110,9 +110,11 @@ func RunManager() {
 	cfg.QPS = 100.0
 	cfg.Burst = 200
 
-	leaderElectionLeaseDuration := time.Duration(Options.LeaderElectionLeaseDurationSeconds) * time.Second
-	renewDeadline := time.Duration(Options.RenewDeadlineSeconds) * time.Second
-	retryPeriod := time.Duration(Options.RetryPeriodSeconds) * time.Second
+	klog.Info("Leader election settings",
+		"leaseDuration", Options.LeaderElectionLeaseDuration,
+		"renewDeadline", Options.LeaderElectionRenewDeadline,
+		"retryPeriod", Options.LeaderElectionRetryPeriod)
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -120,9 +122,9 @@ func RunManager() {
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        leaderElectionID,
 		LeaderElectionNamespace: "kube-system",
-		LeaseDuration:           &leaderElectionLeaseDuration,
-		RenewDeadline:           &renewDeadline,
-		RetryPeriod:             &retryPeriod,
+		LeaseDuration:           &Options.LeaderElectionLeaseDuration,
+		RenewDeadline:           &Options.LeaderElectionRenewDeadline,
+		RetryPeriod:             &Options.LeaderElectionRetryPeriod,
 		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
 		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})
