@@ -16,7 +16,6 @@ package kubernetes
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -62,8 +61,6 @@ type SubscriptionClusterStatus struct {
 // KubeSynchronizer handles resources to a kube endpoint.
 type KubeSynchronizer struct {
 	Interval               int
-	localCachedClient      *cachedClient
-	remoteCachedClient     *cachedClient
 	LocalClient            client.Client
 	LocalNonCachedClient   client.Client
 	RemoteClient           client.Client
@@ -136,16 +133,7 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		dmtx:           sync.Mutex{},
 	}
 
-	s.localCachedClient, err = newCachedClient(config, &types.NamespacedName{Name: "local"})
-	if err != nil {
-		klog.Error("Failed to initialize client to update local status. err: ", err)
-
-		return nil, err
-	}
-
-	s.LocalClient = s.localCachedClient.clt
-
-	// set up non chanced local client
+	// set up non cached local client, the local client is the client for managed cluster
 	s.LocalNonCachedClient, err = client.New(config, client.Options{})
 	if err != nil {
 		klog.Error("Failed to generate client to local cluster with error: ", err)
@@ -153,24 +141,20 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 		return nil, err
 	}
 
+	s.LocalClient = s.LocalNonCachedClient
+
+	// the remote client is the one for the hub cluster.
 	s.RemoteClient = s.LocalClient
 	if remoteConfig != nil {
-		s.remoteCachedClient, err = newCachedClient(remoteConfig, syncid)
-		if err != nil {
-			klog.Error("Failed to initialize client to update remote status. err: ", err)
-
-			return nil, err
-		}
-
-		s.RemoteClient = s.remoteCachedClient.clt
-
-		// set up non chanced hub client
+		// set up non cached hub client
 		s.RemoteNonCachedClient, err = client.New(remoteConfig, client.Options{})
 		if err != nil {
 			klog.Error("Failed to generate client to hub cluster with error: ", err)
 
 			return nil, err
 		}
+
+		s.RemoteClient = s.RemoteNonCachedClient
 	}
 
 	defaultExtension.localClient = s.LocalClient
@@ -191,34 +175,10 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 	return s, nil
 }
 
-// Start caches, this will be triggered by the manager.
+// this will be triggered by the manager.
 func (sync *KubeSynchronizer) Start(ctx context.Context) error {
 	klog.Info("start synchronizer")
 	defer klog.Info("stop synchronizer")
-
-	go func() {
-		if err := sync.localCachedClient.clientCache.Start(ctx); err != nil {
-			klog.Error(err, "failed to start up cache")
-		}
-	}()
-
-	go func() {
-		if err := sync.remoteCachedClient.clientCache.Start(ctx); err != nil {
-			klog.Error(err, "failed to start up cache")
-		}
-	}()
-
-	if !sync.localCachedClient.clientCache.WaitForCacheSync(ctx) {
-		return fmt.Errorf("failed to start up local cache")
-	}
-
-	klog.Info("local config cache started")
-
-	if !sync.remoteCachedClient.clientCache.WaitForCacheSync(ctx) {
-		return fmt.Errorf("failed to start up remote cache")
-	}
-
-	klog.Info("remote config cache started")
 
 	return nil
 }
