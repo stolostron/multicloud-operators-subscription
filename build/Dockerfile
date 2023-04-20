@@ -1,11 +1,11 @@
 FROM registry.ci.openshift.org/stolostron/builder:go1.19-linux AS plugin-builder
-ENV POLICY_GENERATOR_TAG=v1.9.0
+ENV POLICY_GENERATOR_TAG=release-2.6
 
 WORKDIR /policy-generator
 RUN curl -L -o "policy-generator-plugin.tar.gz" \
-        "https://github.com/stolostron/policy-generator-plugin/archive/refs/tags/${POLICY_GENERATOR_TAG}.tar.gz"
+        "https://github.com/stolostron/policy-generator-plugin/archive/refs/heads/${POLICY_GENERATOR_TAG}.tar.gz"
 RUN tar -xzvf "policy-generator-plugin.tar.gz"
-RUN cd "/policy-generator/policy-generator-plugin-${POLICY_GENERATOR_TAG#*v}" && \
+RUN cd "/policy-generator/policy-generator-plugin-${POLICY_GENERATOR_TAG}" && \
         make build-binary && \
         mv "PolicyGenerator" "/policy-generator/"
 
