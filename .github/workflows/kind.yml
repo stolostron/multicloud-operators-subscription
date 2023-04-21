@@ -19,7 +19,7 @@ defaults:
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   main:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     env:
       REGISTRY: localhost:5000
       RUN_ON: github
