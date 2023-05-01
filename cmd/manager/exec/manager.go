@@ -125,7 +125,7 @@ func RunManager() {
 		LeaseDuration:           &Options.LeaderElectionLeaseDuration,
 		RenewDeadline:           &Options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &Options.LeaderElectionRetryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
+		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.3"},
 		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})
 
