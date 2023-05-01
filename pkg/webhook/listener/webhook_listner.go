@@ -118,7 +118,7 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 			Addr:              ":8443",
 			Handler:           mux,
 			ReadHeaderTimeout: 32 * time.Second,
-			TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12},
+			TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS13},
 		}
 
 		klog.Fatal(s.ListenAndServeTLS(listener.TLSCrtFile, listener.TLSKeyFile))

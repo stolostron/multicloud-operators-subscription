@@ -404,7 +404,7 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerify bool) error {
 	installProtocol := false
 
-	clientConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	clientConfig := &tls.Config{MinVersion: tls.VersionTLS13}
 
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {

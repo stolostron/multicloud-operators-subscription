@@ -487,7 +487,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 
 	installProtocol := false
 
-	clientConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+	clientConfig := &tls.Config{MinVersion: tls.VersionTLS13}
 
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {
