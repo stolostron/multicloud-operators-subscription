@@ -60,6 +60,8 @@ spec:
                       type: string
                     syncStatus:
                       type: string
+                    app:
+                      type: string
                   type: object
                 type: array
               resources:
