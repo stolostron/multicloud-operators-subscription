@@ -507,6 +507,8 @@ spec:
                     memory: 64Mi
                 securityContext:
                   allowPrivilegeEscalation: false
+                  seccompProfile:
+                    type: RuntimeDefault
                   capabilities:
                     drop:
                     - ALL
@@ -608,6 +610,8 @@ spec:
                   readOnly: false
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: multicluster-applications
               volumes:
               - name: multicluster-integrations-syncresource 
@@ -626,6 +630,8 @@ spec:
             spec:
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               affinity:
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
@@ -896,6 +902,8 @@ spec:
             spec:
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               affinity:
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
