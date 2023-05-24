@@ -1228,6 +1228,48 @@ func IsReadyPlacementDecision(clReader client.Reader) bool {
 	return true
 }
 
+// IsReadySubscription check if Subscription API is ready or not.
+func IsReadySubscription(clReader client.Reader, hub bool) bool {
+	subList := appv1.SubscriptionList{}
+
+	listopts := &client.ListOptions{}
+
+	err := clReader.List(context.TODO(), &subList, listopts)
+	if err != nil {
+		klog.Error("Subscription API NOT ready: ", err)
+
+		return false
+	}
+
+	subStatusList := appsubReportV1alpha1.SubscriptionStatusList{}
+
+	err = clReader.List(context.TODO(), &subStatusList, listopts)
+	if err != nil {
+		klog.Error("SubscriptionStatus API NOT ready: ", err)
+
+		return false
+	}
+
+	if hub {
+		subReportList := appsubReportV1alpha1.SubscriptionReportList{}
+
+		err = clReader.List(context.TODO(), &subReportList, listopts)
+		if err != nil {
+			klog.Error("SubscriptionReport API NOT ready: ", err)
+
+			return false
+		}
+
+		klog.Info("Subscription, SubscriptionStatus and SubscriptionReport APIs are ready")
+
+		return true
+	}
+
+	klog.Info("Subscription, and SubscriptionStatus APIs are ready")
+
+	return true
+}
+
 func CreateClusterManagementAddon(clt client.Client) {
 	cma := &addonV1alpha1.ClusterManagementAddOn{
 		ObjectMeta: metav1.ObjectMeta{
