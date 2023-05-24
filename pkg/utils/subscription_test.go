@@ -18,8 +18,11 @@ import (
 	"context"
 	"encoding/json"
 	e "errors"
+	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -35,7 +38,10 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -1707,9 +1713,28 @@ func TestIsReadyPlacementDecision(t *testing.T) {
 func TestIsReadySubscription(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	tEnv := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "deploy", "crds"),
+			filepath.Join("..", "..", "hack", "test"),
+		},
+	}
+
+	appv1.SchemeBuilder.AddToScheme(scheme.Scheme)
+	appv1alpha1.AddToScheme(scheme.Scheme)
+
+	var (
+		err    error
+		cfgSub *rest.Config
+	)
+
+	if cfgSub, err = tEnv.Start(); err != nil {
+		log.Fatal(fmt.Errorf("got error while start up the envtest, err: %w", err))
+	}
+
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfgSub, manager.Options{MetricsBindAddress: "0"})
 	g.Expect(err).NotTo(HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -1720,9 +1745,13 @@ func TestIsReadySubscription(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	// Subscription API should NOT be ready.
+	// Subscription API should BE ready on the hub
 	ret := IsReadySubscription(mgr.GetAPIReader(), true)
-	g.Expect(ret).To(BeFalse())
+	g.Expect(ret).To(BeTrue())
+
+	// Subscription API should BE ready on the managed cluster.
+	ret = IsReadySubscription(mgr.GetAPIReader(), false)
+	g.Expect(ret).To(BeTrue())
 }
 
 func TestFetchChannelReferences(t *testing.T) {
