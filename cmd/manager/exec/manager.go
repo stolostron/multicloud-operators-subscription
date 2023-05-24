@@ -266,6 +266,23 @@ func RunManager() {
 		utils.DetectPlacementDecision(sig, mgr.GetAPIReader(), mgr.GetClient())
 	}
 
+	// Detect if the subscription API is ready
+	isHubCluster := false
+	if Options.ClusterName == "" {
+		isHubCluster = true
+	}
+
+	if !utils.IsReadySubscription(mgr.GetAPIReader(), isHubCluster) {
+		for {
+			if !utils.IsReadySubscription(mgr.GetAPIReader(), isHubCluster) {
+				time.Sleep(10 * time.Second)
+			} else { // restart controller when CRDs are found.
+				klog.Info("Subscription API is ready.")
+				os.Exit(1)
+			}
+		}
+	}
+
 	klog.Info("Starting the Cmd.")
 
 	// Start addon manager
