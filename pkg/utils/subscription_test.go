@@ -1703,6 +1703,28 @@ func TestIsReadyPlacementDecision(t *testing.T) {
 	ret := IsReadyPlacementDecision(mgr.GetAPIReader())
 	g.Expect(ret).To(BeFalse())
 }
+
+func TestIsReadySubscription(t *testing.T) {
+	g := NewGomegaWithT(t)
+
+	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
+	// channel when it is finished.
+	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	g.Expect(err).NotTo(HaveOccurred())
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	// Subscription API should NOT be ready.
+	ret := IsReadySubscription(mgr.GetAPIReader(), true)
+	g.Expect(ret).To(BeFalse())
+}
+
 func TestFetchChannelReferences(t *testing.T) {
 	g := NewGomegaWithT(t)
 
