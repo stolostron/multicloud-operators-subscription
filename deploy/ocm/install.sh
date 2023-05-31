@@ -3,23 +3,25 @@
 set -o nounset
 set -o pipefail
 
+export MANAGED_CLUSTER_NAME=cluster1
 KUBECTL=${KUBECTL:-kubectl}
 
-rm -rf registration-operator
+rm -rf ocm
 
-echo "############  Cloning registration-operator"
-git clone https://github.com/open-cluster-management-io/registration-operator.git
+echo "############  Cloning ocm"
+git clone https://github.com/open-cluster-management-io/ocm.git
 
-cd registration-operator || {
-  printf "cd failed, registration-operator does not exist"
+cd ocm || {
+  printf "cd failed, ocm does not exist"
   return 1
 }
 
 echo "############  Deploying hub"
 $KUBECTL config use-context kind-hub
+#kind export kubeconfig --name hub
 make deploy-hub
 if [ $? -ne 0 ]; then
- echo "############  Failed to deploy"
+ echo "############  Failed to deploy hub"
  exit 1
 fi
 
@@ -58,9 +60,16 @@ done
 
 echo "############  Deploying managed cluster"
 $KUBECTL config use-context kind-cluster1
-make deploy-spoke
+#kind export kubeconfig --name cluster1
+make deploy-spoke-operator
 if [ $? -ne 0 ]; then
- echo "############  Failed to deploy"
+ echo "############  Failed to deploy spoke"
+ exit 1
+fi
+
+make apply-spoke-cr
+if [ $? -ne 0 ]; then
+ echo "############  Failed to apply spoke cr"
  exit 1
 fi
 
@@ -84,9 +93,10 @@ $KUBECTL get ns open-cluster-management-agent-addon ; if [ $? -ne 0 ] ; then kub
 echo "############  env is installed successfully!!"
 
 $KUBECTL config use-context kind-hub
+#kind export kubeconfig --name hub
 
 echo "############  Cleanup"
 cd ../ || exist
-rm -rf registration-operator
+rm -rf ocm
 
 echo "############  Finished installation!!!"
