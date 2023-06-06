@@ -3,6 +3,7 @@ package addon
 import (
 	"context"
 	"embed"
+	"strings"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/openshift/library-go/pkg/assets"
@@ -58,14 +59,16 @@ type GlobalValues struct {
 }
 
 type Values struct {
-	OnHubCluster bool         `json:"onHubCluster,"`
-	GlobalValues GlobalValues `json:"global,"`
+	OnHubCluster      bool         `json:"onHubCluster,"`     // single hub cluster
+	OnMulticlusterHub bool         `json:"onMulticlusterHub"` // regional hub cluster
+	GlobalValues      GlobalValues `json:"global,"`
 }
 
 func getValue(cluster *clusterv1.ManagedCluster,
 	addon *addonapiv1alpha1.ManagedClusterAddOn) (addonfactory.Values, error) {
 	addonValues := Values{
-		OnHubCluster: false,
+		OnHubCluster:      false,
+		OnMulticlusterHub: false,
 		GlobalValues: GlobalValues{
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			ImagePullSecret: "open-cluster-management-image-pull-credentials",
@@ -84,6 +87,15 @@ func getValue(cluster *clusterv1.ManagedCluster,
 	labels := cluster.GetLabels()
 	if labels["local-cluster"] == "true" {
 		addonValues.OnHubCluster = true
+	}
+
+	annotations := addon.GetAnnotations()
+
+	// set OnMulticlusterHub to true for regional hub clusters, so that 3 addon crds won't be cleaned up when the regional hub is detached.
+	if val, ok := annotations["addon.open-cluster-management.io/on-multicluster-hub"]; ok {
+		if strings.EqualFold(val, "true") {
+			addonValues.OnMulticlusterHub = true
+		}
 	}
 
 	return addonfactory.JsonStructToValues(addonValues)

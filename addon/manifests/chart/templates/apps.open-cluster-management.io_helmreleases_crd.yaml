@@ -5,6 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
+    {{ if .Values.onMulticlusterHub }}"addon.open-cluster-management.io/deletion-orphan": ""{{ end }}
   name: helmreleases.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
@@ -326,6 +327,7 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.4.0
     helm.sh/resource-policy: keep
+    {{ if .Values.onMulticlusterHub }}"addon.open-cluster-management.io/deletion-orphan": ""{{ end }}
   creationTimestamp: null
   name: helmreleases.apps.open-cluster-management.io
 spec:
