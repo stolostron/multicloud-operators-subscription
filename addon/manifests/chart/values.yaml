@@ -7,6 +7,7 @@ hubKubeConfigSecret: null
 clusterName: null
 
 onHubCluster: false
+OnMulticlusterHub: false
 
 affinity: {}
 
