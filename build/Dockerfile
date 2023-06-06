@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/stolostron/builder:go1.20-linux AS plugin-builder
-ENV POLICY_GENERATOR_TAG=release-2.8
+ENV POLICY_GENERATOR_TAG=release-2.9
 
 WORKDIR /policy-generator
 RUN curl -L -o "policy-generator-plugin.tar.gz" \
