@@ -158,7 +158,7 @@ spec:
                 required:
                 - argoNamespace
                 type: object
-              enablePullModel:
+              createBlankClusterSecrets:
                 type: boolean
               placementRef:
                 description: 'ObjectReference contains enough information to let you
