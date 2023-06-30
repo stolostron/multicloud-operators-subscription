@@ -5,6 +5,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
+    {{ if .Values.onMulticlusterHub }}"addon.open-cluster-management.io/deletion-orphan": ""{{ end }}
   name: subscriptionstatuses.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
@@ -70,6 +71,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     helm.sh/resource-policy: keep
+    {{ if .Values.onMulticlusterHub }}"addon.open-cluster-management.io/deletion-orphan": ""{{ end }}
   name: subscriptionstatuses.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
