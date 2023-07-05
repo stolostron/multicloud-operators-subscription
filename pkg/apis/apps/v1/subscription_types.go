@@ -15,6 +15,8 @@
 package v1
 
 import (
+	"crypto/tls"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -111,6 +113,10 @@ const (
 	SubscriptionNameSuffix = ""
 	// ChannelCertificateData is the configmap data spec field containing trust certificates
 	ChannelCertificateData = "caCerts"
+	// TLS minimum version as integer
+	TLSMinVersionInt = tls.VersionTLS12
+	// TLS minimum version as string
+	TLSMinVersionString = "1.2"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

@@ -44,6 +44,7 @@ import (
 	agentaddon "open-cluster-management.io/multicloud-operators-subscription/addon"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	leasectrl "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/subscription"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber"
@@ -125,7 +126,7 @@ func RunManager() {
 		LeaseDuration:           &Options.LeaderElectionLeaseDuration,
 		RenewDeadline:           &Options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &Options.LeaderElectionRetryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.3"},
+		WebhookServer:           &k8swebhook.Server{TLSMinVersion: appsubv1.TLSMinVersionString},
 		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})
 
@@ -376,7 +377,7 @@ func serveHealthProbes(healthProbeBindAddress string, configCheck healthz.Checke
 		ReadHeaderTimeout: 5 * time.Second,
 		Addr:              healthProbeBindAddress,
 		TLSConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
+			MinVersion: appsubv1.TLSMinVersionInt,
 		},
 	}
 
