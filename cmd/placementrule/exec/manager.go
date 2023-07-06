@@ -19,6 +19,7 @@ import (
 	"os"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 	appsubutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -82,7 +83,7 @@ func RunManager() {
 		LeaseDuration:           &options.LeaderElectionLeaseDuration,
 		RenewDeadline:           &options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &options.LeaderElectionRetryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.3"},
+		WebhookServer:           &k8swebhook.Server{TLSMinVersion: appsubv1.TLSMinVersionString},
 	})
 
 	if err != nil {
