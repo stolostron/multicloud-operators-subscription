@@ -48,6 +48,7 @@ import (
 	"k8s.io/klog/v2"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // GetHelmRepoClient returns an *http.client to access the helm repo
@@ -66,7 +67,7 @@ func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skip
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: skipCertVerify, // #nosec G402 InsecureSkipVerify conditionally
-			MinVersion:         tls.VersionTLS12,
+			MinVersion:         appsubv1.TLSMinVersionInt,
 		},
 	}
 
@@ -404,7 +405,8 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerify bool) error {
 	installProtocol := false
 
-	clientConfig := &tls.Config{MinVersion: tls.VersionTLS13}
+	// #nosec G402
+	clientConfig := &tls.Config{MinVersion: appsubv1.TLSMinVersionInt}
 
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
 	if insecureSkipVerify {

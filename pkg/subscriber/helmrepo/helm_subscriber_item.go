@@ -451,7 +451,7 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 		/* #nosec G402 */
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: insecureSkipVerify, // #nosec G402 InsecureSkipVerify optionally
-			MinVersion:         tls.VersionTLS12,
+			MinVersion:         appv1.TLSMinVersionInt,
 		},
 	}
 
