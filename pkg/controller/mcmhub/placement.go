@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -131,9 +132,9 @@ func (r *ReconcileSubscription) getClustersFromPlacementRef(instance *appSubV1.S
 			pref.APIVersion != "apps.open-cluster-management.io/v1" &&
 			pref.APIVersion != "cluster.open-cluster-management.io/v1alpha1" &&
 			pref.APIVersion != "cluster.open-cluster-management.io/v1beta1") {
-		klog.Warning("Unsupported placement reference:", instance.Spec.Placement.PlacementRef)
+		klog.Error("Unsupported placement reference:", instance.Spec.Placement.PlacementRef)
 
-		return nil, nil
+		return nil, fmt.Errorf("unsupported placement reference: %v", instance.Spec.Placement.PlacementRef)
 	}
 
 	klog.Info("Referencing Placement: ", pref, " in ", instance.GetNamespace())
