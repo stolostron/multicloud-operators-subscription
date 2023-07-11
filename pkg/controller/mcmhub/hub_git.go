@@ -201,8 +201,8 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 				continue
 			}
 
-			h.logger.Info("Currently deployed commit: ", branchInfo.lastCommitID)
-			h.logger.Info("Commit to be deployed: ", newCommit)
+			h.logger.Info(fmt.Sprintf("Currently deployed commit: %s", branchInfo.lastCommitID))
+			h.logger.Info(fmt.Sprintf("Commit to be deployed: %s", newCommit))
 
 			if newCommit == branchInfo.lastCommitID {
 				h.logger.Info("The repo commit hasn't changed.")
@@ -210,7 +210,7 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 			}
 
 			h.repoRecords[repoName].branchs[branchInfoName].lastCommitID = newCommit
-			h.logger.Info("The repo has new commit: " + newCommit)
+			h.logger.Info(fmt.Sprintf("The repo has new commit: %s", newCommit))
 
 			if !cloneDone {
 				if _, err := h.cloneFunc(&branchInfo.gitCloneOptions); err != nil {
@@ -506,7 +506,7 @@ func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
 		return nil
 	}
 
-	h.logger.Info("setting the latest commit ID to ", commitID)
+	h.logger.Info(fmt.Sprintf("setting the latest commit ID to: %s", commitID))
 
 	subscriptionRepoInfo.branchs[branchInfoName].lastCommitID = commitID
 
