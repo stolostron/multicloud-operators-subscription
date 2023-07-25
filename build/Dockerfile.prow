@@ -6,10 +6,9 @@ COPY . .
 RUN make -f Makefile.prow build
 
 WORKDIR /policy-generator
-RUN curl -L -o "policy-generator-plugin.tar.gz" \
-        "https://github.com/stolostron/policy-generator-plugin/archive/refs/heads/${POLICY_GENERATOR_TAG}.tar.gz"
-RUN tar -xzvf "policy-generator-plugin.tar.gz"
-RUN cd "/policy-generator/policy-generator-plugin-${POLICY_GENERATOR_TAG}" && \
+RUN git clone --branch=${POLICY_GENERATOR_TAG} --depth=1 \
+        https://github.com/stolostron/policy-generator-plugin
+RUN cd "/policy-generator/policy-generator-plugin" && \
         make build-binary && \
         mv "PolicyGenerator" "/policy-generator/"
 
