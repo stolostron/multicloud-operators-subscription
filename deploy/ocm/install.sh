@@ -9,7 +9,7 @@ KUBECTL=${KUBECTL:-kubectl}
 rm -rf ocm
 
 echo "############  Cloning ocm"
-git clone https://github.com/open-cluster-management-io/ocm.git
+git clone --depth 1 --branch main https://github.com/open-cluster-management-io/ocm.git
 
 cd ocm || {
   printf "cd failed, ocm does not exist"

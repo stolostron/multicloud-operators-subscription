@@ -142,7 +142,7 @@ type subscriptionMapper struct {
 	client.Client
 }
 
-func (mapper *subscriptionMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *subscriptionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -209,7 +209,7 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *channelMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -251,7 +251,7 @@ type placementDecisionMapper struct {
 	client.Client
 }
 
-func (mapper *placementDecisionMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *placementDecisionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -327,7 +327,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to primary resource Subscription
 	smapper := &subscriptionMapper{mgr.GetClient()}
 	err = c.Watch(
-		&source.Kind{Type: &appv1.Subscription{}},
+		source.Kind(mgr.GetCache(), &appv1.Subscription{}),
 		handler.EnqueueRequestsFromMapFunc(smapper.Map),
 		utils.SubscriptionPredicateFunctions)
 
@@ -338,7 +338,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// in hub, watch for channel changes
 	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
-		&source.Kind{Type: &chnv1.Channel{}},
+		source.Kind(mgr.GetCache(), &chnv1.Channel{}),
 		handler.EnqueueRequestsFromMapFunc(cMapper.Map),
 		utils.ChannelPredicateFunctions)
 
@@ -350,7 +350,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if utils.IsReadyPlacementDecision(mgr.GetAPIReader()) {
 		pdMapper := &placementDecisionMapper{mgr.GetClient()}
 		err = c.Watch(
-			&source.Kind{Type: &clusterapi.PlacementDecision{}},
+			source.Kind(mgr.GetCache(), &clusterapi.PlacementDecision{}),
 			handler.EnqueueRequestsFromMapFunc(pdMapper.Map), utils.PlacementDecisionPredicateFunctions)
 
 		if err != nil {
@@ -793,7 +793,8 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 		res.RequeueAfter = defaulRequeueInterval
 		nIns.Status.LastUpdateTime = metav1.Now()
 
-		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
+			&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
 
 		if err != nil && !k8serrors.IsNotFound(err) {
 			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
@@ -841,7 +842,8 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
 		nIns.Status.LastUpdateTime = metav1.Now()
 
-		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
+			&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
 			if res.RequeueAfter == time.Duration(0) {
@@ -882,7 +884,8 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 	nIns.Status.LastUpdateTime = metav1.Now()
 
-	err = r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns), &client.PatchOptions{FieldManager: r.name})
+	err = r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
+		&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
 		if res.RequeueAfter == time.Duration(0) {

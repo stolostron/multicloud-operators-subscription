@@ -74,6 +74,10 @@ func RunManager() {
 		"renewDeadline", options.LeaderElectionRenewDeadline,
 		"retryPeriod", options.LeaderElectionRetryPeriod)
 
+	webhookServer := k8swebhook.NewServer(k8swebhook.Options{
+		TLSMinVersion: appsubv1.TLSMinVersionString,
+	})
+
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		Port:                    operatorMetricsPort,
@@ -83,7 +87,7 @@ func RunManager() {
 		LeaseDuration:           &options.LeaderElectionLeaseDuration,
 		RenewDeadline:           &options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &options.LeaderElectionRetryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: appsubv1.TLSMinVersionString},
+		WebhookServer:           webhookServer,
 	})
 
 	if err != nil {

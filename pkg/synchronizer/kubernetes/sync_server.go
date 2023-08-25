@@ -115,7 +115,12 @@ func CreateSynchronizer(config, remoteConfig *rest.Config, scheme *runtime.Schem
 
 	dynamicClient := dynamic.NewForConfigOrDie(config)
 
-	restMapper, err := apiutil.NewDynamicRESTMapper(config, apiutil.WithLazyDiscovery)
+	httpClient, err := rest.HTTPClientFor(config)
+	if err != nil {
+		return nil, err
+	}
+
+	restMapper, err := apiutil.NewDynamicRESTMapper(config, httpClient)
 	if err != nil {
 		return nil, err
 	}

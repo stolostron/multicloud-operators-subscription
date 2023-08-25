@@ -79,7 +79,7 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *channelMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
 	if klog.V(utils.QuiteLogLel).Enabled() {
 		fnName := utils.GetFnName()
 		klog.Infof("Entering: %v()", fnName)
@@ -143,7 +143,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(&source.Kind{Type: &appv1.Subscription{}}, &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
+	err = c.Watch(source.Kind(mgr.GetCache(), &appv1.Subscription{}), &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 		// There is no channel CRD on a managed cluster
 		cmapper := &channelMapper{mgr.GetClient()}
 		err = c.Watch(
-			&source.Kind{Type: &chnv1.Channel{}},
+			source.Kind(mgr.GetCache(), &chnv1.Channel{}),
 			handler.EnqueueRequestsFromMapFunc(cmapper.Map),
 			utils.ChannelPredicateFunctions)
 
