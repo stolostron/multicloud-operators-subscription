@@ -84,7 +84,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to klusterlet-addon-appmgr service account in open-cluster-management-agent-addon namespace.
-	err = c.Watch(&source.Kind{Type: &corev1.ServiceAccount{}}, &handler.EnqueueRequestForObject{}, utils.ServiceAccountPredicateFunctions)
+	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ServiceAccount{}), &handler.EnqueueRequestForObject{}, utils.ServiceAccountPredicateFunctions)
 	if err != nil {
 		return err
 	}

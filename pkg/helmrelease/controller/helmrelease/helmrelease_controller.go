@@ -98,7 +98,7 @@ func Add(mgr manager.Manager) error {
 	}
 
 	// Watch for changes to primary resource HelmRelease
-	if err := c.Watch(&source.Kind{Type: &appv1.HelmRelease{}}, &handler.EnqueueRequestForObject{},
+	if err := c.Watch(source.Kind(mgr.GetCache(), &appv1.HelmRelease{}), &handler.EnqueueRequestForObject{},
 		predicate.GenerationChangedPredicate{}); err != nil {
 		return err
 	}
@@ -1068,7 +1068,7 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 					return nil
 				}
 
-				err := c.Watch(&source.Kind{Type: unstructuredObj}, &handler.EnqueueRequestForOwner{OwnerType: owner},
+				err := c.Watch(source.Kind(mgr.GetCache(), unstructuredObj), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), owner),
 					libpredicate.DependentPredicate{})
 				if err != nil {
 					return err

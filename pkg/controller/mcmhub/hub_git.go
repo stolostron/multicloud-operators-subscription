@@ -182,7 +182,9 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 			// If tag is provided, resolve tag to commit SHA and compare it to the currently deployed commit
 			// Otherwise, compare the latest commit of the repo branch to the currently deployed commit
 			h.logger.Info(fmt.Sprintf("Checking commit for Git: %s Branch: %s", url, branchInfoName))
-			newCommit, err := h.cloneFunc(&branchInfo.gitCloneOptions)
+
+			gitCloneOptions := branchInfo.gitCloneOptions
+			newCommit, err := h.cloneFunc(&gitCloneOptions)
 
 			if err != nil {
 				h.logger.Error(err, " failed to get the commit SHA")
@@ -213,7 +215,8 @@ func (h *HubGitOps) GitWatch(ctx context.Context) {
 			h.logger.Info("The repo has new commit: " + newCommit)
 
 			if !cloneDone {
-				if _, err := h.cloneFunc(&branchInfo.gitCloneOptions); err != nil {
+				gitCloneOptions := branchInfo.gitCloneOptions
+				if _, err := h.cloneFunc(&gitCloneOptions); err != nil {
 					h.logger.Error(err, err.Error())
 				}
 			}

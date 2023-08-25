@@ -361,7 +361,10 @@ func mergeHourRanges(in []hourRangesInTime) []hourRangesInTime {
 	sort.Slice(in, func(i int, j int) bool { return in[i].start.Before(in[j].start) })
 
 	out := make([]hourRangesInTime, 0)
-	out = append(out, in[0])
+
+	if len(in) > 0 {
+		out = append(out, in[0]) //nolint
+	}
 
 	l := 0
 
