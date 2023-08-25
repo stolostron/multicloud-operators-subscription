@@ -89,7 +89,7 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	var csrs *certificatesv1.CertificateSigningRequestList
 	// Waiting for the CSR for ManagedCluster to exist
-	err = wait.Poll(1*time.Second, 120*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		csrs, err = hubKubeClient.CertificatesV1().CertificateSigningRequests().List(
 			context.TODO(), metav1.ListOptions{LabelSelector: fmt.Sprintf(
@@ -137,7 +137,7 @@ var _ = ginkgo.BeforeSuite(func() {
 
 	var managedCluster *clusterv1.ManagedCluster
 	// Waiting for ManagedCluster to exist
-	err = wait.Poll(1*time.Second, 120*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, 120*time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		managedCluster, err = hubClusterClient.ClusterV1().ManagedClusters().Get(
 			context.TODO(), managedClusterName, metav1.GetOptions{})
@@ -171,7 +171,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Ensure cluster namespace exists
-	err = wait.Poll(1*time.Second, 60*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), 1*time.Second, 60*time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		_, err = hubKubeClient.CoreV1().Namespaces().Get(
 			context.TODO(), managedClusterName, metav1.GetOptions{},
@@ -190,7 +190,7 @@ var _ = ginkgo.BeforeSuite(func() {
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
 	// Ensure managed cluster Available
-	err = wait.Poll(5*time.Second, 300*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 300*time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		managedCluster, err = hubClusterClient.ClusterV1().ManagedClusters().Get(
 			context.TODO(), managedClusterName, metav1.GetOptions{})
@@ -207,7 +207,28 @@ var _ = ginkgo.BeforeSuite(func() {
 	})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	// Create application addon
+	// In the new addon-framework, it is required to create the application-manager clustermanagementAddon
+	// Or just creating managedClusterAddon won't generate the addon manifestwork as expected.
+	cma := &addonapiv1alpha1.ClusterManagementAddOn{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "application-manager",
+		},
+		Spec: addonapiv1alpha1.ClusterManagementAddOnSpec{
+			AddOnMeta: addonapiv1alpha1.AddOnMeta{
+				Description: "Synchronizes application on the managed clusters from the hub",
+				DisplayName: "Application Manager",
+			},
+			InstallStrategy: addonapiv1alpha1.InstallStrategy{
+				Type: "Manual",
+			},
+		},
+	}
+
+	_, err = hubAddOnClient.AddonV1alpha1().ClusterManagementAddOns().Create(
+		context.TODO(), cma, metav1.CreateOptions{})
+	gomega.Expect(err).ToNot(gomega.HaveOccurred())
+
+	// Then create the managedClusterAddon, expect the addon manifestwork to be generated in the cluster NS
 	addon := &addonapiv1alpha1.ManagedClusterAddOn{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager",
@@ -222,12 +243,12 @@ var _ = ginkgo.BeforeSuite(func() {
 		context.TODO(), addon, metav1.CreateOptions{})
 	gomega.Expect(err).ToNot(gomega.HaveOccurred())
 
-	err = wait.Poll(5*time.Second, 600*time.Second, func() (bool, error) {
+	err = wait.PollUntilContextTimeout(context.TODO(), 5*time.Second, 600*time.Second, true, func(ctx context.Context) (bool, error) {
 		var err error
 		addon, err = hubAddOnClient.AddonV1alpha1().ManagedClusterAddOns(managedClusterName).Get(
 			context.TODO(), "application-manager", metav1.GetOptions{})
 
-		klog.Infof("addon: %#v", addon)
+		klog.Infof("addon: %#v", addon.Status)
 
 		if err != nil {
 			return false, err
@@ -235,6 +256,12 @@ var _ = ginkgo.BeforeSuite(func() {
 
 		appAddonManifestWorks, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).List(
 			context.TODO(), metav1.ListOptions{})
+
+		klog.Infof("appAddonManifestWorks items: %v, err: %v", len(appAddonManifestWorks.Items), err)
+
+		if err != nil {
+			return false, err
+		}
 
 		if len(appAddonManifestWorks.Items) > 0 {
 			appAddonManifestWork, err := hubWorkClient.WorkV1().ManifestWorks(managedClusterName).Get(
