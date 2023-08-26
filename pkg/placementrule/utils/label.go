@@ -20,10 +20,10 @@ import (
 )
 
 // ValidateK8sLabel returns a valid k8s label string by enforcing k8s label values rules as below
-// 1. Must consist of alphanumeric characters, '-', '_' or '.'
-//    No need to check this as the input string is the host name of the k8s api url
-// 2. Must be no more than 63 characters
-// 3. Must start and end with an alphanumeric character
+//  1. Must consist of alphanumeric characters, '-', '_' or '.'
+//     No need to check this as the input string is the host name of the k8s api url
+//  2. Must be no more than 63 characters
+//  3. Must start and end with an alphanumeric character
 func ValidateK8sLabel(s string) string {
 	// must be no more than 63 characters
 	s = fmt.Sprintf("%.63s", s)

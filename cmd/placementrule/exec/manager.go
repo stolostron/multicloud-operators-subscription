@@ -81,7 +81,7 @@ func RunManager() {
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
+		WebhookServer:           k8swebhook.NewServer(k8swebhook.Options{TLSMinVersion: "1.2"}),
 	})
 
 	if err != nil {

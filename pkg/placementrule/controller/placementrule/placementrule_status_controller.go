@@ -72,7 +72,7 @@ func addRec(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to PlacementRule Status
-	err = c.Watch(&source.Kind{Type: &plrv1.PlacementRule{}}, &handler.EnqueueRequestForObject{},
+	err = c.Watch(source.Kind(mgr.GetCache(), &plrv1.PlacementRule{}), &handler.EnqueueRequestForObject{},
 		placementRuleStatusPredicateFunctions)
 	if err != nil {
 		return err

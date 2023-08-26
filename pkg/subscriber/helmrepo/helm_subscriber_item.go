@@ -484,7 +484,7 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 	return client, nil
 }
 
-//getHelmRepoIndex retreives the index.yaml, loads it into a repo.IndexFile and filters it
+// getHelmRepoIndex retreives the index.yaml, loads it into a repo.IndexFile and filters it
 func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 	chnSrt *corev1.Secret, repoURL string) (indexFile *repo.IndexFile, hash string, err error) {
 	cleanRepoURL := strings.TrimSuffix(repoURL, "/") + "/index.yaml"
@@ -676,7 +676,7 @@ func loadIndex(data []byte) (*repo.IndexFile, error) {
 	return i, nil
 }
 
-//hashKey Calculate a hash key
+// hashKey Calculate a hash key
 func hashKey(b []byte) string {
 	h := sha1.New() // #nosec G401 Used only to generate random value to be used to generate hash string
 	_, err := h.Write(b)

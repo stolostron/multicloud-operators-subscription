@@ -368,7 +368,7 @@ func getJobsString(jobs []ansiblejob.AnsibleJob, format FormatFunc) []string {
 	return res
 }
 
-//merge multiple hook string
+// merge multiple hook string
 func (jIns *JobInstances) outputAppliedJobs(format FormatFunc) appliedJobs {
 	res := appliedJobs{}
 

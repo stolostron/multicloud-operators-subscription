@@ -637,7 +637,7 @@ func prepareOverrides(pkgName string, instance *appv1.Subscription) []appv1.Clus
 	return overrides
 }
 
-//KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array
+// KeywordsChecker Checks if the helm chart has at least 1 keyword from the packageFilter.Keywords array
 func KeywordsChecker(labelSelector *metav1.LabelSelector, ks []string) bool {
 	ls := make(map[string]string)
 	for _, k := range ks {
@@ -798,7 +798,7 @@ func GetAllowDenyLists(subscription appv1.Subscription) (map[string]map[string]s
 	return allowedGroupResources, deniedGroupResources
 }
 
-//DeleteSubscriptionCRD deletes the Subscription CRD
+// DeleteSubscriptionCRD deletes the Subscription CRD
 func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clientset) {
 	sublist := &appv1.SubscriptionList{}
 	err := runtimeClient.List(context.TODO(), sublist, &client.ListOptions{})
@@ -1196,7 +1196,7 @@ func IsReadyManagedClusterView(clReader client.Reader) bool {
 		return false
 	}
 
-	klog.Info("Managed Cluster View API API is ready")
+	klog.Info("Managed Cluster View API is ready")
 
 	return true
 }
@@ -1295,6 +1295,7 @@ func CreateClusterManagementAddon(clt client.Client) {
 
 // DetectPlacementDecision - Detect the Placement Decision API every 10 seconds. the controller will be exited when it is ready
 // The controller will be auto restarted by the multicluster-operators-application deployment CR later.
+
 //nolint:unparam
 func DetectPlacementDecision(ctx context.Context, clReader client.Reader, clt client.Client) {
 	if !IsReadyPlacementDecision(clReader) {
