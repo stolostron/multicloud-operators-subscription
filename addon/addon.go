@@ -10,6 +10,7 @@ import (
 	"github.com/openshift/library-go/pkg/operator/events"
 	"github.com/openshift/library-go/pkg/operator/resource/resourceapply"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -89,7 +90,7 @@ func getValue(cluster *clusterv1.ManagedCluster,
 		addonValues.OnHubCluster = true
 	}
 
-	annotations := addon.GetAnnotations()
+	annotations := cluster.GetAnnotations()
 
 	// set OnMulticlusterHub to true for regional hub clusters, so that 3 addon crds won't be cleaned up when the regional hub is detached.
 	if val, ok := annotations["addon.open-cluster-management.io/on-multicluster-hub"]; ok {
@@ -234,7 +235,10 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 				toAddonResources,
 			),
 		).
-		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName))
+		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName)).
+		WithAgentDeployTriggerClusterFilter(func(old, new *clusterv1.ManagedCluster) bool {
+			return !equality.Semantic.DeepEqual(old.Annotations, new.Annotations)
+		})
 
 	if agentInstallAllStrategy {
 		agentFactory.WithInstallStrategy(agent.InstallAllStrategy("open-cluster-management-agent-addon"))

@@ -70,7 +70,7 @@ func newAgentAddon(t *testing.T) agent.AgentAddon {
 	return agentAddon
 }
 
-// nolint
+//nolint
 func TestManifest(t *testing.T) {
 	tests := []struct {
 		name              string

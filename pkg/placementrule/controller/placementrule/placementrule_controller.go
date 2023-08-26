@@ -66,7 +66,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	// Watch for changes to PlacementRule
-	err = c.Watch(&source.Kind{Type: &appv1alpha1.PlacementRule{}}, &handler.EnqueueRequestForObject{})
+	err = c.Watch(source.Kind(mgr.GetCache(), &appv1alpha1.PlacementRule{}), &handler.EnqueueRequestForObject{})
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if utils.IsReadyACMClusterRegistry(mgr.GetAPIReader()) {
 		cpMapper := &ClusterPlacementRuleMapper{mgr.GetClient()}
 		err = c.Watch(
-			&source.Kind{Type: &spokeClusterV1.ManagedCluster{}},
+			source.Kind(mgr.GetCache(), &spokeClusterV1.ManagedCluster{}),
 			handler.EnqueueRequestsFromMapFunc(cpMapper.Map),
 			utils.ClusterPredicateFunc,
 		)
@@ -102,7 +102,7 @@ type ClusterPlacementRuleMapper struct {
 }
 
 // Map triggers all placements.
-func (mapper *ClusterPlacementRuleMapper) Map(obj client.Object) []reconcile.Request {
+func (mapper *ClusterPlacementRuleMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
 	plList := &appv1alpha1.PlacementRuleList{}
 
 	listopts := &client.ListOptions{}

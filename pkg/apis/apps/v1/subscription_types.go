@@ -157,7 +157,7 @@ type TimeWindow struct {
 	Hours      []HourRange `json:"hours,omitempty"`
 }
 
-//HourRange time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
+// HourRange time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
 type HourRange struct {
 	Start string `json:"start,omitempty"`
 	End   string `json:"end,omitempty"`
@@ -235,7 +235,6 @@ type SubscriptionPerClusterStatus struct {
 // SubscriptionClusterStatusMap defines per cluster status, key is cluster name
 type SubscriptionClusterStatusMap map[string]*SubscriptionPerClusterStatus
 
-//
 type AnsibleJobsStatus struct {
 	LastPrehookJob     string   `json:"lastprehookjob,omitempty"`
 	PrehookJobsHistory []string `json:"prehookjobshistory,omitempty"`
@@ -246,25 +245,27 @@ type AnsibleJobsStatus struct {
 
 // SubscriptionStatus defines the observed state of Subscription
 // Examples - status of a subscription on hub
-//Status:
-// 	phase: Propagated
-// 	statuses:
-// 	  washdc:
-// 		packages:
-// 		  nginx:
-// 			phase: Subscribed
-// 		  mongodb:
-// 			phase: Failed
-// 			Reason: "not authorized"
-// 			Message: "user xxx does not have permission to start pod"
-//			resourceStatus: {}
-//    toronto:
-// 		packages:
-// 		  nginx:
-// 			phase: Subscribed
-// 		  mongodb:
-// 			phase: Subscribed
-//Status of a subscription on managed cluster will only have 1 cluster in the map.
+// Status:
+//
+//		phase: Propagated
+//		statuses:
+//		  washdc:
+//			packages:
+//			  nginx:
+//				phase: Subscribed
+//			  mongodb:
+//				phase: Failed
+//				Reason: "not authorized"
+//				Message: "user xxx does not have permission to start pod"
+//				resourceStatus: {}
+//	   toronto:
+//			packages:
+//			  nginx:
+//				phase: Subscribed
+//			  mongodb:
+//				phase: Subscribed
+//
+// Status of a subscription on managed cluster will only have 1 cluster in the map.
 type SubscriptionStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file

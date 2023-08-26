@@ -54,7 +54,7 @@ const (
 	InfoLog  = 0
 )
 
-//HookProcessor tracks the pre and post hook information of subscriptions.
+// HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
 	RegisterSubscription(*subv1.Subscription, bool, string) error
@@ -411,8 +411,8 @@ func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.Names
 	return job
 }
 
-//overrideAnsibleInstance adds the owner reference to job, and also reset the
-//secret file of ansibleJob
+// overrideAnsibleInstance adds the owner reference to job, and also reset the
+// secret file of ansibleJob
 func overrideAnsibleInstance(subIns *subv1.Subscription, job ansiblejob.AnsibleJob,
 	kubeclient client.Client, logger logr.Logger, hookType string) (ansiblejob.AnsibleJob, error) {
 	job.SetResourceVersion("")

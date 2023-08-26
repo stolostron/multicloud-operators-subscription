@@ -435,12 +435,12 @@ func (sync *KubeSynchronizer) createNewResourceByTemplateUnit(ri dynamic.Resourc
 	return err
 }
 
-//updateResourceByTemplateUnit will have a NamespaceableResourceInterface,
-//when calling, the ri will have the namespace and GVR information already.
-//ri gets GVR from applyKindTemplates func
-//ri gets namespace info from applyTemplate func
+// updateResourceByTemplateUnit will have a NamespaceableResourceInterface,
+// when calling, the ri will have the namespace and GVR information already.
+// ri gets GVR from applyKindTemplates func
+// ri gets namespace info from applyTemplate func
 //
-//updateResourceByTemplateUnit will then update,patch the obj given tplunit.
+// updateResourceByTemplateUnit will then update,patch the obj given tplunit.
 func (sync *KubeSynchronizer) updateResourceByTemplateUnit(ri dynamic.ResourceInterface,
 	origUnit *unstructured.Unstructured, tplunit *unstructured.Unstructured, specialResource bool) error {
 	var err error

@@ -69,6 +69,7 @@ func RunManager() {
 	leaseDuration := time.Duration(options.LeaderElectionLeaseDurationSeconds) * time.Second
 	renewDeadline := time.Duration(options.RenewDeadlineSeconds) * time.Second
 	retryPeriod := time.Duration(options.RetryPeriodSeconds) * time.Second
+
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
 		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
@@ -79,7 +80,7 @@ func RunManager() {
 		LeaseDuration:           &leaseDuration,
 		RenewDeadline:           &renewDeadline,
 		RetryPeriod:             &retryPeriod,
-		WebhookServer:           &k8swebhook.Server{TLSMinVersion: "1.2"},
+		WebhookServer:           k8swebhook.NewServer(k8swebhook.Options{TLSMinVersion: "1.2"}),
 		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
 	})
 	if err != nil {

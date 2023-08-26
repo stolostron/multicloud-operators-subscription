@@ -134,6 +134,7 @@ func IsReadyACMClusterRegistry(clReader client.Reader) bool {
 
 // DetectClusterRegistry - Detect the ACM cluster API service every 10 seconds. the controller will be exited when it is ready
 // The controller will be auto restarted by the multicluster-operators-application deployment CR later.
+//
 //nolint:unparam
 func DetectClusterRegistry(ctx context.Context, clReader client.Reader) {
 	if !IsReadyACMClusterRegistry(clReader) {
