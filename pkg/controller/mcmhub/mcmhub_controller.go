@@ -23,6 +23,7 @@ import (
 	"time"
 
 	rbacv1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -74,7 +75,24 @@ rules:
   - secrets
   - namespaces
   verbs:
-  - '*'`
+  - '*'
+- apiGroups:
+  - cluster.open-cluster-management.io
+  - register.open-cluster-management.io
+  - clusterview.open-cluster-management.io
+  resources:
+  - managedclustersets/join
+  - managedclustersets/bind
+  - managedclusters/accept
+  - managedclustersets
+  - managedclusters
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch`
 
 const (
 	reconcileName                     = "subscription-hub-reconciler"
@@ -398,7 +416,7 @@ func CreateSubscriptionAdminRBAC(r client.Client) error {
 				err = r.Create(context.TODO(), clusterRole)
 
 				if err != nil {
-					klog.Error("error:", err)
+					klog.Error("failed to create the open-cluster-management:subscription-admin clusterRole: error:", err)
 					return err
 				}
 			} else {
@@ -406,6 +424,14 @@ func CreateSubscriptionAdminRBAC(r client.Client) error {
 				return err
 			}
 		} else {
+			if !equality.Semantic.DeepEqual(clusterRole.Rules, foundClusterRole.Rules) {
+				foundClusterRole.Rules = clusterRole.Rules
+				err = r.Update(context.TODO(), foundClusterRole, &client.UpdateOptions{})
+				if err != nil {
+					klog.Error("failed to update the open-cluster-management:subscription-admin clusterRole: error:", err)
+					return err
+				}
+			}
 			klog.Infof("ClusterRole %s exists.", clusterRole.Name)
 			break
 		}
