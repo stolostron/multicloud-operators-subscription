@@ -46,7 +46,7 @@ spec:
           {{- if .Values.global.proxyConfig.NO_PROXY }}
           - name: NO_PROXY
             value: {{ .Values.global.proxyConfig.NO_PROXY }}
-            {{- end }}
+          {{- end }}
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
         livenessProbe:

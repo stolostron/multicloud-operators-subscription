@@ -225,14 +225,13 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 			getValue,
 			addonfactory.GetValuesFromAddonAnnotation,
 			// get the AddOnDeloymentConfig object and transform nodeSelector and toleration defined in spec.NodePlacement to Values object
+			// transform request/limit memory defined in Spec.CustomizedVariables to values object
+			// transform proxyConfig to values object
 			addonfactory.GetAddOnDeloymentConfigValues(
 				addonGetter,
 				addonfactory.ToAddOnNodePlacementValues,
-			),
-			// get the AddOnDeloymentConfig object and transform request/limit memory defined in Spec.CustomizedVariables to Values object
-			addonfactory.GetAddOnDeloymentConfigValues(
-				addonGetter,
 				toAddonResources,
+				addonfactory.ToAddOnProxyConfigValues,
 			),
 		).
 		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName)).
