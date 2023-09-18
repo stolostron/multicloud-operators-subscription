@@ -13,5 +13,6 @@ spec:
   channel: default/git
   placement:
     placementRef:
-      kind: PlacementRule
+      kind: Placement
       name: non-local-cluster
+      namespace: default

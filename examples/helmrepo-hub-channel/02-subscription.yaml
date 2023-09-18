@@ -4,18 +4,18 @@ metadata:
   name: nginx-sub
 spec:
   channel: dev/dev-helmrepo
-  name: nginx-ingress
+  name: ingress-nginx
   placement:
     placementRef:
-      kind: PlacementRule
-      name: nginx-pr
-  packageFilter:
-    version: "1.36.3"
+      kind: Placement
+      name: nginx-placement
+      namespace: default
   packageOverrides:
-  - packageName: nginx-ingress
-    packageAlias: nginx-ingress-simple
+  - packageName: ingress-nginx
+    packageAlias: ingress-nginx-simple
     packageOverrides:
     - path: spec
       value:
         defaultBackend:
+          enabled: true
           replicaCount: 3

@@ -49,24 +49,38 @@ data:
   AccessKeyID: YWRtaW4=
   SecretAccessKey: cGFzc3dvcmRhZG1pbg==
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: default
+  namespace: default
+spec:
+  clusterSet: default
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
   name: towhichcluster
-  namespace: obj-sub-ns
+  namespace: default
   labels:
-    name: obj-sub
+    name: obj-sub-ns
 spec:
-  clusterReplicas: 1
-  clusterLabels:
-    matchLabels:
-      environment: Dev
+  numberOfClusters: 1
+  clusterSets:
+    - default
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: environment
+          operator: "In"
+          values:
+          - Dev
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: obj-sub
-  namespace: obj-sub-ns
   labels:
     name: obj-sub
 spec:
@@ -74,4 +88,5 @@ spec:
   placement:
     placementRef: 
       name: towhichcluster
-      kind: PlacementRule
+      namespace: default
+      kind: Placement

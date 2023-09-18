@@ -47,24 +47,38 @@ spec:
   sourceNamespaces:
     - default
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: default
+  namespace: default
+spec:
+  clusterSet: default
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
   name: towhichcluster
-  namespace: ns-sub-ns
+  namespace: default
   labels:
     name: ns-sub
 spec:
-  clusterReplicas: 1
-  clusterLabels:
-    matchLabels:
-      environment: Dev
+  numberOfClusters: 1
+  clusterSets:
+    - default
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: environment
+          operator: "In"
+          values:
+          - Dev
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: ns-sub
-  namespace: ns-sub-ns
   labels:
     name: ns-sub
 spec:
@@ -72,7 +86,8 @@ spec:
   placement:
     placementRef: 
       name: towhichcluster
-      kind: PlacementRule
+      namespace: default
+      kind: Placement
   timewindow:
     windowtype: "active"
     location: "America/Toronto"

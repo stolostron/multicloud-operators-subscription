@@ -5,10 +5,11 @@ metadata:
     apps.open-cluster-management.io/github-branch: main
     apps.open-cluster-management.io/github-path: examples/remote-git-sub-op
   name: nginx-app-sub
-  namespace: nginx-app-ns
+  namespace: default
 spec:
   channel: gitops-chn-ns/gitops
   placement:
     placementRef:
-      kind: PlacementRule
-      name: nginx-pr
+      kind: Placement
+      name: nginx-demo-placement
+      namespace: default

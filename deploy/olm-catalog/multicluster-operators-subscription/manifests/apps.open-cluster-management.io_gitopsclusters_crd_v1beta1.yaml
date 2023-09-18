@@ -160,6 +160,8 @@ spec:
                 type: object
               createBlankClusterSecrets:
                 type: boolean
+              createPolicyTemplate:
+                type: boolean
               managedServiceAccountRef:
                 description: ManagedServiceAccountRef defines managed service account
                   in the managed cluster namespace used to create the ArgoCD cluster

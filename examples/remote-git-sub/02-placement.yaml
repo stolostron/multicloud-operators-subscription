@@ -1,7 +1,7 @@
 apiVersion: cluster.open-cluster-management.io/v1beta1
 kind: Placement
 metadata:
-  name: nginx-placement
+  name: nginx-demo-placement
   namespace: default
 spec:
   numberOfClusters: 10

@@ -46,12 +46,12 @@ kubectl apply -f ./examples/helmrepo-channel
 Find the nginx pods that are deployed to the current namespace. You should have 3 backend pods with the controller.
 
 ```shell
-$ kubectl get pods -l app=nginx-ingress
-NAME                                                    READY   STATUS    RESTARTS   AGE
-nginx-ingress-simple-controller-6b57886cf8-pmqs5        1/1     Running   0          21m
-nginx-ingress-simple-default-backend-666d7d77fc-cgfwn   1/1     Running   0          21m
-nginx-ingress-simple-default-backend-666d7d77fc-q8gdg   1/1     Running   0          21m
-nginx-ingress-simple-default-backend-666d7d77fc-wls8f   1/1     Running   0          21m
+$ kubectl get pods -l app.kubernetes.io/name=ingress-nginx
+NAME                                                   READY   STATUS    RESTARTS   AGE
+ingress-nginx-simple-controller-84bbdd59f7-ccnwt       1/1     Running   0          4m36s
+ingress-nginx-simple-defaultbackend-78669bfbbb-b6rwh   1/1     Running   0          4m36s
+ingress-nginx-simple-defaultbackend-78669bfbbb-hb9g6   1/1     Running   0          4m36s
+ingress-nginx-simple-defaultbackend-78669bfbbb-nmkng   1/1     Running   0          4m36s
 ```
 
 ## Multi-cluster deployment
@@ -85,7 +85,7 @@ $ kubectl config use-context <hub cluster context> # kubectl config use-context 
 $ kubectl get managedclusters
 NAME                        HUB ACCEPTED   MANAGED CLUSTER URLS      JOINED   AVAILABLE   AGE
 <managed cluster name>      true           https://127.0.0.1:38745   True     True        21s
-$ clusteradm addon enable --name application-manager --cluster <managed cluster name> # clusteradm addon enable --name application-manager --cluster cluster1
+$ clusteradm addon enable --names application-manager --clusters <managed cluster name> # clusteradm addon enable --names application-manager --clusters cluster1
 $ kubectl -n <managed cluster name> get managedclusteraddon # kubectl -n cluster1 get managedclusteraddon
 NAME                  AVAILABLE   DEGRADED   PROGRESSING
 application-manager   True
@@ -117,11 +117,13 @@ After a while, you should see the subscription propagated to the managed cluster
 $ kubectl config use-context <managed cluster context> # kubectl config use-context kind-cluster1
 $ kubectl get subscriptions.apps
 NAME        STATUS       AGE    LOCAL PLACEMENT   TIME WINDOW
-nginx-sub   Subscribed   107m   true
+nginx-sub   Subscribed   2m50s   true
 $ kubectl get pod
-NAME                                                   READY   STATUS      RESTARTS   AGE
-nginx-ingress-47f79-controller-6f495bb5f9-lpv7z        1/1     Running     0          108m
-nginx-ingress-47f79-default-backend-7559599b64-rhwgm   1/1     Running     0          108m
+NAME                                                   READY   STATUS    RESTARTS   AGE
+ingress-nginx-simple-controller-84bbdd59f7-l7t9f       1/1     Running   0          3m34s
+ingress-nginx-simple-defaultbackend-78669bfbbb-d498w   1/1     Running   0          3m34s
+ingress-nginx-simple-defaultbackend-78669bfbbb-n47r2   1/1     Running   0          3m34s
+ingress-nginx-simple-defaultbackend-78669bfbbb-r2xjn   1/1     Running   0          3m34s
 ```
 
 ## GitOps subscription

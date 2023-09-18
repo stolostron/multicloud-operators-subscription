@@ -33,7 +33,7 @@ func bindataRead(data []byte, name string) ([]byte, error) {
 	}
 
 	var buf bytes.Buffer
-	_, err = io.Copy(&buf, gz)
+	_, err = io.Copy(&buf, gz) //#nosec
 	clErr := gz.Close()
 
 	if err != nil {
