@@ -35,24 +35,38 @@ spec:
   pathname: https://ianzhang366.github.io/guestbook-chart/
   insecureSkipVerify: true
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: default
+  namespace: default
+spec:
+  clusterSet: default
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
   name: towhichcluster
-  namespace: helm-sub-ns
+  namespace: default
   labels:
     name: helm-sub
 spec:
-  clusterReplicas: 1
-  clusterLabels:
-    matchLabels:
-      environment: Dev
+  numberOfClusters: 1
+  clusterSets:
+    - default
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: environment
+          operator: "In"
+          values:
+          - Dev
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: helm-sub
-  namespace: helm-sub-ns
   labels:
     name: helm-sub
 spec:
@@ -63,4 +77,5 @@ spec:
   placement:
     placementRef: 
       name: towhichcluster
-      kind: PlacementRule
+      namespace: default
+      kind: Placement

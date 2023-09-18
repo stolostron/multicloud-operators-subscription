@@ -55,7 +55,7 @@ if [ "$TRAVIS_BUILD" != 1 ]; then
     sed -i -e "s|image: .*:latest$|image: $BUILD_IMAGE|" deploy/standalone/operator.yaml
 
     echo -e "\nDownload and install KinD\n"
-    go install sigs.k8s.io/kind@v0.20.0
+    GO111MODULE=on go get sigs.k8s.io/kind@v0.20.0
 
 
 else
@@ -149,8 +149,6 @@ function cleanup()
 
 trap cleanup EXIT
 
-echo -e "\nClean cache\n"
-go clean -cache
 
 echo -e "\nStart to run e2e test(s)\n"
 go test -v ./e2e

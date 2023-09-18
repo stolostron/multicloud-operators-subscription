@@ -34,24 +34,38 @@ spec:
   type: Git
   pathname: https://github.com/ianzhang366/acm-applifecycle-samples.git
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: default
+  namespace: default
+spec:
+  clusterSet: default
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
   name: towhichcluster
-  namespace: git-sub-ns
+  namespace: default
   labels:
     name: git-sub
 spec:
-  clusterReplicas: 1
-  clusterLabels:
-    matchLabels:
-      environment: Dev
+  numberOfClusters: 1
+  clusterSets:
+    - default
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: environment
+          operator: "In"
+          values:
+          - Dev
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: git-sub
-  namespace: git-sub-ns
   labels:
     name: git-sub
   annotations:
@@ -61,4 +75,5 @@ spec:
   placement:
     placementRef: 
       name: towhichcluster
-      kind: PlacementRule
+      namespace: default
+      kind: Placement

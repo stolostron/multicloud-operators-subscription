@@ -45,24 +45,38 @@ data:
   user: <base64 encode string>
   accessToken: <base64 encode string>
 ---
-apiVersion: apps.open-cluster-management.io/v1
-kind: PlacementRule
+apiVersion: cluster.open-cluster-management.io/v1beta2
+kind: ManagedClusterSetBinding
+metadata:
+  name: default
+  namespace: default
+spec:
+  clusterSet: default
+---
+apiVersion: cluster.open-cluster-management.io/v1beta1
+kind: Placement
 metadata:
   name: towhichcluster
-  namespace: git-sub-ns
+  namespace: default
   labels:
     name: git-sub
 spec:
-  clusterReplicas: 1
-  clusterLabels:
-    matchLabels:
-      name: spoke
+  numberOfClusters: 1
+  clusterSets:
+    - default
+  predicates:
+  - requiredClusterSelector:
+      labelSelector:
+        matchExpressions:
+        - key: name
+          operator: "In"
+          values:
+          - spoke
 ---
 apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
   name: git-sub
-  namespace: git-sub-ns
   labels:
     name: git-sub
   annotations:
@@ -72,4 +86,6 @@ spec:
   placement:
     placementRef: 
       name: towhichcluster
+      namespace: default
+      kind: Placement
 

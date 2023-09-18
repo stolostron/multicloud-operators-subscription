@@ -50,50 +50,47 @@ I0207 22:59:38.422603       1 mcmhub_controller.go:726] subscription-hub-reconci
 I0207 22:59:38.422618       1 mcmhub_controller.go:518] subscription-hub-reconciler/secondsub/second-level-sub "msg"="exit Hub Reconciling 
 ...
 ```
-### Set up log level for the hub subscription pod
-
-- Open the ACM csv, append the log level to 1, save the csv 
-
+### Set up log level for the hub subscription pod (ACM >=2.7)
+- On the hub, pause the MCH operator
 ```
-% oc edit csv -n open-cluster-management advanced-cluster-management.v2.5.0 
-
-      - name: multicluster-operators-hub-subscription
-              containers:
-              - command:
-                - /usr/local/bin/multicluster-operators-subscription
-                - --sync-interval=60
-                - --v=1
+% oc annotate mch -n open-cluster-management multiclusterhub mch-pause=true --overwrite=true
 ```
 
-- Make sure the hub subscription pod is restarted to run.
+- Open the hub subscription pod, set up the log level to 1, save the pod
+```
+% oc edit pods -n open-cluster-management  multicluster-operators-hub-subscription-5cfdf4bb84-xcc9z
+
+  containers:
+  - command:
+    - /usr/local/bin/multicluster-operators-subscription
+    - --sync-interval=60
+    - --v=1
+```
+
+- Make sure the hub subscription pod is restarted and running.
 - Check more details from the hub subscription pod log
 
-### Set up memory limit for the hub subscription pod
+### Set up memory limit for the hub subscription pod (ACM >=2.7)
+- On the hub, pause the MCH operator
+```
+% oc annotate mch -n open-cluster-management multiclusterhub mch-pause=true --overwrite=true
+```
 
-- Open the ACM csv, search the `multicluster-operators-hub-subscription` container, update the memory limit, save the csv
+- Open the hub subscription pod, update the memory limit, save the pod 
+```
+% oc edit pods -n open-cluster-management  multicluster-operators-hub-subscription-5cfdf4bb84-xcc9z
+
+    resources:
+      limits:
+        cpu: 750m
+        memory: 2Gi      ================> this is the hub subscription pod memory limit, update it to 4Gi for example.
+      requests:
+        cpu: 150m
+        memory: 128Mi
 
 ```
-% oc edit csv -n open-cluster-management advanced-cluster-management.v2.5.0
 
-      - name: multicluster-operators-hub-subscription
-        spec:
-          replicas: 1
-          selector:
-            matchLabels:
-              app: multicluster-operators-hub-subscription
-              ......
-
-                resources:
-                  limits:
-                    cpu: 750m
-                    memory: 2Gi                 ================> this is the hub subscription pod memory limit, update it to 4Gi for example.
-                  requests:
-                    cpu: 150m
-                    memory: 128Mi
-
-```
-- verify the hub subscription pod should be restarted with the new memory limit. It could take a while for OLM to be reconciled to do so.
-
+- verify the hub subscription pod is restarted and running with the new memory limit.
 ```
 % oc get pods -n open-cluster-management |grep hub-sub
 multicluster-operators-hub-subscription-58858c488f-c52zt          1/1     Running     2 (28h ago)      27d
@@ -229,6 +226,80 @@ search for Deployment. Set spec.replicas to 0:
 % oc get pods -n open-cluster-management-agent-addon  |grep klusterlet-addon-appmgr
 klusterlet-addon-appmgr-794d76bcbf-tbsn5                     1/1    Running    0          14s
 ```
+### Set up memory limit for the managed subscription pod  (ACM in 2.5 and 2.6)
+
+- On the hub cluster, pause mch reconcile
+```
+% oc annotate mch -n open-cluster-management multiclusterhub mch-pause=true --overwrite=true
+```
+
+- On the hub cluster,scale Down klusterlet-addon-controller-v2
+
+```
+% oc edit deployments -n open-cluster-management klusterlet-addon-controller-v2
+
+search for Deployment. Set spec.replicas to 0
+```
+
+- On the hub cluster, annotate new memory limit to the application-manager managedClusterAddon in the managed cluster NS
+```
+% oc annotate managedclusteraddon -n ${CLUSTER_NAME} application-manager addon.open-cluster-management.io/values='{"resources":{"requests":{"memory":"128Mi"},"limits":{"memory":"3Gi"}}}' --overwrite=true
+```
+
+- Go to the managed cluster, make sure the application manager pod is restarted wit the new memory limit.
+```
+% oc get pods -n open-cluster-management-agent-addon  |grep application-manager
+```
+
+### Set up memory limit for the managed subscription pod  (ACM >= 2.7)
+- Enable addondeploymentconfigs to be used in the application-manager addon on all managed clusters
+```
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddOn
+metadata:
+  name: application-manager
+spec:
+  addOnMeta:
+    description: Processes events and other requests to managed resources.
+    displayName: Application Manager
+  supportedConfigs:
+  - group: addon.open-cluster-management.io
+    resource: addondeploymentconfigs
+```
+
+-  Specify memory request and memory limit in the AddOnDeploymentConfig created in a managed cluster NS e.g. `cluster1`
+```
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: AddOnDeploymentConfig
+metadata:
+  name: deploy-config
+  namespace: cluster1
+spec:
+  customizedVariables:
+  - name: RequestMemory
+    value: 512Mi
+  - name: LimitsMemory
+    value: 4Gi
+```
+
+- Link the AddOnDeploymentConfig CR to the application-manager ManagedClusterAddOn in the same managed cluster NS e.g. `cluster1`
+```
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ManagedClusterAddOn
+metadata:
+  name: application-manager
+  namespace: cluster1
+spec:
+  installNamespace: open-cluster-management-agent-addon
+  configs:
+  - group: addon.open-cluster-management.io
+    resource: addondeploymentconfigs
+    namespace: cluster1
+    name: deploy-config
+```
+
+As a result, the new memory limit and memory request will be applied to the application-manager pod on the `cluster1`.
+The application-manager pod on different managed clusters could set up different memory limits.
 
 ### Set up new image for the managed subscription pod  (ACM >= 2.5)
 

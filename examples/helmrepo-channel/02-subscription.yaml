@@ -4,14 +4,15 @@ metadata:
   name: simple
 spec:
   channel: dev/dev-helmrepo
-  name: nginx-ingress
+  name: ingress-nginx
   placement:
     local: true
   packageOverrides:
-  - packageName: nginx-ingress
-    packageAlias: nginx-ingress-simple
+  - packageName: ingress-nginx
+    packageAlias: ingress-nginx-simple
     packageOverrides:
     - path: spec
       value:
         defaultBackend:
+          enabled: true
           replicaCount: 3
