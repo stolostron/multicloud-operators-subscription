@@ -86,6 +86,9 @@ rules:
   - managedclusters/accept
   - managedclustersets
   - managedclusters
+  - managedclustersetbindings
+  - placements
+  - placementdecisions
   verbs:
   - get
   - list
