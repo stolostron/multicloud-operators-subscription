@@ -69,10 +69,10 @@ var webhookListener *WebhookListener
 
 // Add does nothing for namespace subscriber, it generates cache for each of the item
 func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile string, disableTLS bool, createService bool) error {
-	klog.V(2).Info("Setting up webhook listener ...")
+	klog.Info("Setting up webhook listener ...")
 
 	if !disableTLS {
-		dir := "/root/certs"
+		dir := filepath.Join(os.TempDir(), "github-webhook-server-certs")
 
 		if strings.EqualFold(tlsKeyFile, "") || strings.EqualFold(tlsCrtFile, "") {
 			err := utils.GenerateServerCerts(dir)
