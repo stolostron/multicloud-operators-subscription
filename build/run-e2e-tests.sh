@@ -149,6 +149,8 @@ function cleanup()
 
 trap cleanup EXIT
 
+echo -e "\nClean cache\n"
+go clean -cache
 
 echo -e "\nStart to run e2e test(s)\n"
 go test -v ./e2e
