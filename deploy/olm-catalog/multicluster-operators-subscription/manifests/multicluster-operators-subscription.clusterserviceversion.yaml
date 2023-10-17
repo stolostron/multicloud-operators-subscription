@@ -480,7 +480,29 @@ spec:
             metadata:
               labels:
                 name: multicluster-integrations
+                ocm-antiaffinity-selector: multicluster-integrations
             spec:
+              affinity:
+                podAntiAffinity:
+                  preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 70
+                    podAffinityTerm:
+                      topologyKey: failure-domain.beta.kubernetes.io/zone
+                      labelSelector:
+                        matchExpressions:
+                        - key: ocm-antiaffinity-selector
+                          operator: In
+                          values:
+                          - multicluster-integrations
+                  - weight: 35
+                    podAffinityTerm:
+                      topologyKey: kubernetes.io/hostname
+                      labelSelector:
+                        matchExpressions:
+                        - key: ocm-antiaffinity-selector
+                          operator: In
+                          values:
+                          - multicluster-integrations
               containers:
               - name: argocd-pull-integration-controller-manager
                 image: quay.io/stolostron/multicloud-integrations:2.8.0
@@ -514,6 +536,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+                  readOnlyRootFilesystem: true
                 terminationMessagePath: /dev/termination-log
                 terminationMessagePolicy: File
               - name: multicluster-integrations-syncresource
@@ -559,6 +582,12 @@ spec:
                   requests:
                     cpu: 25m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - mountPath: /etc/gitops-resources
                   name: multicluster-integrations-syncresource
@@ -606,12 +635,20 @@ spec:
                   requests:
                     cpu: 25m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - mountPath: /etc/gitops-resources
                   name: multicluster-integrations-syncresource
                   readOnly: false
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: multicluster-applications
               volumes:
               - name: multicluster-integrations-syncresource 
@@ -627,9 +664,12 @@ spec:
             metadata:
               labels:
                 app: multicluster-operators-application
+                ocm-antiaffinity-selector: multicluster-operators-application
             spec:
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               affinity:
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
@@ -638,7 +678,7 @@ spec:
                       topologyKey: failure-domain.beta.kubernetes.io/zone
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-application
@@ -647,7 +687,7 @@ spec:
                       topologyKey: kubernetes.io/hostname
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-application
@@ -694,6 +734,12 @@ spec:
                   requests:
                     cpu: 300m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -739,6 +785,12 @@ spec:
                   requests:
                     cpu: 25m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -788,6 +840,12 @@ spec:
                   requests:
                     cpu: 25m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -806,6 +864,7 @@ spec:
             metadata:
               labels:
                 app: multicluster-operators-channel
+                ocm-antiaffinity-selector: multicluster-operators-channel
             spec:
               securityContext:
                 runAsNonRoot: true
@@ -819,7 +878,7 @@ spec:
                       topologyKey: failure-domain.beta.kubernetes.io/zone
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-channel
@@ -828,7 +887,7 @@ spec:
                       topologyKey: kubernetes.io/hostname
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-channel
@@ -879,6 +938,12 @@ spec:
                   requests:
                     cpu: 25m
                     memory: 64Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -897,9 +962,12 @@ spec:
             metadata:
               labels:
                 app: multicluster-operators-subscription-report
+                ocm-antiaffinity-selector: multicluster-operators-subscription-report
             spec:
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               affinity:
                 podAntiAffinity:
                   preferredDuringSchedulingIgnoredDuringExecution:
@@ -908,7 +976,7 @@ spec:
                       topologyKey: failure-domain.beta.kubernetes.io/zone
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-subscription-report
@@ -917,7 +985,7 @@ spec:
                       topologyKey: kubernetes.io/hostname
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-subscription-report
@@ -963,6 +1031,12 @@ spec:
                   requests:
                     cpu: 150m
                     memory: 128Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -981,6 +1055,7 @@ spec:
             metadata:
               labels:
                 app: multicluster-operators-standalone-subscription
+                ocm-antiaffinity-selector: multicluster-operators-standalone-subscription
             spec:
               securityContext:
                 runAsNonRoot: true
@@ -994,7 +1069,7 @@ spec:
                       topologyKey: failure-domain.beta.kubernetes.io/zone
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-standalone-subscription
@@ -1003,7 +1078,7 @@ spec:
                       topologyKey: kubernetes.io/hostname
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-standalone-subscription
@@ -1051,6 +1126,12 @@ spec:
                   requests:
                     cpu: 150m
                     memory: 128Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
@@ -1074,6 +1155,7 @@ spec:
             metadata:
               labels:
                 app: multicluster-operators-hub-subscription
+                ocm-antiaffinity-selector: multicluster-operators-hub-subscription
             spec:
               securityContext:
                 runAsNonRoot: true
@@ -1087,7 +1169,7 @@ spec:
                       topologyKey: failure-domain.beta.kubernetes.io/zone
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-hub-subscription
@@ -1096,7 +1178,7 @@ spec:
                       topologyKey: kubernetes.io/hostname
                       labelSelector:
                         matchExpressions:
-                        - key: app
+                        - key: ocm-antiaffinity-selector
                           operator: In
                           values:
                           - multicluster-operators-hub-subscription
@@ -1145,6 +1227,12 @@ spec:
                   requests:
                     cpu: 150m
                     memory: 128Mi
+                securityContext:
+                  allowPrivilegeEscalation: false
+                  capabilities:
+                    drop:
+                    - ALL
+                  readOnlyRootFilesystem: true
                 volumeMounts:
                 - name: tmp
                   mountPath: "/tmp"
