@@ -357,14 +357,15 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	if err != nil {
 		klog.Error(err, " Unable to subscribe kustomize resources")
 
-		// if any kustmoization fails, stop synchronizing resources list. This is important to handle the case:
-		// If applying one kustomize folder fails after some other kustomize folder success, ghsi.successful is set to faluse for stopping synchronizer.
-		// Or only successfully kustomized resources are deployed,
-		// that will trigger synchronizer to delete those resources that haven't been kustomized but deployed previously
-
 		ghsi.successful = false
 
 		errMsg += err.Error()
+
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+			Observe(0)
+
+		return errors.New("kustomization failed, stop synchronizing. err: " + errMsg)
 	}
 
 	klog.Info("Applying helm charts..")
@@ -390,7 +391,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	// If it failed to add applicable resources to the list, do not apply the empty list.
 	// It will cause already deployed resourced to be removed.
 	// Update the host subscription status accordingly and quit.
-	if len(ghsi.resources) == 0 || !ghsi.successful {
+	if len(ghsi.resources) == 0 && !ghsi.successful {
 		if (ghsi.synchronizer.GetRemoteClient() != nil) && !standaloneSubscription {
 			klog.Error("failed to prepare resources to apply and there is no resource to apply. quit")
 		}
@@ -442,7 +443,13 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
 		if err != nil {
-			klog.Error("Failed to apply kustomization, error: ", err.Error())
+			klog.Error("Failed to apply kustomization, clean up all resources that will deploy. error: ", err.Error())
+
+			// If applying one kustomize folder fails after some other kustomize folder success, clean up the memory git resource list for stopping synchronizer.
+			// Or only successfully kustomized resources are deployed,
+			// that will trigger synchronizer to delete those resources that haven't been kustomized but deployed previously
+			ghsi.resources = []kubesynchronizer.ResourceUnit{}
+
 			return err
 		}
 
