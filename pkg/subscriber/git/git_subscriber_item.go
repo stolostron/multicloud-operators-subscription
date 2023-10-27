@@ -360,6 +360,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		ghsi.successful = false
 
 		errMsg += err.Error()
+
+		metrics.LocalDeploymentFailedPullTime.
+			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
+			Observe(0)
+
+		return errors.New("kustomization failed, stop synchronizing. err: " + errMsg)
 	}
 
 	klog.Info("Applying helm charts..")
@@ -437,7 +443,13 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
 		if err != nil {
-			klog.Error("Failed to apply kustomization, error: ", err.Error())
+			klog.Error("Failed to apply kustomization, clean up all resources that will deploy. error: ", err.Error())
+
+			// If applying one kustomize folder fails after some other kustomize folder success, clean up the memory git resource list for stopping synchronizer.
+			// Or only successfully kustomized resources are deployed,
+			// that will trigger synchronizer to delete those resources that haven't been kustomized but deployed previously
+			ghsi.resources = []kubesynchronizer.ResourceUnit{}
+
 			return err
 		}
 
