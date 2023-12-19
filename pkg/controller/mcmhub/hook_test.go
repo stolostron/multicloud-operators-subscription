@@ -31,6 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -70,17 +71,17 @@ metadata:
   labels:
     cloud: "Amazon"
     local-cluster: "true"
-    name: "test-cluster"
-  name: test-cluster
+    name: "cluster-1"
+  name: cluster-1
 spec:
   hubAcceptsClient: true
   leaseDurationSeconds: 60`
 
 func newHookTest() *hookTest {
-	testNs := "ansible"
+	testNs := successfulPlacementRuleKey.Namespace
 	dSubKey := types.NamespacedName{Name: "t-sub", Namespace: testNs}
 	chnKey := types.NamespacedName{Name: "t-chn", Namespace: testNs}
-	hookSecretRef := corev1.ObjectReference{Name: "hook-secret", Namespace: "test"}
+	hookSecretRef := corev1.ObjectReference{Name: "hook-secret", Namespace: testNs}
 
 	preAnsibleKey := types.NamespacedName{Name: "prehook-test", Namespace: testNs}
 	postAnsibleKey := types.NamespacedName{Name: "posthook-test", Namespace: testNs}
@@ -108,10 +109,9 @@ func newHookTest() *hookTest {
 		Spec: subv1.SubscriptionSpec{
 			Channel: chnKey.String(),
 			Placement: &plrv1alpha1.Placement{
-				GenericPlacementFields: plrv1alpha1.GenericPlacementFields{
-					Clusters: []plrv1alpha1.GenericClusterReference{
-						{Name: "test-cluster"},
-					},
+				PlacementRef: &corev1.ObjectReference{
+					Name: successfulPlacementRuleKey.Name,
+					Kind: "PlacementRule",
 				},
 			},
 		},
@@ -148,19 +148,13 @@ var _ = Describe("multiple reconcile signal of the same subscription instance sp
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
 
-		chnIns.SetNamespace(fmt.Sprintf("%s-reconcile-1", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
-
-		subIns.SetNamespace(fmt.Sprintf("%s-reconcile-1", subIns.GetNamespace()))
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
-
+		Expect(k8sClt.Create(ctx, chnIns)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 		}()
 
@@ -211,7 +205,7 @@ func forceUpdatePrehook(clt client.Client, preKey types.NamespacedName) func() e
 var _ = Describe("given a subscription pointing to a git path without hook folders", func() {
 	var (
 		ctx             = context.TODO()
-		testNs          = "normal-sub"
+		testNs          = successfulPlacementRuleKey.Namespace
 		subKey          = types.NamespacedName{Name: "t-sub", Namespace: testNs}
 		chnKey          = types.NamespacedName{Name: "t-chn", Namespace: testNs}
 		appsubReportKey = types.NamespacedName{Name: subKey.Name, Namespace: testNs}
@@ -239,10 +233,9 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			Spec: subv1.SubscriptionSpec{
 				Channel: chnKey.String(),
 				Placement: &plrv1alpha1.Placement{
-					GenericPlacementFields: plrv1alpha1.GenericPlacementFields{
-						Clusters: []plrv1alpha1.GenericClusterReference{
-							{Name: "test-cluster"},
-						},
+					PlacementRef: &corev1.ObjectReference{
+						Name: successfulPlacementRuleKey.Name,
+						Kind: "PlacementRule",
 					},
 				},
 			},
@@ -250,11 +243,26 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 	)
 
 	It("should download the git to local and create app AppsubReport", func() {
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+		subIns := subIns.DeepCopy()
+		chnIns := chnIns.DeepCopy()
+
+		Expect(k8sClt.Create(ctx, chnIns)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
+		newPlacementRule := &plrv1alpha1.PlacementRule{}
+		err := k8sClt.Get(ctx, successfulPlacementRuleKey, newPlacementRule)
+		klog.Infof("newPlacementRule: %#v, err: %v", newPlacementRule, err)
+
+		newChannel := &chnv1.Channel{}
+		err = k8sClt.Get(ctx, chnKey, newChannel)
+		klog.Infof("newChannel: %#v, err: %v", newChannel, err)
+
+		newSub := &subv1.Subscription{}
+		err = k8sClt.Get(ctx, subKey, newSub)
+		klog.Infof("newSub: %#v, err: %v", newSub, err)
+
 		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 		}()
 
@@ -291,13 +299,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
 
-		chnIns.SetNamespace(fmt.Sprintf("%s-pre-0", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
-
-		subIns.SetNamespace(fmt.Sprintf("%s-pre-0", subIns.GetNamespace()))
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
@@ -309,13 +311,13 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, testManagedCluster)).Should(Succeed())
 		}()
 
 		chtestManagedCluster := &spokeClusterV1.ManagedCluster{}
-		Expect(k8sClt.Get(context.TODO(), types.NamespacedName{Name: "test-cluster"}, chtestManagedCluster)).Should(Succeed())
+		Expect(k8sClt.Get(context.TODO(), types.NamespacedName{Name: "cluster-1"}, chtestManagedCluster)).Should(Succeed())
 
 		ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -383,13 +385,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
 
-		chnIns.SetNamespace(fmt.Sprintf("%s-pre-1", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
-
-		subIns.SetNamespace(fmt.Sprintf("%s-pre-1", subIns.GetNamespace()))
 		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 		testManagedCluster := &spokeClusterV1.ManagedCluster{}
@@ -397,17 +393,17 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(k8sClt.Create(ctx, testManagedCluster)).Should(Succeed())
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+		Expect(k8sClt.Create(ctx, chnIns)).Should(Succeed())
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, testManagedCluster)).Should(Succeed())
 		}()
 
 		chtestManagedCluster := &spokeClusterV1.ManagedCluster{}
-		Expect(k8sClt.Get(context.TODO(), types.NamespacedName{Name: "test-cluster"}, chtestManagedCluster)).Should(Succeed())
+		Expect(k8sClt.Get(context.TODO(), types.NamespacedName{Name: "cluster-1"}, chtestManagedCluster)).Should(Succeed())
 
 		ansibleIns := &ansiblejob.AnsibleJob{}
 
@@ -464,13 +460,12 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 				return err
 			}
 
-			if updateSub.Status.AnsibleJobsStatus.LastPrehookJob != foundKey.String() ||
-				len(updateSub.Status.AnsibleJobsStatus.PrehookJobsHistory) == 0 {
-
+			if updateSub.Status.AnsibleJobsStatus.LastPrehookJob != foundKey.String() {
 				u := &ansiblejob.AnsibleJob{}
-				_ = k8sClt.Get(context.TODO(), foundKey, u)
+				err = k8sClt.Get(context.TODO(), foundKey, u)
 
-				return fmt.Errorf("failed to find the prehook %s in status", foundKey)
+				return fmt.Errorf("failed to find the prehook in status, subkey: %v, ansibleJob: %v",
+					subKey, u)
 			}
 
 			return nil
@@ -483,27 +478,21 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		subIns := testPath.subIns.DeepCopy()
 		chnIns := testPath.chnIns.DeepCopy()
 
-		chnIns.SetNamespace(fmt.Sprintf("%s-pre-2", chnIns.GetNamespace()))
-		chnKey := types.NamespacedName{Name: chnIns.GetName(), Namespace: chnIns.GetNamespace()}
-		subIns.Spec.Channel = chnKey.String()
-
-		subIns.SetNamespace(fmt.Sprintf("%s-pre-2", subIns.GetNamespace()))
-		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
-
-		Expect(k8sClt.Create(ctx, chnIns.DeepCopy())).Should(Succeed())
+		Expect(k8sClt.Create(ctx, chnIns)).Should(Succeed())
 
 		a := subIns.GetAnnotations()
 		a[subv1.AnnotationGitPath] = "git-ops/ansible/resources-nonexit"
 		subIns.SetAnnotations(a)
 
 		// tells the subscription operator to process the hooks
+		subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 		subIns.Spec.HookSecretRef = testPath.hookSecretRef.DeepCopy()
 
 		Expect(k8sClt.Create(ctx, subIns)).Should(Succeed())
 
 		defer func() {
-			Expect(k8sClt.Delete(ctx, chnIns.DeepCopy())).Should(Succeed())
-			Expect(k8sClt.Delete(ctx, subIns.DeepCopy())).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
+			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 		}()
 
 		nSub := &subv1.Subscription{}

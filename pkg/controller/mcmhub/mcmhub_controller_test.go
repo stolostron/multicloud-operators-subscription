@@ -83,15 +83,14 @@ var (
 )
 
 var (
-	labeltest1subkey = types.NamespacedName{
-		Name:      "labeltest1sub",
-		Namespace: "labeltest1namespace",
+	PlacementRuleKey = types.NamespacedName{
+		Name:      "test-propagation-successful-placement",
+		Namespace: "propagation-test-cases",
 	}
 
-	labeltest1Namespace = &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "labeltest1namespace",
-		},
+	labeltest1subkey = types.NamespacedName{
+		Name:      "labeltest1sub",
+		Namespace: PlacementRuleKey.Namespace,
 	}
 
 	labeltest1Channel = &chnv1alpha1.Channel{
@@ -101,7 +100,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "labeltest1channel",
-			Namespace: "labeltest1namespace",
+			Namespace: PlacementRuleKey.Namespace,
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type: chnv1alpha1.ChannelTypeNamespace,
@@ -115,14 +114,14 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "labeltest1sub",
-			Namespace: "labeltest1namespace",
+			Namespace: PlacementRuleKey.Namespace,
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: "labeltest1namespace/labeltest1channel",
+			Channel: PlacementRuleKey.Namespace + "/labeltest1channel",
 			Placement: &placement.Placement{
 				PlacementRef: &corev1.ObjectReference{
-					Name: "labeltest1Placement",
-					Kind: "Placement",
+					Name: PlacementRuleKey.Name,
+					Kind: "PlacementRule",
 				},
 			},
 		},
@@ -134,13 +133,7 @@ var (
 var (
 	labeltest2subkey = types.NamespacedName{
 		Name:      "labeltest2sub",
-		Namespace: "labeltest2namespace",
-	}
-
-	labeltest2Namespace = &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "labeltest2namespace",
-		},
+		Namespace: PlacementRuleKey.Namespace,
 	}
 
 	labeltest2Channel = &chnv1alpha1.Channel{
@@ -150,7 +143,7 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "labeltest2channel",
-			Namespace: "labeltest2namespace",
+			Namespace: PlacementRuleKey.Namespace,
 		},
 		Spec: chnv1alpha1.ChannelSpec{
 			Type: chnv1alpha1.ChannelTypeNamespace,
@@ -164,14 +157,14 @@ var (
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "labeltest2sub",
-			Namespace: "labeltest2namespace",
+			Namespace: PlacementRuleKey.Namespace,
 		},
 		Spec: appv1alpha1.SubscriptionSpec{
-			Channel: "labeltest2namespace/labeltest2channel",
+			Channel: PlacementRuleKey.Namespace + "/labeltest2channel",
 			Placement: &placement.Placement{
 				PlacementRef: &corev1.ObjectReference{
-					Name: "labeltest2Placement",
-					Kind: "Placement",
+					Name: PlacementRuleKey.Name,
+					Kind: "PlacementRule",
 				},
 			},
 		},
@@ -281,12 +274,8 @@ func TestNewAppLabels(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	// Create the app label test namespace.
-	g.Expect(c.Create(context.TODO(), labeltest1Namespace)).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), labeltest1Namespace)
-
 	// Create a channel
-	g.Expect(c.Create(context.TODO(), labeltest1Channel.DeepCopy())).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), labeltest1Channel)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), labeltest1Channel)
 
 	// Create a subscription
@@ -328,12 +317,8 @@ func TestSyncAppLabels(t *testing.T) {
 		mgrStopped.Wait()
 	}()
 
-	// Create the app label test namespace.
-	g.Expect(c.Create(context.TODO(), labeltest2Namespace.DeepCopy())).NotTo(gomega.HaveOccurred())
-	defer c.Delete(context.TODO(), labeltest2Namespace)
-
 	// Create a channel
-	g.Expect(c.Create(context.TODO(), labeltest2Channel.DeepCopy())).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), labeltest2Channel)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), labeltest2Channel)
 
 	labels := make(map[string]string)
@@ -343,7 +328,7 @@ func TestSyncAppLabels(t *testing.T) {
 	labeltest2Subscription.SetLabels(labels)
 
 	// Create a subscription
-	g.Expect(c.Create(context.TODO(), labeltest2Subscription.DeepCopy())).NotTo(gomega.HaveOccurred())
+	g.Expect(c.Create(context.TODO(), labeltest2Subscription)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), labeltest2Subscription)
 
 	time.Sleep(time.Second * 2)

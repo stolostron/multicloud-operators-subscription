@@ -340,6 +340,9 @@ func (h *HubGitOps) ResolveLocalGitFolder(subIns *subv1.Subscription) string {
 }
 
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
+	h.logger.Info("entry register branch for appsub " + subIns.Namespace + "/" + subIns.Name)
+	defer h.logger.Info("exit register branch for appsub " + subIns.Namespace + "/" + subIns.Name)
+
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	// This does not pick up new changes to channel configuration
@@ -763,5 +766,19 @@ func (h *HubGitOps) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ans
 		return parseFromKutomizedAsAnsibleJobs(sortedRes.kustomized, parseAnsibleJobResoures, h.logger)
 	}
 
-	return parseAsAnsibleJobs(sortedRes.kubRes, parseAnsibleJobResoures, h.logger)
+	ansibleJobs, err := parseAsAnsibleJobs(sortedRes.kubRes, parseAnsibleJobResoures, h.logger)
+
+	if err != nil {
+		return []ansiblejob.AnsibleJob{}, err
+	}
+
+	// apply appsub NS to each ansible job
+	newAnsibleJobs := []ansiblejob.AnsibleJob{}
+
+	for _, ansibleJob := range ansibleJobs {
+		ansibleJob.Namespace = subIns.Namespace
+		newAnsibleJobs = append(newAnsibleJobs, ansibleJob)
+	}
+
+	return newAnsibleJobs, nil
 }

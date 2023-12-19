@@ -99,14 +99,14 @@ rules:
 
 const (
 	reconcileName                     = "subscription-hub-reconciler"
-	defaultHookRequeueInterval        = time.Second * 15
+	defaultHookRequeueInterval        = time.Second * 30
 	INFOLevel                         = 1
 	placementDecisionFlag             = "--fired-by-placementdecision"
 	subscriptionActive         string = "Active"
 	subscriptionBlock          string = "Blocked"
 )
 
-var defaulRequeueInterval = time.Second * 3
+var defaulRequeueInterval = time.Second * 15
 
 // Add creates a new Subscription Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -164,12 +164,8 @@ type subscriptionMapper struct {
 }
 
 func (mapper *subscriptionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	klog.Info("Entering subscription mapper")
+	defer klog.Info("Exiting  subscription mapper")
 
 	// rolling target subscription changed, need to update the source subscription
 	var requests []reconcile.Request
@@ -221,7 +217,7 @@ func (mapper *subscriptionMapper) Map(ctx context.Context, obj client.Object) []
 		requests = append(requests, reconcile.Request{NamespacedName: *hdplkey})
 	}
 
-	klog.V(5).Info("Out subscription mapper with requests:", requests)
+	klog.V(1).Info("Out subscription mapper with requests:", requests)
 
 	return requests
 }
@@ -231,12 +227,8 @@ type channelMapper struct {
 }
 
 func (mapper *channelMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	klog.Info("Entering channel mapper")
+	defer klog.Info("Exiting channel mapper")
 
 	// if channel is created/updated/deleted, its relative subscriptions should be reconciled.
 
@@ -273,12 +265,8 @@ type placementDecisionMapper struct {
 }
 
 func (mapper *placementDecisionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
-
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	klog.Info("Entering placementdecision mapper")
+	defer klog.Info("Exiting placementdecision mapper")
 
 	// if placementdecision is created/updated/deleted, its relative subscriptions should be reconciled.
 
@@ -526,11 +514,13 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 	var preErr error
 
+	localPlacement := false
+
 	instance := &appv1.Subscription{}
 	oins := &appv1.Subscription{}
 
 	defer func() {
-		r.finalCommit(passedBranchRegistration, passedPrehook, preErr, oins, instance, request, &result)
+		r.finalCommit(passedBranchRegistration, passedPrehook, preErr, oins, instance, request, &result, localPlacement)
 	}()
 
 	err := r.Get(context.TODO(), request.NamespacedName, instance)
@@ -564,7 +554,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 	// process as hub subscription, generate deployable to propagate
 	pl := instance.Spec.Placement
 
-	klog.V(2).Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
+	klog.Infof("Subscription: %v with placement %#v", request.NamespacedName.String(), pl)
 
 	//status changes below show override the prehook status
 	if pl == nil {
@@ -658,8 +648,15 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 						WithLabelValues(instance.Namespace, instance.Name).
 						Observe(0)
 
+					klog.Infof("prehooks not complete, appsub: %v, err: %v", request.NamespacedName.String(), err)
 					return result, nil
 				}
+				klog.Infof("prehooks complete, appsub: %v", request.NamespacedName.String())
+
+				instance.Status.Phase = appv1.PreHookSucessful
+				instance.Status.Reason = ""
+				instance.Status.LastUpdateTime = metav1.Now()
+				instance.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
 			}
 		}
 
@@ -676,6 +673,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
+			preErr = err
 			returnErr = err
 		} else {
 			metrics.PropagationSuccessfulPullTime.
@@ -688,6 +686,9 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
+
+		localPlacement = true
+
 		if !utils.IsHostingAppsub(instance) {
 			klog.Infof("Clean up all the manifestWorks owned by appsub: %v/%v", instance.GetNamespace(), instance.GetName())
 
@@ -782,6 +783,10 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 		return false, nil
 	}
 
+	if numInProgress > 0 {
+		return false, nil
+	}
+
 	return true, nil
 }
 
@@ -794,9 +799,17 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 // reconciel.Result
 func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passedPrehook bool, preErr error,
 	oIns, nIns *appv1.Subscription,
-	request reconcile.Request, res *reconcile.Result) {
+	request reconcile.Request, res *reconcile.Result, localPlacement bool) {
 	r.logger.Info("Enter finalCommit...")
 	defer r.logger.Info("Exit finalCommit...")
+
+	if localPlacement {
+		r.logger.Info(fmt.Sprintf("skip finalCommit for local subscription, appsub: %v/%v", nIns.Namespace, nIns.Name))
+
+		res.RequeueAfter = time.Duration(0)
+
+		return
+	}
 	// meaning the subscription is deleted
 	if nIns.GetName() == "" || !oIns.GetDeletionTimestamp().IsZero() {
 		r.logger.Info("instace is delete, don't run update logic")
@@ -856,7 +869,7 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 		return
 	}
 
-	r.logger.Info(fmt.Sprintf("spec or metadata of %s is updated", PrintHelper(nIns)))
+	r.logger.Info(fmt.Sprintf("spec or metadata of %s is updated, passedPrehook: %v", PrintHelper(nIns), passedPrehook))
 	//update status early to make sure the status is ready for post hook to
 	//consume
 	if !passedPrehook {
@@ -867,6 +880,9 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	} else {
 		nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
 	}
+
+	klog.Infof("oIns status reason: %v", oIns.Status.Reason)
+	klog.Infof("nIns status reason: %v", nIns.Status.Reason)
 
 	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
 		nIns.Status.LastUpdateTime = metav1.Now()
@@ -885,8 +901,16 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 
 		if res.RequeueAfter == time.Duration(0) {
 			res.RequeueAfter = defaulRequeueInterval
-			r.logger.Info(fmt.Sprintf("only update status, will retry %s for possible posthook", res.RequeueAfter))
+			r.logger.Info(fmt.Sprintf("appsub status updated, will retry %v for possible posthooks. appsub: %v", res.RequeueAfter, PrintHelper(nIns)))
 		}
+
+		return
+	}
+
+	if !passedPrehook {
+		res.RequeueAfter = r.hookRequeueInterval
+
+		r.logger.Info(fmt.Sprintf("prehooks not complete yet. appsub: %v", PrintHelper(nIns)))
 
 		return
 	}
@@ -901,7 +925,9 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	//wait till the subscription is propagated
 	f, err := r.IsSubscriptionCompleted(request.NamespacedName)
 	if !f || err != nil {
+		r.logger.Info(fmt.Sprintf("appsub not complete yet, appsub: %v", request.NamespacedName))
 		res.RequeueAfter = r.hookRequeueInterval
+
 		return
 	}
 

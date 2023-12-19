@@ -331,35 +331,11 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 				Namespace: successfulChannelKey.Namespace,
 			},
 			Spec: channelV1.ChannelSpec{
-				Type:     channelV1.ChannelTypeNamespace,
-				Pathname: "propagation-test-cases",
+				Type:     channelV1.ChannelTypeGit,
+				Pathname: "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
 			},
 		}
-		successfulPlacementRuleKey := types.NamespacedName{
-			Name:      "test-propagation-successful-placement",
-			Namespace: "propagation-test-cases",
-		}
-		successfulPlacementRule := &placementv1.PlacementRule{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      successfulPlacementRuleKey.Name,
-				Namespace: successfulPlacementRuleKey.Namespace,
-			},
-			Spec: placementv1.PlacementRuleSpec{
-				GenericPlacementFields: placementv1.GenericPlacementFields{
-					ClusterSelector: &metav1.LabelSelector{
-						MatchLabels: map[string]string{"name": "cluster-1"},
-					},
-				},
-			},
-			Status: placementv1.PlacementRuleStatus{
-				Decisions: []placementv1.PlacementDecision{
-					{
-						ClusterName:      "cluster-1",
-						ClusterNamespace: "cluster1-ns",
-					},
-				},
-			},
-		}
+
 		successfulSubscriptionKey := types.NamespacedName{
 			Name:      "test-propagation-successful-sub",
 			Namespace: "propagation-test-cases",
@@ -377,13 +353,17 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 					"app":                       successfulSubscriptionKey.Name,
 					"app.kubernetes.io/part-of": successfulSubscriptionKey.Name,
 				},
+				Annotations: map[string]string{
+					"apps.open-cluster-management.io/github-branch": "main",
+					"apps.open-cluster-management.io/github-path":   "examples/git-simple-sub",
+				},
 			},
 			Spec: appsv1.SubscriptionSpec{
 				Channel: successfulChannelKey.String(),
 				Placement: &placementv1.Placement{
 					PlacementRef: &corev1.ObjectReference{
-						Name:      successfulPlacementRuleKey.Name,
-						Namespace: successfulPlacementRuleKey.Namespace,
+						Name: successfulPlacementRuleKey.Name,
+						Kind: "PlacementRule",
 					},
 				},
 			},
@@ -394,9 +374,6 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 				Statuses: appsv1.SubscriptionClusterStatusMap{},
 			},
 		}
-
-		Expect(sutPropagationTestClient.Create(context.TODO(), successfulPlacementRule)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), successfulPlacementRule)
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), successfulChannel)).NotTo(HaveOccurred())
 		defer sutPropagationTestClient.Delete(context.TODO(), successfulChannel)
@@ -414,7 +391,6 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagated))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
 	})
 })

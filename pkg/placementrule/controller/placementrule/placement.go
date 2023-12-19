@@ -234,8 +234,13 @@ func (r *ReconcilePlacementRule) pickClustersByReplicas(instance *appv1alpha1.Pl
 				break
 			}
 		}
+
+		// If no ResourceHints is specified, sort the cluster decision list alphabetically by ClusterName
+		sort.Slice(newpd, func(i, j int) bool {
+			return newpd[i].ClusterName < newpd[j].ClusterName
+		})
 	} else {
-		// sort by something
+		// sort by placementrule spec.ResourceHints
 		for _, cli := range clidx.Clusters {
 			if _, ok := clmap[cli.Name]; !ok {
 				continue

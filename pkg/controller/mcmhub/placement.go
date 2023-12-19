@@ -84,7 +84,7 @@ func (r *ReconcileSubscription) getClustersByPlacement(instance *appSubV1.Subscr
 }
 
 func getDecisionsFromPlacementRef(pref *corev1.ObjectReference, namespace string, kubeClient client.Client) ([]string, error) {
-	klog.V(1).Info("Preparing cluster names from ", pref.Name)
+	klog.Info("Preparing cluster names from ", pref.Name)
 
 	label := placementRuleLabel
 

@@ -86,6 +86,8 @@ var (
 	LabelSubscriptionName = SchemeGroupVersion.Group + "/subscription"
 	// AnnotationHookType defines ansible hook job type - prehook/posthook
 	AnnotationHookType = SchemeGroupVersion.Group + "/hook-type"
+	// AnnotationHookTemplate defines ansible hook job template namespaced name
+	AnnotationHookTemplate = SchemeGroupVersion.Group + "/hook-template"
 	// AnnotationBucketPath defines s3 object bucket subfolder path
 	AnnotationBucketPath = SchemeGroupVersion.Group + "/bucket-path"
 	// AnnotationManagedCluster identifies this is a deployable for managed cluster
@@ -220,6 +222,7 @@ const (
 	SubscriptionFailed SubscriptionPhase = "Failed"
 	// SubscriptionPropagationFailed means this subscription is the "parent" sitting in hub
 	SubscriptionPropagationFailed SubscriptionPhase = "PropagationFailed"
+	PreHookSucessful              SubscriptionPhase = "PreHookSucessful"
 )
 
 // SubscriptionUnitStatus defines status of a unit (subscription or package)

@@ -21,6 +21,7 @@ import (
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
 
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -161,6 +162,8 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 		return reconcile.Result{}, err
 	}
 
+	orgDecisions := instance.Status.Decisions
+
 	orgclmap := make(map[string]string)
 	for _, cl := range instance.Status.Decisions {
 		orgclmap[cl.ClusterName] = cl.ClusterNamespace
@@ -179,6 +182,17 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 
 	updated := false
 
+	klog.Infof("orgDecisions: %v", orgDecisions)
+	klog.Infof("newDecisions: %v", instance.Status.Decisions)
+
+	// The new placement decision list will be sorted.
+	// When the placementRule controller is restarted, the placement decision list for all placementRules will be sorted
+	if !equality.Semantic.DeepEqual(orgDecisions, instance.Status.Decisions) {
+		klog.Infof("original decision list is different from the new decision list")
+
+		updated = true
+	}
+
 	for _, cl := range instance.Status.Decisions {
 		ns, ok := orgclmap[cl.ClusterName]
 		if !ok || ns != cl.ClusterNamespace {
@@ -190,6 +204,8 @@ func (r *ReconcilePlacementRule) Reconcile(ctx context.Context, request reconcil
 	}
 
 	if !updated && len(orgclmap) > 0 {
+		klog.Infof("original decision map is different from the new decision map")
+
 		updated = true
 	}
 

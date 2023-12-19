@@ -3,8 +3,8 @@ apiVersion: work.open-cluster-management.io/v1
 kind: ManifestWork
 metadata:
   labels:
-    apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test.git-pull-time-metric-sub
-  name: git-pull-time-metric-test-git-pull-time-metric-sub
+    apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test.git-pull-time-metric-sub-failed
+  name: git-pull-time-metric-test-git-pull-time-metric-sub-failed
   namespace: cluster1
 spec:
   deleteOption:
@@ -21,7 +21,7 @@ spec:
       kind: Namespace
       metadata:
         annotations:
-          apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test/git-pull-time-metric-sub
+          apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test/git-pull-time-metric-sub-failed
         name: git-pull-time-metric-test
       spec: {}
       status: {}
@@ -31,17 +31,17 @@ spec:
         annotations:
           apps.open-cluster-management.io/git-branch: main1
           apps.open-cluster-management.io/git-path: examples/git-simple-sub
-          apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test/git-pull-time-metric-sub
+          apps.open-cluster-management.io/hosting-subscription: git-pull-time-metric-test/git-pull-time-metric-sub-failed
           apps.open-cluster-management.io/reconcile-rate: high
           open-cluster-management.io/user-group: ""
           open-cluster-management.io/user-identity: ""
         labels:
-          app: git-pull-time-metric-sub
-          app.kubernetes.io/part-of: git-pull-time-metric-sub
+          app: git-pull-time-metric-sub-failed
+          app.kubernetes.io/part-of: git-pull-time-metric-sub-failed
           apps.open-cluster-management.io/reconcile-rate: high
-        name: git-pull-time-metric-sub
+        name: git-pull-time-metric-sub-failed
         namespace: git-pull-time-metric-test
       spec:
-        channel: git-pull-time-metric-test/gitops
+        channel: git-pull-time-metric-test/empty-channel
         placement:
           local: true
