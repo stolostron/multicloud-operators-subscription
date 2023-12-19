@@ -85,7 +85,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1.Subscription) error
 		sub.SetLabels(sublabels)
 	}
 
-	klog.Infof("subscription: %v/%v", sub.GetNamespace(), sub.GetName())
+	klog.Infof("subscribing subscription: %v/%v", sub.GetNamespace(), sub.GetName())
 
 	// Check and add cluster-admin annotation for multi-namepsace application
 	isAdmin := r.AddClusterAdminAnnotation(sub)
@@ -115,6 +115,13 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1.Subscription) error
 		klog.Error(err, "Error creating resource list")
 
 		return err
+	}
+
+	// if app resource list is empty, we simply regard the appsub status as successful
+	if len(resources) == 0 {
+		klog.Infof("empty app resource list, appsub: %v/%v", sub.Namespace, sub.Name)
+
+		return nil
 	}
 
 	// get all managed clusters

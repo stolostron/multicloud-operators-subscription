@@ -73,10 +73,20 @@ const (
 // PlacementDecisionPredicateFunctions filters PlacementDecision status decisions update
 var PlacementDecisionPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
-		newPd := e.ObjectNew.(*clusterapi.PlacementDecision)
-		oldPd := e.ObjectOld.(*clusterapi.PlacementDecision)
+		newPd, newOK := e.ObjectNew.(*clusterapi.PlacementDecision)
+		oldPd, oldOK := e.ObjectOld.(*clusterapi.PlacementDecision)
 
-		return !reflect.DeepEqual(newPd.Status.Decisions, oldPd.Status.Decisions)
+		if !newOK || !oldOK {
+			klog.Infof("not placementDecision object, skip....")
+			return false
+		}
+
+		if !reflect.DeepEqual(newPd.Status.Decisions, oldPd.Status.Decisions) {
+			klog.Infof("cluster Decision list updated old: %v, new:%v", oldPd.Status.Decisions, newPd.Status.Decisions)
+			return true
+		}
+
+		return false
 	},
 	CreateFunc: func(e event.CreateEvent) bool {
 		return true
@@ -179,7 +189,11 @@ func IsSubscriptionBasicChanged(o, n *appv1.Subscription) bool {
 	}
 
 	// we care label change, pass it down
+	klog.Infof("fOsub_labels: %v", fOsub.GetLabels())
+	klog.Infof("fNSub_labels: %v", fNSub.GetLabels())
+
 	if !reflect.DeepEqual(fOsub.GetLabels(), fNSub.GetLabels()) {
+		klog.Info("different labels found")
 		return true
 	}
 
@@ -317,7 +331,7 @@ func IsHubRelatedStatusChanged(old, nnew *appv1.SubscriptionStatus) bool {
 		return true
 	}
 
-	if old.Phase != nnew.Phase || !isSameMessage(old.Message, nnew.Message) {
+	if old.Phase != nnew.Phase || old.Reason != nnew.Reason || !isSameMessage(old.Message, nnew.Message) {
 		return true
 	}
 

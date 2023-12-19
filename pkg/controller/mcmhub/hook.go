@@ -18,6 +18,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -27,9 +29,13 @@ import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
+	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
+	placementrulev1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	placementutils "open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/utils"
+
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 
 	"k8s.io/client-go/kubernetes/scheme"
@@ -91,16 +97,26 @@ type Hooks struct {
 	lastSub *subv1.Subscription
 }
 
+type AnsibleHooks struct {
+	gitClt GitOps
+	clt    client.Client
+	// subscription namespacedName will points to hooks
+	mtx        sync.Mutex
+	registry   map[types.NamespacedName]*Hooks
+	suffixFunc SuffixFunc
+	//logger
+	logger       logr.Logger
+	hookInterval time.Duration
+}
+
 func (h *Hooks) ConstructStatus() subv1.AnsibleJobsStatus {
 	st := subv1.AnsibleJobsStatus{}
 
 	preSt := h.constructPrehookStatus()
 	st.LastPrehookJob = preSt.LastPrehookJob
-	st.PrehookJobsHistory = preSt.PrehookJobsHistory
 
 	postSt := h.constructPosthookStatus()
 	st.LastPosthookJob = postSt.LastPosthookJob
-	st.PosthookJobsHistory = postSt.PosthookJobsHistory
 
 	return st
 }
@@ -111,7 +127,6 @@ func (h *Hooks) constructPrehookStatus() subv1.AnsibleJobsStatus {
 	if h.preHooks != nil {
 		jobRecords := h.preHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPrehookJob = jobRecords.lastApplied
-		st.PrehookJobsHistory = jobRecords.lastAppliedJobs
 	}
 
 	return st
@@ -123,22 +138,9 @@ func (h *Hooks) constructPosthookStatus() subv1.AnsibleJobsStatus {
 	if h.postHooks != nil {
 		jobRecords := h.postHooks.outputAppliedJobs(ansiblestatusFormat)
 		st.LastPosthookJob = jobRecords.lastApplied
-		st.PosthookJobsHistory = jobRecords.lastAppliedJobs
 	}
 
 	return st
-}
-
-type AnsibleHooks struct {
-	gitClt GitOps
-	clt    client.Client
-	// subscription namespacedName will points to hooks
-	mtx        sync.Mutex
-	registry   map[types.NamespacedName]*Hooks
-	suffixFunc SuffixFunc
-	//logger
-	logger       logr.Logger
-	hookInterval time.Duration
 }
 
 // make sure the AnsibleHooks implementate the HookProcessor
@@ -245,9 +247,80 @@ func (a *AnsibleHooks) DeregisterSubscription(subKey types.NamespacedName) error
 	return nil
 }
 
+func (a *AnsibleHooks) IsReadyPlacementDecisionList(appsub *subv1.Subscription) (bool, error) {
+	// get all clusters from all the placementDecisions resources
+	placementDecisionclusters, err := GetClustersByPlacement(appsub, a.clt, a.logger)
+
+	if err != nil {
+		klog.Infof("faile to get clusters from placementDecisions, err:%v", err)
+		return false, err
+	}
+
+	if len(placementDecisionclusters) == 0 {
+		klog.Infof("No clusters found from placementDecisions")
+		return false, fmt.Errorf("no clusters found. sub: %v/%v", appsub.Namespace, appsub.Name)
+	}
+
+	clusters1 := []string{}
+	for _, cl := range placementDecisionclusters {
+		clusters1 = append(clusters1, cl.Name)
+	}
+
+	sort.Slice(clusters1, func(i, j int) bool {
+		return clusters1[i] < clusters1[j]
+	})
+
+	pref := appsub.Spec.Placement.PlacementRef
+
+	if pref != nil && pref.Kind == "PlacementRule" {
+		placementRule := &placementrulev1.PlacementRule{}
+		prKey := types.NamespacedName{Name: pref.Name, Namespace: appsub.GetNamespace()}
+
+		if err := a.clt.Get(context.TODO(), prKey, placementRule); err != nil {
+			klog.Infof("failed to get placementRule, err:%v", err)
+			return false, err
+		}
+
+		placementRuleStatusClusters := placementRule.Status.Decisions
+
+		clusters2 := []string{}
+		for _, cl := range placementRuleStatusClusters {
+			clusters2 = append(clusters2, cl.ClusterName)
+		}
+
+		sort.Slice(clusters2, func(i, j int) bool {
+			return clusters2[i] < clusters2[j]
+		})
+
+		if reflect.DeepEqual(clusters1, clusters2) {
+			klog.Infof("placementRule cluster decision list is ready, appsub: %v/%v, placementref: %v", appsub.Namespace, appsub.Name, pref.Name)
+			return true, nil
+		}
+	}
+
+	if pref != nil && pref.Kind == "Placement" {
+		placement := &clusterapi.Placement{}
+		pKey := types.NamespacedName{Name: pref.Name, Namespace: appsub.GetNamespace()}
+
+		if err := a.clt.Get(context.TODO(), pKey, placement); err != nil {
+			klog.Infof("failed to get placement, err:%v", err)
+			return false, err
+		}
+
+		if int(placement.Status.NumberOfSelectedClusters) == len(placementDecisionclusters) {
+			klog.Infof("placement cluster decision list is ready, appsub: %v/%v, placementref: %v", appsub.Namespace, appsub.Name, pref.Name)
+			return true, nil
+		}
+	}
+
+	klog.Infof("placement cluster decision list is NOT ready, appsub: %v/%v", appsub.Namespace, appsub.Name)
+
+	return false, fmt.Errorf("placement cluster decision list is NOT ready, appsub: %v/%v", appsub.Namespace, appsub.Name)
+}
+
 func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string) error {
-	a.logger.Info("entry register subscription")
-	defer a.logger.Info("exit register subscription")
+	a.logger.Info(fmt.Sprintf("entry register subscription, appsub: %v/%v", subIns.Namespace, subIns.Name))
+	defer a.logger.Info(fmt.Sprintf("exit register subscription, appsub: %v/%v", subIns.Namespace, subIns.Name))
 
 	chn := &chnv1.Channel{}
 	chnkey := utils.NamespacedNameFormat(subIns.Spec.Channel)
@@ -264,14 +337,22 @@ func (a *AnsibleHooks) RegisterSubscription(subIns *subv1.Subscription, placemen
 	}
 
 	if !a.gitClt.HasHookFolders(subIns) {
-		a.logger.V(DebugLog).Info(fmt.Sprintf("%s doesn't have hook folder(s), skip", PrintHelper(subIns)))
+		a.logger.Info(fmt.Sprintf("%s doesn't have hook folder(s) yet, skip", PrintHelper(subIns)))
 
 		return nil
 	}
+
+	// Skip the ansibleJob hook registration if the placement decision list is not ready
+	isReadyPlacementDecision, err := a.IsReadyPlacementDecisionList(subIns)
+	if !isReadyPlacementDecision {
+		return err
+	}
+
 	//if not forcing a register and the subIns has not being changed compare to the hook registry
 	//then skip hook processing
 	commitIDChanged := a.isSubscriptionUpdate(subIns, a.isSubscriptionSpecChange, a.isDesiredStateChanged)
 	if getCommitID(subIns) != "" && !placementDecisionUpdated && !commitIDChanged {
+		a.logger.Info(fmt.Sprintf("skip hook registry, commitIDChanged: %v, placementDecisionUpdated: %v ", commitIDChanged, placementDecisionUpdated))
 		return nil
 	}
 
@@ -341,6 +422,32 @@ func (a *AnsibleHooks) registerHook(subIns *subv1.Subscription, hookFlag string,
 	return err
 }
 
+func (a *AnsibleHooks) printAllHooks() {
+	for subkey, hook := range a.registry {
+		klog.Infof("================")
+
+		klog.Infof("subkey: %v", subkey.String())
+
+		for prehook, prehookJobs := range *hook.preHooks {
+			klog.Infof("========")
+			klog.Infof("prehook Ansible job template: %v", prehook.String())
+
+			for _, prehookJob := range prehookJobs.Instance {
+				klog.Infof("prehook Ansible Job instance: %v/%v", prehookJob.Namespace, prehookJob.Name)
+			}
+		}
+
+		for posthook, posthookJobs := range *hook.postHooks {
+			klog.Infof("========")
+			klog.Infof("posthook Ansible job template: %v", posthook.String())
+
+			for _, posthookJob := range posthookJobs.Instance {
+				klog.Infof("posthook Ansible Job instance: %v/%v", posthookJob.Namespace, posthookJob.Name)
+			}
+		}
+	}
+}
+
 func getHookPath(subIns *subv1.Subscription) (string, string) {
 	annotations := subIns.GetAnnotations()
 
@@ -358,8 +465,8 @@ func getHookPath(subIns *subv1.Subscription) (string, string) {
 
 func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementDecisionUpdated bool, placementRuleRv string,
 	commitIDChanged bool) error {
-	a.logger.V(2).Info("entry addNewHook subscription")
-	defer a.logger.V(2).Info("exit addNewHook subscription")
+	a.logger.Info("entry addNewHook subscription")
+	defer a.logger.Info("exit addNewHook subscription")
 
 	preHookPath, postHookPath := getHookPath(subIns)
 
@@ -390,6 +497,8 @@ func (a *AnsibleHooks) addHookToRegisitry(subIns *subv1.Subscription, placementD
 		}
 	}
 
+	a.printAllHooks()
+
 	return nil
 }
 
@@ -405,6 +514,7 @@ func addingHostingSubscriptionAnno(job ansiblejob.AnsibleJob, subKey types.Names
 
 	a[subv1.AnnotationHosting] = subKey.String()
 	a[subv1.AnnotationHookType] = hookType
+	a[subv1.AnnotationHookTemplate] = job.Namespace + "/" + job.Name
 
 	job.SetAnnotations(a)
 
@@ -627,19 +737,9 @@ func (a *AnsibleHooks) IsPostHooksCompleted(subKey types.NamespacedName) (bool, 
 
 func isJobRunSuccessful(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
 	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
-	logger.V(1).Info(fmt.Sprintf("job %s status: %v", PrintHelper(job), curStatus))
+	logger.Info(fmt.Sprintf("job: %v, job url: %v status: %#v", PrintHelper(job), job.Status.AnsibleJobResult.URL, job.Status.AnsibleJobResult))
 
 	return strings.EqualFold(curStatus, JobCompleted)
-}
-
-func isJobRunning(job *ansiblejob.AnsibleJob, logger logr.Logger) bool {
-	curStatus := job.Status.AnsibleJobResult.Status
-	logger.Info(fmt.Sprintf("job %s status: %v", job.Status.AnsibleJobResult.URL, curStatus))
-	logger.V(3).Info(fmt.Sprintf("job status: %v", curStatus))
-
-	return curStatus == "" || curStatus == "pending" || curStatus == "new" ||
-		curStatus == "waiting" || curStatus == "running"
 }
 
 // Top priority: placementRef, ignore others
@@ -673,7 +773,15 @@ func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Clie
 		}
 	}
 
-	logger.V(10).Info(fmt.Sprintln("clusters", clusters))
+	sort.Slice(clusters, func(i, j int) bool {
+		return clusters[i].Name < clusters[j].Name
+	})
+
+	if len(clusters) > 20 {
+		logger.V(1).Info(fmt.Sprintln("The first 20 clusters: ", clusters[:20]))
+	} else {
+		logger.V(1).Info(fmt.Sprintln("clusters: ", clusters))
+	}
 
 	return clusters, nil
 }
@@ -693,7 +801,7 @@ func getClustersFromPlacementRef(instance *subv1.Subscription, kubeclient client
 		return nil, nil
 	}
 
-	logger.V(10).Info(fmt.Sprintln("Referencing placement: ", pref, " in ", instance.GetNamespace()))
+	logger.Info(fmt.Sprintln("Referencing placement: ", pref, " in ", instance.GetNamespace()))
 
 	ns := instance.GetNamespace()
 

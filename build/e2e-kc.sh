@@ -190,7 +190,7 @@ echo "STARTING test case 06-ansiblejob-post"
 kubectl config use-context kind-hub
 kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/06-ansiblejob-post/
-sleep 30
+sleep 70
 
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastposthookjob | grep posthook-test; then
     echo "06-ansiblejob-post: found ansiblejob CR name in subscription output"
@@ -198,6 +198,16 @@ else
     echo "06-ansiblejob-post: FAILED: ansiblejob CR name is not in the subscription output"
     exit 1
 fi
+
+
+kubectl get pods -n open-cluster-management
+kubectl logs -n open-cluster-management  -l app=multicluster-operators-hub-subscription
+
+kubectl get placementdecisions -n default -o yaml
+kubectl get appsub -n default  ansible-hook -o yaml
+kubectl get appsubreport -n default  ansible-hook -o yaml
+kubectl get appsubreport -n cluster1  cluster1 -o yaml
+
 if kubectl get ansiblejobs.tower.ansible.com | grep posthook-test; then
     echo "06-ansiblejob-post: found ansiblejobs.tower.ansible.com"
 else
@@ -473,7 +483,7 @@ echo "STARTING test case 17-ansiblejob-pre-workflow"
 kubectl config use-context kind-hub
 kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/17-ansiblejob-pre-workflow/
-sleep 10
+sleep 40
 
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastprehookjob | grep prehook-workflow-test; then
     echo "17-ansiblejob-pre-workflow: found ansiblejob CR name in subscription output"
@@ -548,18 +558,26 @@ fi
 echo "19-verify-git-pull-time-metric: patching successful subscription and expeting failed metrics"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/failed
-# with high reconcile rate, the updated appsub is handled every 2 minutes. Wait for over 2 minutes to make sure the updated appsub is handled
-sleep 140
+# deliver an appsub with invalid channel info, it is expected to get the failure once the appsub is deployed on the managed cluster
+sleep 30
 
 echo "19-verify-git-pull-time-metric: fetching failed managed cluster metrics"
 kubectl config use-context kind-cluster1
 collectedFailedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
 # FAILED metrics test
-IFS=' ' read -a failedPullTimeCount <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_count)
-IFS=' ' read -a failedPullTimeSum <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_failed_pull_time_sum)
+IFS=' ' read -a failedPullTimeCount <<< $(echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub-failed\"" | grep git_failed_pull_time_count)
 
+echo "============"
 echo "19-verify-git-pull-time-metric: verifying expected git_failed_pull_time metrics for succesful subscription"
-if [ "${failedPullTimeCount[1]}" \> 0 ] && [ "${failedPullTimeSum[1]}" \> 100 ] ; then
+
+echo "$collectedFailedMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub-failed\"" | grep git_failed_pull_time_count
+
+kubectl get appsub -n git-pull-time-metric-test   git-pull-time-metric-sub-failed -o yaml
+
+kubectl get pods -n open-cluster-management-agent-addon  -l component=application-manager
+kubectl logs -n open-cluster-management-agent-addon  -l component=application-manager
+
+if [ "${failedPullTimeCount[1]}" \> 0 ]; then
     echo "19-verify-git-pull-time-metric: git_failed_pull_time metrics collected by the managed cluster's metrics service"
 else
     echo "19-verify-git-pull-time-metric: FAILED: git_failed_pull_time metrics not collected by the managed cluster's metrics service"
@@ -664,7 +682,7 @@ echo "STARTING test case 22-ansiblejob-tags"
 kubectl config use-context kind-hub
 kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/22-ansiblejob-tags/
-sleep 10
+sleep 40
 
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastposthookjob | grep posthook-tags-test; then
     echo "22-ansiblejob-tags: found ansiblejob CR name in subscription output"

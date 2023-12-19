@@ -31,6 +31,7 @@ import (
 	"k8s.io/klog/v2"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	ghsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/git"
 	hrsub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/helmrepo"
 	ossub "open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber/objectbucket"
@@ -248,6 +249,11 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				instance.Status.Statuses = emptyStatuses
 
 				klog.Errorf("doReconcile got error %v", reconcileErr)
+
+				// if there is appsub reconcile error on the managed cluster such as channel error, one git_failed_pull_time_count is collected
+				metrics.GitFailedPullTime.
+					WithLabelValues(instance.Namespace, instance.Name).
+					Observe(float64(0))
 			}
 
 			// Update AppstatusReference

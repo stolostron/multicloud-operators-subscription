@@ -153,7 +153,7 @@ func (r *ReconcileSubscription) processRepo(chn *chnv1.Channel, sub *appv1.Subsc
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := utils.SortResources(localRepoRoot, subPath)
 
 	if err != nil {
-		klog.Error(err, "Failed to sort kubernetes resources and helm charts.")
+		klog.Error(err, " Failed to sort kubernetes resources and helm charts.")
 
 		return nil, err
 	}

@@ -1,0 +1,47 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: multicluster-operators-subscription-report
+  name: multicluster-operators-subscription-report
+  namespace: open-cluster-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: multicluster-operators-subscription-report
+  template:
+    metadata:
+      labels:
+        app: multicluster-operators-subscription-report
+    spec:
+      serviceAccountName: multicluster-operators
+      containers:
+      - command:
+        - /usr/local/bin/appsubsummary
+        env:
+        - name: WATCH_NAMESPACE
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: DEPLOYMENT_LABEL
+          value: multicluster-operators-subscription-report
+        - name: OPERATOR_NAME
+          value: multicluster-operators-subscription-report
+        image: quay.io/open-cluster-management/multicloud-operators-subscription:latest
+        imagePullPolicy: IfNotPresent
+        name: multicluster-operators-subscription-report
+        resources:
+          limits:
+            cpu: 750m
+            memory: 2Gi
+          requests:
+            cpu: 150m
+            memory: 128Mi
