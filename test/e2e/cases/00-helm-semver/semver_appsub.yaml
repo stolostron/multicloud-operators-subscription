@@ -1,0 +1,23 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: sem-ver-nginx-sub
+spec:
+  packageFilter:
+    version: "1.0.0-optional"
+  channel: dev/dev-helmrepo
+  name: ingress-nginx
+  placement:
+    placementRef:
+      kind: Placement
+      name: nginx-placement
+      namespace: default
+  packageOverrides:
+  - packageName: ingress-nginx
+    packageAlias: ingress-nginx-sem-ver
+    packageOverrides:
+    - path: spec
+      value:
+        defaultBackend:
+          enabled: true
+          replicaCount: 1
