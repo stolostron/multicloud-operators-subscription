@@ -17,6 +17,18 @@ else
     exit 1
 fi
 
+### 00-helm-semver
+echo "STARTING test case 00-helm-semver"
+kubectl config use-context kind-hub
+if kubectl apply -f test/e2e/cases/00-helm-semver/semver_appsub.yaml; then
+    echo "00-helm-semver: Helm AppSub applied"
+else
+    echo "00-helm-semver FAILED: Helm AppSub not applied"
+    exit 1
+fi
+kubectl delete -f test/e2e/cases/00-helm-semver/semver_appsub.yaml
+sleep 10
+
 ### 01-placement
 echo "STARTING test case 01-placement"
 kubectl config use-context kind-hub
