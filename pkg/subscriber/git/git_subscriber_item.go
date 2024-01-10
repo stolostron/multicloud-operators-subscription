@@ -17,6 +17,7 @@ package git
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
@@ -36,6 +37,7 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -150,26 +152,27 @@ func (ghsi *SubscriberItem) Stop() {
 }
 
 func (ghsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
-	err := ghsi.doSubscription()
-
-	if err != nil {
-		klog.Error(err, "Subscription error.")
-	}
-
 	// If the initial subscription fails, retry.
-	n := 0
+	for n := 0; n <= retries; n++ {
+		klog.Infof("Try #%d/%d: subcribing to the Git repo", n, retries)
 
-	for n < retries {
-		if !ghsi.successful {
+		err := ghsi.doSubscription()
+		if err != nil {
+			klog.Error(err, "Subscription error.")
+			klog.Infof("mark appsub (%s/%s) as failed with reason: %v", ghsi.Subscription.Namespace, ghsi.Subscription.Name, err.Error())
+
+			utils.UpdateSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription.Name,
+				ghsi.Subscription.Namespace, appv1.SubscriptionFailed, err.Error())
+		} else {
+			klog.Infof("mark appsub (%s/%s) as subscribed", ghsi.Subscription.Namespace, ghsi.Subscription.Name)
+
+			utils.UpdateSubscriptionStatus(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription.Name,
+				ghsi.Subscription.Namespace, appv1.SubscriptionSubscribed, "")
+		}
+
+		if !ghsi.successful && n+1 <= retries {
+			klog.Info("failed to subscribed to Git rep, retry after sleep")
 			time.Sleep(retryInterval)
-			klog.Infof("Re-try #%d: subcribing to the Git repo", n+1)
-
-			err = ghsi.doSubscription()
-			if err != nil {
-				klog.Error(err, "Subscription error.")
-			}
-
-			n++
 		} else {
 			break
 		}
@@ -335,6 +338,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		ghsi.successful = false
 
+		if len(errMsg) > 0 {
+			errMsg += ", "
+		}
+
 		errMsg += err.Error()
 	}
 
@@ -347,6 +354,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 
 		ghsi.successful = false
 
+		if len(errMsg) > 0 {
+			errMsg += ", "
+		}
+
 		errMsg += err.Error()
 	}
 
@@ -357,15 +368,23 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	if err != nil {
 		klog.Error(err, " Unable to subscribe kustomize resources")
 
+		// Update subscription status with kustomization error
 		ghsi.successful = false
 
-		errMsg += err.Error()
+		kusErr := fmt.Sprintf("failed to apply klustomization: %s", err.Error())
+		if len(errMsg) > 0 {
+			kusErr += ", "
+		}
+
+		errMsg = kusErr + errMsg
+
+		if err = ghsi.synchronizer.UpdateAppsubOverallStatus(ghsi.Subscription, true, errMsg); err != nil {
+			klog.Error(err, "Unable to update subscription overall status")
+		}
 
 		metrics.LocalDeploymentFailedPullTime.
 			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
 			Observe(0)
-
-		return errors.New("kustomization failed, stop synchronizing. err: " + errMsg)
 	}
 
 	klog.Info("Applying helm charts..")
@@ -376,6 +395,10 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		klog.Error(err, "Unable to subscribe helm charts")
 
 		ghsi.successful = false
+
+		if len(errMsg) > 0 {
+			errMsg += ", "
+		}
 
 		errMsg += err.Error()
 	}
@@ -400,7 +423,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
 			Observe(0)
 
-		return errors.New("failed to prepare resources to apply and there is no resource to apply. err: " + errMsg)
+		return fmt.Errorf(fmt.Sprintf("%.2000s", errMsg))
 	}
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
@@ -412,6 +435,19 @@ func (ghsi *SubscriberItem) doSubscription() error {
 		ghsi.successful = false
 
 		return err
+	}
+
+	// Check appsubstatus for errors
+	appsubstatus, err := kubesynchronizer.GetAppsubReportStatus(ghsi.synchronizer.GetLocalClient(),
+		ghsi.Subscription.Namespace, ghsi.Subscription.Name)
+	if err != nil {
+		return err
+	}
+
+	if appsubstatus.Statuses.SubscriptionStatus.Phase == v1alpha1.SubscriptionDeployFailed {
+		klog.Info("subscription status has failed phase, return error")
+
+		return fmt.Errorf(appsubstatus.Statuses.SubscriptionStatus.Message)
 	}
 
 	ghsi.commitID = commitID

@@ -27,7 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
-	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 )
@@ -41,9 +41,10 @@ type SyncSource interface {
 	GetRemoteClient() client.Client
 	GetRemoteNonCachedClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
-	ProcessSubResources(*appv1alpha1.Subscription, []kubesynchronizer.ResourceUnit,
+	ProcessSubResources(*appv1.Subscription, []kubesynchronizer.ResourceUnit,
 		map[string]map[string]string, map[string]map[string]string, bool) error
-	PurgeAllSubscribedResources(*appv1alpha1.Subscription) error
+	PurgeAllSubscribedResources(*appv1.Subscription) error
+	UpdateAppsubOverallStatus(*appv1.Subscription, bool, string) error
 }
 
 // Subscriber - information to run namespace subscription
@@ -94,7 +95,7 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 }
 
 // SubscribeItem subscribes a subscriber item with namespace channel.
-func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error {
+func (ghs *Subscriber) SubscribeItem(subitem *appv1.SubscriberItem) error {
 	if ghs.itemmap == nil {
 		ghs.itemmap = make(map[types.NamespacedName]*SubscriberItem)
 	}
@@ -129,34 +130,34 @@ func (ghs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	ghssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
 
 	// Reconcile level can be overridden to be
-	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationResourceReconcileLevel], "off") {
+	if strings.EqualFold(subAnnotations[appv1.AnnotationResourceReconcileLevel], "off") {
 		klog.Infof("Overriding channel's reconcile rate %s to turn it off", ghssubitem.reconcileRate)
 		ghssubitem.reconcileRate = "off"
 	}
 
-	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
+	if strings.EqualFold(subAnnotations[appv1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.clusterAdmin = true
 	} else {
 		ghssubitem.clusterAdmin = false
 	}
 
-	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationCurrentNamespaceScoped], "true") {
+	if strings.EqualFold(subAnnotations[appv1.AnnotationCurrentNamespaceScoped], "true") {
 		klog.Info("CurrentNamespaceScoped enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.currentNamespaceScoped = true
 	} else {
 		ghssubitem.currentNamespaceScoped = false
 	}
 
-	ghssubitem.desiredCommit = subAnnotations[appv1alpha1.AnnotationGitTargetCommit]
-	ghssubitem.desiredTag = subAnnotations[appv1alpha1.AnnotationGitTag]
-	ghssubitem.syncTime = subAnnotations[appv1alpha1.AnnotationManualReconcileTime]
-	ghssubitem.userID = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserIdentity], "")
-	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1alpha1.AnnotationUserGroup], "")
+	ghssubitem.desiredCommit = subAnnotations[appv1.AnnotationGitTargetCommit]
+	ghssubitem.desiredTag = subAnnotations[appv1.AnnotationGitTag]
+	ghssubitem.syncTime = subAnnotations[appv1.AnnotationManualReconcileTime]
+	ghssubitem.userID = strings.Trim(subAnnotations[appv1.AnnotationUserIdentity], "")
+	ghssubitem.userGroup = strings.Trim(subAnnotations[appv1.AnnotationUserGroup], "")
 
 	// If the channel has annotation webhookenabled="true", do not poll the repo.
 	// Do subscription only on webhook events.
-	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1alpha1.AnnotationWebhookEnabled], "true") {
+	if strings.EqualFold(ghssubitem.Channel.GetAnnotations()[appv1.AnnotationWebhookEnabled], "true") {
 		klog.Info("Webhook enabled on SubscriberItem ", ghssubitem.Subscription.Name)
 		ghssubitem.webhookEnabled = true
 		// Set successful to false so that the subscription keeps trying until all resources are successfully
@@ -239,7 +240,7 @@ func (ghs *Subscriber) UnsubscribeItem(key types.NamespacedName) error {
 }
 
 // GetDefaultSubscriber - returns the default git subscriber.
-func GetDefaultSubscriber() appv1alpha1.Subscriber {
+func GetDefaultSubscriber() appv1.Subscriber {
 	return defaultSubscriber
 }
 

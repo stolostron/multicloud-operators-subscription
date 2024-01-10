@@ -27,7 +27,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -227,7 +226,7 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		Expect(err).NotTo(HaveOccurred())
 		Expect(len(pkgstatuses.Items)).To(Equal(1))
 		Expect(pkgstatuses.Items[0].Name).To(Equal(pkgstatusName))
-		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(Equal(1))
+		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionPackageStatus)).To(Equal(1))
 
 		// No cluster appsub report is created
 		appsubReport := &appSubStatusV1alpha1.SubscriptionReport{}
@@ -254,7 +253,7 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		Expect(len(pkgstatuses.Items)).To(Equal(1))
 
 		Expect(pkgstatuses.Items[0].Name).To(Equal(pkgstatusName))
-		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(Equal(2))
+		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionPackageStatus)).To(Equal(2))
 
 		// Delete
 		rmAppsubClusterStatus := SubscriptionClusterStatus{
@@ -345,7 +344,7 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		Expect(len(pkgstatuses.Items)).To(Equal(1))
 
 		Expect(pkgstatuses.Items[0].Name).To(Equal(pkgstatusName))
-		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(Equal(2))
+		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionPackageStatus)).To(Equal(2))
 
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
@@ -373,7 +372,7 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		Expect(len(pkgstatuses.Items)).To(Equal(1))
 
 		Expect(pkgstatuses.Items[0].Name).To(Equal(pkgstatusName))
-		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionStatus)).To(Equal(2))
+		Expect(len(pkgstatuses.Items[0].Statuses.SubscriptionPackageStatus)).To(Equal(2))
 
 		err = k8sClient.Get(context.TODO(), client.ObjectKey{Name: appsubClusterStatus.Cluster, Namespace: appsubClusterStatus.Cluster}, cAppsubReport)
 		Expect(err).NotTo(HaveOccurred())
@@ -554,5 +553,65 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 		}
 
 		Expect(shouldSkip(appsubClusterStatus, true, emptyAppsubStatus)).To(BeFalse())
+	})
+
+	Context("Update overall subscription status in appsubstatus", Ordered, func() {
+		var s *KubeSynchronizer
+
+		statussub := &appv1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "status-sub",
+				Namespace: "default",
+			},
+		}
+
+		BeforeAll(func() {
+			//Create apsub
+			err := k8sClient.Create(context.TODO(), statussub)
+			Expect(err).NotTo(HaveOccurred())
+
+			s = &KubeSynchronizer{
+				Interval:               0,
+				LocalClient:            k8sClient,
+				RemoteClient:           k8sClient,
+				hub:                    false,
+				standalone:             false,
+				DynamicClient:          nil,
+				RestMapper:             nil,
+				kmtx:                   sync.Mutex{},
+				SynchronizerID:         &types.NamespacedName{Namespace: "cluster1", Name: "cluster1"},
+				Extension:              nil,
+				dmtx:                   sync.Mutex{},
+				SkipAppSubStatusResDel: false,
+			}
+		})
+
+		AfterAll(func() {
+			err := k8sClient.Delete(context.TODO(), statussub)
+			Expect(err).NotTo(HaveOccurred())
+		})
+
+		DescribeTable("check overall subscription status in appsubstatus", func(deployFailed bool, reason string) {
+			err := s.UpdateAppsubOverallStatus(statussub, deployFailed, reason)
+			Expect(err).NotTo(HaveOccurred())
+
+			pkgstatus, err := GetAppsubReportStatus(k8sClient, statussub.Namespace, statussub.Name)
+			Expect(err).ToNot(HaveOccurred())
+
+			phase := appSubStatusV1alpha1.SubscriptionDeployed
+			if deployFailed {
+				phase = appSubStatusV1alpha1.SubscriptionDeployFailed
+			}
+			Expect(pkgstatus.Statuses.SubscriptionStatus.Phase).To(Equal(phase))
+
+			if deployFailed {
+				Expect(pkgstatus.Statuses.SubscriptionStatus.Message).To(Equal(reason))
+			} else {
+				Expect(pkgstatus.Statuses.SubscriptionStatus.Message).To(Equal(""))
+			}
+		},
+			Entry(nil, true, "something happened"),
+			Entry(nil, false, "something happened"),
+		)
 	})
 })

@@ -62,7 +62,7 @@ var (
 			Namespace: pkgKey.Namespace,
 		},
 		Statuses: SubscriptionClusterStatusMap{
-			SubscriptionStatus: []SubscriptionUnitStatus{*saStatus},
+			SubscriptionPackageStatus: []SubscriptionUnitStatus{*saStatus},
 		},
 	}
 )
@@ -81,7 +81,7 @@ func TestAppSubStatus(t *testing.T) {
 
 	// Test Updating the Labels
 	updated := fetched.DeepCopy()
-	updated.Statuses.SubscriptionStatus = append(updated.Statuses.SubscriptionStatus, *crStatus)
+	updated.Statuses.SubscriptionPackageStatus = append(updated.Statuses.SubscriptionPackageStatus, *crStatus)
 
 	g.Expect(c.Update(context.TODO(), updated)).NotTo(gomega.HaveOccurred())
 	g.Expect(c.Get(context.TODO(), pkgKey, fetched)).NotTo(gomega.HaveOccurred())

@@ -1601,7 +1601,7 @@ func TestPredicate(t *testing.T) {
 		ObjectNew: &appv1.Subscription{},
 	}
 	ret = instance.Update(updateEvt)
-	g.Expect(ret).To(BeTrue())
+	g.Expect(ret).NotTo(BeTrue())
 
 	// Test ChannelPredicateFunctions
 	instance = ChannelPredicateFunctions

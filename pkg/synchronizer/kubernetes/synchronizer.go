@@ -191,7 +191,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 	if sync.SkipAppSubStatusResDel {
 		klog.Info("SkipAppSubStatusResDel enabled for ", hostSub.Namespace, "/", hostSub.Name)
 	} else {
-		for _, pkgStatus := range appSubStatus.Statuses.SubscriptionStatus {
+		for _, pkgStatus := range appSubStatus.Statuses.SubscriptionPackageStatus {
 			appSubUnitStatus := SubscriptionUnitStatus{}
 			appSubUnitStatus.APIVersion = pkgStatus.APIVersion
 			appSubUnitStatus.Kind = pkgStatus.Kind
