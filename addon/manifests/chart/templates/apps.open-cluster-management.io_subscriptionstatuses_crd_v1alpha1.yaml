@@ -58,6 +58,14 @@ spec:
                 - lastUpdateTime
                 type: object
               type: array
+            subscription:
+              properties:
+                message:
+                  type: string
+                phase:
+                  description: SubscriptionPhase defines the phase of the overall subscription
+                  type: string
+              type: object
           type: object
       type: object
   version: v1alpha1
@@ -124,6 +132,14 @@ spec:
                   - lastUpdateTime
                   type: object
                 type: array
+              subscription:
+                properties:
+                  message:
+                    type: string
+                  phase:
+                    description: SubscriptionPhase defines the phase of the overall subscription
+                    type: string
+                type: object
             type: object
         type: object
     served: true

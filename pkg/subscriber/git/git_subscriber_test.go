@@ -16,6 +16,7 @@ package git
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -631,5 +632,62 @@ var _ = Describe("test git pull time metrics", func() {
 
 		Expect(promTestUtils.CollectAndCount(metrics.GitSuccessfulPullTime)).To(Equal(0))
 		Expect(promTestUtils.CollectAndCount(metrics.GitFailedPullTime)).To(Equal(1))
+	})
+})
+
+var _ = Describe("test git pull time metrics", func() {
+	It("should observe the git_successful_pull_time metric for a successful a pull", func() {
+		metrics.GitSuccessfulPullTime.Reset()
+		metrics.GitFailedPullTime.Reset()
+
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchn
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscription()
+
+		Expect(promTestUtils.CollectAndCount(metrics.GitSuccessfulPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.GitFailedPullTime)).To(Equal(0))
+	})
+
+	It("should observe the git_failed_pull_time metric for a failed a pull", func() {
+		metrics.GitSuccessfulPullTime.Reset()
+		metrics.GitFailedPullTime.Reset()
+
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchnfail
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscription()
+
+		Expect(promTestUtils.CollectAndCount(metrics.GitSuccessfulPullTime)).To(Equal(0))
+		Expect(promTestUtils.CollectAndCount(metrics.GitFailedPullTime)).To(Equal(1))
+	})
+})
+
+var _ = Describe("should update subscription status", func() {
+	It("should update subscription status to subscribed", func() {
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchn
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscriptionWithRetries(10*time.Second, 1)
+
+		subitem.Subscription.Status.Phase = appv1.SubscriptionSubscribed
+	})
+
+	It("should update subscription status to subscribed", func() {
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchnfail
+		subitem.Subscription = githubsub
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subitem.doSubscriptionWithRetries(10*time.Second, 1)
+
+		subitem.Subscription.Status.Phase = appv1.SubscriptionFailed
+		By(fmt.Sprintf("Philip message %s", subitem.Subscription.Status.Message))
 	})
 })

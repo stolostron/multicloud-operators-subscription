@@ -42,7 +42,8 @@ type SubscriptionStatusList struct {
 
 // SubscriptionClusterStatusMap defines the status of packages in a cluster.
 type SubscriptionClusterStatusMap struct {
-	SubscriptionStatus []SubscriptionUnitStatus `json:"packages,omitempty"`
+	SubscriptionPackageStatus []SubscriptionUnitStatus  `json:"packages,omitempty"`
+	SubscriptionStatus        SubscriptionOverallStatus `json:"subscription,omitempty"`
 }
 
 // SubscriptionUnitStatus defines status of a package deployment.
@@ -54,6 +55,11 @@ type SubscriptionUnitStatus struct {
 	Phase          PackagePhase `json:"phase,omitempty"`
 	Message        string       `json:"message,omitempty"`
 	LastUpdateTime metav1.Time  `json:"lastUpdateTime"`
+}
+
+type SubscriptionOverallStatus struct {
+	Phase   SubscriptionPhase `json:"phase,omitempty"`
+	Message string            `json:"message,omitempty"`
 }
 
 // PackagePhase defines the phasing of a Package
@@ -68,6 +74,18 @@ const (
 	PackageDeployFailed PackagePhase = "Failed"
 	// PackagePropagationFailed means this package failed to propagate to the manage cluster
 	PackagePropagationFailed PackagePhase = "PropagationFailed"
+)
+
+// SubscriptionPhase defines the phase of the overall subscription
+type SubscriptionPhase string
+
+const (
+	// SubscriptionUnknown means the status of the subscription is unknown
+	SubscriptionUnknown SubscriptionPhase = ""
+	// SubscriptionDeployed means this subscription is deployed on the manage cluster
+	SubscriptionDeployed SubscriptionPhase = "Deployed"
+	// SubscriptionDeployFailed means this subscription failed to deploy on the manage cluster
+	SubscriptionDeployFailed SubscriptionPhase = "Failed"
 )
 
 type SubscriptionReportSummary struct {

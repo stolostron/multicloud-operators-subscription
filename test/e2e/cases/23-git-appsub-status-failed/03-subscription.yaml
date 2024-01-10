@@ -1,0 +1,14 @@
+apiVersion: apps.open-cluster-management.io/v1
+kind: Subscription
+metadata:
+  name: guestbook-failed
+  namespace: default
+  annotations:
+    apps.open-cluster-management.io/github-path: guestbook-failed
+    apps.open-cluster-management.io/github-branch: main    
+spec:
+  channel: default/git
+  placement:
+    placementRef:
+      kind: PlacementRule
+      name: nginx-pr

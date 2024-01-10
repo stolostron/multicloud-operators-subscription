@@ -257,10 +257,10 @@ func cleanup(synchronizer *KubeSynchronizer) {
 					klog.Infof("cannot find Subscription namespace: %s , name: %s , deleting resources in SubscriptionStatus",
 						nsn.Namespace, nsn.Name)
 
-					if len(appsubStatus.Statuses.SubscriptionStatus) > 0 {
+					if len(appsubStatus.Statuses.SubscriptionPackageStatus) > 0 {
 						foundErr := false
 
-						for _, unitStatus := range appsubStatus.Statuses.SubscriptionStatus {
+						for _, unitStatus := range appsubStatus.Statuses.SubscriptionPackageStatus {
 							if err = synchronizer.DeleteSingleSubscribedResource(nsn, unitStatus); err != nil {
 								klog.Error(err, "failed to delete resource")
 

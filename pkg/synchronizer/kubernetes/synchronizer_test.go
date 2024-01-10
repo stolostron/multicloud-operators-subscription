@@ -760,7 +760,7 @@ var _ = Describe("test cleanup of resources", func() {
 		defer k8sClient.Delete(context.TODO(), appSubStatus)
 
 		appSubStatus.Statuses = appSubStatusV1alpha1.SubscriptionClusterStatusMap{
-			SubscriptionStatus: []appSubStatusV1alpha1.SubscriptionUnitStatus{
+			SubscriptionPackageStatus: []appSubStatusV1alpha1.SubscriptionUnitStatus{
 				{
 					Name:           "configmap1",
 					Namespace:      "appsub-ns-1",

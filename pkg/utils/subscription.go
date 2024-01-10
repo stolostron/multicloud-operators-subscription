@@ -175,7 +175,7 @@ var SubscriptionPredicateFunctions = predicate.Funcs{
 		subOld := e.ObjectOld.(*appv1.Subscription)
 		subNew := e.ObjectNew.(*appv1.Subscription)
 
-		return IsSubscriptionResourceChanged(subOld, subNew)
+		return IsSubscriptionBasicChanged(subOld, subNew)
 	},
 }
 
@@ -616,6 +616,21 @@ func UpdateLastUpdateTime(clt client.Client, instance *appv1.Subscription) {
 	}
 
 	curSub.Status.LastUpdateTime = metav1.Now()
+
+	if err := clt.Status().Update(context.TODO(), curSub); err != nil {
+		klog.Warning("Failed to update LastUpdateTime", err)
+	}
+}
+
+func UpdateSubscriptionStatus(clt client.Client, subName, subNs string, phase appv1.SubscriptionPhase, reason string) {
+	curSub := &appv1.Subscription{}
+	if err := clt.Get(context.TODO(), types.NamespacedName{Name: subName, Namespace: subNs}, curSub); err != nil {
+		klog.Warning("Failed to get appsub to update LastUpdateTime", err)
+		return
+	}
+
+	curSub.Status.Phase = phase
+	curSub.Status.Reason = reason
 
 	if err := clt.Status().Update(context.TODO(), curSub); err != nil {
 		klog.Warning("Failed to update LastUpdateTime", err)

@@ -288,7 +288,8 @@ else
     echo "09-helm-missing-phase: FAILED: deployment kind is not in the subscription status output"
     exit 1
 fi
-if kubectl get subscriptionstatus.apps.open-cluster-management.io preinstall-hook -o yaml | grep "phase"; then
+pcount=$(kubectl get subscriptionstatus.apps.open-cluster-management.io preinstall-hook -o yaml | grep "phase" | wc -l)
+if [ "$pcount" -ne 1 ]; then
     echo "09-helm-missing-phase: FAILED: found phase in the subscription status output"
     exit 1
 else
@@ -723,3 +724,34 @@ fi
 kubectl delete -f test/e2e/cases/22-ansiblejob-tags/
 sleep 5
 echo "PASSED test case 22-ansiblejob-tags"
+
+### 23-git-appsub-status-failed
+echo "STARTING test case 23-git-appsub-status-failed"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/23-git-appsub-status-failed/
+sleep 20
+
+kubectl get subscriptions.apps.open-cluster-management.io -n default guestbook-failed -o yaml
+
+kubectl config use-context kind-cluster1
+
+phase=$(kubectl get subscriptionstatus.apps.open-cluster-management.io -n default guestbook-failed -o jsonpath={.statuses.subscription.phase})
+if [[ "$phase" == "Failed" ]]; then
+    echo "23-git-appsub-status-failed: found subscriptionstatus status phase Failed"
+else
+    echo "23-git-appsub-status-failed: FAILED: subscriptionstatus status phase Failed not found"
+    exit 1
+fi
+
+phase=$(kubectl get subscriptions.apps.open-cluster-management.io -n default guestbook-failed -o jsonpath={.status.phase})
+if [[ "$phase" == "Failed" ]]; then
+    echo "23-git-appsub-status-failed: found subscription status phase Failed"
+else
+    echo "23-git-appsub-status-failed: FAILED: subscription status phase Failed not found"
+    exit 1
+fi
+
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/23-git-appsub-status-failed/
+sleep 5
+echo "PASSED test case 23-git-appsub-status-failed"
