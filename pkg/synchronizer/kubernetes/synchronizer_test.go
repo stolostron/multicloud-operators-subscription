@@ -752,6 +752,14 @@ var _ = Describe("test cleanup of resources", func() {
 				Name:      "appsubstatus-1",
 				Namespace: "appsub-ns-1",
 			},
+			Statuses: appSubStatusV1alpha1.SubscriptionClusterStatusMap{
+				SubscriptionStatus: appSubStatusV1alpha1.SubscriptionOverallStatus{
+					Phase: appSubStatusV1alpha1.SubscriptionDeployed,
+					LastUpdateTime: metav1.Time{
+						Time: time.Now(),
+					},
+				},
+			},
 		}
 
 		Expect(k8sClient.Create(context.TODO(), appSubStatus)).NotTo(HaveOccurred())
@@ -774,6 +782,12 @@ var _ = Describe("test cleanup of resources", func() {
 					APIVersion:     "apps/v1",
 					Kind:           "Deployment",
 					LastUpdateTime: metav1.Now(),
+				},
+			},
+			SubscriptionStatus: appSubStatusV1alpha1.SubscriptionOverallStatus{
+				Phase: appSubStatusV1alpha1.SubscriptionDeployed,
+				LastUpdateTime: metav1.Time{
+					Time: time.Now(),
 				},
 			},
 		}

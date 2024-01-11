@@ -58,8 +58,9 @@ type SubscriptionUnitStatus struct {
 }
 
 type SubscriptionOverallStatus struct {
-	Phase   SubscriptionPhase `json:"phase,omitempty"`
-	Message string            `json:"message,omitempty"`
+	Phase          SubscriptionPhase `json:"phase,omitempty"`
+	Message        string            `json:"message,omitempty"`
+	LastUpdateTime metav1.Time       `json:"lastUpdateTime,omitempty"`
 }
 
 // PackagePhase defines the phasing of a Package

@@ -63,6 +63,12 @@ var (
 		},
 		Statuses: SubscriptionClusterStatusMap{
 			SubscriptionPackageStatus: []SubscriptionUnitStatus{*saStatus},
+			SubscriptionStatus: SubscriptionOverallStatus{
+				Phase: SubscriptionDeployed,
+				LastUpdateTime: metav1.Time{
+					Time: time.Now(),
+				},
+			},
 		},
 	}
 )
