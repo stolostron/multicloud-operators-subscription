@@ -173,7 +173,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			}
 		}
 
-		klog.V(2).Infof("Subscription unit statuses:%v", newUnitStatus)
+		klog.Infof("Subscription unit statuses:%v", newUnitStatus)
 
 		if !foundPkgStatus {
 			if appsub != nil {
@@ -283,19 +283,26 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 				return nil
 			}
 
-			klog.V(1).Infof("Update on managed cluster, appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+			klog.Infof("Update on managed cluster, appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
 
 			if appsub != nil {
 				sync.recordAppSubStatusEvents(appsub, "Update", newUnitStatus)
 			}
 
-			pkgstatus.Statuses.SubscriptionStatus = v1alpha1.SubscriptionOverallStatus{}
+			subStatusPhase := v1alpha1.SubscriptionDeployed
+			subStatusMessage := ""
+
 			if deployFailed {
-				pkgstatus.Statuses.SubscriptionStatus.Phase = v1alpha1.SubscriptionDeployFailed
-				pkgstatus.Statuses.SubscriptionStatus.Message = deployFailedMsg
-			} else {
-				pkgstatus.Statuses.SubscriptionStatus.Phase = v1alpha1.SubscriptionDeployed
-				pkgstatus.Statuses.SubscriptionStatus.Message = ""
+				subStatusPhase = v1alpha1.SubscriptionDeployFailed
+				subStatusMessage = deployFailedMsg
+			}
+
+			if subStatusPhase != pkgstatus.Statuses.SubscriptionStatus.Phase || subStatusMessage != pkgstatus.Statuses.SubscriptionStatus.Message {
+				pkgstatus.Statuses.SubscriptionStatus = v1alpha1.SubscriptionOverallStatus{
+					Phase:          subStatusPhase,
+					Message:        subStatusMessage,
+					LastUpdateTime: metaV1.Time{Time: time.Now()},
+				}
 			}
 
 			pkgstatus.Statuses.SubscriptionPackageStatus = newUnitStatus
@@ -440,12 +447,20 @@ func (sync *KubeSynchronizer) UpdateAppsubOverallStatus(appsub *appv1.Subscripti
 		}
 	}
 
+	subStatusPhase := v1alpha1.SubscriptionDeployed
+	subStatusMessage := ""
+
 	if deployFailed {
-		pkgstatus.Statuses.SubscriptionStatus.Phase = v1alpha1.SubscriptionDeployFailed
-		pkgstatus.Statuses.SubscriptionStatus.Message = message
-	} else {
-		pkgstatus.Statuses.SubscriptionStatus.Phase = v1alpha1.SubscriptionDeployed
-		pkgstatus.Statuses.SubscriptionStatus.Message = ""
+		subStatusPhase = v1alpha1.SubscriptionDeployFailed
+		subStatusMessage = message
+	}
+
+	if subStatusPhase != pkgstatus.Statuses.SubscriptionStatus.Phase || subStatusMessage != pkgstatus.Statuses.SubscriptionStatus.Message {
+		pkgstatus.Statuses.SubscriptionStatus = v1alpha1.SubscriptionOverallStatus{
+			Phase:          subStatusPhase,
+			Message:        subStatusMessage,
+			LastUpdateTime: metaV1.Time{Time: time.Now()},
+		}
 	}
 
 	if err := sync.LocalClient.Update(context.TODO(), pkgstatus); err != nil {
@@ -512,6 +527,8 @@ func buildAppSubStatus(statusName, statusNs, appsubName, appsubNs, cluster strin
 		pkgstatus.Statuses.SubscriptionStatus.Phase = v1alpha1.SubscriptionDeployed
 		pkgstatus.Statuses.SubscriptionStatus.Message = ""
 	}
+
+	pkgstatus.Statuses.SubscriptionStatus.LastUpdateTime = metaV1.Time{Time: time.Now()}
 
 	return pkgstatus
 }

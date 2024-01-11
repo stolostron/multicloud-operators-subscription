@@ -60,6 +60,9 @@ spec:
               type: array
             subscription:
               properties:
+                lastUpdateTime:
+                  format: date-time
+                  type: string
                 message:
                   type: string
                 phase:
@@ -134,6 +137,9 @@ spec:
                 type: array
               subscription:
                 properties:
+                  lastUpdateTime:
+                    format: date-time
+                    type: string                
                   message:
                     type: string
                   phase:
