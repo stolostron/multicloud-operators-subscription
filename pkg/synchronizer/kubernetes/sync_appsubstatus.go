@@ -426,7 +426,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 func (sync *KubeSynchronizer) UpdateAppsubOverallStatus(appsub *appv1.Subscription,
 	deployFailed bool, message string) error {
-	pkgstatus, err := GetAppsubReportStatus(sync.LocalClient, appsub.Namespace, appsub.Name)
+	pkgstatus, err := GetAppsubReportStatus(sync.LocalClient, sync.hub, sync.standalone, appsub.Namespace, appsub.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Create new appsubstatus
@@ -686,7 +686,13 @@ func deleteAppsubReportResult(rClient client.Client, appsubNs, appsubName, clust
 	return nil
 }
 
-func GetAppsubReportStatus(lclient client.Client, appsubNs, appsubName string) (*v1alpha1.SubscriptionStatus, error) {
+func GetAppsubReportStatus(lclient client.Client, hub, standalone bool, appsubNs, appsubName string) (*v1alpha1.SubscriptionStatus, error) {
+	// Handle appsubstatus on local-cluster
+	appsubStatusName := appsubName
+	if hub && !standalone {
+		appsubStatusName = strings.TrimSuffix(appsubName, "-local")
+	}
+
 	pkgstatus := &v1alpha1.SubscriptionStatus{
 		TypeMeta: metaV1.TypeMeta{
 			Kind:       "SubscriptionStatus",
@@ -695,7 +701,7 @@ func GetAppsubReportStatus(lclient client.Client, appsubNs, appsubName string) (
 	}
 
 	if err := lclient.Get(context.TODO(),
-		client.ObjectKey{Name: appsubName, Namespace: appsubNs}, pkgstatus); err != nil {
+		client.ObjectKey{Name: appsubStatusName, Namespace: appsubNs}, pkgstatus); err != nil {
 		return nil, err
 	}
 

@@ -256,7 +256,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 }
 
 func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscription, resources []ResourceUnit,
-	allowlist, denyList map[string]map[string]string, isAdmin bool) error {
+	allowlist, denyList map[string]map[string]string, isAdmin, failOnStatusErr bool) error {
 	hostSub := types.NamespacedName{
 		Namespace: appsub.GetNamespace(),
 		Name:      appsub.GetName(),
@@ -365,6 +365,21 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 		metrics.LocalDeploymentSuccessfulPullTime.
 			WithLabelValues(appsub.Namespace, appsub.Name).
 			Observe(float64(endTime - startTime))
+	}
+
+	if failOnStatusErr {
+		appsubstatus, err := GetAppsubReportStatus(sync.LocalClient, sync.hub, sync.standalone, hostSub.Namespace, hostSub.Name)
+		if err != nil {
+			klog.Info("failed to get subscription status for %s/%s, err:", hostSub.Namespace, hostSub.Name, err.Error())
+
+			return err
+		}
+
+		if appsubstatus.Statuses.SubscriptionStatus.Phase == appSubStatusV1alpha1.SubscriptionDeployFailed {
+			klog.Info("subscription status has failed phase, return error")
+
+			return fmt.Errorf(appsubstatus.Statuses.SubscriptionStatus.Message)
+		}
 	}
 
 	return nil

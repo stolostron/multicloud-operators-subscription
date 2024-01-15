@@ -42,7 +42,7 @@ type SyncSource interface {
 	GetRemoteNonCachedClient() client.Client
 	IsResourceNamespaced(*unstructured.Unstructured) bool
 	ProcessSubResources(*appv1.Subscription, []kubesynchronizer.ResourceUnit,
-		map[string]map[string]string, map[string]map[string]string, bool) error
+		map[string]map[string]string, map[string]map[string]string, bool, bool) error
 	PurgeAllSubscribedResources(*appv1.Subscription) error
 	UpdateAppsubOverallStatus(*appv1.Subscription, bool, string) error
 }

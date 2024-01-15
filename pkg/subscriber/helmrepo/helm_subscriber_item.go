@@ -723,7 +723,7 @@ func (hrsi *SubscriberItem) manageHelmCR(indexFile *repo.IndexFile) error {
 				hrsi.Subscription.Namespace, hrsi.Subscription.Name)
 		}
 
-		if err := hrsi.synchronizer.ProcessSubResources(hrsi.Subscription, resources, nil, nil, false); err != nil {
+		if err := hrsi.synchronizer.ProcessSubResources(hrsi.Subscription, resources, nil, nil, false, false); err != nil {
 			klog.Warningf("failed to put helm manifest to cache (will retry), err: %v", err)
 			doErr = err
 		}

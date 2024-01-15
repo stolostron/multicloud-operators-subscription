@@ -37,7 +37,6 @@ import (
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
@@ -429,25 +428,12 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
 
 	if err := ghsi.synchronizer.ProcessSubResources(ghsi.Subscription, ghsi.resources,
-		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin); err != nil {
+		allowedGroupResources, deniedGroupResources, ghsi.clusterAdmin, true); err != nil {
 		klog.Error(err)
 
 		ghsi.successful = false
 
 		return err
-	}
-
-	// Check appsubstatus for errors
-	appsubstatus, err := kubesynchronizer.GetAppsubReportStatus(ghsi.synchronizer.GetLocalClient(),
-		ghsi.Subscription.Namespace, ghsi.Subscription.Name)
-	if err != nil {
-		return err
-	}
-
-	if appsubstatus.Statuses.SubscriptionStatus.Phase == v1alpha1.SubscriptionDeployFailed {
-		klog.Info("subscription status has failed phase, return error")
-
-		return fmt.Errorf(appsubstatus.Statuses.SubscriptionStatus.Message)
 	}
 
 	ghsi.commitID = commitID

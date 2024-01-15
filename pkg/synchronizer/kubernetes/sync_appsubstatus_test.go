@@ -595,7 +595,7 @@ var _ = Describe("test create/update/delete appsub status for standalone and man
 			err := s.UpdateAppsubOverallStatus(statussub, deployFailed, reason)
 			Expect(err).NotTo(HaveOccurred())
 
-			pkgstatus, err := GetAppsubReportStatus(k8sClient, statussub.Namespace, statussub.Name)
+			pkgstatus, err := GetAppsubReportStatus(k8sClient, false, false, statussub.Namespace, statussub.Name)
 			Expect(err).ToNot(HaveOccurred())
 
 			phase := appSubStatusV1alpha1.SubscriptionDeployed
