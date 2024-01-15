@@ -479,7 +479,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
@@ -513,7 +513,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(BeZero())
@@ -547,7 +547,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
@@ -580,7 +580,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
@@ -613,7 +613,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{{Resource: resource, Gvk: resource.GetObjectKind().GroupVersionKind()}}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
@@ -630,7 +630,7 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 		resourceList := []ResourceUnit{}
 		allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*appsub)
 
-		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false)
+		err = sync.ProcessSubResources(appsub, resourceList, allowedGroupResources, deniedGroupResources, false, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(BeZero())
