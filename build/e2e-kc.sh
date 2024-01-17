@@ -6,6 +6,28 @@
 set -o nounset
 set -o pipefail
 
+waitForCMD() {
+    eval CMD="$1"
+    eval WAIT_MSG="$2"
+
+    MINUTE=0
+    while [ true ]; do
+        # Wait up to 5min
+        if [ $MINUTE -gt 300 ]; then
+            echo "Timeout waiting for ${CMD}"
+            exit 1
+        fi
+        echo ${CMD}
+        eval ${CMD}
+        if [ $? -eq 0 ]; then
+            break
+        fi
+        echo "* STATUS: ${WAIT_MSG}. Retry in 10 sec"
+        sleep 10
+        (( MINUTE = MINUTE + 10 ))
+    done
+}
+
 ### Setup
 echo "SETUP ensure app addon is available"
 kubectl config use-context kind-cluster1
@@ -335,11 +357,17 @@ else
 fi
 sleep 30
 kubectl config use-context kind-cluster1
+
+RUN_CMD="kubectl get subscriptionstatus.apps.open-cluster-management.io -n default ingress-appsub"
+WAIT_MSG="The appsubstatus is not ready yet"
+waitForCMD "\${RUN_CMD}" "\${WAIT_MSG}"
+
 if kubectl get subscriptionstatus.apps.open-cluster-management.io -n default ingress-appsub -o yaml | grep InstallError; then
     echo "11-helm-hub-dryrun: found InstallError in subscription status output"
 else
     echo "11-helm-hub-dryrun: FAILED: InstallError is not in the subscription status output"
     kubectl get appsub -n default ingress-appsub -o yaml
+    kubectl get subscriptionstatus.apps.open-cluster-management.io -n default ingress-appsub -o yaml
     kubectl get pods -n open-cluster-management-agent-addon  -l component=application-manager
     kubectl describe pods -n open-cluster-management-agent-addon  -l component=application-manager
     kubectl logs -n open-cluster-management-agent-addon  -l component=application-manager

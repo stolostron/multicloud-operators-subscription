@@ -62,7 +62,7 @@ import (
 const (
 	finalizer = "uninstall-helm-release"
 
-	defaultMaxConcurrent = 1
+	defaultMaxConcurrent = 2
 )
 
 // Add creates a new HelmRelease Controller and adds it to the Manager. The Manager will set fields on the Controller
