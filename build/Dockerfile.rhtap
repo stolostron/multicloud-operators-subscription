@@ -1,5 +1,5 @@
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.20 AS plugin-builder
-ENV POLICY_GENERATOR_TAG=v1.12.2
+ENV POLICY_GENERATOR_TAG=release-2.9
 
 WORKDIR go/src/github.com/open-cluster-management/multicloud-operators-subscription
 COPY . .
@@ -7,7 +7,7 @@ RUN make -f Makefile build
 
 WORKDIR /policy-generator
 RUN git clone --branch=${POLICY_GENERATOR_TAG} --depth=1 \
-        https://github.com/open-cluster-management-io/policy-generator-plugin
+        https://github.com/stolostron/policy-generator-plugin
 RUN cd "/policy-generator/policy-generator-plugin" && \
         make build-binary && \
         mv "PolicyGenerator" "/policy-generator/"
