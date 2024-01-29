@@ -263,7 +263,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 	options, err := getConnectionOptions(cloneOptions, true)
 
 	if err != nil {
-		klog.Error("Failed to get Git clone options with the primary channel. Trying the secondary channel.")
+		klog.Errorf("Failed to get Git clone options with the primary channel. Trying the secondary channel. err: %v", err)
 
 		usingPrimary = false
 	}
@@ -273,11 +273,11 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 	if err != nil {
 		if !usingPrimary {
 			// we could not get both primary and secondary Git connection options. return error
-			klog.Error("Failed to get Git clone options with the secondary channel.")
+			klog.Errorf("Failed to get Git clone options with the secondary channel. err: %v", err)
 			return "", err
 		}
 
-		klog.Warning("Failed to get Git clone options with the secondary channel.")
+		klog.Warning("Failed to get Git clone options with the secondary channel. err: %v", err)
 	}
 
 	// we could not get the connection options with the primary channel but we got it with the secondary channel. Use it instead
@@ -285,7 +285,8 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 		if secondaryOptions == nil {
 			// if trying the secondary connection option but nothing there, return error
 			// at this point, we have no Git connection options
-			return "", errors.New("failed to build git connection options")
+			klog.Error("failed to build secondary git connection options")
+			return "", errors.New("failed to build secondary git connection options")
 		}
 
 		options = secondaryOptions
@@ -320,6 +321,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 				return "", errors.New("Failed to clone git: " + secondaryOptions.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 			}
 		} else {
+			klog.Errorf("failed to clone secondary git channel. err: %v", err)
 			return "", errors.New("Failed to clone git: " + options.URL + " branch: " + cloneOptions.Branch.String() + Error + err.Error())
 		}
 	}
