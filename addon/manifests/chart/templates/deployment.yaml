@@ -63,7 +63,7 @@ spec:
           periodSeconds: 15
         securityContext:
           privileged: false
-          readOnlyRootFilesystem: false
+          readOnlyRootFilesystem: true
           allowPrivilegeEscalation: false
           runAsNonRoot: true
           runAsUser: 1000
@@ -81,10 +81,14 @@ spec:
         volumeMounts:
           - name: klusterlet-config
             mountPath: /var/run/klusterlet
+          - mountPath: /tmp
+            name: tmp
       volumes:
         - name: klusterlet-config
           secret:
             secretName: {{ .Values.hubKubeConfigSecret }}
+        - emptyDir: {}
+          name: tmp
       {{- if .Values.global.imagePullSecret }}
       imagePullSecrets:
       - name: "{{ .Values.global.imagePullSecret }}"
