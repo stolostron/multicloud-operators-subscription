@@ -538,7 +538,16 @@ func FilterCharts(sub *appv1.Subscription, indexFile *repo.IndexFile) error {
 func takeLatestVersion(indexFile *repo.IndexFile) (err error) {
 	indexFile.SortEntries()
 
-	for k := range indexFile.Entries {
+	for k, chartVersions := range indexFile.Entries {
+		if len(chartVersions) == 1 {
+			// Don't call helm Get to pick up the latest version when there is only one version for the given chart.
+			// This is to avoid the error if there is only one version for the chart and it is defined as `3.0.0-stable`,
+			// the helm Get function fails to identify the version pattern with error.
+			klog.V(4).Infof("only one version is found, no need to helm Get latest version, chart name: %s, version: %s",
+				k, chartVersions[0].Version)
+			continue
+		}
+
 		//Get return the latest version when version is empty but
 		//there is a bug in the masterminds semver used by helm
 		// "*" constraint is not working properly
