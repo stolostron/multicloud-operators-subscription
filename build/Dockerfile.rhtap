@@ -25,7 +25,8 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     USER_UID=1001 \
     USER_NAME=multicluster-operators-subscription \
     ZONEINFO=/usr/share/timezone \
-    KUSTOMIZE_PLUGIN_HOME=/etc/kustomize/plugin
+    KUSTOMIZE_PLUGIN_HOME=/etc/kustomize/plugin \
+    POLICY_GEN_ENABLE_HELM=true
 
 # install operator binary
 COPY --from=plugin-builder go/src/github.com/open-cluster-management/multicloud-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
