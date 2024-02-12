@@ -23,7 +23,6 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -53,7 +52,6 @@ import (
 
 // GetHelmRepoClient returns an *http.client to access the helm repo
 func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skipCertVerify bool) (rest.HTTPClient, error) {
-	/* #nosec G402 */
 	transport := &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
@@ -67,7 +65,7 @@ func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skip
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: skipCertVerify, // #nosec G402 InsecureSkipVerify conditionally
-			MinVersion:         appsubv1.TLSMinVersionInt,
+			MinVersion:         appsubv1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
 		},
 	}
 
@@ -349,7 +347,7 @@ func getKnownHostFromURL(sshURL string, filepath string) error {
 
 	klog.Info("SSH host key: " + string(stdout))
 
-	if err := ioutil.WriteFile(filepath, stdout, 0600); err != nil {
+	if err := os.WriteFile(filepath, stdout, 0600); err != nil {
 		klog.Error("failed to write known_hosts file: ", err)
 		return err
 	}
@@ -405,7 +403,7 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerify bool) error {
 	installProtocol := false
 
-	// #nosec G402
+	// #nosec G402 -- TLS 1.2 is required for FIPS
 	clientConfig := &tls.Config{MinVersion: appsubv1.TLSMinVersionInt}
 
 	// skip TLS certificate verification for Git servers with custom or self-signed certs
@@ -451,7 +449,6 @@ func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerif
 		klog.Info("HTTPS_PROXY = " + os.Getenv("HTTPS_PROXY"))
 
 		transportConfig := &http.Transport{
-			/* #nosec G402 */
 			TLSClientConfig: clientConfig,
 		}
 
@@ -477,7 +474,6 @@ func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerif
 		}
 
 		customClient := &http.Client{
-			/* #nosec G402 */
 			Transport: transportConfig,
 
 			// 15 second timeout

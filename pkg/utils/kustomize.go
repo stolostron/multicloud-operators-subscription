@@ -17,7 +17,6 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -148,7 +147,7 @@ func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
 func mergeKustomization(kustomizeYamlFilePath string, override map[string]interface{}) error {
 	var master map[string]interface{}
 
-	bs, err := ioutil.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
+	bs, err := os.ReadFile(kustomizeYamlFilePath) // #nosec G304 constructed filepath.Join(kustomizeDir, "kustomization.yaml")
 
 	if err != nil {
 		klog.Error("Failed to read file ", kustomizeYamlFilePath, " err: ", err)
@@ -171,7 +170,7 @@ func mergeKustomization(kustomizeYamlFilePath string, override map[string]interf
 		return err
 	}
 
-	if err := ioutil.WriteFile(kustomizeYamlFilePath, bs, 0600); err != nil {
+	if err := os.WriteFile(kustomizeYamlFilePath, bs, 0600); err != nil {
 		klog.Error("Failed to overwrite kustomize file ", " err: ", err)
 		return err
 	}

@@ -19,7 +19,6 @@ import (
 	"encoding/json"
 	e "errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -1808,7 +1807,7 @@ func TestGetClientConfigFromKubeConfig(t *testing.T) {
 func TestGetCheckSum(t *testing.T) {
 	g := NewGomegaWithT(t)
 
-	tmpFile, err := ioutil.TempFile("", "temptest")
+	tmpFile, err := os.CreateTemp("", "temptest")
 	g.Expect(err).ShouldNot(HaveOccurred())
 
 	_, err = tmpFile.WriteString("fake kubeconfig data")

@@ -20,7 +20,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/pem"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -164,7 +163,7 @@ func TestDownloadChartGitHub(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -194,7 +193,7 @@ func TestDownloadChartGit(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -224,7 +223,7 @@ func TestDownloadChartHelmRepo(t *testing.T) {
 			Digest:    "long-fake-digest-that-is-very-long",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -257,7 +256,7 @@ func TestDownloadChartHelmRepoContainsInvalidURL(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -286,7 +285,7 @@ func TestDownloadChartHelmRepoContainsInvalidURL2(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -314,7 +313,7 @@ func TestDownloadChartHelmRepoAllInvalidURLs(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -341,7 +340,7 @@ func TestDownloadChartFromGitHub(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -371,7 +370,7 @@ func TestDownloadChartFromGit(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -401,7 +400,7 @@ func TestDownloadChartFromHelmRepoHTTP(t *testing.T) {
 			Digest:    "short",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -434,7 +433,7 @@ func TestDownloadChartFromHelmRepoHTTPConfigMap(t *testing.T) {
 			Digest:    "short",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -470,7 +469,7 @@ func TestDownloadChartFromHelmRepoHTTPNoDigest(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -502,7 +501,7 @@ func TestDownloadChartFromHelmRepoLocal(t *testing.T) {
 			Digest:    "digest",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -533,7 +532,7 @@ func TestDownloadChartFromHelmRepoLocalNoDigest(t *testing.T) {
 			ChartName: "subscription-release-test-1",
 		},
 	}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -551,7 +550,7 @@ func TestDownloadChartFromHelmRepoLocalNoDigest(t *testing.T) {
 func TestDownloadGitRepo(t *testing.T) {
 	httpURLs := []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}
 	sshURLs := []string{"ssh://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"}
-	dir, err := ioutil.TempDir("/tmp", "charts")
+	dir, err := os.MkdirTemp("/tmp", "charts")
 	assert.NoError(t, err)
 
 	defer os.RemoveAll(dir)
@@ -653,7 +652,7 @@ tYny6pJJNYEhf7HPmb2O3zBuuqsCC0O2SHrgFYH350zA4To9Ez5nifkZ0CBx0pn9jWn02V
 }
 
 func TestGetKnownHostFromURL(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "temptest")
+	tmpfile, err := os.CreateTemp("", "temptest")
 	if err != nil {
 		t.Error("error creating temp file")
 	}

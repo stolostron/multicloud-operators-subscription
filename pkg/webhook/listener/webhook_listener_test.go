@@ -440,7 +440,7 @@ func TestServiceCreation(t *testing.T) {
 
 	os.Setenv("DEPLOYMENT_LABEL", "test-deployment")
 
-	err = createWebhookListnerService(c, "default")
+	err = createWebhookListenerService(c, "default")
 	// It will fail because the deployment resource for the owner reference is not found in the cluster.
 	g.Expect(err).To(gomega.HaveOccurred())
 }

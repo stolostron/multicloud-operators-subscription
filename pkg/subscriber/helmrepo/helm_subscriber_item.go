@@ -19,7 +19,7 @@ import (
 	"crypto/sha1" // #nosec G505 Used only to generate random value to be used to generate hash string
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
 	"strconv"
@@ -448,10 +448,9 @@ func getHelmRepoClient(chnCfg *corev1.ConfigMap, insecureSkipVerify bool) (*http
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		/* #nosec G402 */
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureSkipVerify, // #nosec G402 InsecureSkipVerify optionally
-			MinVersion:         appv1.TLSMinVersionInt,
+			InsecureSkipVerify: insecureSkipVerify,     // #nosec G402 InsecureSkipVerify optionally
+			MinVersion:         appv1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
 		},
 	}
 
@@ -525,7 +524,7 @@ func getHelmRepoIndex(client rest.HTTPClient, sub *appv1.Subscription,
 
 	klog.V(5).Info("Get succeeded: ", cleanRepoURL)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		klog.Error(err, "Unable to read body: ", cleanRepoURL)
 

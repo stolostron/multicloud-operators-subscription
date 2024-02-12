@@ -16,7 +16,6 @@ package subscription
 
 import (
 	"context"
-	"io/ioutil"
 	"os"
 	"testing"
 	"time"
@@ -73,7 +72,7 @@ func TestLeaseReconcile(t *testing.T) {
 	addontNs, _ := utils.GetComponentNamespace()
 	pod.SetNamespace(addontNs)
 
-	tmpFile, err := ioutil.TempFile("", "temptest")
+	tmpFile, err := os.CreateTemp("", "temptest")
 	g.Expect(err).ShouldNot(gomega.HaveOccurred())
 
 	_, err = tmpFile.WriteString("fake kubeconfig data")

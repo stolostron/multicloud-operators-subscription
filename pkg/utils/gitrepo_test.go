@@ -19,7 +19,6 @@ import (
 	"crypto/tls"
 	"encoding/pem"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -290,7 +289,7 @@ func TestParseMultiDocYAML(t *testing.T) {
 	// This tests that a multi document YAML can be parsed properly
 	// and handle the --- delimiter correctly
 	// The test file contains --- characters in a resource and delimeters --- with trailing spaces
-	content, err := ioutil.ReadFile("../../test/github/multiresource/multiresource.yaml")
+	content, err := os.ReadFile("../../test/github/multiresource/multiresource.yaml")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	items := ParseYAML(content)
@@ -1054,7 +1053,7 @@ func TestSkipHooksOnManaged(t *testing.T) {
 }
 
 func TestGetKnownHostFromURL(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "temptest")
+	tmpfile, err := os.CreateTemp("", "temptest")
 	if err != nil {
 		t.Error("error creating temp file")
 	}
@@ -1197,7 +1196,7 @@ tYny6pJJNYEhf7HPmb2O3zBuuqsCC0O2SHrgFYH350zA4To9Ez5nifkZ0CBx0pn9jWn02V
 	}
 
 	// Create Temp directory
-	tempDir, err := ioutil.TempDir("", "gitrepo")
+	tempDir, err := os.MkdirTemp("", "gitrepo")
 	if err != nil {
 		t.Error(err, " unable to create temp dir to clone repo")
 	}

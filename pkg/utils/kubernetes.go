@@ -17,7 +17,7 @@ package utils
 import (
 	"crypto/sha256"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -62,7 +62,7 @@ func ConvertLabels(labelSelector *metav1.LabelSelector) (labels.Selector, error)
 }
 
 func GetComponentNamespace() (string, error) {
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		return "open-cluster-management-agent-addon", err
 	}
@@ -72,7 +72,7 @@ func GetComponentNamespace() (string, error) {
 
 // GetCheckSum generates a checksum of a kube config file
 func GetCheckSum(kubeconfigfile string) ([32]byte, error) {
-	content, err := ioutil.ReadFile(filepath.Clean(kubeconfigfile))
+	content, err := os.ReadFile(filepath.Clean(kubeconfigfile))
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("read %s failed, %w", kubeconfigfile, err)
 	}
