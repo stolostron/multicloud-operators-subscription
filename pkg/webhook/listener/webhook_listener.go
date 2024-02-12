@@ -18,7 +18,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -114,12 +113,13 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 	if listener.TLSKeyFile != "" && listener.TLSCrtFile != "" {
 		klog.Info("Starting the WebHook listener on port 8443 with TLS key and cert files: " + listener.TLSKeyFile + " " + listener.TLSCrtFile)
 
-		// #nosec G402
 		s := &http.Server{
 			Addr:              ":8443",
 			Handler:           mux,
 			ReadHeaderTimeout: 32 * time.Second,
-			TLSConfig:         &tls.Config{MinVersion: appv1alpha1.TLSMinVersionInt},
+			TLSConfig: &tls.Config{
+				MinVersion: appv1alpha1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
+			},
 		}
 
 		klog.Fatal(s.ListenAndServeTLS(listener.TLSCrtFile, listener.TLSKeyFile))
@@ -204,7 +204,7 @@ func CreateWebhookListener(config,
 		}
 
 		// Create the webhook listener service only when the subscription controller runs in hub mode.
-		err = createWebhookListnerService(l.LocalClient, namespace)
+		err = createWebhookListenerService(l.LocalClient, namespace)
 
 		if err != nil {
 			klog.Error("Failed to create a service for Git webhook listener. error: ", err)
@@ -215,7 +215,7 @@ func CreateWebhookListener(config,
 	return l, err
 }
 
-func createWebhookListnerService(client client.Client, namespace string) error {
+func createWebhookListenerService(client client.Client, namespace string) error {
 	var theServiceKey = types.NamespacedName{
 		Name:      serviceName,
 		Namespace: namespace,
@@ -225,7 +225,7 @@ func createWebhookListnerService(client client.Client, namespace string) error {
 
 	if err := client.Get(context.TODO(), theServiceKey, service); err != nil {
 		if errors.IsNotFound(err) {
-			service, err := webhookListnerService(client, namespace)
+			service, err := webhookListenerService(client, namespace)
 
 			if err != nil {
 				return err
@@ -235,7 +235,7 @@ func createWebhookListnerService(client client.Client, namespace string) error {
 				return err
 			}
 
-			klog.Info("Git webhook listner service created.")
+			klog.Info("Git webhook listener service created.")
 		} else {
 			return err
 		}
@@ -244,7 +244,7 @@ func createWebhookListnerService(client client.Client, namespace string) error {
 	return nil
 }
 
-func webhookListnerService(client client.Client, namespace string) (*corev1.Service, error) {
+func webhookListenerService(client client.Client, namespace string) (*corev1.Service, error) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      serviceName,
@@ -380,7 +380,7 @@ func (listener *WebhookListener) updateSubscription(sub appv1alpha1.Subscription
 }
 
 func getOperatorNamespace() (string, error) {
-	nsBytes, err := ioutil.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
+	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
 	if err != nil {
 		if os.IsNotExist(err) {
 			return "", fmt.Errorf("namespace not found for current environment")

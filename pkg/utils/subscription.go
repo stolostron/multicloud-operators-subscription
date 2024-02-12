@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -1347,7 +1346,7 @@ func GetClientConfigFromKubeConfig(kubeconfigFile string) (*rest.Config, error) 
 }
 
 func getClientConfig(kubeConfigFile string) (*rest.Config, error) {
-	kubeConfigBytes, err := ioutil.ReadFile(filepath.Clean(kubeConfigFile))
+	kubeConfigBytes, err := os.ReadFile(filepath.Clean(kubeConfigFile))
 	if err != nil {
 		return nil, err
 	}

@@ -16,7 +16,7 @@ package mcmhub
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -227,7 +227,7 @@ func (r *ReconcileSubscription) subscribeResources(
 	rscFiles []string, objRefMap map[v1.ObjectReference]*v1.ObjectReference) error {
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)

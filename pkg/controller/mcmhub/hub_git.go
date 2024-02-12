@@ -17,7 +17,6 @@ package mcmhub
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -699,7 +698,7 @@ func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger 
 	jobs := []ansiblejob.AnsibleJob{}
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
 			return []ansiblejob.AnsibleJob{}, err

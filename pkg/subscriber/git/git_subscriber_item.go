@@ -18,7 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -519,7 +519,7 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := ioutil.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)

@@ -17,7 +17,7 @@ package aws
 import (
 	"bytes"
 	"context"
-	"io/ioutil"
+	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -258,7 +258,7 @@ func (h *Handler) Get(bucket, name string) (DeployableObject, error) {
 
 	generateName := resp.Metadata[DployableMateGenerateNameKey]
 	version := resp.Metadata[DeployableMetaVersionKey]
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 
 	if err != nil {
 		klog.Error("Failed to parse Get request. error: ", err)

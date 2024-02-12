@@ -17,7 +17,7 @@ package listener
 import (
 	"context"
 	"errors"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -168,14 +168,14 @@ func (listener *WebhookListener) ParseRequest(r *http.Request) (body []byte, sig
 
 	switch contentType := r.Header.Get("Content-Type"); contentType {
 	case "application/json":
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
+		if body, err = io.ReadAll(r.Body); err != nil {
 			klog.Error("Failed to read the request body. error: ", err)
 			return nil, "", nil, err
 		}
 
 		payload = body //the JSON payload
 	case "application/x-www-form-urlencoded":
-		if body, err = ioutil.ReadAll(r.Body); err != nil {
+		if body, err = io.ReadAll(r.Body); err != nil {
 			klog.Error("Failed to read the request body. error: ", err)
 			return nil, "", nil, err
 		}
