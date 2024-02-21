@@ -935,9 +935,12 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 		}
 	}
 
-	// If subscription has cluster-admin:true and propagated from hub and cannot find the webhook, we know we are
-	// on the managed cluster so trust the annotations to decide that the subscription is from subscription-admin.
-	// But the subscription can also be propagated to the self-managed hub cluster.
+	// When the appsub has hosting-subscription annotation, the cluster-admin: true annotation is always respected, including 3 cases:
+	// 1: the appsub is on the managed cluster propagated by a hub appsub, there is no ocm-mutating-webhook found in the current cluster
+	// 2: the appsub is on the hub containing -local name suffix, the appsub is propagated by a hub appsub.
+	// 3: the appsub is on the hub not containing -local name suffix, the appsub is propagated by a hub sub of sub.
+	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
+
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
 		if !doesWebhookExist || // not on the hub cluster
 			(doesWebhookExist && strings.HasSuffix(sub.GetName(), "-local")) { // on the hub cluster and the subscription has -local suffix
@@ -946,6 +949,12 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 					"Role was elevated to cluster admin for subscription "+sub.Name, nil)
 			}
 
+			isClusterAdmin = true
+		} else if isHubSubOfHubSub { // hub appsub of a hub appsub
+			if eventRecorder != nil {
+				eventRecorder.RecordEvent(sub, "RoleElevation",
+					"Role was elevated to cluster admin for hub subscription of hub subscription "+sub.Name, nil)
+			}
 			isClusterAdmin = true
 		}
 	} else if isUserSubAdmin {
