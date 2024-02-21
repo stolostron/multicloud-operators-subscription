@@ -647,6 +647,9 @@ func TestIsClusterAdminLocal(t *testing.T) {
 
 	// The mutation webhook does not exist.
 
+	// Don't specify hosting-subscription annotation
+	// Don't specify cluster-admin annotation
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML := `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -663,6 +666,9 @@ spec:
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
+	// specify hosting-subscription annotation
+	// Don't specify cluster-admin annotation
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -681,6 +687,9 @@ spec:
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
+	// specify hosting-subscription annotation
+	// specify cluster-admin annotation to be false
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -700,6 +709,9 @@ spec:
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
+	// specify hosting-subscription annotation
+	// specify cluster-admin annotation to be true
+	// In this case, IsClusterAdmin is expected to return true
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -719,6 +731,9 @@ spec:
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 
+	// Don't specify hosting-subscription annotation
+	// specify cluster-admin annotation to be true
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -736,7 +751,10 @@ spec:
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
-
+	// specify ocm-mutating-webhook webhook to indicate the appsub is on hub
+	// specify hosting-subscription annotation
+	// specify cluster-admin annotation to be true
+	// In this case, IsClusterAdmin is expected to return true
 	webhookYAML := `apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -781,7 +799,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
 }
 
 func TestIsClusterAdminRemote(t *testing.T) {
