@@ -1,9 +1,9 @@
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.20 AS plugin-builder
 ENV POLICY_GENERATOR_TAG=release-2.10
 
-WORKDIR /go/src/github.com/open-cluster-management/multicloud-operators-subscription
+WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
-RUN make -f Makefile build
+RUN make -f Makefile.prow build
 
 WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.11.1
 RUN CGO_ENABLED=1 make build
@@ -32,10 +32,10 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
     POLICY_GEN_ENABLE_HELM=true
 
 # install operator binary
-COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
-COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud-operators-subscription/build/_output/bin/multicluster-operators-placementrule /usr/local/bin/
-COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin/
-COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud-operators-subscription/build/_output/bin/appsubsummary /usr/local/bin/
+COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-placementrule /usr/local/bin/
+COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin/
+COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/appsubsummary /usr/local/bin/
 
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
@@ -44,7 +44,7 @@ COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.11.1/bin/helm /usr/loc
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
-     
+
 ENTRYPOINT ["/usr/local/bin/entrypoint"]
 
 USER ${USER_UID}
