@@ -3,15 +3,21 @@ ENV POLICY_GENERATOR_TAG=release-2.10
 
 WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
-RUN make -f Makefile.prow build
+RUN rm -fr vendor && \
+        go mod vendor && \
+        make -f Makefile.prow build
 
 WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.11.1
-RUN CGO_ENABLED=1 make build
+RUN CGO_ENABLED=1 rm -fr vendor && \
+        go mod vendor && \
+        make build
 
 WORKDIR /policy-generator
 RUN git clone --branch=${POLICY_GENERATOR_TAG} --depth=1 \
         https://github.com/stolostron/policy-generator-plugin
 RUN cd "/policy-generator/policy-generator-plugin" && \
+        rm -fr vendor && \
+        go mod vendor && \
         make build-binary && \
         mv "PolicyGenerator" "/policy-generator/"
 
