@@ -203,7 +203,6 @@ spec:
                         type: object
                     type: object
                   version:
-                    pattern: ([0-9]+)((\.[0-9]+)(\.[0-9]+)|(\.[0-9]+)?(\.[xX]))$
                     type: string
                 type: object
               packageOverrides:
