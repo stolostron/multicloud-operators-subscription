@@ -17,6 +17,7 @@ package spoketoken
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -25,14 +26,18 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
@@ -43,6 +48,8 @@ const (
 	secretSuffix             = "-cluster-secret"
 	requeuAfter              = 5
 	infrastructureConfigName = "cluster"
+	appAddonNS               = "open-cluster-management-agent-addon"
+	appAddonName             = "application-manager"
 )
 
 // Add creates a new agent token controller and adds it to the Manager if standalone is false.
@@ -74,6 +81,26 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, syncid *types.N
 	return rec
 }
 
+type applicationManagerSecretMapper struct {
+	client.Client
+}
+
+func (mapper *applicationManagerSecretMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+	var requests []reconcile.Request
+
+	// reconcile open-cluster-management-agent-addon/application-manager SA if its associated secret changes
+	requests = append(requests, reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Namespace: appAddonNS,
+			Name:      appAddonName,
+		},
+	})
+
+	klog.Infof("app addon SA secret changed")
+
+	return requests
+}
+
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	klog.Info("Adding klusterlet token controller.")
@@ -83,8 +110,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Watch for changes to klusterlet-addon-appmgr service account in open-cluster-management-agent-addon namespace.
+	// Watch for changes to open-cluster-management-agent-addon/application-manager service account.
 	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ServiceAccount{}), &handler.EnqueueRequestForObject{}, utils.ServiceAccountPredicateFunctions)
+	if err != nil {
+		return err
+	}
+
+	// watch for changes to the secrets associated to the open-cluster-management-agent-addon/application-manager SA
+	saSecretMapper := &applicationManagerSecretMapper{mgr.GetClient()}
+	err = c.Watch(
+		source.Kind(mgr.GetCache(), &corev1.Secret{}),
+		handler.EnqueueRequestsFromMapFunc(saSecretMapper.Map),
+		applicationManagerSecretPredicateFunctions)
+
 	if err != nil {
 		return err
 	}
@@ -122,12 +160,12 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 
 	if err != nil {
 		if kerrors.IsNotFound(err) {
-			klog.Infof("%s is not found. Deleting the secret from the hub.", request.NamespacedName)
+			klog.Infof("SA %s is not found. Deleting the secret from the hub.", request.NamespacedName)
 
 			err := r.hubclient.Delete(context.TODO(), r.prepareAgentTokenSecret(""))
 
 			if err != nil {
-				klog.Error("Failed to delete the secret from the hub.")
+				klog.Errorf("Failed to delete the secret from the hub. err: %v", err)
 				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
 			}
 
@@ -144,7 +182,7 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 
 	if token == "" {
 		klog.Error("Failed to find the service account token.")
-		return reconcile.Result{}, errors.New("failed to find the klusterlet agent addon service account token secret")
+		return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, errors.New("failed to find the klusterlet agent addon service account token secret")
 	}
 
 	// Prepare the secret to be created/updated in the managed cluster namespace on the hub
@@ -245,13 +283,13 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 	// Grab application-manager service account
 	sa := &corev1.ServiceAccount{}
 
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "application-manager", Namespace: "open-cluster-management-agent-addon"}, sa)
+	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: appAddonName, Namespace: appAddonNS}, sa)
 	if err != nil {
 		klog.Error(err.Error())
 		return ""
 	}
 
-	// loop through secrets to find application-manager-dockercfg secret
+	// first loop through secret list from the application-manager SA to find application-manager-dockercfg secret
 	for _, secret := range sa.Secrets {
 		if strings.HasPrefix(secret.Name, "application-manager-dockercfg") {
 			klog.Info("found the application-manager-dockercfg secret " + secret.Name)
@@ -259,7 +297,7 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 			// application-manager-token secret is owned by the dockercfg secret
 			dockerSecret := &corev1.Secret{}
 
-			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: "open-cluster-management-agent-addon"}, dockerSecret)
+			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: appAddonNS}, dockerSecret)
 			if err != nil {
 				klog.Error(err.Error())
 				return ""
@@ -272,7 +310,99 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 		}
 	}
 
-	return ""
+	// If not found, check the secret associated to the application-manager SA
+	saToken, err := r.createOrUpdateApplicationManagerSecret(sa)
+	if err != nil {
+		klog.Error(err.Error())
+		return ""
+	}
+
+	return saToken
+}
+
+func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret(sa *corev1.ServiceAccount) (string, error) {
+	ApplicationManagerSecretList := &corev1.SecretList{}
+	listopts := &client.ListOptions{
+		Namespace: sa.Namespace,
+	}
+	err := r.Client.List(context.TODO(), ApplicationManagerSecretList, listopts)
+
+	if err != nil {
+		klog.Errorf("failed to list all secrets in application-manager SA NS: %v, err: %v", sa.Namespace, err)
+		return "", err
+	}
+
+	for _, ApplicationManagerSecret := range ApplicationManagerSecretList.Items {
+		if ApplicationManagerSecret.Type != "kubernetes.io/service-account-token" {
+			continue
+		}
+
+		if ApplicationManagerSecret.Annotations != nil && ApplicationManagerSecret.Annotations["kubernetes.io/service-account.name"] == appAddonName {
+			// ApplicationManagerSecret.Data["token"] has been base64 decoded when fetched
+			if ApplicationManagerSecret.Data["token"] == nil {
+				klog.Errorf("secret token is empty, secret: %v/%v", ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
+				continue
+			}
+
+			return string(ApplicationManagerSecret.Data["token"]), nil
+		}
+	}
+
+	// if no secret is associated to the application-manager SA, create/update the application-manager secret associated to the application-manager SA
+	ApplicationManagerSecret := &corev1.Secret{}
+	ApplicationManagerSecretName := types.NamespacedName{Namespace: appAddonNS, Name: appAddonName}
+	err = r.Client.Get(context.TODO(), ApplicationManagerSecretName, ApplicationManagerSecret)
+
+	// if there exists the secret with the application-manager name, it is not associated to the application-manager SA, need to delete and re-create it
+	if err == nil {
+		err = r.Client.Delete(context.TODO(), ApplicationManagerSecret)
+		if err != nil {
+			klog.Errorf("failed to delete the invalid application-manager secret, err: %v", err)
+			return "", err
+		}
+	}
+
+	// create the application-manager secret associated to the application-manager SA
+	saGVK := schema.GroupVersionKind{
+		Group:   "",
+		Version: "v1",
+		Kind:    "ServiceAccount",
+	}
+
+	owner := metav1.NewControllerRef(sa, saGVK)
+	ApplicationManagerSecret = &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      appAddonName,
+			Namespace: appAddonNS,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": appAddonName,
+			},
+			OwnerReferences: []metav1.OwnerReference{*owner},
+		},
+		Type: "kubernetes.io/service-account-token",
+	}
+
+	err = r.Create(context.TODO(), ApplicationManagerSecret)
+	if err != nil {
+		klog.Errorf("failed to create the new application-manager secret, err: %v", err)
+		return "", err
+	}
+
+	klog.Infof("Application-manager secret %v created", ApplicationManagerSecretName)
+
+	newApplicationManagerSecret := &corev1.Secret{}
+	err = r.Client.Get(context.TODO(), ApplicationManagerSecretName, newApplicationManagerSecret)
+
+	if err != nil {
+		klog.Errorf("failed to get the new application-manager secret, err: %v", err)
+		return "", err
+	}
+
+	if newApplicationManagerSecret.Data["token"] == nil {
+		return "", fmt.Errorf("new secret token is empty, secret: %v/%v", ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
+	}
+
+	return string(newApplicationManagerSecret.Data["token"]), nil
 }
 
 // getKubeAPIServerAddress - Get the API server address from OpenShift kubernetes cluster. This does not work with other kubernetes.
@@ -284,4 +414,59 @@ func (r *ReconcileAgentToken) getKubeAPIServerAddress() (string, error) {
 	}
 
 	return infraConfig.Status.APIServerURL, nil
+}
+
+// detect if there is any change to the secret associated to the open-cluster-management-agent-addon/application-manager SA.
+var applicationManagerSecretPredicateFunctions = predicate.Funcs{
+	UpdateFunc: func(e event.UpdateEvent) bool {
+		newSecret, ok := e.ObjectNew.(*corev1.Secret)
+		if !ok {
+			return false
+		}
+
+		if newSecret.Namespace != appAddonNS {
+			return false
+		}
+
+		if newSecret.Type == "kubernetes.io/service-account-token" &&
+			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
+			return true
+		}
+
+		return false
+	},
+	CreateFunc: func(e event.CreateEvent) bool {
+		newSecret, ok := e.Object.(*corev1.Secret)
+		if !ok {
+			return false
+		}
+
+		if newSecret.Namespace != appAddonNS {
+			return false
+		}
+
+		if newSecret.Type == "kubernetes.io/service-account-token" &&
+			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
+			return true
+		}
+
+		return false
+	},
+	DeleteFunc: func(e event.DeleteEvent) bool {
+		newSecret, ok := e.Object.(*corev1.Secret)
+		if !ok {
+			return false
+		}
+
+		if newSecret.Namespace != appAddonNS {
+			return false
+		}
+
+		if newSecret.Type == "kubernetes.io/service-account-token" &&
+			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
+			return true
+		}
+
+		return false
+	},
 }
