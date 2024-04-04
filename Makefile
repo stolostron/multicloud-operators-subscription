@@ -136,7 +136,7 @@ deploy-addon:
 build-e2e:
 	go test -c ./test/e2e
 
-test-e2e: build-e2e deploy-ocm deploy-hub
+test-e2e: deploy-ocm deploy-hub build-e2e
 	./e2e.test -test.v -ginkgo.v
 	deploy/ocm/verify_app_addon.sh hub
 	deploy/ocm/verify_app_addon.sh mc
