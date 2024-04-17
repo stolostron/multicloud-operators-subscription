@@ -24,6 +24,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -98,6 +99,13 @@ var (
 			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
+	}
+
+	sa2 = &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "application-manager",
+			Namespace: "open-cluster-management-agent-addon",
+		},
 	}
 )
 
@@ -179,9 +187,10 @@ func TestReconcile(t *testing.T) {
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
-	theDeletedSecret := &corev1.Secret{}
-
 	// Check that cluster1/cluster1-cluster-secret is deleted upon the deletion of the service account.
+	time.Sleep(time.Second * 2)
+
+	theDeletedSecret := &corev1.Secret{}
 	g.Expect(kerrors.IsNotFound(c.Get(context.TODO(), secretkey, theDeletedSecret))).To(gomega.BeTrue())
 
 	// Verify that service accounts other than open-cluster-management-agent-addon/klusterlet-addon-appmgr-
@@ -198,4 +207,59 @@ func TestReconcile(t *testing.T) {
 	defer c.Delete(context.TODO(), saToBeIgnored)
 
 	g.Eventually(requests, timeout).ShouldNot(gomega.Receive(gomega.Equal(unexpectedRequest)))
+
+	// Test case 3: create a SA without secret list, expect the spoke token controller to create the SA secret successfully
+	c.Delete(context.TODO(), sa1)
+	c.Delete(context.TODO(), secret1)
+
+	g.Expect(c.Create(context.TODO(), sa2)).NotTo(gomega.HaveOccurred())
+	defer c.Delete(context.TODO(), sa2)
+
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	// Check the secret open-cluster-management-agent-addon/application-manager is created.
+	time.Sleep(time.Second * 2)
+
+	saSecret := &corev1.Secret{}
+	g.Expect(c.Get(context.TODO(), sakey, saSecret)).NotTo(gomega.HaveOccurred())
+
+	klog.Infof("new SA secet: %#v", saSecret)
+
+	g.Expect(saSecret.Annotations["kubernetes.io/service-account.name"]).To(gomega.Equal(sakey.Name))
+	g.Expect(string(saSecret.Type)).To(gomega.Equal("kubernetes.io/service-account-token"))
+
+	// append the token to the SA secret, expect the cluster secret will be generated using the SA secret token
+	saSecret.Data = map[string][]byte{}
+	saSecret.Data["token"] = []byte("new-token-2")
+	g.Expect(c.Update(context.TODO(), saSecret)).NotTo(gomega.HaveOccurred())
+
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	// Check that cluster secret cluster1/cluster1-cluster-secret is created.
+	time.Sleep(time.Second * 2)
+
+	clusterSecret := &corev1.Secret{}
+	g.Expect(c.Get(context.TODO(), secretkey, clusterSecret)).NotTo(gomega.HaveOccurred())
+
+	// Verify the secret data
+	g.Expect(string(clusterSecret.Data["name"])).To(gomega.Equal(clusterName))
+	g.Expect(string(clusterSecret.Data["server"])).To(gomega.Equal(host))
+	g.Expect(string(clusterSecret.Data["config"])).NotTo(gomega.BeEmpty())
+
+	configData = &Config{}
+	g.Expect(json.Unmarshal(clusterSecret.Data["config"], configData)).NotTo(gomega.HaveOccurred())
+	g.Expect(configData.BearerToken).To(gomega.Equal(string(saSecret.Data["token"])))
+	g.Expect(configData.TLSClientConfig["insecure"]).To(gomega.BeTrue())
+
+	// delete the SA secret, expect the SA secret is regenerated
+	g.Expect(c.Delete(context.TODO(), saSecret)).NotTo(gomega.HaveOccurred())
+
+	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
+
+	time.Sleep(time.Second * 10)
+
+	newSaSecret := &corev1.Secret{}
+	g.Expect(c.Get(context.TODO(), sakey, newSaSecret)).NotTo(gomega.HaveOccurred())
+
+	klog.Infof("new SA secet: %#v", newSaSecret)
 }
