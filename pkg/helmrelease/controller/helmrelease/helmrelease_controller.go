@@ -139,6 +139,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 
 		return reconcile.Result{}, nil
 	}
+
 	if err != nil {
 		klog.Error("Failed to lookup resource ", request.Namespace, "/", request.Name, " ", err)
 		return reconcile.Result{}, err
@@ -146,7 +147,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 
 	if instance.Repo.Source == nil {
 		klog.Error("Failed to detect Repo.Source from HelmRelease ", helmreleaseNsn(instance), ". Setting requeue to false.")
-		//TODO set error status here
+		//TODO: set error status here
 
 		return reconcile.Result{Requeue: false}, nil
 	}
@@ -203,6 +204,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 				Reason:  appv1.ReasonReconcileError,
 				Message: err.Error(),
 			})
+
 			_ = r.updateResourceStatus(instance)
 			r.populateErrorAppSubStatus(err.Error(), instance)
 
@@ -221,6 +223,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Reason:  appv1.ReasonReconcileError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(err.Error(), instance)
 
@@ -238,6 +241,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Reason:  appv1.ReasonReconcileError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(err.Error(), instance)
 
@@ -276,6 +280,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 			Reason:  appv1.ReasonReconcileError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(err.Error(), instance)
 
@@ -289,6 +294,7 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 	if !contains(instance.GetFinalizers(), finalizer) {
 		klog.V(1).Info("Adding finalizer (", finalizer, ") to ", helmreleaseNsn(instance))
 		controllerutil.AddFinalizer(instance, finalizer)
+
 		if err := r.updateResource(instance); err != nil {
 			klog.Error("Failed to add uninstall finalizer to ", helmreleaseNsn(instance))
 			return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
@@ -323,7 +329,9 @@ func (r *ReconcileHelmRelease) Reconcile(ctx context.Context, request reconcile.
 				Reason:  appv1.ReasonReconcileError,
 				Message: err.Error(),
 			})
+
 			_ = r.updateResourceStatus(instance)
+
 			return reconcile.Result{}, err
 		}
 
@@ -363,6 +371,7 @@ func contains(l []string, s string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -370,11 +379,15 @@ func contains(l []string, s string) bool {
 // will return false if annotation is not set
 func hasHelmUpgradeForceAnnotation(hr *appv1.HelmRelease) bool {
 	const helmUpgradeForceAnnotation = "helm.sdk.operatorframework.io/upgrade-force"
+
 	force := hr.GetAnnotations()[helmUpgradeForceAnnotation]
+
 	if force == "" {
 		return false
 	}
+
 	value := false
+
 	if i, err := strconv.ParseBool(force); err != nil {
 		klog.Info("Could not parse annotation as a boolean ",
 			"annotation=", helmUpgradeForceAnnotation, " value informed ", force,
@@ -382,6 +395,7 @@ func hasHelmUpgradeForceAnnotation(hr *appv1.HelmRelease) bool {
 	} else {
 		value = i
 	}
+
 	return value
 }
 
@@ -391,8 +405,10 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 	// In that case, if the install errors, then don't perform the uninstall rollback because it might lead to unintended data loss.
 	// See: https://github.com/operator-framework/operator-sdk/issues/4296
 	rollbackByUninstall := true
+
 	if instance.Status.DeployedRelease != nil {
 		klog.Info("Release is not installed but status.DeployedRelease is populated. If the install error, skip rollback(uninstall)")
+
 		rollbackByUninstall = false
 	}
 
@@ -415,6 +431,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			Reason:  appv1.ReasonInstallError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(string(appv1.ReasonInstallError)+" "+err.Error(), instance)
 
@@ -444,6 +461,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 			Reason:  appv1.ReasonInstallError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(string(appv1.ReasonInstallError)+" "+err.Error(), instance)
 
@@ -472,6 +490,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 					Reason:  appv1.ReasonInstallError,
 					Message: errMsg,
 				})
+
 				_ = r.updateResourceStatus(instance)
 				r.populateErrorAppSubStatus(string(appv1.ReasonInstallError)+" "+errMsg, instance)
 
@@ -488,6 +507,7 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 
 	klog.V(1).Info("Adding finalizer (", finalizer, ") to ", helmreleaseNsn(instance))
 	controllerutil.AddFinalizer(instance, finalizer)
+
 	if err := r.updateResource(instance); err != nil {
 		klog.Error("Failed to add uninstall finalizer to ", helmreleaseNsn(instance), " ", err)
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
@@ -505,16 +525,19 @@ func (r *ReconcileHelmRelease) install(instance *appv1.HelmRelease, manager helm
 	if installedRelease.Info != nil {
 		message = installedRelease.Info.Notes
 	}
+
 	instance.Status.SetCondition(appv1.HelmAppCondition{
 		Type:    appv1.ConditionDeployed,
 		Status:  appv1.StatusTrue,
 		Reason:  appv1.ReasonInstallSuccessful,
 		Message: message,
 	})
+
 	instance.Status.DeployedRelease = &appv1.HelmAppRelease{
 		Name:     installedRelease.Name,
 		Manifest: installedRelease.Manifest,
 	}
+
 	err = r.updateResourceStatus(instance)
 	if err != nil {
 		klog.Error("Failed to update resource status for HelmRelease ",
@@ -539,6 +562,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 		return nil
 	}
 	_, upgradedRelease, err := manager.UpgradeRelease(context.TODO(), upgradeOpt)
+
 	if err != nil {
 		klog.Error("Failed to upgrade HelmRelease ", helmreleaseNsn(instance), " ", err)
 		instance.Status.SetCondition(appv1.HelmAppCondition{
@@ -547,6 +571,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 			Reason:  appv1.ReasonUpgradeError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(string(appv1.ReasonUpgradeError)+" "+err.Error(), instance)
 
@@ -575,6 +600,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 					Reason:  appv1.ReasonUpgradeError,
 					Message: errMsg,
 				})
+
 				_ = r.updateResourceStatus(instance)
 				r.populateErrorAppSubStatus(string(appv1.ReasonUpgradeError)+" "+errMsg, instance)
 
@@ -586,6 +612,7 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
+
 	instance.Status.RemoveCondition(appv1.ConditionReleaseFailed)
 
 	if err := r.runReleaseHook(instance, upgradedRelease); err != nil {
@@ -595,21 +622,27 @@ func (r *ReconcileHelmRelease) upgrade(instance *appv1.HelmRelease, manager helm
 	}
 
 	klog.Info("Upgraded HelmRelease ", "force=", force, " for ", helmreleaseNsn(instance))
+
 	message := ""
+
 	if upgradedRelease.Info != nil {
 		message = upgradedRelease.Info.Notes
 	}
+
 	instance.Status.SetCondition(appv1.HelmAppCondition{
 		Type:    appv1.ConditionDeployed,
 		Status:  appv1.StatusTrue,
 		Reason:  appv1.ReasonUpgradeSuccessful,
 		Message: message,
 	})
+
 	instance.Status.DeployedRelease = &appv1.HelmAppRelease{
 		Name:     upgradedRelease.Name,
 		Manifest: upgradedRelease.Manifest,
 	}
+
 	err = r.updateResourceStatus(instance)
+
 	if err != nil {
 		klog.Error("Failed to update resource status for HelmRelease ",
 			helmreleaseNsn(instance), " ", err)
@@ -710,10 +743,13 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 
 	// do not delete resources that are annotated with the Helm resource policy 'keep'
 	_, filesToDelete := filterManifestsToKeep(files)
+
 	var builder strings.Builder
+
 	for _, file := range filesToDelete {
 		builder.WriteString("\n---\n" + file.Content)
 	}
+
 	resources, err := manager.GetActionConfig().KubeClient.Build(strings.NewReader(builder.String()), false)
 	if err != nil {
 		klog.Error("Unable to build kubernetes objects for delete ", helmreleaseNsn(instance), " ", err)
@@ -730,6 +766,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				if apierrors.IsNotFound(err) {
 					continue // resource is already delete, check the next one.
 				}
+
 				klog.Error("Unable to get resource ", resource.Namespace, "/", resource.Name,
 					" for ", helmreleaseNsn(instance), " ", err)
 				r.updateUninstallResourceErrorStatus(instance, err)
@@ -759,6 +796,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 				Reason:  appv1.ReasonUninstallError,
 				Message: message,
 			})
+
 			_ = r.updateResourceStatus(instance)
 			r.populateErrorAppSubStatus(string(appv1.ReasonUninstallError)+" "+message, instance)
 
@@ -775,6 +813,7 @@ func (r *ReconcileHelmRelease) uninstall(instance *appv1.HelmRelease, manager he
 		Status: appv1.StatusFalse,
 		Reason: appv1.ReasonUninstallSuccessful,
 	})
+
 	_ = r.updateResourceStatus(instance)
 
 	controllerutil.RemoveFinalizer(instance, finalizer)
@@ -798,6 +837,7 @@ func (r *ReconcileHelmRelease) updateUninstallResourceErrorStatus(instance *appv
 		Reason:  appv1.ReasonUninstallError,
 		Message: err.Error(),
 	})
+
 	_ = r.updateResourceStatus(instance)
 }
 
@@ -813,11 +853,13 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 			Reason:  appv1.ReasonReconcileError,
 			Message: err.Error(),
 		})
+
 		_ = r.updateResourceStatus(instance)
 		r.populateErrorAppSubStatus(err.Error(), instance)
 
 		return reconcile.Result{RequeueAfter: time.Minute * 1}, nil
 	}
+
 	instance.Status.RemoveCondition(appv1.ConditionIrreconcilable)
 
 	if err := r.runReleaseHook(instance, expectedRelease); err != nil {
@@ -835,20 +877,25 @@ func (r *ReconcileHelmRelease) ensureStatusReasonPopulated(
 	if expectedRelease.Version == 1 {
 		reason = appv1.ReasonInstallSuccessful
 	}
+
 	message := ""
+
 	if expectedRelease.Info != nil {
 		message = expectedRelease.Info.Notes
 	}
+
 	instance.Status.SetCondition(appv1.HelmAppCondition{
 		Type:    appv1.ConditionDeployed,
 		Status:  appv1.StatusTrue,
 		Reason:  reason,
 		Message: message,
 	})
+
 	instance.Status.DeployedRelease = &appv1.HelmAppRelease{
 		Name:     expectedRelease.Name,
 		Manifest: expectedRelease.Manifest,
 	}
+
 	err = r.updateResourceStatus(instance)
 	if err != nil {
 		klog.Error("Failed to update resource status for HelmRelease ",
@@ -864,13 +911,13 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 	for _, hrOwner := range instance.OwnerReferences {
 		if strings.EqualFold(hrOwner.APIVersion, "apps.open-cluster-management.io/v1") &&
 			strings.EqualFold(hrOwner.Kind, "Subscription") {
-
 			caps, err := GetCapabilities(manager.GetActionConfig())
 			if err != nil {
 				klog.Error("Failed to get capabilities ", helmreleaseNsn(instance), " ", err)
 			} else {
 				manifests := releaseutil.SplitManifests(manifest)
 				_, files, err := releaseutil.SortManifests(manifests, caps.APIVersions, releaseutil.InstallOrder)
+
 				if err != nil {
 					klog.Error("Failed to sort manifest ", helmreleaseNsn(instance), " ", err)
 				} else {
@@ -912,12 +959,14 @@ func (r *ReconcileHelmRelease) populateAppSubStatus(
 						Name:      hrOwner.Name,
 					}
 					err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
+
 					if err != nil {
 						klog.Warning("failed to get parent appsub, err: ", err)
 					}
 
 					skipOrphanDelete := true
 					err = r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete, skipUpdate)
+
 					if err != nil {
 						klog.Warning("error while sync app sub cluster status: ", err)
 					}
@@ -931,7 +980,6 @@ func (r *ReconcileHelmRelease) populateErrorAppSubStatus(
 	errMsg string, instance *appv1.HelmRelease) {
 	for _, hrOwner := range instance.OwnerReferences {
 		if hrOwner.Kind == "Subscription" {
-
 			appSubUnitStatuses := []kubesynchronizer.SubscriptionUnitStatus{}
 
 			appSubUnitStatus := kubesynchronizer.SubscriptionUnitStatus{}
@@ -958,11 +1006,13 @@ func (r *ReconcileHelmRelease) populateErrorAppSubStatus(
 				Name:      hrOwner.Name,
 			}
 			err := r.GetClient().Get(context.TODO(), appsubKey, appsub)
+
 			if err != nil {
 				klog.Warning("failed to get parent appsub, err: ", err)
 			}
 
 			skipOrphanDelete := true
+
 			err = r.synchronizer.SyncAppsubClusterStatus(appsub, appsubClusterStatus, &skipOrphanDelete, nil)
 			if err != nil {
 				klog.Warning("error while sync app sub cluster status: ", err)
@@ -975,7 +1025,6 @@ func (r *ReconcileHelmRelease) deleteAppSubStatus(instance *appv1.HelmRelease) {
 	for _, hrOwner := range instance.OwnerReferences {
 		if strings.EqualFold(hrOwner.APIVersion, "apps.open-cluster-management.io/v1") &&
 			strings.EqualFold(hrOwner.Kind, "Subscription") {
-
 			appSubUnitStatuses := []kubesynchronizer.SubscriptionUnitStatus{}
 
 			appsubClusterStatus := kubesynchronizer.SubscriptionClusterStatus{
@@ -987,6 +1036,7 @@ func (r *ReconcileHelmRelease) deleteAppSubStatus(instance *appv1.HelmRelease) {
 
 			skipOrphanDelete := true
 			err := r.synchronizer.SyncAppsubClusterStatus(nil, appsubClusterStatus, &skipOrphanDelete, nil)
+
 			if err != nil {
 				klog.Warning("error while sync app sub cluster status: ", err)
 			}
@@ -1016,8 +1066,8 @@ func filterManifestsToKeep(manifests []releaseutil.Manifest) (keep, remaining []
 		if resourcePolicyType == kube.KeepPolicy {
 			keep = append(keep, m)
 		}
-
 	}
+
 	return keep, remaining
 }
 
@@ -1026,6 +1076,7 @@ func joinErrors(errs []error) string {
 	for _, e := range errs {
 		es = append(es, e.Error())
 	}
+
 	return strings.Join(es, "; ")
 }
 
@@ -1034,6 +1085,7 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 	owner := &appv1.HelmRelease{}
 
 	var m sync.RWMutex
+
 	watches := map[schema.GroupVersionKind]struct{}{}
 	releaseHook := func(release *rpb.Release) error {
 		resources := releaseutil.SplitManifests(release.Manifest)
@@ -1100,6 +1152,7 @@ func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c con
 				}
 			}
 		}
+
 		return nil
 	}
 	r.releaseHook = releaseHook

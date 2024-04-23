@@ -32,6 +32,7 @@ import (
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	kubesynchronizer "open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer/kubernetes"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -49,16 +50,18 @@ func TestReconcile(t *testing.T) {
 	t.Log("Create manager")
 
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
-		LeaderElection:     false,
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
+
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	syncId := types.NamespacedName{
+	syncID := types.NamespacedName{
 		Namespace: "default",
 		Name:      "default",
 	}
-	err = kubesynchronizer.Add(mgr, cfg, &syncId, 0, true, true)
+	err = kubesynchronizer.Add(mgr, cfg, &syncID, 0, true, true)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c := mgr.GetClient()

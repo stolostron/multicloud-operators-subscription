@@ -554,7 +554,9 @@ func (r *ReconcileSubscription) updateSubAnnotations(sub *appSubV1.Subscription,
 			if gitPath != "" {
 				subepanno[appSubV1.AnnotationGitPath] = gitPath
 			}
+
 			gitBranch := subscriptionConfigMap.Data["branch"]
+
 			if gitBranch != "" {
 				subepanno[appSubV1.AnnotationGitBranch] = gitBranch
 			}

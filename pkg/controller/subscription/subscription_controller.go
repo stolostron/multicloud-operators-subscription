@@ -282,6 +282,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				} else {
 					instance.Status.Message = subscriptionBlock
 				}
+
 				nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
 
 				klog.Infof("Next time window status reconciliation will occur in " + nextStatusUpateAt.String())

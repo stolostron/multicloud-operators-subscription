@@ -51,14 +51,14 @@ type Manager interface {
 	ReleaseName() string
 	IsInstalled() bool
 	IsUpgradeRequired() bool
-	Sync(context.Context) error
-	InstallRelease(context.Context, ...InstallOption) (*rpb.Release, error)
-	UpgradeRelease(context.Context, ...UpgradeOption) (*rpb.Release, *rpb.Release, error)
-	UninstallRelease(context.Context, ...UninstallOption) (*rpb.Release, error)
-	RollbackRelease(context.Context) error
+	Sync(myContext context.Context) error
+	InstallRelease(myContext context.Context, InstallOption ...InstallOption) (*rpb.Release, error)
+	UpgradeRelease(myContext context.Context, UpgradeOption ...UpgradeOption) (*rpb.Release, *rpb.Release, error)
+	UninstallRelease(myContext context.Context, UninstallOption ...UninstallOption) (*rpb.Release, error)
+	RollbackRelease(myContext context.Context) error
 	GetDeployedRelease() (*rpb.Release, error)
 	GetActionConfig() *action.Configuration
-	ReconcileRelease(context.Context) (*rpb.Release, error)
+	ReconcileRelease(myContext context.Context) (*rpb.Release, error)
 }
 
 type manager struct {
@@ -115,6 +115,7 @@ func (m *manager) Sync(ctx context.Context) error {
 		if rel.Info != nil && rel.Info.Status != rpb.StatusDeployed {
 			klog.Info("Helm storage backend deleting: ", rel.Name, "/", rel.Version, "/", rel.Info.Status)
 			_, err := m.storageBackend.Delete(rel.Name, rel.Version)
+
 			if err != nil && !notFoundErr(err) {
 				return fmt.Errorf("failed to delete stale release version: %w", err)
 			}
@@ -126,9 +127,11 @@ func (m *manager) Sync(ctx context.Context) error {
 	if errors.Is(err, driver.ErrReleaseNotFound) {
 		return nil
 	}
+
 	if err != nil {
 		return fmt.Errorf("failed to get deployed release: %w", err)
 	}
+
 	m.deployedRelease = deployedRelease
 	m.isInstalled = true
 
@@ -137,6 +140,7 @@ func (m *manager) Sync(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to get the next candidate release to determine if an upgrade is necessary: %w", err)
 	}
+
 	if deployedRelease.Manifest != candidateRelease.Manifest {
 		m.isUpgradeRequired = true
 	}
@@ -154,8 +158,10 @@ func (m manager) GetDeployedRelease() (*rpb.Release, error) {
 		if strings.Contains(err.Error(), "has no deployed releases") {
 			return nil, driver.ErrReleaseNotFound
 		}
+
 		return nil, err
 	}
+
 	return deployedRelease, nil
 }
 
@@ -164,6 +170,7 @@ func (m manager) getCandidateRelease(namespace, name string, chart *cpb.Chart,
 	upgrade := action.NewUpgrade(m.actionConfig)
 	upgrade.Namespace = namespace
 	upgrade.DryRun = true
+
 	return upgrade.Run(name, chart, values)
 }
 
@@ -172,6 +179,7 @@ func (m manager) InstallRelease(ctx context.Context, opts ...InstallOption) (*rp
 	install := action.NewInstall(m.actionConfig)
 	install.ReleaseName = m.releaseName
 	install.Namespace = m.namespace
+
 	for _, o := range opts {
 		if err := o(install); err != nil {
 			return nil, fmt.Errorf("failed to apply install option: %w", err)
@@ -192,6 +200,7 @@ func ForceUpgrade(force bool) UpgradeOption {
 func (m manager) UpgradeRelease(ctx context.Context, opts ...UpgradeOption) (*rpb.Release, *rpb.Release, error) {
 	upgrade := action.NewUpgrade(m.actionConfig)
 	upgrade.Namespace = m.namespace
+
 	for _, o := range opts {
 		if err := o(upgrade); err != nil {
 			return nil, nil, fmt.Errorf("failed to apply upgrade option: %w", err)
@@ -202,6 +211,7 @@ func (m manager) UpgradeRelease(ctx context.Context, opts ...UpgradeOption) (*rp
 	if err != nil {
 		return nil, nil, err
 	}
+
 	return m.deployedRelease, upgradedRelease, err
 }
 
@@ -244,6 +254,7 @@ func reconcileRelease(_ context.Context, kubeClient kube.Interface, expectedMani
 	if err != nil {
 		return err
 	}
+
 	return expectedInfos.Visit(func(expected *resource.Info, err error) error {
 		if err != nil {
 			return fmt.Errorf("visit error: %w", err)
@@ -251,10 +262,12 @@ func reconcileRelease(_ context.Context, kubeClient kube.Interface, expectedMani
 
 		helper := resource.NewHelper(expected.Client, expected.Mapping)
 		existing, err := helper.Get(expected.Namespace, expected.Name)
+
 		if apierrors.IsNotFound(err) {
 			if _, err := helper.Create(expected.Namespace, true, expected.Object); err != nil {
-				return fmt.Errorf("create error: %s", err)
+				return fmt.Errorf("create error: %w", err)
 			}
+
 			return nil
 		} else if err != nil {
 			return fmt.Errorf("could not get object: %w", err)
@@ -280,6 +293,7 @@ func reconcileRelease(_ context.Context, kubeClient kube.Interface, expectedMani
 		if err != nil {
 			return fmt.Errorf("patch error: %w", err)
 		}
+
 		return nil
 	})
 }
@@ -291,7 +305,9 @@ func createPatch(existing runtime.Object, expected *resource.Info) ([]byte, apit
 	if err != nil {
 		return nil, apitypes.StrategicMergePatchType, err
 	}
+
 	expectedJSON, err := json.Marshal(expected.Object)
+
 	if err != nil {
 		return nil, apitypes.StrategicMergePatchType, err
 	}
@@ -330,6 +346,7 @@ func createPatch(existing runtime.Object, expected *resource.Info) ([]byte, apit
 	if len(patch) == 0 || bytes.Equal(patch, []byte("{}")) {
 		return nil, apitypes.StrategicMergePatchType, nil
 	}
+
 	return patch, apitypes.StrategicMergePatchType, nil
 }
 
@@ -347,6 +364,7 @@ func createJSONMergePatch(existingJSON, expectedJSON []byte) ([]byte, error) {
 	// the fields managed by the Helm chart are applied.
 	// All "add" operations without a value (null) can be ignored
 	patchOps := make([]jsonpatch.JsonPatchOperation, 0)
+
 	for _, op := range ops {
 		if op.Operation != "remove" && !(op.Operation == "add" && op.Value == nil) {
 			patchOps = append(patchOps, op)

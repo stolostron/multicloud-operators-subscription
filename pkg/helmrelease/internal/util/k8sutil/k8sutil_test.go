@@ -262,6 +262,7 @@ func TestSupportsOwnerReference(t *testing.T) {
 			if err != nil {
 				assert.Error(t, err)
 			}
+
 			assert.Equal(t, c.result, useOwner)
 		})
 	}

@@ -233,6 +233,7 @@ func (obsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duratio
 			time.Sleep(retryInterval)
 			klog.Infof("Re-try #%d: subcribing to the object bucket: %v", n+1, obsi.bucket)
 			obsi.doSubscription()
+
 			n++
 		} else {
 			break

@@ -15,6 +15,7 @@
 package exec
 
 import (
+	"crypto/tls"
 	"fmt"
 	"os"
 
@@ -29,14 +30,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost         = "0.0.0.0"
-	metricsPort         = 8383
-	operatorMetricsPort = 8686
+	metricsHost = "0.0.0.0"
+	metricsPort = 8383
 )
 
 // RunManager starts the actual manager
@@ -77,13 +78,16 @@ func RunManager() {
 		"renewDeadline", options.LeaderElectionRenewDeadline,
 		"retryPeriod", options.LeaderElectionRetryPeriod)
 
-	webhookServer := k8swebhook.NewServer(k8swebhook.Options{
-		TLSMinVersion: appsubv1.TLSMinVersionString,
+	webhookOption := k8swebhook.Options{}
+	webhookOption.TLSOpts = append(webhookOption.TLSOpts, func(config *tls.Config) {
+		config.MinVersion = appsubv1.TLSMinVersionInt
 	})
+	webhookServer := k8swebhook.NewServer(webhookOption)
 
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:                    operatorMetricsPort,
+		Metrics: metricsserver.Options{
+			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		},
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        "multicloud-operators-placementrule-leader.open-cluster-management.io",
 		LeaderElectionNamespace: "kube-system",

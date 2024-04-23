@@ -65,6 +65,7 @@ func SetupTestReconcile(inner reconcile.Reconciler) (reconcile.Reconciler, chan 
 	fn := reconcile.Func(func(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 		result, err := inner.Reconcile(ctx, req)
 		requests <- req
+
 		return result, err
 	})
 

@@ -216,6 +216,7 @@ func (r *ReconcilePlacementRule) pickClustersByReplicas(instance *appv1alpha1.Pl
 				newpd = append(newpd, pd)
 
 				delete(clmap, cli.ClusterName)
+
 				picked++
 			} else {
 				break
@@ -245,6 +246,7 @@ func (r *ReconcilePlacementRule) pickClustersByReplicas(instance *appv1alpha1.Pl
 			if _, ok := clmap[cli.Name]; !ok {
 				continue
 			}
+
 			if picked < total {
 				pd := appv1alpha1.PlacementDecision{
 					ClusterName:      cli.Name,

@@ -30,10 +30,10 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-//ChartsDir env variable name which contains the directory where the charts are installed
+// ChartsDir env variable name which contains the directory where the charts are installed
 const ChartsDir = "CHARTS_DIR"
 
-//SourceTypeEnum types of sources
+// SourceTypeEnum types of sources
 type SourceTypeEnum string
 
 const (
@@ -45,26 +45,26 @@ const (
 	GitSourceType SourceTypeEnum = "git"
 )
 
-//GitHub provides the parameters to access the helm-chart located in a github repo
+// GitHub provides the parameters to access the helm-chart located in a github repo
 type GitHub struct {
 	Urls      []string `json:"urls,omitempty"`
 	ChartPath string   `json:"chartPath,omitempty"`
 	Branch    string   `json:"branch,omitempty"`
 }
 
-//Git provides the parameters to access the helm-chart located in a git repo
+// Git provides the parameters to access the helm-chart located in a git repo
 type Git struct {
 	Urls      []string `json:"urls,omitempty"`
 	ChartPath string   `json:"chartPath,omitempty"`
 	Branch    string   `json:"branch,omitempty"`
 }
 
-//HelmRepo provides the urls to retrieve the helm-chart
+// HelmRepo provides the urls to retrieve the helm-chart
 type HelmRepo struct {
 	Urls []string `json:"urls,omitempty"`
 }
 
-//Source holds the different types of repository
+// Source holds the different types of repository
 type Source struct {
 	SourceType SourceTypeEnum `json:"type,omitempty"`
 	GitHub     *GitHub        `json:"github,omitempty"`
@@ -72,7 +72,7 @@ type Source struct {
 	HelmRepo   *HelmRepo      `json:"helmRepo,omitempty"`
 }
 
-//AltSource holds the alternative source
+// AltSource holds the alternative source
 type AltSource struct {
 	SourceType         SourceTypeEnum          `json:"type,omitempty"`
 	GitHub             *GitHub                 `json:"github,omitempty"`
@@ -245,13 +245,17 @@ type HelmAppStatus struct {
 
 func (s *HelmAppStatus) ToMap() (map[string]interface{}, error) {
 	var out map[string]interface{}
+
 	jsonObj, err := json.Marshal(&s)
+
 	if err != nil {
 		return nil, err
 	}
+
 	if err := json.Unmarshal(jsonObj, &out); err != nil {
 		return nil, err
 	}
+
 	return out, nil
 }
 
@@ -309,6 +313,7 @@ func StatusFor(cr *unstructured.Unstructured) *HelmAppStatus {
 		if err := runtime.DefaultUnstructuredConverter.FromUnstructured(s, &status); err != nil {
 			return &HelmAppStatus{}
 		}
+
 		return status
 	default:
 		return &HelmAppStatus{}

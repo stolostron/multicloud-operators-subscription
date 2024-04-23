@@ -43,8 +43,8 @@ func RunKustomizeBuild(kustomizeDir string) ([]byte, error) {
 		kustomizetypes.BploUseStaticallyLinked,
 	)
 	options := &krusty.Options{
-		DoLegacyResourceSort: true,
-		PluginConfig:         pluginConfig,
+		Reorder:      krusty.ReorderOptionLegacy,
+		PluginConfig: pluginConfig,
 	}
 
 	k := krusty.MakeKustomizer(options)

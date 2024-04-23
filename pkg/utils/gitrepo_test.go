@@ -36,6 +36,7 @@ import (
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -328,7 +329,11 @@ func TestGetChannelSecret(t *testing.T) {
 	// Test Git clone with a secret
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -406,7 +411,11 @@ func TestKustomizeOverrideString(t *testing.T) {
 	// Test Git clone with a secret
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -478,7 +487,11 @@ func TestKustomizeOverrideYAML(t *testing.T) {
 	// Test Git clone with a secret
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -628,7 +641,11 @@ func TestSimple(t *testing.T) {
 func TestIsClusterAdminLocal(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -804,7 +821,11 @@ metadata:
 func TestIsClusterAdminRemote(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
@@ -1253,7 +1274,11 @@ func TestGetChannelConfigMap(t *testing.T) {
 
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
 	// channel when it is finished.
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -1337,21 +1362,27 @@ func TestParseChannelSecret(t *testing.T) {
 				t.Errorf("ParseChannelSecret() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
+
 			if got != tt.want {
 				t.Errorf("ParseChannelSecret() got = %v, want %v", got, tt.want)
 			}
+
 			if got1 != tt.want1 {
 				t.Errorf("ParseChannelSecret() got1 = %v, want %v", got1, tt.want1)
 			}
+
 			if !reflect.DeepEqual(got2, tt.want2) {
 				t.Errorf("ParseChannelSecret() got2 = %v, want %v", got2, tt.want2)
 			}
+
 			if !reflect.DeepEqual(got3, tt.want3) {
 				t.Errorf("ParseChannelSecret() got3 = %v, want %v", got3, tt.want3)
 			}
+
 			if !reflect.DeepEqual(got4, tt.want4) {
 				t.Errorf("ParseChannelSecret() got4 = %v, want %v", got4, tt.want4)
 			}
+
 			if !reflect.DeepEqual(got5, tt.want5) {
 				t.Errorf("ParseChannelSecret() got5 = %v, want %v", got5, tt.want5)
 			}

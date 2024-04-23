@@ -218,6 +218,7 @@ func (sync *KubeSynchronizer) PurgeAllSubscribedResources(appsub *appv1alpha1.Su
 			appSubUnitStatus.Kind = legacyResource.Kind
 			appSubUnitStatus.Name = legacyResource.Name
 			appSubUnitStatus.Namespace = legacyResource.Namespace
+
 			for _, appsub := range appSubUnitStatuses { // search for resources with same kind to find version
 				if appSubUnitStatus.Kind == appsub.Kind {
 					appSubUnitStatus.APIVersion = appsub.APIVersion
@@ -370,7 +371,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 	if failOnStatusErr {
 		appsubstatus, err := GetAppsubReportStatus(sync.LocalClient, sync.hub, sync.standalone, hostSub.Namespace, hostSub.Name)
 		if err != nil {
-			klog.Info("failed to get subscription status for %s/%s, err:", hostSub.Namespace, hostSub.Name, err.Error())
+			klog.Infof("failed to get subscription status for %s/%s, err:%v", hostSub.Namespace, hostSub.Name, err.Error())
 
 			return err
 		}

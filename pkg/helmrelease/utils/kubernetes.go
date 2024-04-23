@@ -26,7 +26,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//GetAccessToken retrieve the accessToken
+// GetAccessToken retrieve the accessToken
 func GetAccessToken(secret *corev1.Secret) string {
 	if accessToken, ok := secret.Data["accessToken"]; ok {
 		return string(accessToken)
@@ -35,7 +35,7 @@ func GetAccessToken(secret *corev1.Secret) string {
 	return ""
 }
 
-//GetPassword retrieve the password
+// GetPassword retrieve the password
 func GetPassword(secret *corev1.Secret) string {
 	if password, ok := secret.Data["password"]; ok {
 		return string(password)
@@ -44,7 +44,7 @@ func GetPassword(secret *corev1.Secret) string {
 	return ""
 }
 
-//GetConfigMap search the config map containing the helm repo client configuration.
+// GetConfigMap search the config map containing the helm repo client configuration.
 func GetConfigMap(client client.Client, parentNamespace string, configMapRef *corev1.ObjectReference) (configMap *corev1.ConfigMap, err error) {
 	if configMapRef != nil {
 		klog.V(5).Info("Retrieve configMap ", parentNamespace, "/", configMapRef.Name)
@@ -88,7 +88,7 @@ func GetConfigMap(client client.Client, parentNamespace string, configMapRef *co
 	return configMap, err
 }
 
-//GetSecret returns the secret to access the helm-repo
+// GetSecret returns the secret to access the helm-repo
 func GetSecret(client client.Client, parentNamespace string, secretRef *corev1.ObjectReference) (secret *corev1.Secret, err error) {
 	if secretRef != nil {
 		klog.V(5).Info("retrieve secret :", parentNamespace, "/", secretRef)

@@ -516,6 +516,7 @@ func TestNextWeekdayToRun(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.t)
 			got := tC.rd.durationToNextRunableWeekday(nil, tt)
+
 			if got != tC.wanted {
 				t.Errorf("wanted %v, however got %v", tC.wanted, got)
 			}
@@ -548,6 +549,7 @@ func TestParseTimeWithKicthenFormat(t *testing.T) {
 			tt, _ := time.Parse(time.UnixDate, tC.wanted)
 			pTime := parseTimeWithKitchenFormat(tC.tstr, getLoc(tC.loc))
 			p, g := pTime.Format(time.Kitchen), tt.Format(time.Kitchen)
+
 			if p != g {
 				t.Errorf("parsed time %v, wanted %v", p, g)
 			}

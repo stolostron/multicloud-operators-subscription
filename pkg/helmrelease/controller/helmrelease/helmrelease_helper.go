@@ -45,6 +45,7 @@ func nameFilter(name string) releaseutil.FilterFunc {
 		if rls == nil {
 			return true
 		}
+
 		return rls.Name == name
 	})
 }
@@ -156,6 +157,7 @@ func (r *ReconcileHelmRelease) hackMultiClusterHubRemoveCRDReferences(hr *appv1.
 		if err != nil {
 			return err
 		}
+
 		if changed {
 			klog.Info("Release: ", storageRelease.Name, " needs updating")
 
@@ -167,7 +169,6 @@ func (r *ReconcileHelmRelease) hackMultiClusterHubRemoveCRDReferences(hr *appv1.
 
 				return err
 			}
-
 		} else {
 			klog.Info("Release: ", storageRelease.Name, " is unchanged")
 		}
@@ -187,6 +188,7 @@ func (r *ReconcileHelmRelease) hackMultiClusterHubRemoveCRDReferences(hr *appv1.
 	if err != nil {
 		return err
 	}
+
 	if changed {
 		klog.Info("Status release: ", hr.GetName(), " needs updating")
 
@@ -199,7 +201,6 @@ func (r *ReconcileHelmRelease) hackMultiClusterHubRemoveCRDReferences(hr *appv1.
 
 			return err
 		}
-
 	} else {
 		klog.Info("Status release: ", hr.GetName(), " is unchanged")
 	}
@@ -217,16 +218,19 @@ func stripCRDs(bigFile string, c *action.Configuration) (string, bool, error) {
 
 	manifests := releaseutil.SplitManifests(bigFile)
 	_, files, err := releaseutil.SortManifests(manifests, caps.APIVersions, releaseutil.InstallOrder)
+
 	if err != nil {
 		return "", false, fmt.Errorf("corrupted release record. %w", err)
 	}
 
 	var builder strings.Builder
+
 	for _, file := range files {
 		if file.Head != nil && file.Head.Kind == "CustomResourceDefinition" {
 			if file.Head.Metadata != nil {
 				klog.Info("CRD detected: ", file.Head.Metadata.Name)
 			}
+
 			changed = true
 		} else {
 			builder.WriteString("\n---\n" + file.Content)
@@ -241,13 +245,16 @@ func GetCapabilities(c *action.Configuration) (*chartutil.Capabilities, error) {
 	if c.Capabilities != nil {
 		return c.Capabilities, nil
 	}
+
 	dc, err := c.RESTClientGetter.ToDiscoveryClient()
+
 	if err != nil {
 		return nil, err
 	}
 	// force a discovery cache invalidation to always fetch the latest server version/capabilities.
 	dc.Invalidate()
 	kubeVersion, err := dc.ServerVersion()
+
 	if err != nil {
 		return nil, err
 	}
@@ -274,5 +281,6 @@ func GetCapabilities(c *action.Configuration) (*chartutil.Capabilities, error) {
 			Minor:   kubeVersion.Minor,
 		},
 	}
+
 	return c.Capabilities, nil
 }

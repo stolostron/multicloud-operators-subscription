@@ -59,6 +59,7 @@ func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues
 	if err != nil {
 		return nil, fmt.Errorf("failed to get core/v1 client: %w", err)
 	}
+
 	storageBackend := storage.Init(driver.NewSecrets(clientv1.Secrets(cr.GetNamespace())))
 
 	// Get the necessary clients and client getters. Use a client that injects the CR
@@ -71,6 +72,7 @@ func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues
 	kubeClient := kube.New(rcg)
 	restMapper := f.mgr.GetRESTMapper()
 	ownerRefClient, err := client.NewOwnerRefInjectingClient(*kubeClient, restMapper, cr)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to inject owner references: %w", err)
 	}
@@ -100,6 +102,7 @@ func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse override values: %w", err)
 	}
+
 	values := mergeMaps(crValues, expOverrides)
 
 	actionConfig := &action.Configuration{
@@ -135,18 +138,21 @@ func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues
 // in the same namespace.
 //
 // TODO(jlanford): As noted above, using the CR name as the release name raises
-//   the possibility of collision. We should move this logic to a validating
-//   admission webhook so that the CR owner receives immediate feedback of the
-//   collision. As is, the only indication of collision will be in the CR status
-//   and operator logs.
+//
+//	the possibility of collision. We should move this logic to a validating
+//	admission webhook so that the CR owner receives immediate feedback of the
+//	collision. As is, the only indication of collision will be in the CR status
+//	and operator logs.
 func getReleaseName(storageBackend *storage.Storage, crChartName string,
 	cr *unstructured.Unstructured) (string, error) {
 	// If a release with the CR name does not exist, return the CR name.
 	releaseName := cr.GetName()
 	history, exists, err := releaseHistory(storageBackend, releaseName)
+
 	if err != nil {
 		return "", err
 	}
+
 	if !exists {
 		return releaseName, nil
 	}
@@ -157,7 +163,9 @@ func getReleaseName(storageBackend *storage.Storage, crChartName string,
 	if history[0].Chart == nil {
 		return "", fmt.Errorf("could not find chart metadata in release with name %q", releaseName)
 	}
+
 	existingChartName := history[0].Chart.Name()
+
 	if existingChartName != crChartName {
 		return "", fmt.Errorf("duplicate release name: found existing release with name %q for chart %q",
 			releaseName, existingChartName)
@@ -172,19 +180,23 @@ func releaseHistory(storageBackend *storage.Storage, releaseName string) ([]*hel
 		if notFoundErr(err) {
 			return nil, false, nil
 		}
+
 		return nil, false, err
 	}
+
 	return releaseHistory, len(releaseHistory) > 0, nil
 }
 
 func parseOverrides(in map[string]string) (map[string]interface{}, error) {
 	out := make(map[string]interface{})
+
 	for k, v := range in {
 		val := fmt.Sprintf("%s=%s", k, v)
 		if err := strvals.ParseIntoString(val, out); err != nil {
 			return nil, err
 		}
 	}
+
 	return out, nil
 }
 
@@ -193,6 +205,7 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 	for k, v := range a {
 		out[k] = v
 	}
+
 	for k, v := range b {
 		if v, ok := v.(map[string]interface{}); ok {
 			if bv, ok := out[k]; ok {
@@ -202,7 +215,9 @@ func mergeMaps(a, b map[string]interface{}) map[string]interface{} {
 				}
 			}
 		}
+
 		out[k] = v
 	}
+
 	return out
 }

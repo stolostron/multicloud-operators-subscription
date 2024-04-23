@@ -34,6 +34,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	mgr "sigs.k8s.io/controller-runtime/pkg/manager"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
@@ -75,7 +76,11 @@ var _ = BeforeSuite(func() {
 	Expect(crdapis.AddToScheme(scheme.Scheme)).Should(Succeed())
 	Expect(appsubReportV1alpha1.AddToScheme(scheme.Scheme)).Should(Succeed())
 
-	k8sManager, err = mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	k8sManager, err = mgr.New(cfg, mgr.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

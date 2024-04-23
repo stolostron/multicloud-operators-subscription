@@ -46,10 +46,12 @@ func TestReconcileSubscription_getClustersFromPlacementRef(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := &ReconcileSubscription{}
 			_, err := r.getClustersFromPlacementRef(tt.appSub)
+
 			if (err != nil) != true {
 				t.Errorf("ReconcileSubscription.getClustersFromPlacementRef() error = %v, wantErr %v", err, true)
 				return
 			}
+
 			if !strings.Contains(err.Error(), "unsupported placement reference") {
 				t.Errorf("ReconcileSubscription.getClustersFromPlacementRef() error = %v", err)
 				return

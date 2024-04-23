@@ -138,6 +138,7 @@ func (hrsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duratio
 			time.Sleep(retryInterval)
 			klog.Infof("Re-try #%d: subcribing to the Helm repo", n+1)
 			hrsi.doSubscription()
+
 			n++
 		} else {
 			break

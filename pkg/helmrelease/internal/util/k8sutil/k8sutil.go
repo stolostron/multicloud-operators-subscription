@@ -25,16 +25,19 @@ import (
 // The namespace of the dependent resource can either be passed in explicitly, otherwise it will be
 // extracted from the dependent runtime.Object.
 // This function performs following checks:
-//  -- True: Owner is cluster-scoped.
-//  -- True: Both Owner and dependent are Namespaced with in same namespace.
-//  -- False: Owner is Namespaced and dependent is Cluster-scoped.
-//  -- False: Both Owner and dependent are Namespaced with different namespaces.
+//
+//	-- True: Owner is cluster-scoped.
+//	-- True: Both Owner and dependent are Namespaced with in same namespace.
+//	-- False: Owner is Namespaced and dependent is Cluster-scoped.
+//	-- False: Both Owner and dependent are Namespaced with different namespaces.
 func SupportsOwnerReference(restMapper meta.RESTMapper, owner, dependent runtime.Object, depNamespace string) (bool, error) {
 	ownerGVK := owner.GetObjectKind().GroupVersionKind()
 	ownerMapping, err := restMapper.RESTMapping(ownerGVK.GroupKind(), ownerGVK.Version)
+
 	if err != nil {
 		return false, err
 	}
+
 	mOwner, err := meta.Accessor(owner)
 	if err != nil {
 		return false, err
@@ -42,16 +45,21 @@ func SupportsOwnerReference(restMapper meta.RESTMapper, owner, dependent runtime
 
 	depGVK := dependent.GetObjectKind().GroupVersionKind()
 	depMapping, err := restMapper.RESTMapping(depGVK.GroupKind(), depGVK.Version)
+
 	if err != nil {
 		return false, err
 	}
+
 	mDep, err := meta.Accessor(dependent)
+
 	if err != nil {
 		return false, err
 	}
+
 	ownerClusterScoped := ownerMapping.Scope.Name() == meta.RESTScopeNameRoot
 	ownerNamespace := mOwner.GetNamespace()
 	depClusterScoped := depMapping.Scope.Name() == meta.RESTScopeNameRoot
+
 	if depNamespace == "" {
 		depNamespace = mDep.GetNamespace()
 	}

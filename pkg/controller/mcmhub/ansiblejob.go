@@ -234,8 +234,6 @@ func (jIns *JobInstances) registryAnsibleJob(clt client.Client, logger logr.Logg
 		lastAnsibleJob.Namespace, lastAnsibleJob.Name, lastAnsibleJob.Status.AnsibleJobResult.Status, hookType, jobKey.String())
 
 	jobRecords.Instance[0] = *lastAnsibleJob
-
-	return
 }
 
 // jIns - the original ansible job templates fetched from the git repo, where
@@ -365,12 +363,12 @@ func (jIns *JobInstances) applyJobs(clt client.Client, subIns *subv1.Subscriptio
 
 		if err := clt.Get(context.TODO(), jKey, job); err != nil {
 			if !kerr.IsNotFound(err) {
-				return fmt.Errorf("failed to get job %v, err: %v", jKey, err)
+				return fmt.Errorf("failed to get job %v, err: %w", jKey, err)
 			}
 
 			if err := clt.Create(context.TODO(), &nx); err != nil {
 				if !kerr.IsAlreadyExists(err) {
-					return fmt.Errorf("failed to apply job %v, err: %v", jKey, err)
+					return fmt.Errorf("failed to apply job %v, err: %w", jKey, err)
 				}
 			}
 
