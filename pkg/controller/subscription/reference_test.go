@@ -29,6 +29,7 @@ import (
 	"github.com/onsi/gomega"
 
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -72,7 +73,12 @@ func TestListAndDeployReferredObject(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
@@ -156,8 +162,13 @@ func TestDeleteReferredObjects(t *testing.T) {
 
 	g := gomega.NewGomegaWithT(t)
 	// Setup the Manager and Controller.  Wrap the Controller Reconcile function so it writes each request to a
-	// channel when it is finid'Cu
-	mgr, err := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+	// channel when it is finished
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	c = mgr.GetClient()
@@ -180,6 +191,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 			g.Expect(err).Should(gomega.BeNil())
 
 			time.Sleep(time.Second * 2)
+
 			tmp := &corev1.SecretList{}
 
 			opts := &client.ListOptions{
@@ -191,6 +203,7 @@ func TestDeleteReferredObjects(t *testing.T) {
 				g.Expect(tmp.Items).Should(gomega.HaveLen(tC.itemLen))
 				g.Expect(c.Delete(context.TODO(), tC.refSrt)).NotTo(gomega.HaveOccurred())
 			}
+
 			g.Expect(tmp.Items).Should(gomega.HaveLen(tC.itemLen))
 		})
 	}

@@ -32,11 +32,17 @@ import (
 	placementv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 	It("should fail for subscriptions with no placement configured", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+		mgr, mgrErr := manager.New(cfg, manager.Options{
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+		})
+
 		Expect(mgrErr).NotTo(HaveOccurred())
 
 		sutPropagationTestClient := mgr.GetClient()
@@ -97,7 +103,12 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 	})
 
 	It("should fail for subscriptions configured for both local and remote placements", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+		mgr, mgrErr := manager.New(cfg, manager.Options{
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+		})
+
 		Expect(mgrErr).NotTo(HaveOccurred())
 
 		sutPropagationTestClient := mgr.GetClient()
@@ -166,7 +177,12 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 	})
 
 	It("should successfully propagate for subscriptions configured for local placement only", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+		mgr, mgrErr := manager.New(cfg, manager.Options{
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+		})
+
 		Expect(mgrErr).NotTo(HaveOccurred())
 
 		sutPropagationTestClient := mgr.GetClient()
@@ -231,7 +247,12 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 	})
 
 	It("should fail for subscriptions with a remote placement and no channel", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+		mgr, mgrErr := manager.New(cfg, manager.Options{
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+		})
+
 		Expect(mgrErr).NotTo(HaveOccurred())
 
 		sutPropagationTestClient := mgr.GetClient()
@@ -297,7 +318,12 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 	})
 
 	It("should successfully propagate for subscriptions with a remote channel and a placement", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{MetricsBindAddress: "0"})
+		mgr, mgrErr := manager.New(cfg, manager.Options{
+			Metrics: metricsserver.Options{
+				BindAddress: "0",
+			},
+		})
+
 		Expect(mgrErr).NotTo(HaveOccurred())
 
 		sutPropagationTestClient := mgr.GetClient()

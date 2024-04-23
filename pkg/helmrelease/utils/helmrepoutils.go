@@ -64,7 +64,7 @@ func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skip
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipCertVerify, // #nosec G402 InsecureSkipVerify conditionally
+			InsecureSkipVerify: skipCertVerify,            // #nosec G402 InsecureSkipVerify conditionally
 			MinVersion:         appsubv1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
 		},
 	}
@@ -135,7 +135,7 @@ func DownloadChart(configMap *corev1.ConfigMap,
 // DownloadChartFromGit downloads a chart into the charsDir
 func DownloadChartFromGit(configMap *corev1.ConfigMap, secret *corev1.Secret, destRepo string, s *appv1.HelmRelease) (chartDir string, err error) {
 	if s.Repo.Source.GitHub == nil && s.Repo.Source.Git == nil {
-		err := fmt.Errorf("git type, need Repo.Source.Git or Repo.Source.GitHub to be populated.")
+		err := fmt.Errorf("git type, need Repo.Source.Git or Repo.Source.GitHub to be populated")
 		return "", err
 	}
 
@@ -206,7 +206,7 @@ func DownloadGitRepo(configMap *corev1.ConfigMap,
 				caCert = configMap.Data["caCerts"]
 			}
 
-			err := getHTTPOptions(options, caCert, insecureSkipVerify)
+			err := getHTTPOptions(caCert, insecureSkipVerify)
 
 			if err != nil {
 				klog.Error(err, "failed to prepare HTTP clone options")
@@ -400,7 +400,7 @@ func getSSHOptions(options *git.CloneOptions, sshKey, passphrase []byte, knownho
 	return nil
 }
 
-func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerify bool) error {
+func getHTTPOptions(caCerts string, insecureSkipVerify bool) error {
 	installProtocol := false
 
 	// #nosec G402 -- TLS 1.2 is required for FIPS
@@ -435,6 +435,7 @@ func getHTTPOptions(options *git.CloneOptions, caCerts string, insecureSkipVerif
 			if err != nil {
 				return err
 			}
+
 			klog.Info("Adding certificate -->" + x509Cert.Subject.String())
 			certPool.AddCert(x509Cert)
 		}
@@ -519,7 +520,6 @@ func downloadChartFromURL(configMap *corev1.ConfigMap,
 	destRepo string,
 	s *appv1.HelmRelease,
 	url string) (chartDir string, err error) {
-
 	digestTrim := s.Repo.Digest
 	if digestTrim != "" {
 		if len(digestTrim) >= 6 {

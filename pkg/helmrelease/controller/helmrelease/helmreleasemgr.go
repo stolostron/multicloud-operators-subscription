@@ -43,7 +43,7 @@ func (r ReconcileHelmRelease) newHelmOperatorManagerFactory(
 		return nil, err
 	}
 
-	klog.V(3).Info("ChartDir: ", chartDir)
+	klog.Info("ChartDir: ", chartDir)
 
 	f := helmoperator.NewManagerFactory(r.Manager, chartDir)
 

@@ -101,7 +101,7 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1.Subscription) error
 	case chnv1.ChannelTypeHelmRepo:
 		helmRls, err := helmops.GetSubscriptionChartsOnHub(r.Client, primaryChannel, secondaryChannel, sub)
 		if err != nil {
-			klog.Error("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
+			klog.Errorf("failed to get the chart index for helm subscription %v, err: %v", ObjectString(sub), err)
 
 			return err
 		}
@@ -339,6 +339,7 @@ func (r *ReconcileSubscription) createAppAppsubReport(sub *appv1.Subscription, r
 
 		var failed int
 		failed, err = strconv.Atoi(appsubReport.Summary.Failed)
+
 		if err != nil {
 			failed = 0
 		}

@@ -46,35 +46,35 @@ const (
 type GitOps interface {
 	//DownloadAnsibleHookResource downloads the ansible job from the git and marshal
 	//the resource to
-	DownloadAnsibleHookResource(*subv1.Subscription) error
+	DownloadAnsibleHookResource(sub *subv1.Subscription) error
 
-	HasHookFolders(*subv1.Subscription) bool
+	HasHookFolders(sub *subv1.Subscription) bool
 
 	// GetHooks returns the ansiblejob from a given folder, if the folder is
 	// inaccessible, then os.Error is returned
-	GetHooks(*subv1.Subscription, string) ([]ansiblejob.AnsibleJob, error)
+	GetHooks(sub *subv1.Subscription, hookPath string) ([]ansiblejob.AnsibleJob, error)
 
 	// RegisterBranch to git watcher and do a initial download for other
 	// components to consume
-	RegisterBranch(*subv1.Subscription) error
+	RegisterBranch(sub *subv1.Subscription) error
 
 	// DeregisterBranch
-	DeregisterBranch(types.NamespacedName)
+	DeregisterBranch(subKey types.NamespacedName)
 
 	//helper for test
 	GetRepoRecords() map[string]*RepoRegistery
 	GetSubRecords() map[types.NamespacedName]string
 
 	//GetLatestCommitID will output the latest commit id from local git record
-	GetLatestCommitID(*subv1.Subscription) (string, error)
+	GetLatestCommitID(sub *subv1.Subscription) (string, error)
 	//ResolveLocalGitFolder is used to open a local folder for downloading the
 	//repo branch
-	ResolveLocalGitFolder(*subv1.Subscription) string
+	ResolveLocalGitFolder(sub *subv1.Subscription) string
 
-	GetRepoRootDirctory(*subv1.Subscription) string
+	GetRepoRootDirctory(sub *subv1.Subscription) string
 
 	//Runnable
-	Start(context.Context) error
+	Start(myContext context.Context) error
 }
 
 type branchInfo struct {

@@ -37,6 +37,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 const (
@@ -64,7 +65,12 @@ func TestHookReconcile(t *testing.T) {
 var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 
-	k8sManager, err := mgr.New(cfg, mgr.Options{MetricsBindAddress: "0"})
+	k8sManager, err := mgr.New(cfg, mgr.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+
 	Expect(err).ToNot(HaveOccurred())
 
 	k8sClt = k8sManager.GetClient()

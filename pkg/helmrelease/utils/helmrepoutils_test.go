@@ -34,6 +34,7 @@ import (
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
 	testutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -47,8 +48,11 @@ func TestGetConfig(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
+
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
@@ -98,8 +102,11 @@ func TestSecret(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
 	mgr, err := manager.New(cfg, manager.Options{
-		MetricsBindAddress: "0",
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
 	})
+
 	assert.NoError(t, err)
 
 	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)

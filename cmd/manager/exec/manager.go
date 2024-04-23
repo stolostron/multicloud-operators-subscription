@@ -52,14 +52,14 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost         = "0.0.0.0"
-	metricsPort         = 8381
-	operatorMetricsPort = 8684
+	metricsHost = "0.0.0.0"
+	metricsPort = 8381
 )
 
 const (
@@ -119,14 +119,17 @@ func RunManager() {
 		"renewDeadline", Options.LeaderElectionRenewDeadline,
 		"retryPeriod", Options.LeaderElectionRetryPeriod)
 
-	webhookServer := k8swebhook.NewServer(k8swebhook.Options{
-		TLSMinVersion: appsubv1.TLSMinVersionString,
+	webhookOption := k8swebhook.Options{}
+	webhookOption.TLSOpts = append(webhookOption.TLSOpts, func(config *tls.Config) {
+		config.MinVersion = appsubv1.TLSMinVersionInt
 	})
+	webhookServer := k8swebhook.NewServer(webhookOption)
 
 	// Create a new Cmd to provide shared dependencies and start components
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		MetricsBindAddress:      fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-		Port:                    operatorMetricsPort,
+		Metrics: metricsserver.Options{
+			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		},
 		LeaderElection:          enableLeaderElection,
 		LeaderElectionID:        leaderElectionID,
 		LeaderElectionNamespace: "kube-system",
@@ -134,7 +137,11 @@ func RunManager() {
 		RenewDeadline:           &Options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &Options.LeaderElectionRetryPeriod,
 		WebhookServer:           webhookServer,
-		ClientDisableCacheFor:   []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}},
+			},
+		},
 	})
 
 	if err != nil {
@@ -256,6 +263,7 @@ func RunManager() {
 		if err != nil {
 			klog.Fatalf("unable to create config checker for application-manager addon")
 		}
+
 		go func() {
 			if err = serveHealthProbes(":8000", cc.Check); err != nil {
 				klog.Fatal(err)

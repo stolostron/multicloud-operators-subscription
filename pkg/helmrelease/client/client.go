@@ -86,9 +86,11 @@ func (c namespaceClientConfig) ConfigAccess() clientcmd.ConfigAccess {
 func NewRESTClientGetter(mgr manager.Manager, ns string) (genericclioptions.RESTClientGetter, error) {
 	cfg := mgr.GetConfig()
 	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
+
 	if err != nil {
 		return nil, err
 	}
+
 	cdc := cached.NewMemCacheClient(dc)
 	rm := mgr.GetRESTMapper()
 
@@ -104,7 +106,6 @@ var _ kube.Interface = &ownerRefInjectingClient{}
 
 func NewOwnerRefInjectingClient(base kube.Client, restMapper meta.RESTMapper,
 	cr *unstructured.Unstructured) (kube.Interface, error) {
-
 	if cr != nil {
 		if cr.GetObjectKind() != nil {
 			if cr.GetObjectKind().GroupVersionKind().Empty() || cr.GetName() == "" || cr.GetUID() == "" {
@@ -113,6 +114,7 @@ func NewOwnerRefInjectingClient(base kube.Client, restMapper meta.RESTMapper,
 			}
 		}
 	}
+
 	return &ownerRefInjectingClient{
 		Client:     base,
 		restMapper: restMapper,
@@ -131,16 +133,21 @@ func (c *ownerRefInjectingClient) Build(reader io.Reader, validate bool) (kube.R
 	if err != nil {
 		return resourceList, err
 	}
+
 	err = resourceList.Visit(func(r *resource.Info, err error) error {
 		if err != nil {
 			return err
 		}
+
 		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r.Object)
+
 		if err != nil {
 			return err
 		}
+
 		u := &unstructured.Unstructured{Object: objMap}
 		useOwnerRef, err := k8sutil.SupportsOwnerReference(c.restMapper, c.owner, u, "")
+
 		if err != nil {
 			return err
 		}
@@ -156,11 +163,14 @@ func (c *ownerRefInjectingClient) Build(reader io.Reader, validate bool) (kube.R
 				return err
 			}
 		}
+
 		return nil
 	})
+
 	if err != nil {
 		return nil, err
 	}
+
 	return resourceList, nil
 }
 
@@ -168,10 +178,14 @@ func containsResourcePolicyKeep(annotations map[string]string) bool {
 	if annotations == nil {
 		return false
 	}
+
 	resourcePolicyType, ok := annotations[kube.ResourcePolicyAnno]
+
 	if !ok {
 		return false
 	}
+
 	resourcePolicyType = strings.ToLower(strings.TrimSpace(resourcePolicyType))
+
 	return resourcePolicyType == kube.KeepPolicy
 }

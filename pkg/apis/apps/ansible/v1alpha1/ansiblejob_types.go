@@ -65,7 +65,7 @@ type Env struct {
 	VerifySSL            bool   `json:"verifySSL,omitempty"`
 }
 
-//https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/runner/eventapi/types.go#L46-L49
+// https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/runner/eventapi/types.go#L46-L49
 // EventTime - time to unmarshal nano time.
 // +kubebuilder:object:generate=true
 type EventTime struct {
@@ -85,7 +85,7 @@ func (e EventTime) MarshalJSON() ([]byte, error) {
 	return []byte(fmt.Sprintf("\"%s\"", e.Time.Format("2006-01-02T15:04:05.99999999"))), nil
 }
 
-//bridging from https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/controller/status/types.go
+// bridging from https://github.com/operator-framework/operator-sdk/blob/master/internal/ansible/controller/status/types.go
 // AnsibleResult - encapsulation of the ansible result.
 type AnsibleResult struct {
 	Ok               int       `json:"ok"`

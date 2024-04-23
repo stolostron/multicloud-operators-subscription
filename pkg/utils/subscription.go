@@ -843,6 +843,7 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 				sub = *sub.DeepCopy()
 				sub.SetFinalizers([]string{})
 				err = runtimeClient.Update(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
+
 				if err != nil {
 					klog.Warning(err)
 				}
@@ -862,11 +863,13 @@ func DeleteSubscriptionCRD(runtimeClient client.Client, crdx *clientsetx.Clients
 			}
 		} else {
 			klog.Info("This is ACM hub cluster. Deleting propagated subscriptions only. Not deleting subscription CRD.")
+
 			for _, sub := range sublist.Items {
 				annotations := sub.GetAnnotations()
 				if !strings.EqualFold(annotations[appv1.AnnotationHosting], "") {
 					klog.Infof("Deleting %s", sub.SelfLink)
 					err = runtimeClient.Delete(context.TODO(), &sub) // #nosec G601 requires "k8s.io/apimachinery/pkg/runtime" object
+
 					if err != nil {
 						klog.Warning(err)
 					}
@@ -1016,6 +1019,7 @@ func GetReconcileInterval(reconcileRate, chType string) (time.Duration, time.Dur
 		if strings.EqualFold(chType, chnv1.ChannelTypeHelmRepo) {
 			interval = 15 * time.Minute
 		}
+
 		if strings.EqualFold(chType, chnv1.ChannelTypeObjectBucket) {
 			interval = 15 * time.Minute
 		}

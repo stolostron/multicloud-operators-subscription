@@ -418,16 +418,20 @@ func CreateSubscriptionAdminRBAC(r client.Client) error {
 			if !equality.Semantic.DeepEqual(clusterRole.Rules, foundClusterRole.Rules) {
 				foundClusterRole.Rules = clusterRole.Rules
 				err = r.Update(context.TODO(), foundClusterRole, &client.UpdateOptions{})
+
 				if err != nil {
 					klog.Error("failed to update the open-cluster-management:subscription-admin clusterRole: error:", err)
 					return err
 				}
 			}
+
 			klog.Infof("ClusterRole %s exists.", clusterRole.Name)
+
 			break
 		}
 
 		time.Sleep(5 * time.Second)
+
 		tries++
 	}
 
@@ -456,6 +460,7 @@ func CreateSubscriptionAdminRBAC(r client.Client) error {
 		}
 
 		time.Sleep(5 * time.Second)
+
 		tries++
 	}
 
@@ -566,6 +571,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			Observe(0)
 	} else if pl != nil && (pl.PlacementRef != nil || pl.Clusters != nil || pl.ClusterSelector != nil) && (pl.Local != nil && *pl.Local) {
 		logger.Info("both local placement and remote placement are defined in the subscription")
+
 		instance.Status.Phase = appv1.SubscriptionPropagationFailed
 		instance.Status.Reason = "local placement and remote placement cannot be used together"
 
@@ -579,6 +585,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			metrics.PropagationFailedPullTime.
 				WithLabelValues(instance.Namespace, instance.Name).
 				Observe(0)
+
 			return reconcile.Result{}, nil
 		}
 
@@ -588,8 +595,8 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			if err := r.hubGitOps.RegisterBranch(instance); err != nil {
 				logger.Error(err, "failed to initialize Git connection")
 				preErr = fmt.Errorf("failed to initialize Git connection, err: %w", err)
-
 				passedBranchRegistration = false
+
 				metrics.PropagationFailedPullTime.
 					WithLabelValues(instance.Namespace, instance.Name).
 					Observe(0)
@@ -601,8 +608,8 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			if err := r.hooks.RegisterSubscription(instance, placementDecisionUpdated, placementDecisionRv); err != nil {
 				logger.Error(err, "failed to register hooks, skip the subscription reconcile")
 				preErr = fmt.Errorf("failed to register hooks, err: %w", err)
-
 				passedPrehook = false
+
 				metrics.PropagationFailedPullTime.
 					WithLabelValues(instance.Namespace, instance.Name).
 					Observe(0)
@@ -618,6 +625,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 					logger.Error(err, "failed to apply preHook, skip the subscription reconcile")
 
 					passedPrehook = false
+
 					metrics.PropagationFailedPullTime.
 						WithLabelValues(instance.Namespace, instance.Name).
 						Observe(0)
@@ -644,13 +652,16 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 					result.RequeueAfter = r.hookRequeueInterval
 					passedPrehook = false
+
 					metrics.PropagationFailedPullTime.
 						WithLabelValues(instance.Namespace, instance.Name).
 						Observe(0)
 
 					klog.Infof("prehooks not complete, appsub: %v, err: %v", request.NamespacedName.String(), err)
+
 					return result, nil
 				}
+
 				klog.Infof("prehooks complete, appsub: %v", request.NamespacedName.String())
 
 				instance.Status.Phase = appv1.PreHookSucessful
@@ -670,6 +681,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			metrics.PropagationFailedPullTime.
 				WithLabelValues(instance.Namespace, instance.Name).
 				Observe(float64(endTime - startTime))
+
 			instance.Status.Phase = appv1.SubscriptionPropagationFailed
 			instance.Status.Reason = err.Error()
 			instance.Status.Statuses = nil
@@ -686,7 +698,6 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		}
 	} else { //local: true and handle change true to false
 		// no longer hub subscription
-
 		localPlacement = true
 
 		if !utils.IsHostingAppsub(instance) {

@@ -29,6 +29,7 @@ import (
 
 	subapis "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var (
@@ -37,8 +38,6 @@ var (
 )
 
 func main() {
-	namespace := v1.NamespaceAll
-
 	cfg, err := config.GetConfig()
 	if err != nil {
 		klog.Error(err, "")
@@ -55,8 +54,9 @@ func main() {
 
 	// create the clientset for the CR
 	mgr, err := manager.New(cfg, manager.Options{
-		Namespace:          namespace,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		Metrics: metricsserver.Options{
+			BindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		},
 	})
 	if err != nil {
 		klog.Error(err, "")

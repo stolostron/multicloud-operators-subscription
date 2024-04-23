@@ -63,29 +63,29 @@ const (
 // HookProcessor tracks the pre and post hook information of subscriptions.
 type HookProcessor interface {
 	// register subsription to the HookProcessor
-	RegisterSubscription(*subv1.Subscription, bool, string) error
-	DeregisterSubscription(types.NamespacedName) error
+	RegisterSubscription(sub *subv1.Subscription, placementDecisionUpdated bool, placementDecisionRv string) error
+	DeregisterSubscription(subKey types.NamespacedName) error
 
 	//SetSuffixFunc let user reset the suffixFunc rule of generating the suffix
 	//of hook instance name
-	SetSuffixFunc(SuffixFunc)
-	ResetGitOps(GitOps)
+	SetSuffixFunc(suffixFunc SuffixFunc)
+	ResetGitOps(gitOps GitOps)
 	//ApplyPreHook returns a type.NamespacedName of the preHook
-	ApplyPreHooks(types.NamespacedName) error
-	IsPreHooksCompleted(types.NamespacedName) (bool, error)
-	ApplyPostHooks(types.NamespacedName) error
-	IsPostHooksCompleted(types.NamespacedName) (bool, error)
+	ApplyPreHooks(subKey types.NamespacedName) error
+	IsPreHooksCompleted(subKey types.NamespacedName) (bool, error)
+	ApplyPostHooks(subKey types.NamespacedName) error
+	IsPostHooksCompleted(subKey types.NamespacedName) (bool, error)
 
-	HasHooks(string, types.NamespacedName) bool
+	HasHooks(hookType string, subKey types.NamespacedName) bool
 	//WriteStatusToSubscription gets the status at the entry of the reconcile,
 	//also the procssed subscription(which should carry all the update status on
 	//the given reconciel), then  WriteStatusToSubscription will append the hook
 	//status info and make a update to the cluster
-	AppendStatusToSubscription(*subv1.Subscription) subv1.SubscriptionStatus
+	AppendStatusToSubscription(sub *subv1.Subscription) subv1.SubscriptionStatus
 
-	AppendPreHookStatusToSubscription(*subv1.Subscription) subv1.SubscriptionStatus
+	AppendPreHookStatusToSubscription(sub *subv1.Subscription) subv1.SubscriptionStatus
 
-	GetLastAppliedInstance(types.NamespacedName) AppliedInstance
+	GetLastAppliedInstance(subKey types.NamespacedName) AppliedInstance
 }
 
 type Hooks struct {
@@ -762,6 +762,7 @@ func GetClustersByPlacement(instance *subv1.Subscription, kubeclient client.Clie
 				logger.Error(err, " - Failed to get clusters from generic fields with error.")
 				return nil, err
 			}
+
 			for _, cl := range clustermap {
 				clusters = append(clusters, types.NamespacedName{Name: cl.Name, Namespace: cl.Name})
 			}

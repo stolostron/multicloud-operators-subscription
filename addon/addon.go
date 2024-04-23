@@ -52,17 +52,17 @@ var agentPermissionFiles = []string{
 }
 
 type GlobalValues struct {
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
 	ImagePullSecret string            `json:"imagePullSecret"`
-	ImageOverrides  map[string]string `json:"imageOverrides,"`
-	NodeSelector    map[string]string `json:"nodeSelector,"`
-	ProxyConfig     map[string]string `json:"proxyConfig,"`
+	ImageOverrides  map[string]string `json:"imageOverrides"`
+	NodeSelector    map[string]string `json:"nodeSelector"`
+	ProxyConfig     map[string]string `json:"proxyConfig"`
 }
 
 type Values struct {
-	OnHubCluster      bool         `json:"onHubCluster,"`     // single hub cluster
+	OnHubCluster      bool         `json:"onHubCluster"`      // single hub cluster
 	OnMulticlusterHub bool         `json:"onMulticlusterHub"` // regional hub cluster
-	GlobalValues      GlobalValues `json:"global,"`
+	GlobalValues      GlobalValues `json:"global"`
 }
 
 func getValue(cluster *clusterv1.ManagedCluster,

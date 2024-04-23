@@ -276,7 +276,7 @@ func CloneGitRepo(cloneOptions *GitCloneOption) (commitID string, err error) {
 			return "", err
 		}
 
-		klog.Warning("Failed to get Git clone options with the secondary channel. err: %v", err)
+		klog.Warningf("Failed to get Git clone options with the secondary channel. err: %v", err)
 	}
 
 	// we could not get the connection options with the primary channel but we got it with the secondary channel. Use it instead
@@ -520,6 +520,7 @@ func getHTTPOptions(options *git.CloneOptions, user, password, caCerts string, i
 			if err != nil {
 				return err
 			}
+
 			klog.Info("Adding certificate -->" + x509Cert.Subject.String())
 			certPool.AddCert(x509Cert)
 		}
@@ -760,8 +761,10 @@ func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string
 			if !kubeIgnore.MatchesPath(relativePath) && !skip(resourcePath, path) {
 				if info.IsDir() {
 					klog.V(4).Info("Ignoring subfolders of ", currentChartDir)
+
 					if _, err := os.Stat(path + "/Chart.yaml"); err == nil {
 						klog.V(4).Info("Found Chart.yaml in ", path)
+
 						if !strings.HasPrefix(path, currentChartDir) {
 							klog.V(4).Info("This is a helm chart folder.")
 							chartDirs[path+"/"] = path + "/"

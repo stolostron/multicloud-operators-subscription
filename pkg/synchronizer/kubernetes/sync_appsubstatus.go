@@ -218,8 +218,10 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 
 				// Find unit status to be deleted - exist previously but not in the new unit status
 				deleteUnitStatuses := []v1alpha1.SubscriptionUnitStatus{}
+
 				for _, oldResource := range oldUnitStatuses {
 					found := false
+
 					for _, newResource := range newUnitStatus {
 						if oldResource.Name == newResource.Name &&
 							oldResource.Namespace == newResource.Namespace &&
@@ -260,6 +262,7 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 						klog.Errorf("failed to get appsub to remove legacy statuses, err: %v", err)
 					}
 					appsub.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
+
 					if err := sync.LocalClient.Status().Update(context.TODO(), appsub); err != nil {
 						klog.Errorf("failed to remove legacy appsub statuses, err: %v", err)
 					}
@@ -269,12 +272,14 @@ func (sync *KubeSynchronizer) SyncAppsubClusterStatus(appsub *appv1.Subscription
 			// If all packages are removed - delete appsubstatus
 			if len(newUnitStatus) == 0 {
 				klog.V(1).Infof("Delete appsubstatus:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+
 				if err := sync.LocalClient.Delete(context.TODO(), pkgstatus); err != nil {
 					klog.Errorf("Error delete appsubstatus:%v/%v, err:%v", pkgstatus.Namespace, pkgstatus.Name, err)
 					return err
 				}
 
 				klog.V(1).Infof("Delete result from cluster AppsubReport:%v/%v", pkgstatus.Namespace, pkgstatus.Name)
+
 				if err := deleteAppsubReportResult(sync.RemoteClient, appsubClusterStatus.AppSub.Namespace,
 					appsubName, appsubClusterStatus.Cluster, sync.standalone); err != nil {
 					return err

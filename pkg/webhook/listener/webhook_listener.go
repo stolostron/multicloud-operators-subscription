@@ -343,6 +343,7 @@ func (listener *WebhookListener) HandleWebhook(w http.ResponseWriter, r *http.Re
 		klog.Info("handleWebhook headers: ", r.Header)
 		klog.Info("Unsupported webhook event type.")
 		w.WriteHeader(http.StatusBadRequest)
+
 		_, err := w.Write([]byte("Unsupported webhook event type."))
 		if err != nil {
 			klog.Error(err.Error())

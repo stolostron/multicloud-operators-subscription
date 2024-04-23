@@ -64,6 +64,7 @@ func (r *ReconcileSubscription) getClustersByPlacement(instance *appSubV1.Subscr
 			klog.Error("Failed to get clusters from generic fields with error: ", err)
 			return nil, err
 		}
+
 		for _, cl := range clustermap {
 			clusters = append(clusters,
 				ManageClusters{

@@ -685,6 +685,7 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 			hr = *hr.DeepCopy()
 			hr.SetFinalizers([]string{})
 			err = runtimeClient.Update(context.TODO(), &hr)
+
 			if err != nil {
 				klog.Warning(err)
 			}
