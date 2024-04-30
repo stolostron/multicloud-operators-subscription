@@ -13,21 +13,24 @@
 # limitations under the License.
 
 MANAGED_CLUSTER_NAME ?= cluster1
-TEST_TMP :=/tmp
-export KUBEBUILDER_ASSETS ?=$(TEST_TMP)/kubebuilder/bin
-K8S_VERSION ?=1.19.2
-GOHOSTOS ?=$(shell go env GOHOSTOS)
+TEST_TMP := /tmp
+export KUBEBUILDER_ASSETS ?= $(TEST_TMP)/kubebuilder/bin
+K8S_VERSION ?= 1.19.2
+GOHOSTOS ?= $(shell go env GOHOSTOS)
 GOHOSTARCH ?= $(shell go env GOHOSTARCH)
-KB_TOOLS_ARCHIVE_NAME :=kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
+KB_TOOLS_ARCHIVE_NAME := kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
 KB_TOOLS_ARCHIVE_PATH := $(TEST_TMP)/$(KB_TOOLS_ARCHIVE_NAME)
+
+# specify the tag for ocm foundation images used in e2e test
+OCM_IMAGE_TAG ?= v0.13.0
 
 LOCAL_OS := $(shell uname)
 ifeq ($(LOCAL_OS),Linux)
     TARGET_OS ?= linux
-    XARGS_FLAGS="-r"
+    XARGS_FLAGS = "-r"
 else ifeq ($(LOCAL_OS),Darwin)
     TARGET_OS ?= darwin
-    XARGS_FLAGS=
+    XARGS_FLAGS =
 else
     $(error "This system's OS $(LOCAL_OS) isn't recognized/supported")
 endif
@@ -35,7 +38,7 @@ endif
 SED_CMD:=sed
 ifeq ($(GOHOSTOS),darwin)
 	ifeq ($(GOHOSTARCH),amd64)
-		SED_CMD:=gsed
+		SED_CMD := gsed
 	endif
 endif
 
@@ -46,8 +49,8 @@ CLEANXARGS = xargs ${XARGS_FLAGS}
 REGISTRY = quay.io/open-cluster-management
 VERSION = latest
 IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
-export GOPACKAGES   = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
-export TEST_GIT_REPO_URL=github.com/open-cluster-management-io/multicloud-operators-subscription
+export GOPACKAGES = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
+export TEST_GIT_REPO_URL = github.com/open-cluster-management-io/multicloud-operators-subscription
 
 .PHONY: build
 
@@ -119,7 +122,7 @@ deploy-standalone:
 .PHONY: deploy-hub
 
 deploy-ocm:
-	deploy/ocm/install.sh
+	IMAGE_TAG=$(OCM_IMAGE_TAG) deploy/ocm/install.sh
 
 deploy-hub:
 	kubectl get ns open-cluster-management ; if [ $$? -ne 0 ] ; then kubectl create ns open-cluster-management ; fi
@@ -181,7 +184,7 @@ manifests: controller-gen
 ############################################################
 # run the e2e on a local kind
 ############################################################
-export CONTAINER_NAME=e2e
+export CONTAINER_NAME = e2e
 e2e: build build-images
 	build/run-e2e-tests.sh
 
