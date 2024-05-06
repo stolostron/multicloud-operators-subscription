@@ -3,6 +3,7 @@ package addon
 import (
 	"context"
 	"embed"
+	"fmt"
 	"strings"
 
 	"github.com/Masterminds/semver/v3"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -26,6 +28,7 @@ import (
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	appsubutils "open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -34,6 +37,35 @@ const (
 	ChartDir = "manifests/chart"
 
 	AgentImageEnv = "OPERAND_IMAGE_MULTICLUSTER_OPERATORS_SUBSCRIPTION"
+)
+
+const (
+	// AnnotationKlusterletDeployMode is the annotation key of klusterlet deploy mode, it describes the
+	// klusterlet deploy mode when importing a managed cluster.
+	// If the value is "Hosted", the HostingClusterNameAnnotation annotation will be required, we use
+	// AnnotationKlusterletHostingClusterName to determine where to deploy the registration-agent and
+	// work-agent.
+	AnnotationKlusterletDeployMode string = "import.open-cluster-management.io/klusterlet-deploy-mode"
+
+	// AnnotationKlusterletHostingClusterName is the annotation key of hosting cluster name for klusterlet,
+	// it is required in Hosted mode, and the hosting cluster MUST be one of the managed cluster of the hub.
+	// The value of the annotation should be the ManagedCluster name of the hosting cluster.
+	AnnotationKlusterletHostingClusterName string = "import.open-cluster-management.io/hosting-cluster-name"
+
+	// DisableAutoImportAnnotation is an annotation of ManagedCluster.
+	// If present, the crds.yaml and import.yaml will not be applied on the managed cluster by the hub
+	// controller automatically. And the bootstrap-hub-kubeconfig secret will not be updated as well
+	// in the backup-restore case.
+	DisableAutoImportAnnotation string = "import.open-cluster-management.io/disable-auto-import"
+
+	// AnnotationKlusterletConfig is an annotation of ManagedCluster, which references to the name of the
+	// KlusterletConfig adopted by this managed cluster. If it is missing on a ManagedCluster, no KlusterletConfig
+	// will be used for this managed cluster.
+	AnnotationKlusterletConfig string = "agent.open-cluster-management.io/klusterlet-config"
+
+	// AnnotationEnableHostedModeAddons is the key of annotation which indicates if the add-ons will be enabled
+	// in hosted mode automatically for a managed cluster
+	AnnotationEnableHostedModeAddons = "addon.open-cluster-management.io/enable-hosted-mode-addons"
 )
 
 //nolint:all
@@ -194,7 +226,7 @@ func applyManifestFromFile(file, clusterName, addonName string, kubeClient *kube
 	return nil
 }
 
-func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAllStrategy bool) (addonmanager.AddonManager, error) {
+func NewAddonManager(mgr manager.Manager, kubeConfig *rest.Config, agentImage string) (addonmanager.AddonManager, error) {
 	AppMgrImage = agentImage
 
 	addonMgr, err := addonmanager.New(kubeConfig)
@@ -234,14 +266,12 @@ func NewAddonManager(kubeConfig *rest.Config, agentImage string, agentInstallAll
 				addonfactory.ToAddOnProxyConfigValues,
 			),
 		).
+		WithAgentInstallNamespace(AddonInstallNamespaceFunc(
+			utils.NewAddOnDeploymentConfigGetter(addonClient), mgr.GetClient())).
 		WithAgentRegistrationOption(newRegistrationOption(kubeClient, AppMgrAddonName)).
 		WithAgentDeployTriggerClusterFilter(func(old, new *clusterv1.ManagedCluster) bool {
 			return !equality.Semantic.DeepEqual(old.Annotations, new.Annotations)
 		})
-
-	if agentInstallAllStrategy {
-		agentFactory.WithInstallStrategy(agent.InstallAllStrategy("open-cluster-management-agent-addon"))
-	}
 
 	agentAddon, err := agentFactory.BuildHelmAgentAddon()
 	if err != nil {
@@ -321,4 +351,53 @@ func GetMchImage(kubeConfig *rest.Config) (string, error) {
 	klog.Infof("MCH appsubimage: %v", image)
 
 	return image, nil
+}
+
+// AddonInstallNamespaceFunc reads addonDeploymentConfig to set install namespace for addons in default mode,
+// and set install namespace to klusterlet-{cluster name} for addons in hosted mode.
+func AddonInstallNamespaceFunc(
+	addonGetter utils.AddOnDeploymentConfigGetter,
+	clusterClient client.Client) func(addon *addonapiv1alpha1.ManagedClusterAddOn) (string, error) {
+	return func(addon *addonapiv1alpha1.ManagedClusterAddOn) (string, error) {
+		cluster := &clusterv1.ManagedCluster{}
+		err := clusterClient.Get(context.TODO(), types.NamespacedName{Name: addon.Namespace}, cluster)
+
+		if err != nil {
+			return "", err
+		}
+
+		mode, _ := HostedClusterInfo(addon, cluster)
+		if mode == "Hosted" {
+			return fmt.Sprintf("klusterlet-%s", addon.Namespace), nil
+		}
+
+		addonNS, err := utils.AgentInstallNamespaceFromDeploymentConfigFunc(addonGetter)(addon)
+
+		if addonNS == "" && err == nil {
+			addonNS = "open-cluster-management-agent-addon"
+		}
+
+		return addonNS, err
+	}
+}
+
+func HostedClusterInfo(_ *addonapiv1alpha1.ManagedClusterAddOn, cluster *clusterv1.ManagedCluster) (string, string) {
+	if len(cluster.Annotations) == 0 {
+		return "Default", ""
+	}
+
+	if cluster.Annotations[AnnotationEnableHostedModeAddons] != "true" {
+		return "Default", ""
+	}
+
+	if cluster.Annotations[AnnotationKlusterletDeployMode] != "Hosted" {
+		return "Default", ""
+	}
+
+	hostingClusterName, ok := cluster.Annotations[AnnotationKlusterletHostingClusterName]
+	if !ok || len(hostingClusterName) == 0 {
+		return "Default", ""
+	}
+
+	return "Hosted", hostingClusterName
 }

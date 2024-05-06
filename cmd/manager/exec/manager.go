@@ -321,7 +321,7 @@ func RunManager() {
 
 		klog.Infof("Agent image: %v", agentImage)
 
-		adddonmgr, err := agentaddon.NewAddonManager(cfg, agentImage, Options.AgentInstallAll)
+		adddonmgr, err := agentaddon.NewAddonManager(mgr, cfg, agentImage)
 		if err != nil {
 			klog.Error("Failed to setup addon manager, error:", err)
 			os.Exit(1)
