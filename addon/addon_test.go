@@ -1,6 +1,7 @@
 package addon
 
 import (
+	"context"
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -9,8 +10,10 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/agent"
+	"open-cluster-management.io/addon-framework/pkg/utils"
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 var (
@@ -125,6 +128,92 @@ func TestManifest(t *testing.T) {
 
 			// output is for debug
 			// output(t, test.name, objects...)
+		})
+	}
+}
+
+type testConfigGetter struct {
+	config *addonapiv1alpha1.AddOnDeploymentConfig
+}
+
+func newTestConfigGetter(config *addonapiv1alpha1.AddOnDeploymentConfig) *testConfigGetter {
+	return &testConfigGetter{
+		config: config,
+	}
+}
+
+func (t *testConfigGetter) Get(_ context.Context, _ string, _ string) (*addonapiv1alpha1.AddOnDeploymentConfig, error) {
+	return t.config, nil
+}
+
+func newAddonConfigWithNamespace(namespace string) *addonapiv1alpha1.AddOnDeploymentConfig {
+	return &addonapiv1alpha1.AddOnDeploymentConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "test",
+			Name:      "test",
+		},
+		Spec: addonapiv1alpha1.AddOnDeploymentConfigSpec{
+			AgentInstallNamespace: namespace,
+		},
+	}
+}
+
+func newAddonWithConfig(name, cluster, annotationValue string, config *addonapiv1alpha1.AddOnDeploymentConfig) *addonapiv1alpha1.ManagedClusterAddOn {
+	specHash, _ := utils.GetAddOnDeploymentConfigSpecHash(config)
+	addon := newAddon(name, cluster, "", annotationValue)
+	addon.Status = addonapiv1alpha1.ManagedClusterAddOnStatus{
+		ConfigReferences: []addonapiv1alpha1.ConfigReference{
+			{
+				ConfigGroupResource: addonapiv1alpha1.ConfigGroupResource{
+					Group:    utils.AddOnDeploymentConfigGVR.Group,
+					Resource: utils.AddOnDeploymentConfigGVR.Resource,
+				},
+				DesiredConfig: &addonapiv1alpha1.ConfigSpecHash{
+					SpecHash: specHash,
+				},
+			},
+		},
+	}
+
+	return addon
+}
+
+func TestAddonInstallNamespaceFunc(t *testing.T) {
+	tests := []struct {
+		name              string
+		addon             *addonapiv1alpha1.ManagedClusterAddOn
+		cluster           *clusterv1.ManagedCluster
+		config            *addonapiv1alpha1.AddOnDeploymentConfig
+		expectedNamespace string
+	}{
+		{
+			name:              "default namespace",
+			addon:             newAddon("test", "cluster1", "", ""),
+			cluster:           newCluster("cluster1"),
+			expectedNamespace: "open-cluster-management-agent-addon",
+		},
+		{
+			name:              "customized namespace",
+			addon:             newAddonWithConfig("test", "cluster1", "", newAddonConfigWithNamespace("ns1")),
+			cluster:           newCluster("cluster1"),
+			config:            newAddonConfigWithNamespace("ns1"),
+			expectedNamespace: "ns1",
+		},
+	}
+
+	scheme := runtime.NewScheme()
+	clusterv1.Install(scheme)
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			client := fake.NewClientBuilder().WithScheme(scheme).WithObjects(test.cluster).Build()
+			getter := newTestConfigGetter(test.config)
+			nsFunc := AddonInstallNamespaceFunc(getter, client)
+			namespace, _ := nsFunc(test.addon)
+
+			if namespace != test.expectedNamespace {
+				t.Errorf("namespace should be %s, but get %s", test.expectedNamespace, namespace)
+			}
 		})
 	}
 }

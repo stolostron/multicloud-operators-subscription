@@ -37,7 +37,6 @@ type SubscriptionCMDOptions struct {
 	LeaderElectionRenewDeadline time.Duration
 	LeaderElectionRetryPeriod   time.Duration
 	Debug                       bool
-	AgentInstallAll             bool
 }
 
 var Options = SubscriptionCMDOptions{
@@ -168,11 +167,4 @@ func ProcessFlags() {
 		Options.DisableTLS,
 		"Disable TLS on WebHook event listener.",
 	)
-
-	flag.BoolVar(
-		&Options.AgentInstallAll,
-		"agent-install-all",
-		false,
-		"Configure the install strategy of agent on managed clusters. "+
-			"Enabling this will automatically install agent on all managed cluster.")
 }
