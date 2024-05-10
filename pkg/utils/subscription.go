@@ -65,8 +65,11 @@ const (
 	annotationsSep         = ","
 	maxGeneratedNameLength = maxNameLength - randomLength - 1
 	// klusterletagentaddon secret token reconcile
-	addonServiceAccountName      = "application-manager"
-	addonServiceAccountNamespace = "open-cluster-management-agent-addon"
+	addonServiceAccountName = "application-manager"
+)
+
+var (
+	addonServiceAccountNamespace = GetComponentNamespace()
 )
 
 // PlacementDecisionPredicateFunctions filters PlacementDecision status decisions update
@@ -378,12 +381,13 @@ var ChannelPredicateFunctions = predicate.Funcs{
 	},
 }
 
-// ServiceAccountPredicateFunctions watches for changes in klusterlet-addon-appmgr service account in open-cluster-management-agent-addon namespace
+// ServiceAccountPredicateFunctions watches for App Addon SA changes
 var ServiceAccountPredicateFunctions = predicate.Funcs{
 	UpdateFunc: func(e event.UpdateEvent) bool {
 		newSA := e.ObjectNew.(*corev1.ServiceAccount)
 
 		if strings.EqualFold(newSA.Namespace, addonServiceAccountNamespace) && strings.EqualFold(newSA.Name, addonServiceAccountName) {
+			klog.Infof("App Addon SA updated: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)
 			return true
 		}
 
@@ -393,6 +397,7 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 		sa := e.Object.(*corev1.ServiceAccount)
 
 		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
+			klog.Infof("App Addon SA created: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)
 			return true
 		}
 
@@ -402,6 +407,7 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 		sa := e.Object.(*corev1.ServiceAccount)
 
 		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
+			klog.Infof("App Addon SA deleted: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)
 			return true
 		}
 

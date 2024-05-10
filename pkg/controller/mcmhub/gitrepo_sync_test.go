@@ -105,7 +105,7 @@ func TestGetGitResources(t *testing.T) {
 	err = c.Create(context.TODO(), githubchn)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(5 * time.Second)
 
 	resources, err := rec.GetGitResources(githubsub, false)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
