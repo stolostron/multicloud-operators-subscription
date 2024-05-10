@@ -61,13 +61,21 @@ func ConvertLabels(labelSelector *metav1.LabelSelector) (labels.Selector, error)
 	return labels.Everything(), nil
 }
 
-func GetComponentNamespace() (string, error) {
+func GetComponentNamespace() string {
+	addonNameSpace := ""
 	nsBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		return "open-cluster-management-agent-addon", err
+
+	if err != nil || len(nsBytes) == 0 {
+		klog.Errorf("failed to get app addon pod namespace. error: %v", err)
+
+		addonNameSpace = "open-cluster-management-agent-addon"
+	} else {
+		addonNameSpace = string(nsBytes)
 	}
 
-	return string(nsBytes), nil
+	klog.Infof("App Addon Pod NS = %v", addonNameSpace)
+
+	return addonNameSpace
 }
 
 // GetCheckSum generates a checksum of a kube config file

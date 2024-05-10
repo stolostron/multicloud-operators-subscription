@@ -69,7 +69,7 @@ func TestLeaseReconcile(t *testing.T) {
 	s := scheme.Scheme
 	s.AddKnownTypes(corev1.SchemeGroupVersion, &corev1.Namespace{})
 
-	addontNs, _ := utils.GetComponentNamespace()
+	addontNs := utils.GetComponentNamespace()
 	pod.SetNamespace(addontNs)
 
 	tmpFile, err := os.CreateTemp("", "temptest")

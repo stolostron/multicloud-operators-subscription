@@ -62,12 +62,7 @@ func (r *LeaseReconciler) CheckHubKubeConfig(ctx context.Context) error {
 
 func (r *LeaseReconciler) Reconcile(ctx context.Context) {
 	if len(r.componentNamespace) == 0 {
-		componentNamespace, err := utils.GetComponentNamespace()
-		if err != nil {
-			klog.Errorf("failed to get pod namespace use. error:%v", err)
-		}
-
-		r.componentNamespace = componentNamespace
+		r.componentNamespace = utils.GetComponentNamespace()
 	}
 
 	// Create/update lease on managed cluster first. If it fails, it could mean lease resource kind

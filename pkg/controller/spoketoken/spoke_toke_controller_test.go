@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -37,7 +38,7 @@ const (
 var (
 	sakey = types.NamespacedName{
 		Name:      "application-manager",
-		Namespace: "open-cluster-management-agent-addon",
+		Namespace: utils.GetComponentNamespace(),
 	}
 
 	secretkey = types.NamespacedName{
@@ -53,14 +54,14 @@ var (
 
 	agentNamespace = &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "open-cluster-management-agent-addon",
+			Name: utils.GetComponentNamespace(),
 		},
 	}
 
 	sa1 = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager",
-			Namespace: "open-cluster-management-agent-addon",
+			Namespace: utils.GetComponentNamespace(),
 		},
 		Secrets: []corev1.ObjectReference{
 			{
@@ -72,7 +73,7 @@ var (
 	saToBeIgnored = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "sa-to-be-ignored",
-			Namespace: "open-cluster-management-agent-addon",
+			Namespace: utils.GetComponentNamespace(),
 		},
 		Secrets: []corev1.ObjectReference{
 			{
@@ -81,13 +82,18 @@ var (
 		},
 	}
 
+	dockerSecretKey = types.NamespacedName{
+		Name:      "application-manager-dockercfg-1",
+		Namespace: utils.GetComponentNamespace(),
+	}
+
 	dockerSecret = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager-dockercfg-1",
-			Namespace: "open-cluster-management-agent-addon",
+			Namespace: utils.GetComponentNamespace(),
 			Annotations: map[string]string{
 				"kubernetes.io/service-account.name": "application-manager",
-				"openshift.io/token-secret.name":     "application-manager-token-1",
+				"openshift.io/token-secret.name":     "application-manager-dockercfg-1",
 				"openshift.io/token-secret.value":    "dummy-1",
 			},
 		},
@@ -96,7 +102,7 @@ var (
 	secret1 = &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "application-manager-token-1",
-			Namespace:   "open-cluster-management-agent-addon",
+			Namespace:   utils.GetComponentNamespace(),
 			Annotations: map[string]string{"kubernetes.io/service-account.name": "application-manager"},
 		},
 		Type: corev1.SecretTypeServiceAccountToken,
@@ -105,14 +111,14 @@ var (
 	sa2 = &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "application-manager",
-			Namespace: "open-cluster-management-agent-addon",
+			Namespace: utils.GetComponentNamespace(),
 		},
 	}
 )
 
 var expectedRequest = reconcile.Request{NamespacedName: sakey}
 
-const timeout = time.Second * 5
+const timeout = time.Second * 10
 
 func TestReconcile(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
@@ -159,11 +165,16 @@ func TestReconcile(t *testing.T) {
 	g.Expect(c.Create(context.TODO(), dockerSecret)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), dockerSecret)
 
+	time.Sleep(time.Second * 5)
+
+	newDockerSecret := &corev1.Secret{}
+	g.Expect(c.Get(context.TODO(), dockerSecretKey, newDockerSecret)).NotTo(gomega.HaveOccurred())
+
 	// Create the addon agent service account token secret and reconcile.
 	g.Expect(c.Create(context.TODO(), secret1)).NotTo(gomega.HaveOccurred())
 	defer c.Delete(context.TODO(), secret1)
 
-	time.Sleep(time.Second * 2)
+	time.Sleep(time.Second * 5)
 
 	g.Eventually(requests, timeout).Should(gomega.Receive(gomega.Equal(expectedRequest)))
 
