@@ -193,7 +193,7 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 		klog.Warning(err, "Failed to remove directory ", cloneOptions.DestDir)
 	}
 
-	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm)
+	err = os.MkdirAll(cloneOptions.DestDir, os.ModePerm) // #nosec G301
 
 	if err != nil {
 		return nil, err

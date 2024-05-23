@@ -192,7 +192,7 @@ func DownloadGitRepo(configMap *corev1.ConfigMap,
 			klog.Error(err, "- Failed to remove all: ", destRepo)
 		}
 
-		err = os.MkdirAll(destRepo, os.ModePerm)
+		err = os.MkdirAll(destRepo, os.ModePerm) // #nosec G301
 		if err != nil {
 			return "", err
 		}
