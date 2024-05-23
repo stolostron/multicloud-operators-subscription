@@ -304,9 +304,11 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 			}
 
 			anno := dockerSecret.GetAnnotations()
-			klog.Info("found the application-manager-token secret " + anno["openshift.io/token-secret.name"])
 
-			return anno["openshift.io/token-secret.value"]
+			if anno["openshift.io/token-secret.value"] > "" {
+				klog.Info("found the application-manager-token secret " + anno["openshift.io/token-secret.name"])
+				return anno["openshift.io/token-secret.value"]
+			}
 		}
 	}
 
