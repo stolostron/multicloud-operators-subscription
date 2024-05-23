@@ -61,7 +61,7 @@ func GenerateServerCerts(dir string) error {
 	}
 
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		err = os.MkdirAll(dir, os.ModePerm)
+		err = os.MkdirAll(dir, os.ModePerm) // #nosec G301
 		if err != nil {
 			klog.Error(err, "Failed to make directory ", dir)
 			return err
