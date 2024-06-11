@@ -211,9 +211,17 @@ metadata:
 spec:
   channel: some/channel
   packageOverrides:
-    packageName: kustomization
+  - packageName: kustomization
     packageOverrides:
-      value: |
+    - value:
+        patches:
+          - target:
+              kind: Deployment
+              name: busybox
+            patch: |-
+              - op: replace
+                path: /spec/replicas
+                value: 2
 the kustomization overrider YAML as string
 ```
 

@@ -261,7 +261,7 @@ func RunManager() {
 		// add liveness probe server
 		cc, err := addonutils.NewConfigChecker("managed-serviceaccount-agent", "/var/run/klusterlet/kubeconfig")
 		if err != nil {
-			klog.Fatalf("unable to create config checker for application-manager addon")
+			klog.Fatalf("unable to create config checker for application-manager addon, err: %v", err)
 		}
 
 		go func() {

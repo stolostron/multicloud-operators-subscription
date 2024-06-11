@@ -460,7 +460,13 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 			relativePath = strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")[1]
 		}
 
-		utils.VerifyAndOverrideKustomize(ghsi.Subscription.Spec.PackageOverrides, relativePath, kustomizeDir)
+		err := utils.VerifyAndOverrideKustomize(ghsi.Subscription.Spec.PackageOverrides, relativePath, kustomizeDir)
+		if err != nil {
+			klog.Error("Failed to override kustomization, clean up all resources that will deploy. error: ", err.Error())
+			ghsi.resources = []kubesynchronizer.ResourceUnit{}
+
+			return err
+		}
 
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
