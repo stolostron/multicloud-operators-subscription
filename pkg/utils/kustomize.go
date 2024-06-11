@@ -70,7 +70,7 @@ func CheckPackageOverride(ov *appv1.Overrides) error {
 	return nil
 }
 
-func VerifyAndOverrideKustomize(packageOverrides []*appv1.Overrides, relativePath, kustomizeDir string) {
+func VerifyAndOverrideKustomize(packageOverrides []*appv1.Overrides, relativePath, kustomizeDir string) error {
 	for _, ov := range packageOverrides {
 		ovKustomizeDir := strings.Split(ov.PackageName, "kustomization")[0]
 
@@ -89,12 +89,14 @@ func VerifyAndOverrideKustomize(packageOverrides []*appv1.Overrides, relativePat
 				err := OverrideKustomize(pov, kustomizeDir)
 
 				if err != nil {
-					klog.Error("Failed to override kustomization.")
-					break
+					klog.Errorf("Failed to override kustomization. error: %v", err)
+					return err
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
 func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
@@ -123,7 +125,12 @@ func OverrideKustomize(pov appv1.PackageOverride, kustomizeDir string) error {
 			return err
 		}
 	} else {
-		override = ovuobj["value"].(map[string]interface{})
+		value, ok := ovuobj["value"].(map[string]interface{})
+		if !ok {
+			klog.Errorf("the value is not of type map[string]interface{}, Kustomize PackageOverride value: %v", ovuobj["value"])
+			return fmt.Errorf("the value is not of type map[string]interface{}, Kustomize PackageOverride value: %v", ovuobj["value"])
+		}
+		override = value
 	}
 
 	kustomizeYamlFilePath := filepath.Join(kustomizeDir, "kustomization.yaml")

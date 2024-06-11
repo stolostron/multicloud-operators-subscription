@@ -269,7 +269,11 @@ func (r *ReconcileSubscription) subscribeKustomizations(sub *appv1.Subscription,
 			relativePath = strings.SplitAfter(kustomizeDir, baseDir+"/")[1]
 		}
 
-		utils.VerifyAndOverrideKustomize(sub.Spec.PackageOverrides, relativePath, kustomizeDir)
+		err := utils.VerifyAndOverrideKustomize(sub.Spec.PackageOverrides, relativePath, kustomizeDir)
+		if err != nil {
+			klog.Error("Failed to override kustomization, error: ", err.Error())
+			return err
+		}
 
 		out, err := utils.RunKustomizeBuild(kustomizeDir)
 
