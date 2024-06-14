@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The Kubernetes Authors.
+Copyright 2024 The Kubernetes Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -27,9 +27,6 @@ import (
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ChartsDir env variable name which contains the directory where the charts are installed
 const ChartsDir = "CHARTS_DIR"
 
@@ -45,42 +42,60 @@ const (
 	GitSourceType SourceTypeEnum = "git"
 )
 
-// GitHub provides the parameters to access the helm-chart located in a github repo
+// GitHub provides the parameters to access the Helm chart located in a GitHub repo
 type GitHub struct {
-	Urls      []string `json:"urls,omitempty"`
-	ChartPath string   `json:"chartPath,omitempty"`
-	Branch    string   `json:"branch,omitempty"`
+	// Urls are the URLs of the Git repo.
+	Urls []string `json:"urls,omitempty"`
+	// ChartPath is the Helm chart path.
+	ChartPath string `json:"chartPath,omitempty"`
+	// Branch is the Git branch.
+	Branch string `json:"branch,omitempty"`
 }
 
-// Git provides the parameters to access the helm-chart located in a git repo
+// Git provides the parameters to access the Helm chart located in a Git repo
 type Git struct {
-	Urls      []string `json:"urls,omitempty"`
-	ChartPath string   `json:"chartPath,omitempty"`
-	Branch    string   `json:"branch,omitempty"`
+	// Urls are the URLs of the Git repo.
+	Urls []string `json:"urls,omitempty"`
+	// ChartPath is the Helm chart path.
+	ChartPath string `json:"chartPath,omitempty"`
+	// Branch is the Git branch.
+	Branch string `json:"branch,omitempty"`
 }
 
-// HelmRepo provides the urls to retrieve the helm-chart
+// HelmRepo provides the urls to retrieve the Helm chart
 type HelmRepo struct {
+	// Urls are the URLs of the Helm repo.
 	Urls []string `json:"urls,omitempty"`
 }
 
 // Source holds the different types of repository
 type Source struct {
+	// SourceType represents the type of the source
 	SourceType SourceTypeEnum `json:"type,omitempty"`
-	GitHub     *GitHub        `json:"github,omitempty"`
-	Git        *Git           `json:"git,omitempty"`
-	HelmRepo   *HelmRepo      `json:"helmRepo,omitempty"`
+	// GitHub provides the parameters to access the Helm chart located in a GitHub repo
+	GitHub *GitHub `json:"github,omitempty"`
+	// Git provides the parameters to access the Helm chart located in a Git repo
+	Git *Git `json:"git,omitempty"`
+	// HelmRepo provides the urls to retrieve the Helm chart
+	HelmRepo *HelmRepo `json:"helmRepo,omitempty"`
 }
 
 // AltSource holds the alternative source
 type AltSource struct {
-	SourceType         SourceTypeEnum          `json:"type,omitempty"`
-	GitHub             *GitHub                 `json:"github,omitempty"`
-	Git                *Git                    `json:"git,omitempty"`
-	HelmRepo           *HelmRepo               `json:"helmRepo,omitempty"`
-	SecretRef          *corev1.ObjectReference `json:"secretRef,omitempty"`
-	ConfigMapRef       *corev1.ObjectReference `json:"configMapRef,omitempty"`
-	InsecureSkipVerify bool                    `json:"insecureSkipVerify,omitempty"`
+	// SourceType represents the type of the source
+	SourceType SourceTypeEnum `json:"type,omitempty"`
+	// GitHub provides the parameters to access the Helm chart located in a GitHub repo
+	GitHub *GitHub `json:"github,omitempty"`
+	// Git provides the parameters to access the Helm chart located in a Git repo
+	Git *Git `json:"git,omitempty"`
+	// HelmRepo provides the urls to retrieve the Helm chart
+	HelmRepo *HelmRepo `json:"helmRepo,omitempty"`
+	// SecretRef is a reference to a Secret resource
+	SecretRef *corev1.ObjectReference `json:"secretRef,omitempty"`
+	// ConfigMapRef is a reference to a ConfigMap resource
+	ConfigMapRef *corev1.ObjectReference `json:"configMapRef,omitempty"`
+	// InsecureSkipVerify if true enables insecure skip verify connection
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
 }
 
 func (s Source) String() string {
@@ -145,12 +160,9 @@ func (repo HelmReleaseRepo) AltSourceToSource() HelmReleaseRepo {
 // HelmReleaseRepo defines the repository of HelmRelease
 // +k8s:openapi-gen=true
 type HelmReleaseRepo struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	// Source holds the url toward the helm-chart
+	// Source holds the url toward the Helm chart
 	Source *Source `json:"source,omitempty"`
-	// AltSource holds the url toward the helm-chart
+	// AltSource holds the url toward the Helm chart
 	AltSource *AltSource `json:"altSource,omitempty"`
 	// ChartName is the name of the chart within the repo
 	ChartName string `json:"chartName,omitempty"`
