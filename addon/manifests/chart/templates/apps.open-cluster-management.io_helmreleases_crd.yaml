@@ -113,14 +113,10 @@ spec:
                   type: string
               type: object
             source:
-              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                Important: Run "operator-sdk generate k8s" to regenerate code after
-                modifying this file Add custom validation using kubebuilder tags:
-                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-                Source holds the url toward the helm-chart'
+              description: 'Source holds the url toward the Helm chart'
               properties:
                 github:
-                  description: GitHub provides the parameters to access the helm-chart
+                  description: GitHub provides the parameters to access the Helm chart
                     located in a github repo
                   properties:
                     branch:
@@ -133,7 +129,7 @@ spec:
                       type: array
                   type: object
                 git:
-                  description: Git provides the parameters to access the helm-chart
+                  description: Git provides the parameters to access the Helm chart
                     located in a git repo
                   properties:
                     branch:
@@ -146,7 +142,7 @@ spec:
                       type: array
                   type: object
                 helmRepo:
-                  description: HelmRepo provides the urls to retrieve the helm-chart
+                  description: HelmRepo provides the urls to retrieve the Helm chart
                   properties:
                     urls:
                       items:
@@ -158,7 +154,7 @@ spec:
                   type: string
               type: object
             altSource:
-              description: AltSource holds the url toward the helm-chart
+              description: AltSource holds the url toward the Helm chart
               properties:
                 configMapRef:
                   description: Configuration parameters to access the helm-repo defined
@@ -239,7 +235,7 @@ spec:
                       type: string
                   type: object
                 github:
-                  description: GitHub provides the parameters to access the helm-chart
+                  description: GitHub provides the parameters to access the Helm chart
                     located in a github repo
                   properties:
                     branch:
@@ -252,7 +248,7 @@ spec:
                       type: array
                   type: object
                 git:
-                  description: Git provides the parameters to access the helm-chart
+                  description: Git provides the parameters to access the Helm chart
                     located in a git repo
                   properties:
                     branch:
@@ -265,7 +261,7 @@ spec:
                       type: array
                   type: object
                 helmRepo:
-                  description: HelmRepo provides the urls to retrieve the helm-chart
+                  description: HelmRepo provides the urls to retrieve the Helm chart
                   properties:
                     urls:
                       items:
@@ -447,14 +443,10 @@ spec:
                     type: string
                 type: object
               source:
-                description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-                  Important: Run "operator-sdk generate k8s" to regenerate code after
-                  modifying this file Add custom validation using kubebuilder tags:
-                  https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-                  Source holds the url toward the helm-chart'
+                description: 'Source holds the url toward the Helm chart'
                 properties:
                   github:
-                    description: GitHub provides the parameters to access the helm-chart
+                    description: GitHub provides the parameters to access the Helm chart
                       located in a github repo
                     properties:
                       branch:
@@ -467,7 +459,7 @@ spec:
                         type: array
                     type: object
                   git:
-                    description: Git provides the parameters to access the helm-chart
+                    description: Git provides the parameters to access the Helm chart
                       located in a git repo
                     properties:
                       branch:
@@ -480,7 +472,7 @@ spec:
                         type: array
                     type: object
                   helmRepo:
-                    description: HelmRepo provides the urls to retrieve the helm-chart
+                    description: HelmRepo provides the urls to retrieve the Helm chart
                     properties:
                       urls:
                         items:
@@ -492,7 +484,7 @@ spec:
                     type: string
                 type: object
               altSource:
-                description: AltSource holds the url toward the helm-chart
+                description: AltSource holds the url toward the Helm chart
                 properties:
                   configMapRef:
                     description: Configuration parameters to access the helm-repo defined
@@ -573,7 +565,7 @@ spec:
                         type: string
                     type: object
                   github:
-                    description: GitHub provides the parameters to access the helm-chart
+                    description: GitHub provides the parameters to access the Helm chart
                       located in a github repo
                     properties:
                       branch:
@@ -586,7 +578,7 @@ spec:
                         type: array
                     type: object
                   git:
-                    description: Git provides the parameters to access the helm-chart
+                    description: Git provides the parameters to access the Helm chart
                       located in a git repo
                     properties:
                       branch:
@@ -599,7 +591,7 @@ spec:
                         type: array
                     type: object
                   helmRepo:
-                    description: HelmRepo provides the urls to retrieve the helm-chart
+                    description: HelmRepo provides the urls to retrieve the Helm chart
                     properties:
                       urls:
                         items:
