@@ -1,8 +1,9 @@
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.10.0
+    controller-gen.kubebuilder.io/version: v0.6.0
   creationTimestamp: null
   name: multiclusterapplicationsetreports.apps.open-cluster-management.io
 spec:
@@ -20,8 +21,12 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: MulticlusterApplicationSetReport is the Schema for the MulticlusterApplicationSetReport
-          API.
+        description: MulticlusterApplicationSetReport provides a report of the status
+          of an application from all the managed clusters where the application is
+          deployed on. It provides a summary of the number of clusters in the various
+          states. If an error or warning occurred when installing the application
+          on a managed cluster, the conditions, including the waring and error message,
+          is captured in the report.
         properties:
           apiVersion:
             description: 'APIVersion defines the versioned schema of this representation
@@ -37,13 +42,15 @@ spec:
             type: object
           statuses:
             description: AppConditions defines all the error/warning conditions in
-              all clusters per application
+              all clusters where a particular application is deployed.
             properties:
               clusterConditions:
                 items:
                   description: ClusterCondition defines all the error/warning conditions
-                    in one cluster per application
+                    in one cluster for an application.
                   properties:
+                    app:
+                      type: string
                     cluster:
                       type: string
                     conditions:
@@ -51,8 +58,12 @@ spec:
                         description: Condition defines a type of error/warning
                         properties:
                           message:
+                            description: Message is the warning/error message associated
+                              with this condition.
                             type: string
                           type:
+                            description: Type identifies if the condition is a warning
+                              or an error.
                             type: string
                         type: object
                       type: array
@@ -60,13 +71,12 @@ spec:
                       type: string
                     syncStatus:
                       type: string
-                    app:
-                      type: string
                   type: object
                 type: array
               resources:
                 items:
-                  description: ResourceRef defines a kind of resource
+                  description: ResourceRef identifies the resource that is deployed
+                    by the application.
                   properties:
                     apiVersion:
                       type: string
@@ -79,27 +89,31 @@ spec:
                   type: object
                 type: array
               summary:
-                description: Summary provides a summary of results
+                description: 'ReportSummary provides a summary by providing a count
+                  of the total number of clusters where the application is deployed.
+                  It also provides a count of how many clusters where an application
+                  are in the following states: synced, notSynced, healthy, notHealthy,
+                  and inProgress.'
                 properties:
                   clusters:
                     description: Clusters provides the count of all managed clusters
-                      the application is deployed to
+                      the application is deployed.
                     type: string
                   healthy:
-                    description: Healthy provides the count of healthy applications
+                    description: Healthy provides the count of healthy applications.
                     type: string
                   inProgress:
                     description: InProgress provides the count of applications that
-                      are in the process of being deployed
+                      are in the process of being deployed.
                     type: string
                   notHealthy:
-                    description: NotHealthy provides the count of non-healthy applications
+                    description: NotHealthy provides the count of non-healthy applications.
                     type: string
                   notSynced:
-                    description: NotSynced provides the count of the out of sync applications
+                    description: NotSynced provides the count of the out of sync applications.
                     type: string
                   synced:
-                    description: Synced provides the count of synced applications
+                    description: Synced provides the count of synced applications.
                     type: string
                 type: object
             type: object
@@ -108,3 +122,9 @@ spec:
         type: object
     served: true
     storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
