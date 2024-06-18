@@ -1,11 +1,9 @@
-
 ---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.14.0
   name: subscriptionstatuses.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
@@ -18,82 +16,6 @@ spec:
     singular: subscriptionstatus
   scope: Namespaced
   versions:
-  - name: v1
-    schema:
-      openAPIV3Schema:
-        description: "SubscriptionStatus defines the observed state of Subscription
-          Examples - status of a subscription on hub Status: \n \t\tphase: Propagated
-          \t\tstatuses: \t\t  washdc: \t\t\tpackages: \t\t\t  nginx: \t\t\t\tphase:
-          Subscribed \t\t\t  mongodb: \t\t\t\tphase: Failed \t\t\t\tReason: \"not
-          authorized\" \t\t\t\tMessage: \"user xxx does not have permission to start
-          pod\" \t\t\t\tresourceStatus: {} \t   toronto: \t\t\tpackages: \t\t\t  nginx:
-          \t\t\t\tphase: Subscribed \t\t\t  mongodb: \t\t\t\tphase: Subscribed \n
-          Status of a subscription on managed cluster will only have 1 cluster in
-          the map."
-        properties:
-          ansiblejobs:
-            properties:
-              lastposthookjob:
-                type: string
-              lastprehookjob:
-                type: string
-              posthookjobshistory:
-                items:
-                  type: string
-                type: array
-              prehookjobshistory:
-                items:
-                  type: string
-                type: array
-            type: object
-          appstatusReference:
-            type: string
-          lastUpdateTime:
-            format: date-time
-            type: string
-          message:
-            type: string
-          phase:
-            description: 'INSERT ADDITIONAL STATUS FIELD - define observed state of
-              cluster Important: Run "make" to regenerate code after modifying this
-              file'
-            type: string
-          reason:
-            type: string
-          statuses:
-            additionalProperties:
-              description: SubscriptionPerClusterStatus defines status for subscription
-                in each cluster, key is package name
-              properties:
-                packages:
-                  additionalProperties:
-                    description: SubscriptionUnitStatus defines status of a unit (subscription
-                      or package)
-                    properties:
-                      lastUpdateTime:
-                        format: date-time
-                        type: string
-                      message:
-                        type: string
-                      phase:
-                        description: Phase are Propagated if it is in hub or Subscribed
-                          if it is in endpoint
-                        type: string
-                      reason:
-                        type: string
-                      resourceStatus:
-                        type: object
-                    required:
-                    - lastUpdateTime
-                    type: object
-                  type: object
-              type: object
-            description: For endpoint, it is the status of subscription, key is packagename,
-              For hub, it aggregates all status, key is cluster name
-            type: object
-        type: object
-    served: true
-    storage: false
   - name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -101,14 +23,19 @@ spec:
           that are deployed by the application in a cluster.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -150,9 +77,9 @@ spec:
                   type: object
                 type: array
               subscription:
-                description: SubscriptionOverallStatus provides the overall status
-                  of the subscription. It is computed using the status of all the
-                  deployment packages in the subscription.
+                description: |-
+                  SubscriptionOverallStatus provides the overall status of the subscription. It is computed using the status of
+                  all the deployment packages in the subscription.
                 properties:
                   lastUpdateTime:
                     description: Timestamp of when the overall subscription status
@@ -173,9 +100,3 @@ spec:
     storage: true
     subresources:
       status: {}
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
