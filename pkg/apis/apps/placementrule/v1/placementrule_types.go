@@ -35,9 +35,14 @@ const (
 // +k8s:deepcopy-gen:nonpointer-interfaces=true
 // Placement field to be referenced in specs, align with Fedv2, add placementref
 type Placement struct {
+	// Specify either a list of clusters or a cluster label selector for selecting multiple clusters
 	GenericPlacementFields `json:",inline"`
-	PlacementRef           *corev1.ObjectReference `json:"placementRef,omitempty"`
-	Local                  *bool                   `json:"local,omitempty"`
+
+	// Specify a placement reference for selecting clusters
+	PlacementRef *corev1.ObjectReference `json:"placementRef,omitempty"`
+
+	// It indicates a standalone subscription if the Local pointer is set to be true
+	Local *bool `json:"local,omitempty"`
 }
 
 // ClusterConditionFilter defines filter to filter cluster condition
