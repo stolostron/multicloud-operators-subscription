@@ -124,85 +124,117 @@ const (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// PackageFilter defines the reference to Channel
+// PackageFilter defines various types of filters for selecting resources
 type PackageFilter struct {
-	LabelSelector *metav1.LabelSelector        `json:"labelSelector,omitempty"`
-	Annotations   map[string]string            `json:"annotations,omitempty"`
-	Version       string                       `json:"version,omitempty"`
-	FilterRef     *corev1.LocalObjectReference `json:"filterRef,omitempty"`
+	// LabelSelector defines a type of filter for selecting resources by label selector
+	LabelSelector *metav1.LabelSelector `json:"labelSelector,omitempty"`
+
+	// Annotations defines a type of filter for selecting resources by annotations
+	Annotations map[string]string `json:"annotations,omitempty"`
+
+	// Version defines a type of filter for selecting resources by version
+	Version string `json:"version,omitempty"`
+
+	// FilterRef defines a type of filter for selecting resources by another resource reference
+	FilterRef *corev1.LocalObjectReference `json:"filterRef,omitempty"`
 }
 
-// PackageOverride describes rules for override
+// PackageOverride provides the contents for overriding a package
 type PackageOverride struct {
 	runtime.RawExtension `json:",inline"`
 }
 
-// Overrides field in deployable
+// Overrides defines a list of contents that will be overridden to a given resource
 type Overrides struct {
-	PackageAlias     string            `json:"packageAlias,omitempty"`
-	PackageName      string            `json:"packageName"`
-	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"` // To be added
+	// PackageAlias defines the alias of the package name that will be onverriden
+	PackageAlias string `json:"packageAlias,omitempty"`
+
+	// PackageName defines the package name that will be onverriden
+	PackageName string `json:"packageName"`
+
+	// PackageOverrides defines a list of content for override
+	PackageOverrides []PackageOverride `json:"packageOverrides,omitempty"`
 }
 
-// AllowDenyItem is a group resources allowed or denied for deployment
+// AllowDenyItem defines a group of resources allowed or denied for deployment
 type AllowDenyItem struct {
-	APIVersion string   `json:"apiVersion,omitempty"`
-	Kinds      []string `json:"kinds,omitempty"`
+	// APIVersion specifies the API version for the group of resources
+	APIVersion string `json:"apiVersion,omitempty"`
+
+	// Kinds specifies a list of kinds under the same API version for the group of resources
+	Kinds []string `json:"kinds,omitempty"`
 }
 
-// TimeWindow defines a time window for subscription to run or be blocked
+// TimeWindow defines a time window for the subscription to run or be blocked
 type TimeWindow struct {
-	// active time window or not, if timewindow is active, then deploy will only applies during these windows
-	// Note, if you want to generation crd with operator-sdk v0.10.0, then the following line should be:
-	// <+kubebuilder:validation:Enum=active,blocked,Active,Blocked>
+	// Activiate time window or not. The subscription deployment will only be handled during these active windows
+	// Valid values include: active,blocked,Active,Blocked
 	// +kubebuilder:validation:Enum={active,blocked,Active,Blocked}
 	WindowType string `json:"windowtype,omitempty"`
-	// https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+	// time zone location, refer to TZ identifier in https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
 	Location string `json:"location,omitempty"`
-	// weekdays defined the day of the week for this time window https://golang.org/pkg/time/#Weekday
-	Daysofweek []string    `json:"daysofweek,omitempty"`
-	Hours      []HourRange `json:"hours,omitempty"`
+
+	// A list of days of a week, valid values include: Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday
+	Daysofweek []string `json:"daysofweek,omitempty"`
+
+	// A list of hour ranges
+	Hours []HourRange `json:"hours,omitempty"`
 }
 
-// HourRange time format for each time will be Kitchen format, defined at https://golang.org/pkg/time/#pkg-constants
+// HourRange defines the time format, refer to https://golang.org/pkg/time/#pkg-constants
 type HourRange struct {
+	// Start time of the hour range
 	Start string `json:"start,omitempty"`
-	End   string `json:"end,omitempty"`
+
+	// End time of the hour range
+	End string `json:"end,omitempty"`
 }
 
-// ClusterOverride describes rules for override
+// ClusterOverride defines the contents for override rules
 type ClusterOverride struct {
 	runtime.RawExtension `json:",inline"`
 }
 
-// Overrides field in deployable
+// ClusterOverrides defines a list of contents that will be overridden to a given cluster
 type ClusterOverrides struct {
+	// Cluster name
 	ClusterName string `json:"clusterName"`
+
+	// ClusterOverrides defines a list of content for override
 	//+kubebuilder:validation:MinItems=1
 	ClusterOverrides []ClusterOverride `json:"clusterOverrides"` // To be added
 }
 
 // SubscriptionSpec defines the desired state of Subscription
 type SubscriptionSpec struct {
+	// The primary channel namespaced name used by the subscription. Its format is "<channel NameSpace>/<channel Name>"
 	Channel string `json:"channel"`
-	// When fails to connect to the channel, connect to the secondary channel
+	// The secondary channel will be applied if the primary channel fails to connect
 	SecondaryChannel string `json:"secondaryChannel,omitempty"`
-	// To specify 1 package in channel
+	// Subscribe a package by its package name
 	Package string `json:"name,omitempty"`
-	// To specify more than 1 package in channel
+	// Subscribe packages by a package filter
 	PackageFilter *PackageFilter `json:"packageFilter,omitempty"`
-	// To provide flexibility to override package in channel with local input
+	// Override packages
 	PackageOverrides []*Overrides `json:"packageOverrides,omitempty"`
-	// For hub use only, to specify which clusters to go to
+	// Specify a placement reference for selecting clusters. Hub use only
 	Placement *plrv1alpha1.Placement `json:"placement,omitempty"`
-	// for hub use only to specify the overrides when apply to clusters
+	// Specify overrides when applied to clusters. Hub use only
 	Overrides []ClusterOverrides `json:"overrides,omitempty"`
-	// help user control when the subscription will take affect
+	// Specify a time window to indicate when the subscription is handled
 	TimeWindow *TimeWindow `json:"timewindow,omitempty"`
+
+	// Specify a secret reference used in Ansible job integration authentication
 	// +optional
 	HookSecretRef *corev1.ObjectReference `json:"hooksecretref,omitempty"`
-	Allow         []*AllowDenyItem        `json:"allow,omitempty"`
-	Deny          []*AllowDenyItem        `json:"deny,omitempty"`
+
+	// Specify a list of resources allowed for deployment
+	Allow []*AllowDenyItem `json:"allow,omitempty"`
+
+	// Specify a list of resources denied for deployment
+	Deny []*AllowDenyItem `json:"deny,omitempty"`
+
 	// WatchHelmNamespaceScopedResources is used to enable watching namespace scope Helm chart resources
 	WatchHelmNamespaceScopedResources bool `json:"watchHelmNamespaceScopedResources,omitempty"`
 }
@@ -224,69 +256,67 @@ const (
 	PreHookSucessful              SubscriptionPhase = "PreHookSucessful"
 )
 
-// SubscriptionUnitStatus defines status of a unit (subscription or package)
+// SubscriptionUnitStatus defines status of each package in a subscription
 type SubscriptionUnitStatus struct {
-	// Phase are Propagated if it is in hub or Subscribed if it is in endpoint
-	Phase          SubscriptionPhase `json:"phase,omitempty"`
-	Message        string            `json:"message,omitempty"`
-	Reason         string            `json:"reason,omitempty"`
-	LastUpdateTime metav1.Time       `json:"lastUpdateTime"`
+	// Phase of the deployment package (Propagated/Subscribed/Failed/PropagationFailed/PreHookSucessful).
+	Phase SubscriptionPhase `json:"phase,omitempty"`
 
+	// Informational message from the deployment of the package.
+	Message string `json:"message,omitempty"`
+
+	// additional error output from the deployment of the package.
+	Reason string `json:"reason,omitempty"`
+
+	// Timestamp of when the deployment package was last updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime"`
+
+	// reserved for backward compatibility
 	ResourceStatus *runtime.RawExtension `json:"resourceStatus,omitempty"`
 }
 
-// SubscriptionPerClusterStatus defines status for subscription in each cluster, key is package name
+// SubscriptionPerClusterStatus defines status of each subscription in a cluster, key is package name
 type SubscriptionPerClusterStatus struct {
 	SubscriptionPackageStatus map[string]*SubscriptionUnitStatus `json:"packages,omitempty"`
 }
 
-// SubscriptionClusterStatusMap defines per cluster status, key is cluster name
+// SubscriptionClusterStatusMap defines status of each subscription per cluster, key is cluster name
 type SubscriptionClusterStatusMap map[string]*SubscriptionPerClusterStatus
 
+// AnsibleJobsStatus defines status of ansible jobs propagated by the subscription
 type AnsibleJobsStatus struct {
-	LastPrehookJob     string   `json:"lastprehookjob,omitempty"`
+	// The lastly propagated prehook job
+	LastPrehookJob string `json:"lastprehookjob,omitempty"`
+
+	// reserved for backward compatibility
 	PrehookJobsHistory []string `json:"prehookjobshistory,omitempty"`
 
-	LastPosthookJob     string   `json:"lastposthookjob,omitempty"`
+	// The lastly propagated posthook job
+	LastPosthookJob string `json:"lastposthookjob,omitempty"`
+
+	// reserved for backward compatibility
 	PosthookJobsHistory []string `json:"posthookjobshistory,omitempty"`
 }
 
-// SubscriptionStatus defines the observed state of Subscription
-// Examples - status of a subscription on hub
-// Status:
-//
-//		phase: Propagated
-//		statuses:
-//		  washdc:
-//			packages:
-//			  nginx:
-//				phase: Subscribed
-//			  mongodb:
-//				phase: Failed
-//				Reason: "not authorized"
-//				Message: "user xxx does not have permission to start pod"
-//				resourceStatus: {}
-//	   toronto:
-//			packages:
-//			  nginx:
-//				phase: Subscribed
-//			  mongodb:
-//				phase: Subscribed
-//
-// Status of a subscription on managed cluster will only have 1 cluster in the map.
+// SubscriptionStatus defines the observed status of a subscription
 type SubscriptionStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-	Phase              SubscriptionPhase `json:"phase,omitempty"`
-	AppstatusReference string            `json:"appstatusReference,omitempty"`
-	Message            string            `json:"message,omitempty"`
-	Reason             string            `json:"reason,omitempty"`
-	LastUpdateTime     metav1.Time       `json:"lastUpdateTime,omitempty"`
+	// Phase of the subscription deployment
+	Phase SubscriptionPhase `json:"phase,omitempty"`
+
+	// The CLI reference for getting the subscription status output
+	AppstatusReference string `json:"appstatusReference,omitempty"`
+
+	// Informational message of the subscription deployment
+	Message string `json:"message,omitempty"`
+
+	// additional error output of the subscription deployment
+	Reason string `json:"reason,omitempty"`
+
+	// Timestamp of when the subscription status was last updated.
+	LastUpdateTime metav1.Time `json:"lastUpdateTime,omitempty"`
 
 	// +optional
 	AnsibleJobsStatus AnsibleJobsStatus `json:"ansiblejobs,omitempty"`
-	// For endpoint, it is the status of subscription, key is packagename,
-	// For hub, it aggregates all status, key is cluster name
+
 	Statuses SubscriptionClusterStatusMap `json:"statuses,omitempty"`
 }
 
