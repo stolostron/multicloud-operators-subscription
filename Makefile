@@ -15,7 +15,7 @@
 MANAGED_CLUSTER_NAME ?= cluster1
 TEST_TMP := /tmp
 export KUBEBUILDER_ASSETS ?= $(TEST_TMP)/kubebuilder/bin
-K8S_VERSION ?= 1.19.2
+K8S_VERSION ?= 1.28.3
 GOHOSTOS ?= $(shell go env GOHOSTOS)
 GOHOSTARCH ?= $(shell go env GOHOSTARCH)
 KB_TOOLS_ARCHIVE_NAME := kubebuilder-tools-$(K8S_VERSION)-$(GOHOSTOS)-$(GOHOSTARCH).tar.gz
@@ -73,6 +73,13 @@ local:
 build-images:
 	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
 
+# build local linux/amd64 images on non-amd64 hosts such as Apple M3
+build-images-non-amd64:
+	docker buildx create --use
+	docker buildx inspect --bootstrap
+	@docker buildx build --platform linux/amd64 -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile --load .
+
+
 .PHONY: lint
 
 lint: lint-all
@@ -90,14 +97,12 @@ lint-go:
 
 # download the kubebuilder-tools to get kube-apiserver binaries from it
 ensure-kubebuilder-tools:
-ifeq "" "$(wildcard $(KUBEBUILDER_ASSETS))"
 	$(info Downloading kube-apiserver into '$(KUBEBUILDER_ASSETS)')
+	rm -fr '$(KUBEBUILDER_ASSETS)'
 	mkdir -p '$(KUBEBUILDER_ASSETS)'
 	curl -s -f -L https://storage.googleapis.com/kubebuilder-tools/$(KB_TOOLS_ARCHIVE_NAME) -o '$(KB_TOOLS_ARCHIVE_PATH)'
 	tar -C '$(KUBEBUILDER_ASSETS)' --strip-components=2 -zvxf '$(KB_TOOLS_ARCHIVE_PATH)'
-else
-	$(info Using existing kube-apiserver from "$(KUBEBUILDER_ASSETS)")
-endif
+
 .PHONY: ensure-kubebuilder-tools
 
 update:

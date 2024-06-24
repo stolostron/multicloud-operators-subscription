@@ -811,7 +811,7 @@ func (r *ReconcileSubscription) IsSubscriptionCompleted(subKey types.NamespacedN
 func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passedPrehook bool, preErr error,
 	oIns, nIns *appv1.Subscription,
 	request reconcile.Request, res *reconcile.Result, localPlacement bool) {
-	r.logger.Info("Enter finalCommit...")
+	r.logger.Info(fmt.Sprintf("Entering finalCommit, passedBranchRegistration:%v, passedPrehook:%v", passedBranchRegistration, passedPrehook))
 	defer r.logger.Info("Exit finalCommit...")
 
 	if localPlacement {
@@ -843,21 +843,27 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
 		nIns.Status.Reason = preErr.Error()
 		nIns.Status.Statuses = appv1.SubscriptionClusterStatusMap{}
-		res.RequeueAfter = defaulRequeueInterval
-		nIns.Status.LastUpdateTime = metav1.Now()
 
-		err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
-			&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
+		if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
+			nIns.Status.LastUpdateTime = metav1.Now()
 
-		if err != nil && !k8serrors.IsNotFound(err) {
-			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
-			if res.RequeueAfter == time.Duration(0) {
-				res.RequeueAfter = defaulRequeueInterval
-				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+			err := r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
+				&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
+
+			if err != nil && !k8serrors.IsNotFound(err) {
+				// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
+				if res.RequeueAfter == time.Duration(0) {
+					res.RequeueAfter = defaulRequeueInterval
+					r.logger.Error(err, fmt.Sprintf("failed to update status with channel registration error, will retry after %s", res.RequeueAfter))
+				}
+
+				return
 			}
-
-			return
 		}
+
+		r.logger.Info(fmt.Sprintf("Failed to register the channel, %s status updated", PrintHelper(nIns)))
+
+		return
 	}
 
 	if utils.IsSubscriptionBasicChanged(oIns, nIns) { //if subresource enabled, the update client won't update the status
@@ -881,8 +887,7 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	}
 
 	r.logger.Info(fmt.Sprintf("spec or metadata of %s is updated, passedPrehook: %v", PrintHelper(nIns), passedPrehook))
-	//update status early to make sure the status is ready for post hook to
-	//consume
+	//update status early to make sure the status is ready for post hook to	consume
 	if !passedPrehook {
 		nIns.Status = r.hooks.AppendPreHookStatusToSubscription(nIns)
 		nIns.Status.Phase = appv1.SubscriptionPropagationFailed
@@ -948,18 +953,21 @@ func (r *ReconcileSubscription) finalCommit(passedBranchRegistration bool, passe
 	}
 
 	nIns.Status = r.hooks.AppendStatusToSubscription(nIns)
-	nIns.Status.LastUpdateTime = metav1.Now()
 
-	err = r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
-		&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
-		if res.RequeueAfter == time.Duration(0) {
-			res.RequeueAfter = defaulRequeueInterval
-			r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+	if utils.IsHubRelatedStatusChanged(oIns.Status.DeepCopy(), nIns.Status.DeepCopy()) {
+		nIns.Status.LastUpdateTime = metav1.Now()
+
+		err = r.Client.Status().Patch(context.TODO(), nIns, client.MergeFrom(oIns),
+			&client.SubResourcePatchOptions{PatchOptions: client.PatchOptions{FieldManager: r.name}})
+		if err != nil && !k8serrors.IsNotFound(err) {
+			// If it was a NotFound error, the object was probably already deleted so just ignore the error and return the existing result.
+			if res.RequeueAfter == time.Duration(0) {
+				res.RequeueAfter = defaulRequeueInterval
+				r.logger.Error(err, fmt.Sprintf("failed to update status, will retry after %s", res.RequeueAfter))
+			}
+
+			return
 		}
-
-		return
 	}
 }
 
