@@ -365,7 +365,9 @@ func prepareManifestWorkNS(appsubNS string, hosting types.NamespacedName) (strin
 
 func (r *ReconcileSubscription) cleanupManifestWork(appsub types.NamespacedName) error {
 	manifestWorkList := &manifestWorkV1.ManifestWorkList{}
-	listopts := &client.ListOptions{}
+	listopts := &client.ListOptions{
+		Limit: 1000,
+	}
 
 	manifestWorkSelector := &metaV1.LabelSelector{
 		MatchLabels: map[string]string{
@@ -381,33 +383,46 @@ func (r *ReconcileSubscription) cleanupManifestWork(appsub types.NamespacedName)
 	}
 
 	listopts.LabelSelector = manifestWorkLabels
-	err = r.List(context.TODO(), manifestWorkList, listopts)
 
-	if err != nil {
-		klog.Error("Failed to list managed manifestWorks, err:", err)
+	klog.Infof("start listing manifestWorks for appsub: %v", appsub)
 
-		return err
-	}
-
-	if len(manifestWorkList.Items) == 0 {
-		klog.Infof("No managed manifestWorks found, lable: %v", manifestWorkSelector)
-
-		return nil
-	}
-
-	for _, manifestWork := range manifestWorkList.Items {
-		curManifesWork := manifestWork.DeepCopy()
-		err := r.Delete(context.TODO(), curManifesWork)
+	for {
+		err = r.List(context.TODO(), manifestWorkList, listopts)
 
 		if err != nil {
-			klog.Warningf("Error in deleting existing manifestWork key: %v/%v, err: %v ",
-				curManifesWork.GetNamespace(), curManifesWork.GetName(), err)
+			klog.Error("Failed to list managed manifestWorks, err:", err)
 
 			return err
 		}
 
-		klog.Infof("manifestWork deleted: %v/%v", curManifesWork.GetNamespace(), curManifesWork.GetName())
+		klog.Infof("Listed manifestWorks for appsub: %v, total: %v", appsub, len(manifestWorkList.Items))
+
+		for _, manifestWork := range manifestWorkList.Items {
+			curManifesWork := manifestWork.DeepCopy()
+			err := r.Delete(context.TODO(), curManifesWork)
+
+			if err != nil {
+				klog.Warningf("Error in deleting existing manifestWork key: %v/%v, err: %v ",
+					curManifesWork.GetNamespace(), curManifesWork.GetName(), err)
+
+				return err
+			}
+
+			klog.Infof("manifestWork deleted: %v/%v", curManifesWork.GetNamespace(), curManifesWork.GetName())
+		}
+
+		if manifestWorkList.GetContinue() == "" {
+			klog.Infof("failed to continue to list manifestworks")
+			break
+		}
+
+		// Set the continue field for the next request
+		listopts.Continue = manifestWorkList.GetContinue()
+
+		klog.Infof("continue listing manifestWorks for appsub: %v", appsub)
 	}
+
+	klog.Infof("finish listing manifestWorks for appsub: %v", appsub)
 
 	return nil
 }

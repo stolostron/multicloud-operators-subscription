@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/ghodss/yaml"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/onsi/gomega"
-	"gopkg.in/src-d/go-git.v4/plumbing"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
