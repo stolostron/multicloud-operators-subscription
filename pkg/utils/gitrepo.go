@@ -30,11 +30,11 @@ import (
 	"path/filepath"
 	"time"
 
+	git "github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/plumbing"
 	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -47,8 +47,8 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 
 	"github.com/ghodss/yaml"
-	gitclient "gopkg.in/src-d/go-git.v4/plumbing/transport/client"
-	githttp "gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+	gitclient "github.com/go-git/go-git/v5/plumbing/transport/client"
+	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"

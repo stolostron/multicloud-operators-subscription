@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.15.14
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.27.1
 	github.com/ghodss/yaml v1.0.1-0.20190212211648-25d852aebe32
-	github.com/go-git/go-git/v5 v5.11.0
+	github.com/go-git/go-git/v5 v5.12.0
 	github.com/go-logr/logr v1.4.1
 	github.com/google/go-github/v42 v42.0.0
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
@@ -25,7 +25,6 @@ require (
 	golang.org/x/crypto v0.22.0
 	golang.org/x/net v0.24.0
 	gomodules.xyz/jsonpatch/v3 v3.0.1
-	gopkg.in/src-d/go-git.v4 v4.13.1
 	helm.sh/helm/v3 v3.14.4
 	k8s.io/api v0.29.4
 	k8s.io/apiextensions-apiserver v0.29.4
@@ -43,6 +42,7 @@ require (
 )
 
 require (
+	dario.cat/mergo v1.0.0 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
@@ -52,6 +52,7 @@ require (
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect
 	github.com/Microsoft/hcsshim v0.11.4 // indirect
+	github.com/ProtonMail/go-crypto v1.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/aws/aws-sdk-go v1.42.50 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.4.3 // indirect
@@ -72,6 +73,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
+	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/containerd v1.7.12 // indirect
 	github.com/containerd/continuity v0.4.3 // indirect
 	github.com/containerd/log v0.1.0 // indirect
@@ -140,7 +142,6 @@ require (
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/locker v1.0.1 // indirect
@@ -165,14 +166,13 @@ require (
 	github.com/rubenv/sql-migrate v1.5.2 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
-	github.com/sergi/go-diff v1.3.1 // indirect
+	github.com/sergi/go-diff v1.3.2-0.20230802210424-5b0b94c5c0d3 // indirect
 	github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/skeema/knownhosts v1.2.1 // indirect
+	github.com/skeema/knownhosts v1.2.2 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/cobra v1.8.0 // indirect
-	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.3 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
@@ -201,7 +201,6 @@ require (
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
