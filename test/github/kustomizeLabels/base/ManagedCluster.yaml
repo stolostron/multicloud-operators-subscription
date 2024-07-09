@@ -1,0 +1,10 @@
+---
+apiVersion: cluster.open-cluster-management.io/v1
+kind: ManagedCluster
+metadata:
+  name: REPLACED BY KUSTOMIZE
+  namespace: REPLACED BY KUSTOMIZE
+  labels: #LABELS ADDED BY KUSTOMIZE
+    
+spec:
+  hubAcceptsClient: true

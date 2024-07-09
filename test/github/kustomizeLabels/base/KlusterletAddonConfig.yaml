@@ -1,0 +1,23 @@
+---
+apiVersion: agent.open-cluster-management.io/v1
+kind: KlusterletAddonConfig
+metadata:
+  name: REPLACED BY KUSTOMIZE
+  namespace: REPLACED BY KUSTOMIZE
+spec:
+  clusterName: REPLACED BY KUSTOMIZE
+  clusterNamespace: REPLACED BY KUSTOMIZE
+  applicationManager:
+    enabled: true
+  certPolicyController:
+    enabled: true
+  clusterLabels:
+    cloud: auto-detect
+    vendor: auto-detect
+  iamPolicyController:
+    enabled: true
+  policyController:
+    enabled: true
+  searchCollector:
+    enabled: true
+  version: 2.2.0
