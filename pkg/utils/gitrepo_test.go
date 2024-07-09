@@ -611,7 +611,7 @@ func TestSortResources(t *testing.T) {
 	chartDirs, kustomizeDirs, crdsAndNamespaceFiles, rbacFiles, otherFiles, err := SortResources("../..", "../../test/github")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(len(chartDirs)).To(gomega.Equal(4))
-	g.Expect(len(kustomizeDirs)).To(gomega.Equal(7))
+	g.Expect(len(kustomizeDirs)).To(gomega.Equal(9))
 	g.Expect(len(crdsAndNamespaceFiles)).To(gomega.Equal(2))
 	g.Expect(len(rbacFiles)).To(gomega.Equal(3))
 	g.Expect(len(otherFiles)).To(gomega.Equal(5))
