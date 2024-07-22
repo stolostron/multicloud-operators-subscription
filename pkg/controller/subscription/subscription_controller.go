@@ -292,9 +292,13 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
 
 			if err != nil {
-				klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
+				klog.Errorf("failed to update status for subscription %v with error %v, retry after 1 second", request.NamespacedName, err)
 
 				result.RequeueAfter = 1 * time.Second
+			} else if reconcileErr != nil {
+				klog.Errorf("do Reconcile got error %v, retry after 5 minutes", reconcileErr)
+
+				result.RequeueAfter = 5 * time.Minute
 			}
 
 			return result, err
