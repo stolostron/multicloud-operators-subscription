@@ -337,7 +337,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 		err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 		if err != nil {
-			return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
+			return gerr.Wrap(err, "failed to get channel")
 		}
 	}
 
@@ -351,7 +351,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 			err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
 			if err != nil {
-				return gerr.Wrapf(err, "failed to get the secondary channel of subscription %v", instance)
+				return gerr.Wrap(err, "failed to get the secondary channel")
 			}
 		}
 	}
