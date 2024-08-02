@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/stolostron/builder:go1.21-linux AS builder
-ENV POLICY_GENERATOR_TAG=release-2.11
+ENV POLICY_GENERATOR_TAG=release-2.12
 
 WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
