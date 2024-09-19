@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"math"
 	"net/http"
 	"os"
 	"strings"
@@ -243,6 +244,11 @@ func RunManager() {
 		if err != nil {
 			klog.Error("Failed to get the checksum of the hub kubeconfig file. ", err)
 			os.Exit(1)
+		}
+
+		// Validate the LeaseDurationSeconds value to ensure it fits within int32 limits
+		if Options.LeaseDurationSeconds > math.MaxInt32 || Options.LeaseDurationSeconds < math.MinInt32 {
+			klog.Fatalf("lease-duration exceeds int32 range: %d", Options.LeaseDurationSeconds)
 		}
 
 		leaseReconciler := leasectrl.LeaseReconciler{
