@@ -45,7 +45,7 @@ import (
 
 const (
 	secretSuffix             = "-cluster-secret"
-	requeuAfter              = 5
+	requeuAfter              = 1
 	infrastructureConfigName = "cluster"
 	appAddonName             = "application-manager"
 )
@@ -359,6 +359,13 @@ func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret(sa *corev1.
 
 	// if there exists the secret with the application-manager name, it is not associated to the application-manager SA, need to delete and re-create it
 	if err == nil {
+		if ApplicationManagerSecret.Annotations != nil && ApplicationManagerSecret.Annotations["kubernetes.io/service-account.name"] == appAddonName {
+			if ApplicationManagerSecret.Data["token"] == nil {
+				return "", fmt.Errorf("application manager secret token is not ready yet, requeue after %v min, secret: %v/%v",
+					requeuAfter, ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
+			}
+		}
+
 		err = r.Client.Delete(context.TODO(), ApplicationManagerSecret)
 		if err != nil {
 			klog.Errorf("failed to delete the invalid application-manager secret, err: %v", err)
