@@ -435,12 +435,7 @@ var applicationManagerSecretPredicateFunctions = predicate.Funcs{
 			return false
 		}
 
-		if newSecret.Namespace != appAddonNS {
-			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)
-			return false
-		}
-
-		if newSecret.Type == "kubernetes.io/service-account-token" &&
+		if strings.EqualFold(newSecret.Namespace, appAddonNS) && newSecret.Type == "kubernetes.io/service-account-token" &&
 			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
 			klog.Infof("secret updated: %v/%v", appAddonNS, appAddonName)
 
@@ -455,12 +450,7 @@ var applicationManagerSecretPredicateFunctions = predicate.Funcs{
 			return false
 		}
 
-		if newSecret.Namespace != appAddonNS {
-			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)
-			return false
-		}
-
-		if newSecret.Type == "kubernetes.io/service-account-token" &&
+		if strings.EqualFold(newSecret.Namespace, appAddonNS) && newSecret.Type == "kubernetes.io/service-account-token" &&
 			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
 			klog.Infof("secret created: %v/%v", appAddonNS, appAddonName)
 
@@ -475,12 +465,7 @@ var applicationManagerSecretPredicateFunctions = predicate.Funcs{
 			return false
 		}
 
-		if newSecret.Namespace != appAddonNS {
-			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)
-			return false
-		}
-
-		if newSecret.Type == "kubernetes.io/service-account-token" &&
+		if strings.EqualFold(newSecret.Namespace, appAddonNS) && newSecret.Type == "kubernetes.io/service-account-token" &&
 			newSecret.GetAnnotations()["kubernetes.io/service-account.name"] == appAddonName {
 			klog.Infof("secret deleted: %v/%v", appAddonNS, appAddonName)
 
