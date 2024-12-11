@@ -420,7 +420,7 @@ func assertHourRangesInTime(t *testing.T, got, wanted []hourRangesInTime) {
 		t.Fatalf("validateHourRange length is wrong, got %v, wanted %v", len(got), len(wanted))
 	}
 
-	for i := 0; i < len(got); i++ {
+	for i := range got {
 		if got[i].start.Equal(wanted[i].start) == false {
 			t.Errorf("item idx %v got %v, wanted %v", i, got[i].start.String(), wanted[i].start.String())
 		}

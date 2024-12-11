@@ -454,6 +454,7 @@ func (ghsi *SubscriberItem) subscribeKustomizations() error {
 	for _, kustomizeDir := range ghsi.kustomizeDirs {
 		klog.Info("Applying kustomization ", kustomizeDir)
 
+		//nolint:copyloopvar
 		relativePath := kustomizeDir
 
 		if len(strings.SplitAfter(kustomizeDir, ghsi.repoRoot+"/")) > 1 {

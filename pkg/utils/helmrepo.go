@@ -679,7 +679,6 @@ func DeleteHelmReleaseCRD(runtimeClient client.Client, crdx *clientsetx.Clientse
 		os.Exit(0)
 	} else {
 		for _, hr := range hrlist.Items {
-			hr := hr
 			klog.V(1).Infof("Found %s", hr.SelfLink)
 			// remove all finalizers
 			hr = *hr.DeepCopy()

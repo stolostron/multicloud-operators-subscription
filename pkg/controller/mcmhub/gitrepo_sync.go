@@ -263,6 +263,7 @@ func (r *ReconcileSubscription) subscribeKustomizations(sub *appv1.Subscription,
 	for _, kustomizeDir := range kustomizeDirs {
 		klog.Info("Applying kustomization ", kustomizeDir)
 
+		//nolint:copyloopvar
 		relativePath := kustomizeDir
 
 		if len(strings.SplitAfter(kustomizeDir, baseDir+"/")) > 1 {

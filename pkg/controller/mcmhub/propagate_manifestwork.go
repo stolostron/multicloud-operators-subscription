@@ -277,8 +277,8 @@ func (r *ReconcileSubscription) setLocalManifestWork(cluster ManageClusters, hos
 		},
 	}
 
-	for i := 0; i < len(localManifestWork.Spec.Workload.Manifests); i++ {
-		klog.V(1).Infof("workload manifest: %#v", string(localManifestWork.Spec.Workload.Manifests[i].Raw))
+	for _, manifest := range localManifestWork.Spec.Workload.Manifests {
+		klog.V(1).Infof("workload manifest: %#v", string(manifest.Raw))
 	}
 
 	return localManifestWork, nil

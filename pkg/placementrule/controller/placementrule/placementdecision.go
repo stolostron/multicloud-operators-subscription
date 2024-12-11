@@ -122,8 +122,6 @@ func (r *ReconcilePlacementRuleStatus) syncPlacementDecisions(ctx context.Contex
 			continue
 		}
 
-		placementDecision := placementDecision
-
 		err := r.Delete(ctx, &placementDecision)
 		if errors.IsNotFound(err) {
 			continue
