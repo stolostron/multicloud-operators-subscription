@@ -169,6 +169,7 @@ func IfClusterAdmin(user string, groups []string) bool {
 	}
 
 	for _, group := range groups {
+		//nolint:copyloopvar
 		newGroup := group
 
 		gg := strings.Split(group, ":")

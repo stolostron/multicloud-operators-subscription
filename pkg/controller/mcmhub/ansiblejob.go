@@ -73,8 +73,8 @@ func findLastAnsibleJob(clt client.Client, subIns *subv1.Subscription, hookType 
 
 	klog.Infof("total prehook/posthook ansible jobs num: %v", len(ansibleJobList.Items))
 
-	for i := 0; i < len(ansibleJobList.Items); i++ {
-		hostingAppsub, ok := ansibleJobList.Items[i].Annotations[subv1.AnnotationHosting]
+	for _, ansibleJob := range ansibleJobList.Items {
+		hostingAppsub, ok := ansibleJob.Annotations[subv1.AnnotationHosting]
 
 		if !ok {
 			continue
@@ -84,7 +84,7 @@ func findLastAnsibleJob(clt client.Client, subIns *subv1.Subscription, hookType 
 			continue
 		}
 
-		curHookType, ok := ansibleJobList.Items[i].Annotations[subv1.AnnotationHookType]
+		curHookType, ok := ansibleJob.Annotations[subv1.AnnotationHookType]
 
 		if !ok {
 			continue
@@ -94,7 +94,7 @@ func findLastAnsibleJob(clt client.Client, subIns *subv1.Subscription, hookType 
 			continue
 		}
 
-		hookTpl, ok := ansibleJobList.Items[i].Annotations[subv1.AnnotationHookTemplate]
+		hookTpl, ok := ansibleJob.Annotations[subv1.AnnotationHookTemplate]
 
 		if !ok {
 			continue
@@ -104,7 +104,7 @@ func findLastAnsibleJob(clt client.Client, subIns *subv1.Subscription, hookType 
 			continue
 		}
 
-		lastAnsibleJob := ansibleJobList.Items[i].DeepCopy()
+		lastAnsibleJob := ansibleJob.DeepCopy()
 
 		klog.Infof("last ansible job: %v/%v, hookType: %v, hookTemplate: %v", lastAnsibleJob.Namespace, lastAnsibleJob.Name, hookType, jobKey.String())
 

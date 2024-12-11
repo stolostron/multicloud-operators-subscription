@@ -84,11 +84,11 @@ func NewEventRecorder(cfg *rest.Config, scheme *apiruntime.Scheme) (*EventRecord
 // RecordEvent - record kuberentes event
 func (rec *EventRecorder) RecordEvent(obj apiruntime.Object, reason, msg string, err error) {
 	eventType := corev1.EventTypeNormal
-	evnetMsg := msg
+	eventMsg := msg
 
 	if err != nil {
 		eventType = corev1.EventTypeWarning
 	}
 
-	rec.EventRecorder.Event(obj, eventType, reason, evnetMsg)
+	rec.EventRecorder.Event(obj, eventType, reason, eventMsg)
 }

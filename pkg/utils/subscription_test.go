@@ -642,7 +642,6 @@ func TestIsEqaulSubscriptionStatus(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			actual := isEqualSubscriptionStatus(tt.givena, tt.givenb)
 
@@ -666,7 +665,6 @@ func TestIsEmptySubscriptionStatus(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			actual := isEmptySubscriptionStatus(tt.given)
 			if actual != tt.expected {
@@ -945,7 +943,6 @@ func TestIsSubscriptionBasicChanged(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			actual := IsSubscriptionBasicChanged(tt.oldIns, tt.newIns)
 			if actual != tt.expected {

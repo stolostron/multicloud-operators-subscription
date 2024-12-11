@@ -1,6 +1,6 @@
 module open-cluster-management.io/multicloud-operators-subscription
 
-go 1.21
+go 1.22.10
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1

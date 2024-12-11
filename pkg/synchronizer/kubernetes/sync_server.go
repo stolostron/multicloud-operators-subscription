@@ -246,8 +246,6 @@ func cleanup(synchronizer *KubeSynchronizer) {
 
 	if appsubStatusList != nil && len(appsubStatusList.Items) > 0 {
 		for _, appsubStatus := range appsubStatusList.Items {
-			appsubStatus := appsubStatus
-
 			appsub := &appv1.Subscription{}
 
 			nsn := types.NamespacedName{Namespace: appsubStatus.Namespace, Name: appsubStatus.Name}

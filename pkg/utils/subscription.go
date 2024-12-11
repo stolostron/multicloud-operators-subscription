@@ -1070,7 +1070,7 @@ func CompareManifestWork(oldManifestWork, newManifestWork *manifestWorkV1.Manife
 		return false
 	}
 
-	for i := 0; i < len(oldManifestWork.Spec.Workload.Manifests); i++ {
+	for i := range oldManifestWork.Spec.Workload.Manifests {
 		oldManifest := &unstructured.Unstructured{}
 		newManifest := &unstructured.Unstructured{}
 
