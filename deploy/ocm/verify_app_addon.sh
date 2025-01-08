@@ -19,7 +19,7 @@ waitForRes() {
         if [ $MINUTE -gt 180 ]; then
             echo "Timeout waiting for the ${resNamespace}\/${resName}."
             echo "List of current resources:"
-            oc get ${resKinds} -n ${resNamespace} ${resName}
+            $KUBECTL get ${resKinds} -n ${resNamespace} ${resName}
             echo "You should see ${resNamespace}/${resName} ${resKinds}"
             if [ "${resKinds}" == "pods" ]; then
                 APP_ADDON_POD=$($KUBECTL get pods -n ${resNamespace} |grep ${resName} |awk -F' ' '{print $1}')
@@ -33,15 +33,15 @@ waitForRes() {
             exit 1
         fi
         if [ "$ignore" == "" ]; then
-            operatorRes=`oc get ${resKinds} -n ${resNamespace} | grep ${resName}`
+            operatorRes=`$KUBECTL get ${resKinds} -n ${resNamespace} | grep ${resName}`
         else
-            operatorRes=`oc get ${resKinds} -n ${resNamespace} | grep ${resName} | grep -v ${ignore}`
+            operatorRes=`$KUBECTL get ${resKinds} -n ${resNamespace} | grep ${resName} | grep -v ${ignore}`
         fi
         if [[ $(echo $operatorRes | grep "${running}") ]]; then
             echo "* ${resName} is running"
             if [[ "$metServName" != "" && "$metServPort" != "" ]]; then
               # verify metrics service
-              if `oc get svc -n ${resNamespace} ${metServName} -o custom-columns=n:.spec.ports[0].name,p:.spec.ports[0].targetPort | awk -v port=$metServPort 'NR==2{if ($1 == "metrics" && $2 == port){exit 0} exit 1}'`; then
+              if `$KUBECTL get svc -n ${resNamespace} ${metServName} -o custom-columns=n:.spec.ports[0].name,p:.spec.ports[0].targetPort | awk -v port=$metServPort 'NR==2{if ($1 == "metrics" && $2 == port){exit 0} exit 1}'`; then
                 echo "* ${metServName} service is created successfully"
               else
                 echo "* ${metServName} service is not created successfully, 'metrics' endpoint name and '$metServPort' target port are required"
