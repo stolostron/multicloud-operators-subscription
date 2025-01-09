@@ -384,6 +384,8 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1.Channel) (*awsuti
 	accessKeyID := ""
 	secretAccessKey := ""
 	region := ""
+	objInsecureSkipVerify := "false"
+	objCaCert := ""
 
 	if channel.Spec.SecretRef != nil {
 		channelSecret := &v1.Secret{}
@@ -422,9 +424,25 @@ func (r *ReconcileSubscription) initObjectStore(channel *chnv1.Channel) (*awsuti
 		}
 	}
 
+	if channel.Spec.ConfigMapRef != nil {
+		configMapRet := utils.GetChannelConfigMap(r.Client, channel)
+
+		if configMapRet != nil {
+			objCaCert = configMapRet.Data[appv1.ChannelCertificateData]
+			if objCaCert != "" {
+				r.logger.Info("ObjectStore channel config map with CA certs found")
+			}
+		}
+	}
+
+	if channel.Spec.InsecureSkipVerify {
+		objInsecureSkipVerify = "true"
+	}
+
 	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", bucket)
 
-	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
+	if err := awshandler.InitObjectStoreConnection(
+		endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert); err != nil {
 		klog.Error(err, "unable initialize object store settings")
 
 		return nil, "", err

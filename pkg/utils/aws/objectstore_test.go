@@ -35,7 +35,7 @@ func TestObjectstore(t *testing.T) {
 
 	awshandler := &Handler{}
 
-	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio")
+	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio", "false", "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Invalid bucket name
@@ -109,4 +109,49 @@ func TestObjectstore(t *testing.T) {
 	// Check if the item is deleted now
 	_, err = awshandler.Get("test", "testObj")
 	g.Expect(err).To(gomega.HaveOccurred())
+}
+
+func TestObjectstoreInsecureSkipVerify(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	// Set up a fake S3 server
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	ts := httptest.NewServer(faker.Server())
+
+	defer ts.Close()
+
+	awshandler := &Handler{}
+
+	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio", "true", "")
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+}
+
+func TestObjectstoreTLSCert(t *testing.T) {
+	g := gomega.NewWithT(t)
+
+	// Set up a fake S3 server
+	backend := s3mem.New()
+	faker := gofakes3.New(backend)
+	ts := httptest.NewServer(faker.Server())
+
+	defer ts.Close()
+
+	tlsCert := `
+-----BEGIN CERTIFICATE-----
+MIIBbDCCARKgAwIBAgIQGr0mPSgSVkL+LGyc4t6sizAKBggqhkjOPQQDAjAWMRQw
+EgYDVQQDEwt0ZW5hbnQtMS1jYTAeFw0yNTAxMDcyMjQ3MzFaFw0zMzAxMDcyMjQ3
+MzFaMBYxFDASBgNVBAMTC3RlbmFudC0xLWNhMFkwEwYHKoZIzj0CAQYIKoZIzj0D
+AQcDQgAEb4EbeQaePR7esEsWLaa8K1CP5wsepByUohpObyK4vQNLZD1qfEP0gyRJ
+ra9NHqsjwvqb1vhc89ki4SmUu4wvzaNCMEAwDgYDVR0PAQH/BAQDAgKkMA8GA1Ud
+EwEB/wQFMAMBAf8wHQYDVR0OBBYEFDGMqDQqNdgnHrQ9ugwF+Gz3KoVOMAoGCCqG
+SM49BAMCA0gAMEUCIF6SNjLpdiGsJNPDVdV0Lxn1KrXnDqydp0jhz7G86PdyAiEA
+9/Mtq43sOFkkPlNoncNUujgvvBbatqAkFtLjdbkeTA8=
+-----END CERTIFICATE-----
+`
+
+	awshandler := &Handler{}
+
+	err := awshandler.InitObjectStoreConnection(ts.URL, "randomid", "randomkey", "minio", "false", tlsCert)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }

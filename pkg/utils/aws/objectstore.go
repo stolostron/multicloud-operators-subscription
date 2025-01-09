@@ -17,18 +17,25 @@ package aws
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"io"
+	"net/http"
 	"strings"
+	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"k8s.io/klog/v2"
+
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
 
 // ObjectStore interface.
 type ObjectStore interface {
-	InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error
+	InitObjectStoreConnection(
+		endpoint, accessKeyID, secretAccessKey, region string, objInsecureSkipVerify, objCaCert string) error
 	Exists(bucket string) error
 	Create(bucket string) error
 	List(bucket string, folderName *string) ([]string, error)
@@ -104,8 +111,38 @@ func isAwsS3ObjectBucket(endpoint string) bool {
 	return false
 }
 
+// Creates a custom TLS config using the caCert passed in from cofigmapRef in the Channel
+func createCustomTLSConfig(objInsecureSkipVerify, objCaCert string) *tls.Config {
+	tlsConfig := &tls.Config{
+		MinVersion: appv1.TLSMinVersionInt, // #nosec G402
+		// set it to true or false based on channel.spec.insecureSkipVerify
+		InsecureSkipVerify: false,
+	}
+
+	if objInsecureSkipVerify == "true" { // #nosec G402
+		tlsConfig = &tls.Config{
+			MinVersion: appv1.TLSMinVersionInt,
+			// set it to true or false based on channel.spec.insecureSkipVerify
+			InsecureSkipVerify: true,
+		}
+
+		return tlsConfig
+	} else if !strings.EqualFold(objCaCert, "") {
+		// Add custom root CA certificate (for private/enterprise S3-compatible stores)
+		rootCAPool := x509.NewCertPool()
+		if !rootCAPool.AppendCertsFromPEM([]byte(objCaCert)) {
+			klog.Fatalf("Failed to parse root CA certificate")
+			return tlsConfig
+		}
+
+		tlsConfig.RootCAs = rootCAPool
+	}
+
+	return tlsConfig
+}
+
 // InitObjectStoreConnection connect to object store.
-func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region string) error {
+func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert string) error {
 	klog.Infof("Preparing S3 settings endpoint: %v", endpoint)
 
 	// set the default object store region  as minio
@@ -130,7 +167,29 @@ func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessK
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithEndpointResolverWithOptions(customResolver))
+	// Create a custom HTTP transport with TLS configuration
+	transport := &http.Transport{
+		// Custom TLS configuration
+		TLSClientConfig: createCustomTLSConfig(objInsecureSkipVerify, objCaCert),
+
+		// Optional: Customize connection pooling and timeouts
+		MaxIdleConns:        100,
+		MaxIdleConnsPerHost: 10,
+		IdleConnTimeout:     90 * time.Second,
+		DisableCompression:  false,
+	}
+
+	// Create a custom HTTP client
+	httpClient := &http.Client{
+		Transport: transport,
+
+		// Optional: Set request timeouts
+		Timeout: 30 * time.Second,
+	}
+
+	cfg, err := config.LoadDefaultConfig(context.TODO(),
+		config.WithEndpointResolverWithOptions(customResolver),
+		config.WithHTTPClient(httpClient))
 	if err != nil {
 		klog.Error("Failed to load aws config. error: ", err)
 
@@ -146,6 +205,8 @@ func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessK
 
 	h.Client = s3.NewFromConfig(cfg, func(o *s3.Options) {
 		o.Region = objectRegion
+		// For Git they just set both caCert and credential to the config
+		// and let the Git API handle it, so we do the same here
 		o.Credentials = objCredential
 	})
 

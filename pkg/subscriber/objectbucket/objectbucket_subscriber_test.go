@@ -199,7 +199,7 @@ func TestObjectSubscriber(t *testing.T) {
 	obssubitem.ChannelConfigMap = channelConfigMap
 
 	// Test 1: test get object Channel Config
-	endpoint, accessKeyID, secretAccessKey, region, err := obssubitem.getChannelConfig(true)
+	endpoint, accessKeyID, secretAccessKey, region, _, _, err := obssubitem.getChannelConfig(true)
 
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 	g.Expect(endpoint).To(gomega.Equal("http://minio-minio.apps.hivemind-b.aws.red-chesterfield.com"))
@@ -256,7 +256,7 @@ func TestObjectSubscriber(t *testing.T) {
 
 	objChannel.Spec.Pathname = ts.URL + "/fake-bucket"
 	awshandler := &awsutils.Handler{}
-	err = awshandler.InitObjectStoreConnection(ts.URL, "test-access-id", "test-secret-access-key", "test-region")
+	err = awshandler.InitObjectStoreConnection(ts.URL, "test-access-id", "test-secret-access-key", "test-region", "false", "")
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	err = awshandler.Create("fake-bucket")
