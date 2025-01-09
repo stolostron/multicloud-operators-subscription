@@ -111,7 +111,8 @@ func (obsi *SubscriberItem) Stop() {
 	}
 }
 
-func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyID, secretAccessKey, region string, err error) {
+func (obsi *SubscriberItem) getChannelConfig(primary bool) (
+	endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert string, err error) {
 	utils.UpdateLastUpdateTime(obsi.synchronizer.GetLocalClient(), obsi.Subscription)
 
 	channel := obsi.Channel
@@ -126,7 +127,7 @@ func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyI
 		errmsg := "Empty Pathname in channel " + channel.Name
 		klog.Error(errmsg)
 
-		return "", "", "", "", errors.New(errmsg)
+		return "", "", "", "", "", "", errors.New(errmsg)
 	}
 
 	if strings.HasSuffix(pathName, "/") {
@@ -138,6 +139,7 @@ func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyI
 	endpoint = pathName[:loc]
 	obsi.bucket = pathName[loc+1:]
 	secret := obsi.ChannelSecret
+	configMap := obsi.ChannelConfigMap
 
 	if !primary {
 		secret = obsi.SecondaryChannelSecret
@@ -148,14 +150,14 @@ func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyI
 		if err != nil {
 			klog.Error("Failed to unmashall accessKey from secret with error:", err)
 
-			return "", "", "", "", err
+			return "", "", "", "", "", "", err
 		}
 
 		err = yaml.Unmarshal(secret.Data[awsutils.SecretMapKeySecretAccessKey], &secretAccessKey)
 		if err != nil {
 			klog.Error("Failed to unmashall secretaccessKey from secret with error:", err)
 
-			return "", "", "", "", err
+			return "", "", "", "", "", "", err
 		}
 
 		regionData := secret.Data[awsutils.SecretMapKeyRegion]
@@ -165,18 +167,29 @@ func (obsi *SubscriberItem) getChannelConfig(primary bool) (endpoint, accessKeyI
 			if err != nil {
 				klog.Error("Failed to unmashall region from secret with error:", err)
 
-				return "", "", "", "", err
+				return "", "", "", "", "", "", err
 			}
 		}
 	}
 
-	return endpoint, accessKeyID, secretAccessKey, region, nil
+	if configMap != nil {
+		objCaCert = configMap.Data[appv1.ChannelCertificateData]
+		if objCaCert != "" {
+			klog.Info("ObjectStore channel config map with CA certs found")
+		}
+	}
+
+	if channel.Spec.InsecureSkipVerify {
+		objInsecureSkipVerify = "true"
+	}
+
+	return endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert, nil
 }
 
 func (obsi *SubscriberItem) getAwsHandler(primary bool) error {
 	awshandler := &awsutils.Handler{}
 
-	endpoint, accessKeyID, secretAccessKey, region, err := obsi.getChannelConfig(primary)
+	endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert, err := obsi.getChannelConfig(primary)
 
 	if err != nil {
 		return err
@@ -184,7 +197,8 @@ func (obsi *SubscriberItem) getAwsHandler(primary bool) error {
 
 	klog.V(1).Info("Trying to connect to object bucket ", endpoint, "|", obsi.bucket)
 
-	if err := awshandler.InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region); err != nil {
+	if err := awshandler.InitObjectStoreConnection(
+		endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert); err != nil {
 		klog.Error(err, "unable initialize object store settings")
 		return err
 	}
