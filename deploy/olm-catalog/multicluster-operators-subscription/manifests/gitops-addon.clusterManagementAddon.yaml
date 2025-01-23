@@ -1,0 +1,17 @@
+apiVersion: addon.open-cluster-management.io/v1alpha1
+kind: ClusterManagementAddOn
+metadata:
+  name: gitops-addon
+  annotations:
+    addon.open-cluster-management.io/lifecycle: "gitops-addon"
+spec:
+  addOnMeta:
+    description: gitops-addon
+    displayName: gitops-addon
+  supportedConfigs:
+  - group: addon.open-cluster-management.io
+    resource: addondeploymentconfigs
+  - group: addon.open-cluster-management.io
+    resource: addontemplates
+    defaultConfig:
+      name: gitops-addon
