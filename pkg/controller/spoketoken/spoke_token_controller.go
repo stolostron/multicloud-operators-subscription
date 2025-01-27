@@ -17,7 +17,6 @@ package spoketoken
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -26,9 +25,8 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
@@ -41,6 +39,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	authv1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 )
 
 const (
@@ -48,6 +48,7 @@ const (
 	requeuAfter              = 1
 	infrastructureConfigName = "cluster"
 	appAddonName             = "application-manager"
+	sevenDays                = 168
 )
 
 var (
@@ -180,47 +181,49 @@ func (r *ReconcileAgentToken) Reconcile(ctx context.Context, request reconcile.R
 	}
 
 	// Get the service account token from the service account's secret list
-	token := r.getServiceAccountTokenSecret()
+	token, skipCreateSecret := r.getServiceAccountTokenSecret()
 
-	if token == "" {
+	if token == "" && !skipCreateSecret {
 		klog.Error("Failed to find the service account token.")
 		return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, errors.New("failed to find the klusterlet agent addon service account token secret")
 	}
 
-	// Prepare the secret to be created/updated in the managed cluster namespace on the hub
-	secret := r.prepareAgentTokenSecret(token)
+	if !skipCreateSecret {
+		// Prepare the secret to be created/updated in the managed cluster namespace on the hub
+		secret := r.prepareAgentTokenSecret(token)
 
-	// Get the existing secret in the managed cluster namespace from the hub
-	hubSecret := &corev1.Secret{}
-	hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + secretSuffix}
-	err = r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
-
-	if err != nil {
-		if kerrors.IsNotFound(err) {
-			klog.Info("Secret " + hubSecretName.String() + " not found on the hub.")
-
-			err := r.hubclient.Create(context.TODO(), secret)
-
-			if err != nil {
-				klog.Error(err.Error())
-				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
-			}
-
-			klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
-		} else {
-			klog.Error("Failed to get secret from the hub: ", err)
-			return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
-		}
-	} else {
-		// Update
-		err := r.hubclient.Update(context.TODO(), secret)
+		// Get the existing secret in the managed cluster namespace from the hub
+		hubSecret := &corev1.Secret{}
+		hubSecretName := types.NamespacedName{Namespace: r.syncid.Namespace, Name: r.syncid.Name + secretSuffix}
+		err = r.hubclient.Get(context.TODO(), hubSecretName, hubSecret)
 
 		if err != nil {
-			klog.Error("Failed to update secret : ", err)
-			return reconcile.Result{RequeueAfter: time.Duration(requeuAfter * time.Minute.Milliseconds())}, err
-		}
+			if kerrors.IsNotFound(err) {
+				klog.Info("Secret " + hubSecretName.String() + " not found on the hub.")
 
-		klog.Info("The cluster secret " + secret.Name + " was updated successfully in " + secret.Namespace + " on the hub.")
+				err := r.hubclient.Create(context.TODO(), secret)
+
+				if err != nil {
+					klog.Error(err.Error())
+					return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
+				}
+
+				klog.Info("The cluster secret " + secret.Name + " was created in " + secret.Namespace + " on the hub successfully.")
+			} else {
+				klog.Error("Failed to get secret from the hub: ", err)
+				return reconcile.Result{RequeueAfter: requeuAfter * time.Minute}, err
+			}
+		} else {
+			// Update
+			err := r.hubclient.Update(context.TODO(), secret)
+
+			if err != nil {
+				klog.Error("Failed to update secret : ", err)
+				return reconcile.Result{RequeueAfter: time.Duration(requeuAfter * time.Minute.Milliseconds())}, err
+			}
+
+			klog.Info("The cluster secret " + secret.Name + " was updated successfully in " + secret.Namespace + " on the hub.")
+		}
 	}
 
 	return reconcile.Result{}, nil
@@ -281,14 +284,14 @@ func (r *ReconcileAgentToken) prepareAgentTokenSecret(token string) *corev1.Secr
 	return mcSecret
 }
 
-func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
+func (r *ReconcileAgentToken) getServiceAccountTokenSecret() (string, bool) {
 	// Grab application-manager service account
 	sa := &corev1.ServiceAccount{}
 
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: appAddonName, Namespace: appAddonNS}, sa)
 	if err != nil {
 		klog.Error(err.Error())
-		return ""
+		return "", false
 	}
 
 	// first loop through secret list from the application-manager SA to find application-manager-dockercfg secret
@@ -302,118 +305,83 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() string {
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: appAddonNS}, dockerSecret)
 			if err != nil {
 				klog.Errorf("secret not found: %v/%v, err: %v", appAddonNS, secret.Name, err.Error())
-				return ""
+				return "", false
 			}
 
 			anno := dockerSecret.GetAnnotations()
 
 			if anno["openshift.io/token-secret.value"] > "" {
 				klog.Info("found the application-manager-token secret " + anno["openshift.io/token-secret.name"])
-				return anno["openshift.io/token-secret.value"]
+				return anno["openshift.io/token-secret.value"], false
 			}
 		}
 	}
 
 	// If not found, check the secret associated to the application-manager SA
-	saToken, err := r.createOrUpdateApplicationManagerSecret(sa)
+	skipCreateSecret, err := r.createOrUpdateApplicationManagerSecret()
 	if err != nil {
 		klog.Error(err.Error())
-		return ""
+		return "", false
 	}
 
-	return saToken
+	return "", skipCreateSecret
 }
 
-func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret(sa *corev1.ServiceAccount) (string, error) {
-	ApplicationManagerSecretList := &corev1.SecretList{}
-	listopts := &client.ListOptions{
-		Namespace: sa.Namespace,
-	}
-	err := r.Client.List(context.TODO(), ApplicationManagerSecretList, listopts)
+func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret() (bool, error) {
+	// For OCP >= 4.16 only as they stopped creating tokens for service accounts
+	// We will create a short lived token(7 days) instead
+	ManagedServiceAccount := &authv1beta1.ManagedServiceAccount{}
+	ManagedServiceAccountName := types.NamespacedName{Namespace: r.syncid.Name, Name: appAddonName}
+	err := r.hubclient.Get(context.TODO(), ManagedServiceAccountName, ManagedServiceAccount)
 
-	if err != nil {
-		klog.Errorf("failed to list all secrets in application-manager SA NS: %v, err: %v", sa.Namespace, err)
-		return "", err
-	}
-
-	for _, ApplicationManagerSecret := range ApplicationManagerSecretList.Items {
-		if ApplicationManagerSecret.Type != "kubernetes.io/service-account-token" {
-			continue
-		}
-
-		if ApplicationManagerSecret.Annotations != nil && ApplicationManagerSecret.Annotations["kubernetes.io/service-account.name"] == appAddonName {
-			// ApplicationManagerSecret.Data["token"] has been base64 decoded when fetched
-			if ApplicationManagerSecret.Data["token"] == nil {
-				klog.Errorf("secret token is empty, secret: %v/%v", ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
-				continue
-			}
-
-			return string(ApplicationManagerSecret.Data["token"]), nil
-		}
-	}
-
-	// if no secret is associated to the application-manager SA, create/update the application-manager secret associated to the application-manager SA
-	ApplicationManagerSecret := &corev1.Secret{}
-	ApplicationManagerSecretName := types.NamespacedName{Namespace: appAddonNS, Name: appAddonName}
-	err = r.Client.Get(context.TODO(), ApplicationManagerSecretName, ApplicationManagerSecret)
-
-	// if there exists the secret with the application-manager name, it is not associated to the application-manager SA, need to delete and re-create it
-	if err == nil {
-		if ApplicationManagerSecret.Annotations != nil && ApplicationManagerSecret.Annotations["kubernetes.io/service-account.name"] == appAddonName {
-			if ApplicationManagerSecret.Data["token"] == nil {
-				return "", fmt.Errorf("application manager secret token is not ready yet, requeue after %v min, secret: %v/%v",
-					requeuAfter, ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
-			}
-		}
-
-		err = r.Client.Delete(context.TODO(), ApplicationManagerSecret)
-		if err != nil {
-			klog.Errorf("failed to delete the invalid application-manager secret, err: %v", err)
-			return "", err
-		}
-	}
-
-	// create the application-manager secret associated to the application-manager SA
-	saGVK := schema.GroupVersionKind{
-		Group:   "",
-		Version: "v1",
-		Kind:    "ServiceAccount",
-	}
-
-	owner := metav1.NewControllerRef(sa, saGVK)
-	ApplicationManagerSecret = &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      appAddonName,
-			Namespace: appAddonNS,
-			Annotations: map[string]string{
-				"kubernetes.io/service-account.name": appAddonName,
+	// create the ManagedServiceAccount with the application-manager name if it doesn't exist
+	if err != nil && kerrors.IsNotFound(err) {
+		ManagedServiceAccount = &authv1beta1.ManagedServiceAccount{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      appAddonName,
+				Namespace: r.syncid.Name,
 			},
-			OwnerReferences: []metav1.OwnerReference{*owner},
-		},
-		Type: "kubernetes.io/service-account-token",
+			Spec: authv1beta1.ManagedServiceAccountSpec{
+				Rotation: authv1beta1.ManagedServiceAccountRotation{
+					Enabled: true,
+					Validity: v1.Duration{
+						Duration: time.Hour * sevenDays,
+					},
+				},
+			},
+		}
+
+		err = r.hubclient.Create(context.TODO(), ManagedServiceAccount)
+		if err != nil {
+			klog.Errorf("failed to create the new application-manager managedserviceaccount, err: %v", err)
+			return false, err
+		}
+
+		klog.Infof("Application-manager ManagedSeviceAccount %v created on the hub", appAddonName)
+
+		// delete existing long-lived token if found on managed cluster
+		ApplicationManagerSecret := &corev1.Secret{}
+		ApplicationManagerSecretName := types.NamespacedName{Namespace: appAddonNS, Name: appAddonName}
+		err = r.Client.Get(context.TODO(), ApplicationManagerSecretName, ApplicationManagerSecret)
+
+		if err == nil {
+			err = r.Client.Delete(context.TODO(), ApplicationManagerSecret)
+			if err != nil {
+				klog.Errorf("failed to delete existing application-manager secret, err: %v", err)
+				return false, err
+			}
+
+			klog.Infof("Application-manager long lived token deleted on the managed cluster")
+		} else {
+			klog.Errorf("failed to get existing application-manager secret, err: %v", err) // no long lived token to clean up
+			err = nil
+		}
+	} else if err != nil && !kerrors.IsNotFound(err) {
+		klog.Errorf("failed to get managedserviceaccount, err: %v", err)
+		return false, err
 	}
 
-	err = r.Create(context.TODO(), ApplicationManagerSecret)
-	if err != nil {
-		klog.Errorf("failed to create the new application-manager secret, err: %v", err)
-		return "", err
-	}
-
-	klog.Infof("Application-manager secret %v created", ApplicationManagerSecretName)
-
-	newApplicationManagerSecret := &corev1.Secret{}
-	err = r.Client.Get(context.TODO(), ApplicationManagerSecretName, newApplicationManagerSecret)
-
-	if err != nil {
-		klog.Errorf("failed to get the new application-manager secret, err: %v", err)
-		return "", err
-	}
-
-	if newApplicationManagerSecret.Data["token"] == nil {
-		return "", fmt.Errorf("new secret token is empty, secret: %v/%v", ApplicationManagerSecret.Namespace, ApplicationManagerSecret.Name)
-	}
-
-	return string(newApplicationManagerSecret.Data["token"]), nil
+	return true, err
 }
 
 // getKubeAPIServerAddress - Get the API server address from OpenShift kubernetes cluster. This does not work with other kubernetes.
