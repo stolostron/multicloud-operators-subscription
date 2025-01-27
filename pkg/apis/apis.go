@@ -21,6 +21,7 @@ import (
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	placement "open-cluster-management.io/api/cluster/v1beta1"
 	workV1 "open-cluster-management.io/api/work/v1"
+	authv1beta1 "open-cluster-management.io/managed-serviceaccount/apis/authentication/v1beta1"
 	chnapis "open-cluster-management.io/multicloud-operators-channel/pkg/apis"
 )
 
@@ -46,6 +47,11 @@ func AddToScheme(s *runtime.Scheme) error {
 	}
 
 	err = placement.AddToScheme(s)
+	if err != nil {
+		return err
+	}
+
+	err = authv1beta1.AddToScheme(s)
 	if err != nil {
 		return err
 	}

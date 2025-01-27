@@ -44,11 +44,15 @@ func TestMain(m *testing.M) {
 			filepath.Join("..", "..", "..", "deploy", "crds"),
 			filepath.Join("..", "..", "..", "hack", "test"),
 		},
+		ErrorIfCRDPathMissing: true,
 	}
 
-	apis.AddToScheme(scheme.Scheme)
-
 	var err error
+
+	if err = apis.AddToScheme(scheme.Scheme); err != nil {
+		stdlog.Fatal(err)
+	}
+
 	if cfg, err = t.Start(); err != nil {
 		stdlog.Fatal(err)
 	}
