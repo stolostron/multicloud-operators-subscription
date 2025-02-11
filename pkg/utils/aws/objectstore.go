@@ -131,7 +131,7 @@ func createCustomTLSConfig(objInsecureSkipVerify, objCaCert string) *tls.Config 
 		// Add custom root CA certificate (for private/enterprise S3-compatible stores)
 		rootCAPool := x509.NewCertPool()
 		if !rootCAPool.AppendCertsFromPEM([]byte(objCaCert)) {
-			klog.Fatalf("Failed to parse root CA certificate")
+			klog.Infof("Failed to parse root CA certificate")
 			return tlsConfig
 		}
 
