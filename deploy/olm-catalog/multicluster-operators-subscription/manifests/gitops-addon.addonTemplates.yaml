@@ -29,6 +29,15 @@ spec:
                     - name: gitops-addon
                       image: quay.io/stolostron/multicloud-integrations:latest
                       imagePullPolicy: IfNotPresent
+                      securityContext:
+                        privileged: false
+                        readOnlyRootFilesystem: true
+                        allowPrivilegeEscalation: false
+                        runAsNonRoot: true
+                        runAsUser: 1000
+                        capabilities:
+                          drop:
+                          - ALL
                       command:
                       - /usr/local/bin/gitopsaddon
                       - --leader-election-lease-duration=137s
