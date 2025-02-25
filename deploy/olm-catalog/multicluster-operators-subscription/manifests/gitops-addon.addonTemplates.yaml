@@ -61,6 +61,8 @@ spec:
             metadata:
               name: gitops-addon
               namespace: open-cluster-management-agent-addon
+            imagePullSecrets:
+              - name: open-cluster-management-image-pull-credentials
           - kind: ClusterRoleBinding
             apiVersion: rbac.authorization.k8s.io/v1
             metadata:
