@@ -2,8 +2,6 @@ module open-cluster-management.io/multicloud-operators-subscription
 
 go 1.21
 
-toolchain go1.23.5
-
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
 	github.com/aws/aws-sdk-go-v2 v1.16.7
