@@ -422,7 +422,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
 			Observe(0)
 
-		return fmt.Errorf(fmt.Sprintf("%.2000s", errMsg))
+		return fmt.Errorf("%.2000s", errMsg)
 	}
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
