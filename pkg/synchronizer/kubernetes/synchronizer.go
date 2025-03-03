@@ -379,7 +379,7 @@ func (sync *KubeSynchronizer) ProcessSubResources(appsub *appv1alpha1.Subscripti
 		if appsubstatus.Statuses.SubscriptionStatus.Phase == appSubStatusV1alpha1.SubscriptionDeployFailed {
 			klog.Info("subscription status has failed phase, return error")
 
-			return fmt.Errorf(appsubstatus.Statuses.SubscriptionStatus.Message)
+			return fmt.Errorf("subscription status error: %v", appsubstatus.Statuses.SubscriptionStatus.Message)
 		}
 	}
 
