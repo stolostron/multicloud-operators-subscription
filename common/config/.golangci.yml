@@ -1,6 +1,6 @@
 service:
   # When updating this, also update the version stored in docker/build-tools/Dockerfile in the multicloudlab/tools repo.
-  golangci-lint-version: 1.57.x # use the fixed version to not introduce new linters unexpectedly
+  golangci-lint-version: 1.60.x # use the fixed version to not introduce new linters unexpectedly
 run:
   # timeout for analysis, e.g. 30s, 5m, default is 1m
   deadline: 20m
@@ -12,8 +12,8 @@ linters:
     - bodyclose
     - containedctx
     - contextcheck
+    - copyloopvar
     - cyclop
-    - deadcode
     - depguard
     - dupl
     - forbidigo
@@ -21,7 +21,9 @@ linters:
     - errchkjson
     - exhaustive
     - exhaustruct
-    - exhaustivestruct
+    - exportloopref
+    - execinquery
+    - err113
     - forcetypeassert
     - gci
     - ginkgolinter
@@ -31,20 +33,17 @@ linters:
     - gocritic
     - gocyclo
     - godot
-    - goerr113
     - gofumpt
-    - golint
     - gomnd
     - gomoddirectives
     - gosec
-    - ifshort
     - ineffassign
     - interfacebloat
-    - interfacer
+    - intrange
     - ireturn
     - loggercheck
-    - maintidx 
-    - maligned
+    - maintidx
+    - mnd
     - musttag
     - nakedret
     - nestif
@@ -52,23 +51,18 @@ linters:
     - nilnil
     - nlreturn
     - noctx
-    - nosnakecase
     - nonamedreturns
-    - nosnakecase
     - paralleltest
     - prealloc
     - predeclared
     - rowserrcheck
-    - scopelint
     - staticcheck
-    - structcheck
     - sqlclosecheck
     - tagliatelle
     - tenv
     - testpackage
     - thelper
     - usestdlibvars
-    - varcheck
     - varnamelen
     - wastedassign
     - wrapcheck

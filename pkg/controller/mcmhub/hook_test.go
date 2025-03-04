@@ -508,8 +508,8 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 			st := nSub.Status
 
 			if st.Phase == subv1.SubscriptionPropagated {
-				return fmt.Errorf(fmt.Sprintf("waiting for phase %s, got %s",
-					subv1.SubscriptionPropagationFailed, st.Phase))
+				return fmt.Errorf("waiting for phase %s, got %s",
+					subv1.SubscriptionPropagationFailed, st.Phase)
 			}
 
 			return nil

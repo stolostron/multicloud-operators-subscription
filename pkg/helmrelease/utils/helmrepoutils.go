@@ -512,7 +512,7 @@ func DownloadChartFromHelmRepo(configMap *corev1.ConfigMap,
 		urlsError += " - url: " + url + " error: " + err.Error()
 	}
 
-	return "", fmt.Errorf("failed to download chart from helm repo. " + urlsError)
+	return "", fmt.Errorf("failed to download chart from helm repo. %v", urlsError)
 }
 
 func downloadChartFromURL(configMap *corev1.ConfigMap,
