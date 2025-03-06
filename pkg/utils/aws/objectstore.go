@@ -142,7 +142,8 @@ func createCustomTLSConfig(objInsecureSkipVerify, objCaCert string) *tls.Config 
 }
 
 // InitObjectStoreConnection connect to object store.
-func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert string) error {
+func (h *Handler) InitObjectStoreConnection(
+	endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert string) error {
 	klog.Infof("Preparing S3 settings endpoint: %v", endpoint)
 
 	// set the default object store region  as minio
@@ -190,6 +191,7 @@ func (h *Handler) InitObjectStoreConnection(endpoint, accessKeyID, secretAccessK
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithEndpointResolverWithOptions(customResolver),
 		config.WithHTTPClient(httpClient))
+
 	if err != nil {
 		klog.Error("Failed to load aws config. error: ", err)
 
