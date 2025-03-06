@@ -112,7 +112,7 @@ func (obsi *SubscriberItem) Stop() {
 }
 
 func (obsi *SubscriberItem) getChannelConfig(primary bool) (
-	endpoint, accessKeyID, secretAccessKey, region, objInsecureSkipVerify, objCaCert string, err error) {
+	endpoint, accessKeyID, secretAccessKey, region string, objInsecureSkipVerify, objCaCert string, err error) {
 	utils.UpdateLastUpdateTime(obsi.synchronizer.GetLocalClient(), obsi.Subscription)
 
 	channel := obsi.Channel

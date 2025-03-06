@@ -340,6 +340,9 @@ func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret() (bool, er
 			ObjectMeta: v1.ObjectMeta{
 				Name:      appAddonName,
 				Namespace: r.syncid.Name,
+				Labels: map[string]string{
+					"cluster.open-cluster-management.io/backup": "",
+				},
 			},
 			Spec: authv1beta1.ManagedServiceAccountSpec{
 				Rotation: authv1beta1.ManagedServiceAccountRotation{
