@@ -39,6 +39,38 @@ else
     exit 1
 fi
 
+### 000-git-skip-clone
+echo "STARTING test 000-git-skip-clone"
+kubectl config use-context kind-hub
+kubectl apply -f test/e2e/cases/000-git-skip-clone/
+sleep 20
+if kubectl get subscriptions.apps.open-cluster-management.io git-hub-skip-clone | grep Propagated; then
+    echo "000-git-skip-clone: hub subscriptions.apps.open-cluster-management.io status is Propagated"
+else
+    echo "000-git-skip-clone FAILED: hub subscriptions.apps.open-cluster-management.io status is not Propagated"
+    exit 1
+fi
+
+kubectl config use-context kind-cluster1
+if kubectl get subscriptions.apps.open-cluster-management.io git-hub-skip-clone | grep Subscribed; then
+    echo "000-git-skip-clone: cluster1 subscriptions.apps.open-cluster-management.io status is Subscribed"
+else
+    echo "000-git-skip-clone FAILED: cluster1 subscriptions.apps.open-cluster-management.io status is not Subscribed"
+    exit 1
+fi
+
+if kubectl get clusterrole | grep psp | grep rook; then
+    echo "000-git-skip-clone: git manifest clusterrole is applied on the managed cluster"
+else
+    echo "000-git-skip-clone FAILED:  git manifest clusterrole is not applied on the managed cluster"
+    exit 1
+fi
+
+kubectl config use-context kind-hub
+kubectl delete -f test/e2e/cases/000-git-skip-clone/
+echo "PASSED test case 000-git-skip-clone"
+sleep 10
+
 ### 00-helm-semver
 echo "STARTING test case 00-helm-semver"
 kubectl config use-context kind-hub
@@ -49,6 +81,7 @@ else
     exit 1
 fi
 kubectl delete -f test/e2e/cases/00-helm-semver/semver_appsub.yaml
+echo "PASSED test case 00-helm-semver"
 sleep 10
 
 ### 01-placement
@@ -57,7 +90,7 @@ kubectl config use-context kind-hub
 kubectl label managedcluster cluster1 cluster.open-cluster-management.io/clusterset=app-demo --overwrite
 kubectl label managedcluster cluster1 purpose=test --overwrite
 kubectl apply -f test/e2e/cases/01-placement/
-sleep 30
+sleep 20
 
 if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "01-placement: hub subscriptions.apps.open-cluster-management.io status is Propagated"
@@ -90,7 +123,7 @@ fi
 
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/01-placement/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get pod | grep ingress; then
     echo "01-placement FAILED: appsub deployment pod is not deleted"
@@ -104,7 +137,7 @@ echo "PASSED test case 01-placement"
 echo "STARTING test 02-placementrule"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/02-placementrule/
-sleep 30
+sleep 20
 
 if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "02-placementrule: hub subscriptions.apps.open-cluster-management.io status is Propagated"
@@ -137,7 +170,7 @@ fi
 
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/02-placementrule/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get pod | grep ingress; then
     echo "02-placementrule FAILED: appsub deployment pod is not deleted"
@@ -152,7 +185,7 @@ echo "STARTING test 03-keep-namespace"
 kubectl config use-context kind-hub
 kubectl create ns test-case-03
 kubectl apply -f test/e2e/cases/03-keep-namespace/
-sleep 30
+sleep 20
 
 kubectl config use-context kind-cluster1
 if kubectl get ns test-case-03; then
@@ -164,7 +197,7 @@ fi
 
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/03-keep-namespace/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get ns test-case-03; then
     echo "03-keep-namespace: cluster1 namespace 03-keep-namespace is still present"
@@ -256,7 +289,7 @@ echo "PASSED test case 06-ansiblejob-post"
 echo "STARTING test case 07-helm-install-error"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/07-helm-install-error/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Failed"; then
     echo "07-helm-install-error: found failed phase in subscription status output"
@@ -273,7 +306,7 @@ echo "PASSED test case 07-helm-install-error"
 echo "STARTING test case 08-helm-upgrade-error"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/08-helm-upgrade-error/install
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get subscriptionstatus.apps.open-cluster-management.io ingress -o yaml | grep "phase: Deployed"; then
     echo "08-helm-upgrade-error: found deployed phase in subscription status output"
@@ -302,7 +335,7 @@ echo "PASSED test case 08-helm-upgrade-error"
 echo "STARTING test case 09-helm-missing-phase"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/09-helm-missing-phase/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl get subscriptionstatus.apps.open-cluster-management.io preinstall-hook -o yaml | grep "kind: Deployment"; then
     echo "09-helm-missing-phase: found deployment kind in subscription status output"
@@ -324,7 +357,7 @@ echo "PASSED test case 09-helm-missing-phase"
 echo "STARTING test 10-cluster-override-ns"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/10-cluster-override-ns/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl -n test-10 get pod | grep nginx-placement | grep Running; then
     echo "10-cluster-override-ns: appsub deployment pod status is Running"
@@ -334,7 +367,7 @@ else
 fi
 kubectl config use-context kind-hub
 kubectl delete -f test/e2e/cases/10-cluster-override-ns/
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 if kubectl -n test-10 get pod | grep nginx-placement; then
     echo "10-cluster-override-ns FAILED: appsub deployment pod is not deleted"
@@ -348,14 +381,14 @@ echo "PASSED test case 10-cluster-override-ns"
 echo "STARTING test 11-helm-hub-dryrun"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/11-helm-hub-dryrun/
-sleep 30
+sleep 20
 if kubectl get subscriptions.apps.open-cluster-management.io -n default ingress-appsub | grep Propagated; then
     echo "11-helm-hub-dryrun: ingress-appsub status is Propagated"
 else
     echo "11-helm-hub-dryruns FAILED:  ingress-appsub status is not Propagated"
     exit 1
 fi
-sleep 30
+sleep 20
 kubectl config use-context kind-cluster1
 
 RUN_CMD="kubectl get subscriptionstatus.apps.open-cluster-management.io -n default ingress-appsub"
@@ -382,7 +415,7 @@ echo "PASSED test case 11-helm-hub-dryrun"
 echo "STARTING test 12-helm-update"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/12-helm-update/install
-sleep 30
+sleep 20
 if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "12-helm-update: ingress status is Propagated"
 else
@@ -419,7 +452,7 @@ echo "PASSED test case 12-helm-update"
 echo "STARTING test 13-git-res-name"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/13-git-res-name/
-sleep 30
+sleep 20
 if kubectl get subscriptions.apps.open-cluster-management.io git-app-sub | grep Propagated; then
     echo "13-git-res-name: hub subscriptions.apps.open-cluster-management.io status is Propagated"
 else
@@ -433,7 +466,7 @@ echo "PASSED test case 13-git-res-name"
 echo "STARTING test 14-helm-appsubstatus"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/14-helm-appsubstatus/install
-sleep 30
+sleep 20
 if kubectl get subscriptionreport.apps.open-cluster-management.io ingress | grep ingress; then
     echo "14-helm-appsubstatus: ingress subscriptionreport is found"
 else
@@ -474,7 +507,7 @@ echo "PASSED test case 14-helm-appsubstatus"
 echo "STARTING test 15-git-helm"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/15-git-helm/install
-sleep 30
+sleep 20
 if kubectl get subscriptions.apps.open-cluster-management.io git-app-sub | grep Propagated; then
     echo "15-git-helm: hub subscriptions.apps.open-cluster-management.io status is Propagated"
 else
@@ -498,7 +531,7 @@ echo "PASSED test case 15-git-helm"
 echo "STARTING test 16-helm-recreate"
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/16-helm-recreate
-sleep 30
+sleep 20
 if kubectl get subscriptions.apps.open-cluster-management.io ingress | grep Propagated; then
     echo "16-helm-recreate: ingress status is Propagated"
 else
@@ -605,7 +638,7 @@ echo "19-verify-git-pull-time-metric: patching successful subscription and expet
 kubectl config use-context kind-hub
 kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/failed
 # deliver an appsub with invalid channel info, it is expected to get the failure once the appsub is deployed on the managed cluster
-sleep 30
+sleep 20
 
 echo "19-verify-git-pull-time-metric: fetching failed managed cluster metrics"
 kubectl config use-context kind-cluster1
@@ -644,7 +677,7 @@ kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/failed-no-plac
 kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/failed-placement-wrong
 kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/standalone
 kubectl apply -f test/e2e/cases/20-verify-propagation-time-metric/successful
-sleep 30
+sleep 20
 
 echo "20-verify-propagation-time-metric: fetching collected hub cluster metrics"
 collectedMcMetrics=`kubectl exec -n open-cluster-management deploy/multicluster-operators-subscription -- curl http://localhost:8381/metrics`
@@ -692,7 +725,7 @@ kubectl label managedcluster cluster1 cluster.open-cluster-management.io/cluster
 kubectl label managedcluster cluster1 purpose=test --overwrite
 
 kubectl apply -f test/e2e/cases/21-verify-local-deployment-time-metric
-sleep 30
+sleep 20
 
 kubectl config use-context kind-cluster1
 kubectl -n local-deployment-metric-test rollout status deployment/git-simple-subscription

@@ -4,7 +4,7 @@ metadata:
   name: guestbook-failed
   namespace: default
   annotations:
-    apps.open-cluster-management.io/github-path: guestbook-failed
+    apps.open-cluster-management.io/github-path: test/e2e/cases/23-git-appsub-status-failed/resource
     apps.open-cluster-management.io/github-branch: main    
 spec:
   channel: default/git
