@@ -340,6 +340,11 @@ func (h *HubGitOps) ResolveLocalGitFolder(subIns *subv1.Subscription) string {
 }
 
 func (h *HubGitOps) RegisterBranch(subIns *subv1.Subscription) error {
+	if shouldSkipHubValidation(subIns) {
+		h.logger.Info("skipping register branch for appsub " + subIns.Namespace + "/" + subIns.Name)
+		return nil
+	}
+
 	subKey := types.NamespacedName{Name: subIns.GetName(), Namespace: subIns.GetNamespace()}
 
 	// This does not pick up new changes to channel configuration
@@ -764,4 +769,13 @@ func (h *HubGitOps) GetHooks(subIns *subv1.Subscription, hookPath string) ([]ans
 	}
 
 	return parseAsAnsibleJobs(sortedRes.kubRes, parseAnsibleJobResoures, h.logger)
+}
+
+func shouldSkipHubValidation(subIns *subv1.Subscription) bool {
+	annos := subIns.GetAnnotations()
+	if len(annos) > 0 && annos[subv1.AnnotationSkipHubValidation] == "true" {
+		return true
+	}
+
+	return false
 }
