@@ -69,7 +69,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.13.8 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sso v1.11.12 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.16.9 // indirect
-	github.com/aws/smithy-go v1.12.0 // indirect
+	github.com/aws/smithy-go v1.22.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
