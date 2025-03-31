@@ -96,6 +96,8 @@ var (
 	AnnotationHostingDeployable = SchemeGroupVersion.Group + "/hosting-deployable"
 	// AnnotationCurrentNamespaceScoped specifies to deloy resources into subscription namespace
 	AnnotationCurrentNamespaceScoped = SchemeGroupVersion.Group + "/current-namespace-scoped"
+	// AnnotationSkipHubValidation indicates the hub subscription should skip the "dry-run" validations and proceed to propagation phase
+	AnnotationSkipHubValidation = SchemeGroupVersion.Group + "/skip-hub-validation"
 )
 
 const (
