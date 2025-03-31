@@ -431,3 +431,50 @@ var _ = PDescribe("hub git ops", func() {
 		Eventually(detectTargetCommit(subKey, defaultCommit), specTimeOut, pullInterval).Should(Succeed())
 	})
 })
+
+var _ = Describe("shouldSkipHubValidation", func() {
+	var (
+		sub *subv1.Subscription
+	)
+	BeforeEach(func() {
+		sub = &subv1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "test-sub",
+				Namespace: "default",
+			},
+		}
+	})
+	It("should return false when annotation is nil", func() {
+		Expect(shouldSkipHubValidation(sub)).To(BeFalse())
+	})
+	It("should return false when skip annotation is missing", func() {
+		sub.SetAnnotations(map[string]string{
+			"foobar": "true",
+		})
+		Expect(shouldSkipHubValidation(sub)).To(BeFalse())
+	})
+	It("should return true when skip annotation is true'", func() {
+		sub.SetAnnotations(map[string]string{
+			subv1.AnnotationSkipHubValidation: "true",
+		})
+		Expect(shouldSkipHubValidation(sub)).To(BeTrue())
+	})
+	It("should return false when skip annotation is empty", func() {
+		sub.SetAnnotations(map[string]string{
+			subv1.AnnotationSkipHubValidation: "",
+		})
+		Expect(shouldSkipHubValidation(sub)).To(BeFalse())
+	})
+	It("should return false when skip annotation is false", func() {
+		sub.SetAnnotations(map[string]string{
+			subv1.AnnotationSkipHubValidation: "false",
+		})
+		Expect(shouldSkipHubValidation(sub)).To(BeFalse())
+	})
+	It("should return false when skip annotation is non boolean string values", func() {
+		sub.SetAnnotations(map[string]string{
+			subv1.AnnotationSkipHubValidation: "foobar",
+		})
+		Expect(shouldSkipHubValidation(sub)).To(BeFalse())
+	})
+})
