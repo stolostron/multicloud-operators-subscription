@@ -93,6 +93,16 @@ func (r *ReconcileSubscription) doMCMHubReconcile(sub *appv1.Subscription) error
 	// Add or sync application labels
 	r.AddAppLabels(sub)
 
+	if shouldSkipHubValidation(sub) {
+		clusters, err := r.getClustersByPlacement(sub)
+		if err != nil {
+			klog.Error("Error in getting clusters:", err)
+			return err
+		}
+
+		return r.PropagateAppSubManifestWork(sub, clusters)
+	}
+
 	var resources []*v1.ObjectReference
 
 	switch tp := strings.ToLower(string(primaryChannel.Spec.Type)); tp {
