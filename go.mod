@@ -1,6 +1,8 @@
 module open-cluster-management.io/multicloud-operators-subscription
 
-go 1.21
+go 1.23
+
+toolchain go1.23.8
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
@@ -209,7 +211,7 @@ require (
 	k8s.io/kubectl v0.26.0 // indirect
 	k8s.io/utils v0.0.0-20230406110748-d93618cff8a2 // indirect
 	oras.land/oras-go v1.2.4 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
