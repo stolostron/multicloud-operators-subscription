@@ -14,8 +14,8 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.34.1
-	github.com/openshift/api v0.0.0-20231218131639-7a5aa77cc72d
-	github.com/openshift/library-go v0.0.0-20240116081341-964bcb3f545c
+	github.com/openshift/api v0.0.0-20240527133614-ba11c1587003
+	github.com/openshift/library-go v0.0.0-20240621150525-4bb4238aef81
 	github.com/operator-framework/operator-lib v0.11.1-0.20230717184314-6efbe3a22f6f
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.19.0
@@ -27,17 +27,17 @@ require (
 	gomodules.xyz/jsonpatch/v3 v3.0.1
 	helm.sh/helm/v3 v3.14.4
 	k8s.io/api v0.30.2
-	k8s.io/apiextensions-apiserver v0.29.4
+	k8s.io/apiextensions-apiserver v0.30.1
 	k8s.io/apimachinery v0.30.2
 	k8s.io/cli-runtime v0.29.0
-	k8s.io/client-go v0.29.13
+	k8s.io/client-go v0.30.2
 	k8s.io/klog v1.0.0
 	k8s.io/klog/v2 v2.120.1
 	open-cluster-management.io/addon-framework v0.9.2
-	open-cluster-management.io/api v0.13.0
+	open-cluster-management.io/api v0.16.0
 	open-cluster-management.io/managed-serviceaccount v0.5.0
 	open-cluster-management.io/multicloud-operators-channel v0.13.1-0.20240423040139-ad986cafc6e8
-	sigs.k8s.io/controller-runtime v0.17.6
+	sigs.k8s.io/controller-runtime v0.18.4
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/kustomize/kyaml v0.17.0
 )
@@ -185,7 +185,7 @@ require (
 	go.opentelemetry.io/otel/trace v1.21.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.26.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
 	golang.org/x/mod v0.19.0 // indirect
 	golang.org/x/oauth2 v0.27.0 // indirect
@@ -197,7 +197,7 @@ require (
 	golang.org/x/tools v0.23.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	gomodules.xyz/orderedmap v0.1.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240123012728-ef4313101c80 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240318140521-94a12d6c2237 // indirect
 	google.golang.org/grpc v1.62.1 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
@@ -205,13 +205,13 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiserver v0.29.4 // indirect
-	k8s.io/component-base v0.29.4 // indirect
-	k8s.io/kube-aggregator v0.29.0 // indirect
+	k8s.io/apiserver v0.30.1 // indirect
+	k8s.io/component-base v0.30.2 // indirect
+	k8s.io/kube-aggregator v0.30.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240411171206-dc4e619f62f3 // indirect
 	k8s.io/kubectl v0.29.0 // indirect
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
-	open-cluster-management.io/sdk-go v0.13.1-0.20240416030555-aa744f426379 // indirect
+	open-cluster-management.io/sdk-go v0.16.0 // indirect
 	oras.land/oras-go v1.2.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
