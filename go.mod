@@ -36,7 +36,7 @@ require (
 	open-cluster-management.io/addon-framework v0.9.2
 	open-cluster-management.io/api v0.13.0
 	open-cluster-management.io/managed-serviceaccount v0.5.0
-	open-cluster-management.io/multicloud-operators-channel v0.13.1-0.20240423040139-ad986cafc6e8
+	open-cluster-management.io/multicloud-operators-channel v0.16.0
 	sigs.k8s.io/controller-runtime v0.17.6
 	sigs.k8s.io/kustomize/api v0.17.1
 	sigs.k8s.io/kustomize/kyaml v0.17.0
