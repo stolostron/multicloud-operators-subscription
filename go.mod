@@ -213,7 +213,7 @@ require (
 	k8s.io/utils v0.0.0-20240310230437-4693a0247e57 // indirect
 	open-cluster-management.io/sdk-go v0.13.1-0.20240416030555-aa744f426379 // indirect
 	oras.land/oras-go v1.2.4 // indirect
-	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
+	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
