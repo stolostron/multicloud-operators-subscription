@@ -1,6 +1,8 @@
 module open-cluster-management.io/multicloud-operators-subscription
 
-go 1.21
+go 1.22.0
+
+toolchain go1.22.9
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.1
@@ -73,7 +75,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cloudflare/circl v1.3.7 // indirect
+	github.com/cloudflare/circl v1.6.0 // indirect
 	github.com/containerd/containerd v1.7.12 // indirect
 	github.com/containerd/continuity v0.4.3 // indirect
 	github.com/containerd/log v0.1.0 // indirect
