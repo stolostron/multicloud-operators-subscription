@@ -1,6 +1,8 @@
 module open-cluster-management.io/multicloud-operators-subscription
 
-go 1.21
+go 1.22
+
+toolchain go1.22.9
 
 require (
 	github.com/Masterminds/semver/v3 v3.2.0
@@ -166,7 +168,7 @@ require (
 	github.com/shabbyrobe/gocovmerge v0.0.0-20190829150210-3e036491d500 // indirect
 	github.com/shopspring/decimal v1.3.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/skeema/knownhosts v1.3.0 // indirect
+	github.com/skeema/knownhosts v1.3.1 // indirect
 	github.com/spf13/cast v1.5.0 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
