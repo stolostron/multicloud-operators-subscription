@@ -14,7 +14,7 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.34.1
-	github.com/openshift/api v0.0.0-20231218131639-7a5aa77cc72d
+	github.com/openshift/api aa882942241d
 	github.com/openshift/library-go v0.0.0-20240116081341-964bcb3f545c
 	github.com/operator-framework/operator-lib v0.11.1-0.20230717184314-6efbe3a22f6f
 	github.com/pkg/errors v0.9.1
