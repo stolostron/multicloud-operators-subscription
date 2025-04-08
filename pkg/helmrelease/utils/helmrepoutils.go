@@ -64,7 +64,7 @@ func GetHelmRepoClient(parentNamespace string, configMap *corev1.ConfigMap, skip
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: skipCertVerify, // #nosec G402 InsecureSkipVerify conditionally
+			InsecureSkipVerify: skipCertVerify,            // #nosec G402 InsecureSkipVerify conditionally
 			MinVersion:         appsubv1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
 		},
 	}
@@ -511,7 +511,7 @@ func DownloadChartFromHelmRepo(configMap *corev1.ConfigMap,
 		urlsError += " - url: " + url + " error: " + err.Error()
 	}
 
-	return "", fmt.Errorf("failed to download chart from helm repo. " + urlsError)
+	return "", fmt.Errorf("failed to download chart from helm repo. %v", urlsError)
 }
 
 func downloadChartFromURL(configMap *corev1.ConfigMap,
