@@ -19,9 +19,9 @@ FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 RUN  microdnf update -y \ 
         && rpm -e --nodeps tzdata \
-        && microdnf install tzdata \
-        && microdnf install git-core \
-        && microdnf install openssh-clients \
+        && microdnf install -y tzdata \
+        && microdnf install -y git-core \
+        && microdnf install -y openssh-clients \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
