@@ -21,7 +21,7 @@ RUN cd "/policy-generator/policy-generator-plugin" && \
         make build-binary && \
         mv "PolicyGenerator" "/policy-generator/"
 
-FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 RUN  microdnf update -y \ 
         && rpm -e --nodeps tzdata \
