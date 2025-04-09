@@ -394,6 +394,11 @@ if kubectl get deploy ingress | grep "2/2"; then
     echo "12-helm-update: found 2/2 in deploy ingress"
 else
     echo "12-helm-update: FAILED: 2/2 is not in in deploy ingress"
+    kubectl get pods -n open-cluster-management-agent-addon  -l component=application-manager
+    kubectl logs -n open-cluster-management-agent-addon  -l component=application-manager
+    kubectl get appsub -n default     ingress -o yaml
+    kubectl get appsubstatus -n default ingress -o yaml
+
     exit 1
 fi
 kubectl config use-context kind-hub

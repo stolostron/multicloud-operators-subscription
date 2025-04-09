@@ -22,9 +22,9 @@ tolerations:
 
 resources:
   requests:
-    memory: 128Mi
+    memory: 256Mi
   limits:
-    memory: 2Gi
+    memory: 4Gi
 
 global: 
   imagePullPolicy: IfNotPresent

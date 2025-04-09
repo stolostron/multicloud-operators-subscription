@@ -422,7 +422,7 @@ func (ghsi *SubscriberItem) doSubscription() error {
 			WithLabelValues(ghsi.SubscriberItem.Subscription.Namespace, ghsi.SubscriberItem.Subscription.Name).
 			Observe(0)
 
-		return fmt.Errorf(fmt.Sprintf("%.2000s", errMsg))
+		return fmt.Errorf("%.2000s", errMsg)
 	}
 
 	allowedGroupResources, deniedGroupResources := utils.GetAllowDenyLists(*ghsi.Subscription)
@@ -604,7 +604,28 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*unstructured.Unstru
 	err := yaml.Unmarshal(file, &rsc)
 
 	if err != nil {
-		klog.Error(err, "Failed to unmarshal Kubernetes resource")
+		klog.Errorf("Failed to unmarshal Kubernetes resource to Unstructured, err:%v ", err)
+		return nil, nil, err
+	}
+
+	// The labels patched by kustomization could not be decoded to rsc correctly if not all label values are defined as string
+	// The label type is defined as map[string]string. If a label value is defined as a boolean data type such as true/false, the whole label patch will be ignored
+	// As a workaround, users can manually update the label value to "true" as string type in the kustomization.yaml
+	// To resolve it, get all labels from original resource file and explicitly set them to the new resource to be deployed.
+	t := kubeResource{}
+	err = yaml.Unmarshal(file, &t)
+
+	if err != nil {
+		klog.Errorf("Failed to unmarshal Kubernetes resource to kubeResource, err:%v ", err)
+		return nil, nil, err
+	}
+
+	if resourceLabels := t.GetLabels(); resourceLabels != nil {
+		rsc.SetLabels(resourceLabels)
+	}
+
+	if resourceAnnos := t.GetAnnotations(); resourceAnnos != nil {
+		rsc.SetAnnotations(resourceAnnos)
 	}
 
 	validgvk := rsc.GetObjectKind().GroupVersionKind()
@@ -695,6 +716,8 @@ func (ghsi *SubscriberItem) subscribeResource(file []byte) (*unstructured.Unstru
 
 	// Set app label
 	utils.SetPartOfLabel(ghsi.SubscriberItem.Subscription, rsc)
+
+	klog.Infof("new resource for deployment: %#v", rsc)
 
 	return rsc, &validgvk, nil
 }

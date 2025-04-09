@@ -285,7 +285,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 
 				nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
 
-				klog.Infof("Next time window status reconciliation will occur in " + nextStatusUpateAt.String())
+				klog.Infof("Next time window status reconciliation will occur in %v", nextStatusUpateAt.String())
 			}
 
 			err = r.Status().Update(context.TODO(), instance)
@@ -293,9 +293,13 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 			result := reconcile.Result{RequeueAfter: nextStatusUpateAt}
 
 			if err != nil {
-				klog.Errorf("failed to update status for subscription %v with error %v retry after 1 second", request.NamespacedName, err)
+				klog.Errorf("failed to update status for subscription %v with error %v, retry after 1 second", request.NamespacedName, err)
 
 				result.RequeueAfter = 1 * time.Second
+			} else if reconcileErr != nil {
+				klog.Errorf("do Reconcile got error %v, retry after 5 minutes", reconcileErr)
+
+				result.RequeueAfter = 5 * time.Minute
 			}
 
 			return result, err
@@ -333,7 +337,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 		err = r.hubclient.Get(context.TODO(), chnkey, subitem.Channel)
 		if err != nil {
-			return gerr.Wrapf(err, "failed to get channel of subscription %v", instance)
+			return gerr.Wrap(err, "failed to get channel")
 		}
 	}
 
@@ -347,7 +351,7 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 
 			err = r.hubclient.Get(context.TODO(), scndChnkey, subitem.SecondaryChannel)
 			if err != nil {
-				return gerr.Wrapf(err, "failed to get the secondary channel of subscription %v", instance)
+				return gerr.Wrap(err, "failed to get the secondary channel")
 			}
 		}
 	}

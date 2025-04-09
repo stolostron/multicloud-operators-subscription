@@ -691,3 +691,45 @@ var _ = Describe("should update subscription status", func() {
 		By(fmt.Sprintf("Philip message %s", subitem.Subscription.Status.Message))
 	})
 })
+
+var _ = Describe("test patching labels via git kustomimzation", func() {
+	It("should observe the labels patched to the resource via git kustomization", func() {
+		githubsub2 := &appv1.Subscription{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      sharedkey.Name,
+				Namespace: sharedkey.Namespace,
+				Annotations: map[string]string{
+					appv1.AnnotationGitBranch: "main",
+				},
+			},
+			Spec: appv1.SubscriptionSpec{
+				Channel: sharedkey.String(),
+			},
+		}
+
+		subitem := &SubscriberItem{}
+		subitem.Channel = githubchn
+		subitem.Subscription = githubsub2
+		subitem.synchronizer = defaultSubscriber.synchronizer
+
+		subanno := make(map[string]string)
+		subanno[appv1.AnnotationGitPath] = "test/github/kustomizeLabels/namctigtd27d"
+		subanno[appv1.AnnotationGitBranch] = "main"
+		subanno[appv1.AnnotationClusterAdmin] = "true"
+		githubsub2.SetAnnotations(subanno)
+
+		subitem.doSubscription()
+
+		Expect(len(subitem.resources)).To(Equal(3))
+
+		for _, resource := range subitem.resources {
+			template := resource.Resource
+			if template.GetKind() == "ManagedCluster" {
+				labels := template.GetLabels()
+				Expect(labels["test2"]).To(Equal("test2"))
+				Expect(labels["environment"]).To(Equal("dev"))
+				Expect(labels["vault-csi-provider-enabled"]).To(Equal("true"))
+			}
+		}
+	})
+})

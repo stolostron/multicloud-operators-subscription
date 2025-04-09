@@ -45,7 +45,7 @@ func (r *ReconcilePlacementRuleStatus) syncPlacementDecisions(ctx context.Contex
 
 	var prDecisions []placementruleapi.PlacementDecision
 
-	if placementRule.Status.Decisions != nil && len(placementRule.Status.Decisions) > 0 {
+	if len(placementRule.Status.Decisions) > 0 {
 		prDecisions = placementRule.Status.Decisions
 	}
 

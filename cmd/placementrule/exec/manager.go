@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/placementrule/controller"
@@ -28,6 +29,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -95,6 +97,11 @@ func RunManager() {
 		RenewDeadline:           &options.LeaderElectionRenewDeadline,
 		RetryPeriod:             &options.LeaderElectionRetryPeriod,
 		WebhookServer:           webhookServer,
+		Client: client.Options{
+			Cache: &client.CacheOptions{
+				DisableFor: []client.Object{&corev1.Secret{}, &corev1.ServiceAccount{}, &corev1.ConfigMap{}},
+			},
+		},
 	})
 
 	if err != nil {
