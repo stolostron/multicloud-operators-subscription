@@ -284,7 +284,7 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 				}
 				nextStatusUpateAt = utils.NextStatusReconcile(instance.Spec.TimeWindow, r.clk())
 
-				klog.Infof("Next time window status reconciliation will occur in " + nextStatusUpateAt.String())
+				klog.Infof("Next time window status reconciliation will occur in %v", nextStatusUpateAt.String())
 			}
 
 			err = r.Status().Update(context.TODO(), instance)
