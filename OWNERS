@@ -1,18 +1,11 @@
 approvers:
+- fxiang1
 - jnpacker
 - mikeshng
 - rokej
 - philipwu08
 - xiangjingli
+
+emeritus_approvers:
 - lennysgarage
 - chenz4027
-- fxiang1
-reviewers:
-- jnpacker
-- mikeshng
-- rokej
-- philipwu08
-- xiangjingli
-- lennysgarage
-- chenz4027
-- fxiang1
