@@ -421,7 +421,8 @@ spec:
     - name: workspace
     - name: git-auth
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multicluster-operators-subscription-acm-211
   workspaces:
   - name: workspace
     volumeClaimTemplate:
