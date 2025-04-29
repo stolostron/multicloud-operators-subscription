@@ -28,7 +28,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
@@ -80,13 +80,11 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+func (mapper *channelMapper) Map(ctx context.Context, obj *chnv1.Channel) []reconcile.Request {
+	fnName := utils.GetFnName()
+	klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	defer klog.Infof("Exiting: %v()", fnName)
 
 	// if channel is created/updated/deleted, its subscriptions should be reconciled.
 
@@ -138,13 +136,25 @@ func newReconciler(mgr manager.Manager, hubclient client.Client, subscribers map
 // add adds a new Controller to mgr with r as the reconcile.Reconciler.
 func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 	// Create a new controller
-	c, err := controller.New("subscription-controller", mgr, controller.Options{Reconciler: r})
+	skipValidation := true
+	c, err := controller.New("subscription-controller", mgr, controller.Options{
+		Reconciler:         r,
+		SkipNameValidation: &skipValidation,
+	})
+
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to primary resource Subscription
-	err = c.Watch(source.Kind(mgr.GetCache(), &appv1.Subscription{}), &handler.EnqueueRequestForObject{}, utils.SubscriptionPredicateFunctions)
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&appv1.Subscription{},
+			&handler.TypedEnqueueRequestForObject[*appv1.Subscription]{},
+			utils.SubscriptionPredicateFunctions,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -153,9 +163,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler, standalone bool) error {
 		// There is no channel CRD on a managed cluster
 		cmapper := &channelMapper{mgr.GetClient()}
 		err = c.Watch(
-			source.Kind(mgr.GetCache(), &chnv1.Channel{}),
-			handler.EnqueueRequestsFromMapFunc(cmapper.Map),
-			utils.ChannelPredicateFunctions)
+			source.Kind(
+				mgr.GetCache(),
+				&chnv1.Channel{},
+				handler.TypedEnqueueRequestsFromMapFunc(cmapper.Map),
+				utils.ChannelPredicateFunctions,
+			),
+		)
 
 		if err != nil {
 			return err

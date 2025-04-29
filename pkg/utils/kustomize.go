@@ -24,7 +24,7 @@ import (
 
 	"github.com/ghodss/yaml"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/kustomize/api/krusty"
 	kustomizetypes "sigs.k8s.io/kustomize/api/types"

@@ -28,7 +28,7 @@ import (
 	"github.com/go-logr/logr"
 	kerr "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	subv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"

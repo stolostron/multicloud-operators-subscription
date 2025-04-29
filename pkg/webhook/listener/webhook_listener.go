@@ -35,7 +35,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
@@ -100,12 +100,10 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, tlsKeyFile, tlsCrtFile str
 
 // Start the GutHub WebHook event listener
 func (listener *WebhookListener) Start(ctx context.Context) error {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+	fnName := utils.GetFnName()
+	klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	defer klog.Infof("Exiting: %v()", fnName)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/webhook", listener.HandleWebhook)
@@ -146,12 +144,10 @@ func CreateWebhookListener(config,
 	scheme *runtime.Scheme,
 	tlsKeyFile, tlsCrtFile string,
 	createService bool) (*WebhookListener, error) {
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+	fnName := utils.GetFnName()
+	klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	defer klog.Infof("Exiting: %v()", fnName)
 
 	var err error
 

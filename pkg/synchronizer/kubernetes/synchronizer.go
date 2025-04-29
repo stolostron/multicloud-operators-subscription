@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	jsonpatch "k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"k8s.io/client-go/dynamic"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
@@ -671,12 +671,10 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 // OverrideResource updates resource based on the hosting appsub before the resource is deployed.
 func (sync *KubeSynchronizer) OverrideResource(hostSub types.NamespacedName, resource *ResourceUnit) (*unstructured.Unstructured, error) {
 	// Parse the resource in template
-	if klog.V(utils.QuiteLogLel).Enabled() {
-		fnName := utils.GetFnName()
-		klog.Infof("Entering: %v()", fnName)
+	fnName := utils.GetFnName()
+	klog.Infof("Entering: %v()", fnName)
 
-		defer klog.Infof("Exiting: %v()", fnName)
-	}
+	defer klog.Infof("Exiting: %v()", fnName)
 
 	var err error
 
