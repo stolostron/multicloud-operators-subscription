@@ -67,14 +67,6 @@ var (
 		},
 	}
 
-	fakeAppsubStatus = &appv1.Subscription{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: map[string]string{
-				"apps.open-cluster-management.io/cluster": "true",
-			},
-		},
-	}
-
 	oldAppsubStatus = &appv1alpha1.SubscriptionReport{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ManagedCluster",
@@ -1524,152 +1516,140 @@ func TestPredicate(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	// Test PlacementDecisionPredicateFunctions
-	instance := PlacementDecisionPredicateFunctions
+	instance1 := PlacementDecisionPredicateFunctions
 
-	updateEvt := event.UpdateEvent{
+	updateEvt1 := event.TypedUpdateEvent[*clusterv1beta1.PlacementDecision]{
 		ObjectOld: oldDecision,
 		ObjectNew: oldDecision,
 	}
-	ret := instance.Update(updateEvt)
+	ret := instance1.Update(updateEvt1)
 	g.Expect(ret).To(BeFalse())
 
-	createEvt := event.CreateEvent{}
-	ret = instance.Create(createEvt)
+	createEvt1 := event.TypedCreateEvent[*clusterv1beta1.PlacementDecision]{}
+	ret = instance1.Create(createEvt1)
 	g.Expect(ret).To(BeTrue())
 
-	deleteEvt := event.DeleteEvent{}
-	ret = instance.Delete(deleteEvt)
+	deleteEvt1 := event.TypedDeleteEvent[*clusterv1beta1.PlacementDecision]{}
+	ret = instance1.Delete(deleteEvt1)
 	g.Expect(ret).To(BeTrue())
 
 	// Test AppSubSummaryPredicateFunc
-	instance = AppSubSummaryPredicateFunc
+	instance2 := AppSubSummaryPredicateFunc
 
-	updateEvt = event.UpdateEvent{
+	updateEvt2 := event.TypedUpdateEvent[*appv1alpha1.SubscriptionReport]{
 		ObjectOld: oldAppsubStatus,
 		ObjectNew: newAppsubStatus,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance2.Update(updateEvt2)
 	g.Expect(ret).To(BeFalse())
 
 	newApp := newAppsubStatus.DeepCopy()
 	newApp.Labels = map[string]string{}
-	updateEvt = event.UpdateEvent{
+	updateEvt2 = event.TypedUpdateEvent[*appv1alpha1.SubscriptionReport]{
 		ObjectOld: oldAppsubStatus,
 		ObjectNew: newApp,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance2.Update(updateEvt2)
 	g.Expect(ret).To(BeFalse())
 
-	updateEvt = event.UpdateEvent{
-		ObjectOld: fakeAppsubStatus,
-		ObjectNew: newAppsubStatus,
-	}
-	ret = instance.Update(updateEvt)
-	g.Expect(ret).To(BeFalse())
-
-	updateEvt = event.UpdateEvent{
-		ObjectOld: oldAppsubStatus,
-		ObjectNew: fakeAppsubStatus,
-	}
-	ret = instance.Update(updateEvt)
-	g.Expect(ret).To(BeFalse())
 	// Create event
-	createEvt = event.CreateEvent{
+	createEvt2 := event.TypedCreateEvent[*appv1alpha1.SubscriptionReport]{
 		Object: newApp,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance2.Create(createEvt2)
 	g.Expect(ret).To(BeFalse())
 
-	createEvt = event.CreateEvent{
+	createEvt2 = event.TypedCreateEvent[*appv1alpha1.SubscriptionReport]{
 		Object: newAppsubStatus,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance2.Create(createEvt2)
 	g.Expect(ret).To(BeTrue())
+
 	// Delete event
-	deleteEvt = event.DeleteEvent{
+	deleteEvt2 := event.TypedDeleteEvent[*appv1alpha1.SubscriptionReport]{
 		Object: newApp,
 	}
-	ret = instance.Delete(deleteEvt)
+	ret = instance2.Delete(deleteEvt2)
 	g.Expect(ret).To(BeFalse())
 
-	deleteEvt = event.DeleteEvent{
+	deleteEvt2 = event.TypedDeleteEvent[*appv1alpha1.SubscriptionReport]{
 		Object: newAppsubStatus,
 	}
-	ret = instance.Delete(deleteEvt)
+	ret = instance2.Delete(deleteEvt2)
 	g.Expect(ret).To(BeTrue())
 
 	// Test SubscriptionPredicateFunctions
-	instance = SubscriptionPredicateFunctions
+	instance3 := SubscriptionPredicateFunctions
 
-	updateEvt = event.UpdateEvent{
+	updateEvt3 := event.TypedUpdateEvent[*appv1.Subscription]{
 		ObjectOld: &appv1.Subscription{},
 		ObjectNew: &appv1.Subscription{},
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance3.Update(updateEvt3)
 	g.Expect(ret).NotTo(BeTrue())
 
 	// Test ChannelPredicateFunctions
-	instance = ChannelPredicateFunctions
+	instance4 := ChannelPredicateFunctions
 
-	updateEvt = event.UpdateEvent{
+	updateEvt4 := event.TypedUpdateEvent[*chnv1.Channel]{
 		ObjectOld: oldChn,
 		ObjectNew: newChn,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance4.Update(updateEvt4)
 	g.Expect(ret).To(BeTrue())
 
-	updateEvt = event.UpdateEvent{
+	updateEvt4 = event.TypedUpdateEvent[*chnv1.Channel]{
 		ObjectOld: oldChn,
 		ObjectNew: oldChn,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance4.Update(updateEvt4)
 	g.Expect(ret).To(BeFalse())
 
-	createEvt = event.CreateEvent{}
-	ret = instance.Create(createEvt)
+	createEvt4 := event.TypedCreateEvent[*chnv1.Channel]{}
+	ret = instance4.Create(createEvt4)
 	g.Expect(ret).To(BeTrue())
 
-	deleteEvt = event.DeleteEvent{}
-	ret = instance.Delete(deleteEvt)
+	deleteEvt4 := event.TypedDeleteEvent[*chnv1.Channel]{}
+	ret = instance4.Delete(deleteEvt4)
 	g.Expect(ret).To(BeTrue())
 
 	// Test ServiceAccountPredicateFunctions
-	instance = ServiceAccountPredicateFunctions
+	instance5 := ServiceAccountPredicateFunctions
 
-	updateEvt = event.UpdateEvent{
+	updateEvt5 := event.TypedUpdateEvent[*corev1.ServiceAccount]{
 		ObjectNew: serviceProper,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance5.Update(updateEvt5)
 	g.Expect(ret).To(BeTrue())
 
-	updateEvt = event.UpdateEvent{
+	updateEvt5 = event.TypedUpdateEvent[*corev1.ServiceAccount]{
 		ObjectNew: serviceImproer,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance5.Update(updateEvt5)
 	g.Expect(ret).To(BeFalse())
 
-	createEvt = event.CreateEvent{
+	createEvt5 := event.TypedCreateEvent[*corev1.ServiceAccount]{
 		Object: serviceProper,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance5.Create(createEvt5)
 	g.Expect(ret).To(BeTrue())
 
-	createEvt = event.CreateEvent{
+	createEvt5 = event.TypedCreateEvent[*corev1.ServiceAccount]{
 		Object: serviceImproer,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance5.Create(createEvt5)
 	g.Expect(ret).To(BeFalse())
 
-	deleteEvt = event.DeleteEvent{
+	deleteEvt5 := event.TypedDeleteEvent[*corev1.ServiceAccount]{
 		Object: serviceProper,
 	}
-	ret = instance.Delete(deleteEvt)
+	ret = instance5.Delete(deleteEvt5)
 	g.Expect(ret).To(BeTrue())
 
-	deleteEvt = event.DeleteEvent{
+	deleteEvt5 = event.TypedDeleteEvent[*corev1.ServiceAccount]{
 		Object: serviceImproer,
 	}
-	ret = instance.Delete(deleteEvt)
+	ret = instance5.Delete(deleteEvt5)
 	g.Expect(ret).To(BeFalse())
 }
 

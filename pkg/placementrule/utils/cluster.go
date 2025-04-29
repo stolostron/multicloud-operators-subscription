@@ -18,7 +18,7 @@ import (
 	"reflect"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
@@ -37,26 +37,18 @@ const (
 )
 
 // ClusterPredicateFunc defines predicate function for cluster related watch, main purpose is to ignore heartbeat without change
-var ClusterPredicateFunc = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		newManagedCluster, ok := e.Object.(*spokeClusterV1.ManagedCluster)
-
-		if !ok {
-			return false
-		}
+var ClusterPredicateFunc = predicate.TypedFuncs[*spokeClusterV1.ManagedCluster]{
+	CreateFunc: func(e event.TypedCreateEvent[*spokeClusterV1.ManagedCluster]) bool {
+		newManagedCluster := e.Object
 
 		klog.Infof("new managed cluster created, %v/%v", newManagedCluster.Namespace, newManagedCluster.Name)
 
 		return true
 	},
 
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldcl, oldOK := e.ObjectOld.(*spokeClusterV1.ManagedCluster)
-		newcl, newOK := e.ObjectNew.(*spokeClusterV1.ManagedCluster)
-
-		if !oldOK || !newOK {
-			return false
-		}
+	UpdateFunc: func(e event.TypedUpdateEvent[*spokeClusterV1.ManagedCluster]) bool {
+		oldcl := e.ObjectOld
+		newcl := e.ObjectNew
 
 		//if managed cluster is being deleted
 		if !reflect.DeepEqual(oldcl.DeletionTimestamp, newcl.DeletionTimestamp) {
@@ -88,30 +80,22 @@ var ClusterPredicateFunc = predicate.Funcs{
 	},
 }
 
-var PlacementDecisionPredicateFunc = predicate.Funcs{
-	CreateFunc: func(e event.CreateEvent) bool {
-		decision, ok := e.Object.(*clusterv1beta1.PlacementDecision)
-
-		if !ok {
-			return false
-		}
+var PlacementDecisionPredicateFunc = predicate.TypedFuncs[*clusterv1beta1.PlacementDecision]{
+	CreateFunc: func(e event.TypedCreateEvent[*clusterv1beta1.PlacementDecision]) bool {
+		decision := e.Object
 
 		klog.Infof("placement decision created, %v/%v", decision.Namespace, decision.Name)
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		decision, ok := e.Object.(*clusterv1beta1.PlacementDecision)
-
-		if !ok {
-			return false
-		}
+	DeleteFunc: func(e event.TypedDeleteEvent[*clusterv1beta1.PlacementDecision]) bool {
+		decision := e.Object
 
 		klog.Infof("placement decision deleted, %v/%v", decision.Namespace, decision.Name)
 		return true
 	},
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldDecision := e.ObjectOld.(*clusterv1beta1.PlacementDecision)
-		newDecision := e.ObjectNew.(*clusterv1beta1.PlacementDecision)
+	UpdateFunc: func(e event.TypedUpdateEvent[*clusterv1beta1.PlacementDecision]) bool {
+		oldDecision := e.ObjectOld
+		newDecision := e.ObjectNew
 
 		klog.Infof("placement decision updated, %v/%v", newDecision.Namespace, newDecision.Name)
 
@@ -120,17 +104,10 @@ var PlacementDecisionPredicateFunc = predicate.Funcs{
 }
 
 // AcmClusterSecretPredicateFunc defines predicate function for ACM cluster secrets watch
-var AcmClusterSecretPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldSecret, ok := e.ObjectOld.(*v1.Secret)
-		if !ok {
-			return false
-		}
-
-		newSecret, nok := e.ObjectNew.(*v1.Secret)
-		if !nok {
-			return false
-		}
+var AcmClusterSecretPredicateFunc = predicate.TypedFuncs[*v1.Secret]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*v1.Secret]) bool {
+		oldSecret := e.ObjectOld
+		newSecret := e.ObjectNew
 
 		oldSecretType, ok := e.ObjectOld.GetLabels()[ACMClusterSecretLabel]
 		newSecretType, nok := e.ObjectNew.GetLabels()[ACMClusterSecretLabel]
@@ -148,7 +125,7 @@ var AcmClusterSecretPredicateFunc = predicate.Funcs{
 		klog.Infof("Not a ACM cluster secret update, old: %v/%v, new: %v/%v", oldSecret.Namespace, oldSecret.Name, newSecret.Namespace, newSecret.Name)
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*v1.Secret]) bool {
 		SecretType, ok := e.Object.GetLabels()[ACMClusterSecretLabel]
 
 		if !ok {
@@ -160,7 +137,7 @@ var AcmClusterSecretPredicateFunc = predicate.Funcs{
 		klog.Infof("Create a ACM cluster secret: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*v1.Secret]) bool {
 		SecretType, ok := e.Object.GetLabels()[ACMClusterSecretLabel]
 
 		if !ok {
@@ -175,17 +152,11 @@ var AcmClusterSecretPredicateFunc = predicate.Funcs{
 }
 
 // ArgocdClusterSecretPredicateFunc defines predicate function for ArgoCD cluster secrets watch
-var ArgocdClusterSecretPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldSecret, ok := e.ObjectOld.(*v1.Secret)
-		if !ok {
-			return false
-		}
+var ArgocdClusterSecretPredicateFunc = predicate.TypedFuncs[*v1.Secret]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*v1.Secret]) bool {
+		oldSecret := e.ObjectOld
 
-		newSecret, nok := e.ObjectNew.(*v1.Secret)
-		if !nok {
-			return false
-		}
+		newSecret := e.ObjectNew
 
 		oldSecretType, ok := e.ObjectOld.GetLabels()[ArgocdClusterSecretLabel]
 		newSecretType, nok := e.ObjectNew.GetLabels()[ArgocdClusterSecretLabel]
@@ -203,7 +174,7 @@ var ArgocdClusterSecretPredicateFunc = predicate.Funcs{
 		klog.Infof("Not a ArgoCD cluster secret update, old: %v/%v, new: %v/%v", oldSecret.Namespace, oldSecret.Name, newSecret.Namespace, newSecret.Name)
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*v1.Secret]) bool {
 		SecretType, ok := e.Object.GetLabels()[ArgocdClusterSecretLabel]
 
 		if !ok {
@@ -215,7 +186,7 @@ var ArgocdClusterSecretPredicateFunc = predicate.Funcs{
 		klog.Infof("Create a ArgoCD cluster secret: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*v1.Secret]) bool {
 		SecretType, ok := e.Object.GetLabels()[ArgocdClusterSecretLabel]
 
 		if !ok {
@@ -230,8 +201,8 @@ var ArgocdClusterSecretPredicateFunc = predicate.Funcs{
 }
 
 // ManagedClusterSecretPredicateFunc defines predicate function for managed cluster secrets watch
-var ManagedClusterSecretPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
+var ManagedClusterSecretPredicateFunc = predicate.TypedFuncs[*v1.Secret]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*v1.Secret]) bool {
 		_, isSecretInArgo := e.ObjectNew.GetLabels()[ArgocdClusterSecretLabel]
 
 		if isSecretInArgo {
@@ -243,7 +214,7 @@ var ManagedClusterSecretPredicateFunc = predicate.Funcs{
 
 		return true
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*v1.Secret]) bool {
 		_, isSecretInArgo := e.Object.GetLabels()[ArgocdClusterSecretLabel]
 
 		if isSecretInArgo {
@@ -255,7 +226,7 @@ var ManagedClusterSecretPredicateFunc = predicate.Funcs{
 
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*v1.Secret]) bool {
 		_, isSecretInArgo := e.Object.GetLabels()[ArgocdClusterSecretLabel]
 
 		if isSecretInArgo {
@@ -271,17 +242,10 @@ var ManagedClusterSecretPredicateFunc = predicate.Funcs{
 }
 
 // ArgocdServerPredicateFunc defines predicate function for cluster related watch
-var ArgocdServerPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		oldService, ok := e.ObjectOld.(*v1.Service)
-		if !ok {
-			return false
-		}
-
-		newService, nok := e.ObjectNew.(*v1.Service)
-		if !nok {
-			return false
-		}
+var ArgocdServerPredicateFunc = predicate.TypedFuncs[*v1.Service]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*v1.Service]) bool {
+		oldService := e.ObjectOld
+		newService := e.ObjectNew
 
 		oldArgocdServerLabel := e.ObjectOld.GetLabels()
 		newArgocdServerLabel := e.ObjectNew.GetLabels()
@@ -301,7 +265,7 @@ var ArgocdServerPredicateFunc = predicate.Funcs{
 		klog.Infof("Not a ArgoCD Server service, old: %v/%v, new: %v/%v", oldService.Namespace, oldService.Name, newService.Namespace, newService.Name)
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*v1.Service]) bool {
 		ArgocdServerLabel := e.Object.GetLabels()
 
 		if ArgocdServerLabel == nil {
@@ -314,7 +278,7 @@ var ArgocdServerPredicateFunc = predicate.Funcs{
 		klog.Infof("Create a ArgoCD Server Service: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*v1.Service]) bool {
 		ArgocdServerLabel := e.Object.GetLabels()
 
 		if ArgocdServerLabel == nil {

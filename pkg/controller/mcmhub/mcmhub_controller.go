@@ -30,7 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"k8s.io/klog/v2/klogr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -163,7 +163,7 @@ type subscriptionMapper struct {
 	client.Client
 }
 
-func (mapper *subscriptionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+func (mapper *subscriptionMapper) Map(ctx context.Context, obj *appv1.Subscription) []reconcile.Request {
 	klog.Info("Entering subscription mapper")
 	defer klog.Info("Exiting  subscription mapper")
 
@@ -226,7 +226,7 @@ type channelMapper struct {
 	client.Client
 }
 
-func (mapper *channelMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+func (mapper *channelMapper) Map(ctx context.Context, obj *chnv1.Channel) []reconcile.Request {
 	klog.Info("Entering channel mapper")
 	defer klog.Info("Exiting channel mapper")
 
@@ -264,7 +264,7 @@ type placementDecisionMapper struct {
 	client.Client
 }
 
-func (mapper *placementDecisionMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+func (mapper *placementDecisionMapper) Map(ctx context.Context, obj *clusterapi.PlacementDecision) []reconcile.Request {
 	klog.Info("Entering placementdecision mapper")
 	defer klog.Info("Exiting placementdecision mapper")
 
@@ -328,7 +328,12 @@ func (mapper *placementDecisionMapper) Map(ctx context.Context, obj client.Objec
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Create a new controller
-	c, err := controller.New("mcmhub-subscription-controller", mgr, controller.Options{Reconciler: r})
+	skipValidation := true
+	c, err := controller.New("mcmhub-subscription-controller", mgr, controller.Options{
+		Reconciler:         r,
+		SkipNameValidation: &skipValidation,
+	})
+
 	if err != nil {
 		return err
 	}
@@ -336,9 +341,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to primary resource Subscription
 	smapper := &subscriptionMapper{mgr.GetClient()}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &appv1.Subscription{}),
-		handler.EnqueueRequestsFromMapFunc(smapper.Map),
-		utils.SubscriptionPredicateFunctions)
+		source.Kind(mgr.GetCache(),
+			&appv1.Subscription{},
+			handler.TypedEnqueueRequestsFromMapFunc(smapper.Map),
+			utils.SubscriptionPredicateFunctions,
+		),
+	)
 
 	if err != nil {
 		return err
@@ -347,9 +355,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// in hub, watch for channel changes
 	cMapper := &channelMapper{mgr.GetClient()}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &chnv1.Channel{}),
-		handler.EnqueueRequestsFromMapFunc(cMapper.Map),
-		utils.ChannelPredicateFunctions)
+		source.Kind(mgr.GetCache(),
+			&chnv1.Channel{},
+			handler.TypedEnqueueRequestsFromMapFunc(cMapper.Map),
+			utils.ChannelPredicateFunctions,
+		),
+	)
 
 	if err != nil {
 		return err
@@ -359,8 +370,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if utils.IsReadyPlacementDecision(mgr.GetAPIReader()) {
 		pdMapper := &placementDecisionMapper{mgr.GetClient()}
 		err = c.Watch(
-			source.Kind(mgr.GetCache(), &clusterapi.PlacementDecision{}),
-			handler.EnqueueRequestsFromMapFunc(pdMapper.Map), utils.PlacementDecisionPredicateFunctions)
+			source.Kind(mgr.GetCache(),
+				&clusterapi.PlacementDecision{},
+				handler.TypedEnqueueRequestsFromMapFunc(pdMapper.Map),
+				utils.PlacementDecisionPredicateFunctions,
+			),
+		)
 
 		if err != nil {
 			return err

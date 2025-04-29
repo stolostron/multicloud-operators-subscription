@@ -528,18 +528,18 @@ func TestPredicate(t *testing.T) {
 	// Test placementRuleStatusPredicateFunctions
 	instance := placementRuleStatusPredicateFunctions
 
-	updateEvt := event.UpdateEvent{
+	updateEvt := event.TypedUpdateEvent[*appv1alpha1.PlacementRule]{
 		ObjectOld: oldPlacement,
 		ObjectNew: oldPlacement,
 	}
 	ret := instance.Update(updateEvt)
 	g.Expect(ret).To(gomega.BeFalse())
 
-	createEvt := event.CreateEvent{}
+	createEvt := event.TypedCreateEvent[*appv1alpha1.PlacementRule]{}
 	ret = instance.Create(createEvt)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	deleteEvt := event.DeleteEvent{}
+	deleteEvt := event.TypedDeleteEvent[*appv1alpha1.PlacementRule]{}
 	ret = instance.Delete(deleteEvt)
 	g.Expect(ret).To(gomega.BeTrue())
 }

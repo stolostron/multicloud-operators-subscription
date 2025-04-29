@@ -157,7 +157,7 @@ func TestPredicate(t *testing.T) {
 	// Test ClusterPredicateFunc
 	instance := ClusterPredicateFunc
 
-	updateEvt := event.UpdateEvent{
+	updateEvt := event.TypedUpdateEvent[*spokeClusterV1.ManagedCluster]{
 		ObjectOld: oldCluster,
 		ObjectNew: newCluster,
 	}
@@ -165,140 +165,140 @@ func TestPredicate(t *testing.T) {
 	g.Expect(ret).To(gomega.Equal(true))
 
 	// Test AcmClusterSecretPredicateFunc
-	instance = AcmClusterSecretPredicateFunc
+	instance2 := AcmClusterSecretPredicateFunc
 
-	createEvt := event.CreateEvent{
+	createEvt := event.TypedCreateEvent[*v1.Secret]{
 		Object: newSecret,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance2.Create(createEvt)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	updateEvt = event.UpdateEvent{
+	updateEvt2 := event.TypedUpdateEvent[*v1.Secret]{
 		ObjectOld: oldSecret,
 		ObjectNew: newSecret,
 	}
 
-	ret = instance.Update(updateEvt)
+	ret = instance2.Update(updateEvt2)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	delEvt := event.DeleteEvent{
+	delEvt := event.TypedDeleteEvent[*v1.Secret]{
 		Object: newSecret,
 	}
-	ret = instance.Delete(delEvt)
+	ret = instance2.Delete(delEvt)
 	g.Expect(ret).To(gomega.Equal(true))
 
 	// Test ArgocdClusterSecretPredicateFunc
-	instance = ArgocdClusterSecretPredicateFunc
+	instance3 := ArgocdClusterSecretPredicateFunc
 
-	createEvt = event.CreateEvent{
+	createEvt3 := event.TypedCreateEvent[*v1.Secret]{
 		Object: newSecret,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance3.Create(createEvt3)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	updateEvt = event.UpdateEvent{
+	updateEvt3 := event.TypedUpdateEvent[*v1.Secret]{
 		ObjectOld: oldSecret,
 		ObjectNew: newSecret,
 	}
 
-	ret = instance.Update(updateEvt)
+	ret = instance3.Update(updateEvt3)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	delEvt = event.DeleteEvent{
+	delEvt3 := event.TypedDeleteEvent[*v1.Secret]{
 		Object: newSecret,
 	}
-	ret = instance.Delete(delEvt)
+	ret = instance3.Delete(delEvt3)
 	g.Expect(ret).To(gomega.Equal(true))
 
 	// Test ArgocdServerPredicateFunc
-	instance = ArgocdServerPredicateFunc
+	instance4 := ArgocdServerPredicateFunc
 
-	createEvt = event.CreateEvent{
+	createEvt4 := event.TypedCreateEvent[*v1.Service]{
 		Object: newArgocdService,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance4.Create(createEvt4)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	updateEvt = event.UpdateEvent{
+	updateEvt4 := event.TypedUpdateEvent[*v1.Service]{
 		ObjectOld: oldArgocdService,
 		ObjectNew: newArgocdService,
 	}
 
-	ret = instance.Update(updateEvt)
+	ret = instance4.Update(updateEvt4)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	updateEvt = event.UpdateEvent{
+	updateEvt4 = event.TypedUpdateEvent[*v1.Service]{
 		ObjectOld: oldArgocdService2,
 		ObjectNew: newArgocdService,
 	}
 
-	ret = instance.Update(updateEvt)
+	ret = instance4.Update(updateEvt4)
 	g.Expect(ret).To(gomega.Equal(true))
 
-	delEvt = event.DeleteEvent{
+	delEvt4 := event.TypedDeleteEvent[*v1.Service]{
 		Object: newArgocdService,
 	}
-	ret = instance.Delete(delEvt)
+	ret = instance4.Delete(delEvt4)
 	g.Expect(ret).To(gomega.Equal(true))
 
 	// Test PlacementDecisionPredicateFunc
-	instance = PlacementDecisionPredicateFunc
+	instance5 := PlacementDecisionPredicateFunc
 
-	createEvt = event.CreateEvent{
+	createEvt5 := event.TypedCreateEvent[*clusterv1beta1.PlacementDecision]{
 		Object: oldDecision,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance5.Create(createEvt5)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	delEvt = event.DeleteEvent{
+	delEvt5 := event.TypedDeleteEvent[*clusterv1beta1.PlacementDecision]{
 		Object: oldDecision,
 	}
-	ret = instance.Delete(delEvt)
+	ret = instance5.Delete(delEvt5)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	updateEvt = event.UpdateEvent{
+	updateEvt5 := event.TypedUpdateEvent[*clusterv1beta1.PlacementDecision]{
 		ObjectOld: oldDecision,
 		ObjectNew: newDecision,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance5.Update(updateEvt5)
 	g.Expect(ret).To(gomega.BeFalse())
 
 	// Test ManagedClusterSecretPredicateFunc
-	instance = ManagedClusterSecretPredicateFunc
+	instance6 := ManagedClusterSecretPredicateFunc
 
-	updateEvt = event.UpdateEvent{
+	updateEvt6 := event.TypedUpdateEvent[*v1.Secret]{
 		ObjectNew: clusterSecret,
 	}
-	ret = instance.Update(updateEvt)
+	ret = instance6.Update(updateEvt6)
 	g.Expect(ret).To(gomega.BeFalse())
 
-	updateEvtNoSecret := event.UpdateEvent{
+	updateEvtNoSecret6 := event.TypedUpdateEvent[*v1.Secret]{
 		ObjectNew: clusterNoSecret,
 	}
-	ret = instance.Update(updateEvtNoSecret)
+	ret = instance6.Update(updateEvtNoSecret6)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	createEvt = event.CreateEvent{
+	createEvt6 := event.TypedCreateEvent[*v1.Secret]{
 		Object: clusterSecret,
 	}
-	ret = instance.Create(createEvt)
+	ret = instance6.Create(createEvt6)
 	g.Expect(ret).To(gomega.BeFalse())
 
-	createEvtNoSecret := event.CreateEvent{
+	createEvtNoSecret6 := event.TypedCreateEvent[*v1.Secret]{
 		Object: clusterNoSecret,
 	}
-	ret = instance.Create(createEvtNoSecret)
+	ret = instance6.Create(createEvtNoSecret6)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	delEvt = event.DeleteEvent{
+	delEvt6 := event.TypedDeleteEvent[*v1.Secret]{
 		Object: clusterSecret,
 	}
-	ret = instance.Delete(delEvt)
+	ret = instance6.Delete(delEvt6)
 	g.Expect(ret).To(gomega.BeTrue())
 
-	delEvtNoSecret := event.DeleteEvent{
+	delEvtNoSecret6 := event.TypedDeleteEvent[*v1.Secret]{
 		Object: clusterNoSecret,
 	}
-	ret = instance.Delete(delEvtNoSecret)
+	ret = instance6.Delete(delEvtNoSecret6)
 	g.Expect(ret).To(gomega.BeFalse())
 }
