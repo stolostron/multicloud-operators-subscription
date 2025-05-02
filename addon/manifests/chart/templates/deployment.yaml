@@ -47,8 +47,28 @@ spec:
           - name: NO_PROXY
             value: {{ .Values.global.proxyConfig.NO_PROXY }}
           {{- end }}
+        {{- if .Values.global.resourceRequirements }}
+          {{- $containerID := "deployments:application-manager:subscription-controller" }}
+          {{- $reverseResourceRequirements := reverse .Values.global.resourceRequirements }}
+          {{- $resourceFound := false }}
+          {{- range $item := $reverseResourceRequirements }}
+            {{- if regexMatch $item.containerIDRegex $containerID }}
+        resources:
+          {{- toYaml $item.resources | nindent 10 }}
+              {{- $resourceFound = true }}
+              {{- break -}}
+            {{- end -}}
+          {{- end }}
+          {{- if not $resourceFound }}
+            {{- if .Values.resources }}
         resources:
           {{- toYaml .Values.resources | nindent 10 }}
+            {{- end }}
+          {{- end }}
+        {{- else if .Values.resources }}
+        resources:
+          {{- toYaml .Values.resources | nindent 10 }}
+        {{- end }}
         livenessProbe:
           httpGet:
             path: /healthz

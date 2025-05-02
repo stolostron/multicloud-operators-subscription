@@ -36,3 +36,10 @@ global:
     HTTP_PROXY: null
     HTTPS_PROXY: null
     NO_PROXY: null
+  resourceRequirements:
+  - containerIDRegex: ^.+:.+:.+$
+    resources:
+      requests:
+        memory: 256Mi
+      limits:
+        memory: 4Gi
