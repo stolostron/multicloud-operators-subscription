@@ -74,11 +74,13 @@ build-images:
 	@docker build -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile .
 
 # build local linux/amd64 images on non-amd64 hosts such as Apple M3
+# need to create the buildx builder as a fixed name and clean it up after usage
+# Or a new builder is created everytime and it will fail docker buildx image build eventually.
 build-images-non-amd64:
-	docker buildx create --use
-	docker buildx inspect --bootstrap
-	@docker buildx build --platform linux/amd64 -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile --load .
-
+	docker buildx create --name local-builder --use
+	docker buildx inspect local-builder --bootstrap
+	docker buildx build --platform linux/amd64 -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile --load .
+	docker buildx rm local-builder
 
 .PHONY: lint
 

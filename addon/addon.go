@@ -264,6 +264,7 @@ func NewAddonManager(mgr manager.Manager, kubeConfig *rest.Config, agentImage st
 				addonfactory.ToAddOnNodePlacementValues,
 				toAddonResources,
 				addonfactory.ToAddOnProxyConfigValues,
+				addonfactory.ToAddOnResourceRequirementsValues,
 			),
 		).
 		WithAgentInstallNamespace(AddonInstallNamespaceFunc(
