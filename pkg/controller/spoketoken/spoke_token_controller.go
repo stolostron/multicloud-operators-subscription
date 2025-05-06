@@ -392,24 +392,6 @@ func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret() (bool, er
 			klog.Errorf("failed to get existing application-manager secret, err: %v", err) // no long lived token to clean up
 			err = nil
 		}
-
-		// delete existing long-lived token if found on hub
-		ApplicationManagerHubSecret := &corev1.Secret{}
-		ApplicationManagerHubSecretName := types.NamespacedName{Namespace: r.syncid.Name, Name: r.syncid.Name + "-cluster-secret"}
-		err = r.hubclient.Get(context.TODO(), ApplicationManagerHubSecretName, ApplicationManagerHubSecret)
-
-		if err == nil {
-			err = r.hubclient.Delete(context.TODO(), ApplicationManagerHubSecret)
-			if err != nil {
-				klog.Errorf("failed to delete existing %v secret on the hub, err: %v", r.syncid.Name+"-cluster-secret", err)
-				return false, err
-			}
-
-			klog.Infof("Application-manager long lived token deleted on the hub cluster")
-		} else {
-			klog.Errorf("failed to get existing %v secret on the hub, err: %v", r.syncid.Name+"-cluster-secret", err) // no long lived token to clean up
-			err = nil
-		}
 	} else if err != nil && !kerrors.IsNotFound(err) {
 		klog.Errorf("failed to get managedserviceaccount, err: %v", err)
 		return false, err
