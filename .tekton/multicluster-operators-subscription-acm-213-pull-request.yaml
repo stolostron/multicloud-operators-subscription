@@ -484,7 +484,8 @@ spec:
       optional: true
     - name: netrc
       optional: true
-  taskRunTemplate: {}
+  taskRunTemplate:
+    serviceAccountName: build-pipeline-multicluster-operators-subscription-acm-213
   workspaces:
   - name: git-auth
     secret:
