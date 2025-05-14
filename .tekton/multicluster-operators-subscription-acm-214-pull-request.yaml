@@ -34,6 +34,12 @@ spec:
     value: build/Dockerfile.rhtap
   - name: path-context
     value: .
+  - name: build-source-image
+    value: "true"
+  - name: hermetic
+    value: "true"
+  - name: prefetch-input
+    value: '[{"type": "gomod", "path": "."}, {"type": "gomod", "path": "external/policy-generator-plugin"}, {"type": "gomod", "path": "external/helm"}, {"type": "rpm", "path": "."}]'
   pipelineSpec:
     description: |
       This pipeline is ideal for building multi-arch container images from a Containerfile while maintaining trust after pipeline customization.
@@ -158,6 +164,8 @@ spec:
         value: $(params.output-image).git
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: enableSymlinkCheck
+        value: "false"
       runAfter:
       - init
       taskRef:
@@ -187,6 +195,8 @@ spec:
         value: $(params.output-image).prefetch
       - name: ociArtifactExpiresAfter
         value: $(params.image-expires-after)
+      - name: dev-package-managers
+        value: "true"
       runAfter:
       - clone-repository
       taskRef:
