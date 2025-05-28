@@ -34,9 +34,7 @@ contribution. See the [DCO](DCO) file for details.
 
 ## Issue and Pull Request Management
 
-Anyone may comment on issues and submit reviews for pull requests. However, in
-order to be assigned an issue or pull request, you must be a member of the
-[open-cluster-management](https://github.com/open-cluster-management-io) GitHub organization.
+Anyone may comment on issues and submit reviews for pull requests.
 
 Repo maintainers can assign you an issue or pull request by leaving a
 `/assign <your Github ID>` comment on the issue or pull request.

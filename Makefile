@@ -46,11 +46,11 @@ FINDFILES=find . \( -path ./.git -o -path ./.github \) -prune -o -type f
 XARGS = xargs -0 ${XARGS_FLAGS}
 CLEANXARGS = xargs ${XARGS_FLAGS}
 
-REGISTRY = quay.io/open-cluster-management
+REGISTRY = quay.io/stolostron
 VERSION = latest
 IMAGE_NAME_AND_VERSION ?= $(REGISTRY)/multicloud-operators-subscription:$(VERSION)
 export GOPACKAGES = $(shell go list ./... | grep -v /manager | grep -v /bindata  | grep -v /vendor | grep -v /internal | grep -v /build | grep -v /test | grep -v /e2e )
-export TEST_GIT_REPO_URL = github.com/open-cluster-management-io/multicloud-operators-subscription
+export TEST_GIT_REPO_URL = github.com/stolostron/multicloud-operators-subscription
 
 .PHONY: build
 

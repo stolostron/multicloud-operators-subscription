@@ -6,4 +6,4 @@ metadata:
   namespace: default
 spec:
   type: git
-  pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+  pathname: https://github.com/stolostron/multicloud-operators-subscription.git

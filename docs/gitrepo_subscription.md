@@ -41,7 +41,7 @@ Use the following example to create a channel that connects to a public Git repo
      name: gitops-chn
      namespace: local-dev-chn-ns
    spec:
-     pathname: 'https://github.com/open-cluster-management-io/ multicloud-operators-subscription.git'
+     pathname: 'https://github.com/stolostron/multicloud-operators-subscription.git'
    type: Git
    ```
 
@@ -101,7 +101,7 @@ In the following example, you create a channel that connects to a Git repository
      namespace: kuberesources
    spec:
        type: Git
-       pathname: https://github.com/open-cluster-management/multicloud-operators-subscription.git
+       pathname: https://github.com/stolostron/multicloud-operators-subscription.git
    ```
 
    The value for the `pathname` field is the Git repository HTTPS URL.

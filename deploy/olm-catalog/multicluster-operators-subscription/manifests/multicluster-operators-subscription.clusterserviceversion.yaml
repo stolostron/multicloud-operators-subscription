@@ -59,7 +59,7 @@ metadata:
     containerImage: quay.io/stolostron/multicluster-operators-subscription:2.7.0
     createdAt: 2022-08-010T18:00:00Z
     description: An operator for deploying resources from object Bucket, helm repo or github repo to multiple managed clusters
-    repository: https://github.com/open-cluster-management-io/multicloud-operators-subscription
+    repository: https://github.com/stolostron/multicloud-operators-subscription
     support: Red Hat
   name: multicluster-operators-subscription.v0.4.2
   namespace: placeholder
@@ -1234,7 +1234,7 @@ spec:
     app: multicluster-operators-subscription
   links:
   - name: Multicluster Subscription Operator Project
-    url: https://github.com/open-cluster-management/multicloud-operators-subscription
+    url: https://github.com/stolostron/multicloud-operators-subscription
   maintainers:
   - email: ocm-dev@open-cluster-management.io
     name: Open Cluster Management Project team

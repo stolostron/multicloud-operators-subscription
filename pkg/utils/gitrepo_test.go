@@ -1036,13 +1036,13 @@ func TestGetOwnerAndRepo(t *testing.T) {
 		},
 		{
 			desc:   "valid owner",
-			url:    "https://github.com/open-cluster-management-io",
-			wanted: []string{"github.com", "open-cluster-management-io"},
+			url:    "https://github.com/stolostron",
+			wanted: []string{"github.com", "stolostron"},
 		},
 		{
 			desc:   "valid owner and repo",
-			url:    "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
-			wanted: []string{"open-cluster-management-io", "multicloud-operators-subscription"},
+			url:    "https://github.com/stolostron/multicloud-operators-subscription",
+			wanted: []string{"stolostron", "multicloud-operators-subscription"},
 		},
 	}
 	for _, tC := range testCases {

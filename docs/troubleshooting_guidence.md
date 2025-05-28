@@ -531,7 +531,7 @@ This CLI, uses identity details in the Application subscriptionReport, to create
 
 The CLI can be downloaded here:
 
-https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
+https://github.com/stolostron/multicloud-operators-subscription/blob/main/cmd/scripts/getAppSubStatus.sh
 
 ## Hub Backend CLI to get the Last Update Time of an AppSub
 
@@ -541,7 +541,7 @@ It may be desirable to find out when an AppSub was last updated on a managed clu
 
 The CLI can be downloaded from here:
 
-https://github.com/open-cluster-management-io/multicloud-operators-subscription/blob/main/cmd/scripts/getLastUpdateTime.sh
+https://github.com/stolostron/multicloud-operators-subscription/blob/main/cmd/scripts/getLastUpdateTime.sh
 
 To run the script:
 ```

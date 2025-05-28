@@ -234,9 +234,10 @@ echo "STARTING test case 05-ansiblejob"
 kubectl config use-context kind-hub
 kubectl apply -f hack/test/tower.ansible.com_ansiblejobs_crd.yaml
 kubectl apply -f test/e2e/cases/05-ansiblejob/
-sleep 10
+sleep 70
 
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastprehookjob | grep prehook-test; then
+    kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml
     echo "05-ansiblejob: found ansiblejob CR name in subscription output"
 else
     echo "05-ansiblejob: FAILED: ansiblejob CR name is not in the subscription output"
@@ -260,6 +261,7 @@ kubectl apply -f test/e2e/cases/06-ansiblejob-post/
 sleep 70
 
 if kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml | grep lastposthookjob | grep posthook-test; then
+    kubectl get subscriptions.apps.open-cluster-management.io ansible-hook -o yaml
     echo "06-ansiblejob-post: found ansiblejob CR name in subscription output"
 else
     echo "06-ansiblejob-post: FAILED: ansiblejob CR name is not in the subscription output"

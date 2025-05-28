@@ -7,5 +7,5 @@ metadata:
   annotations:
     apps.open-cluster-management.io/reconcile-rate: high
 spec:
-  pathname: https://github.com/open-cluster-management-io/multicloud-operators-subscription
+  pathname: https://github.com/stolostron/multicloud-operators-subscription
   type: git
