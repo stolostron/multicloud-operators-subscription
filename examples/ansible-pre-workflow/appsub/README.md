@@ -4,7 +4,8 @@ Prepare:
 
 Perform:
 1. Edit the `examples/ansible-pre-workflow/appsub/EDITME-secret.yaml` file.
-2. `git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git`
+2. `git clone https://github.com/stolostron/multicloud-operators-subscription.git`
 3. `cd multicloud-operators-subscription`
 4. `kubectl apply -f examples/ansible-pre-workflow/appsub`
-5. This will create a subscription that watches resources in https://github.com/open-cluster-management-io/multicloud-operators-subscription/tree/main/examples/ansible-pre-workflow/resources
+5. This will create a subscription that watches resources in
+https://github.com/stolostron/multicloud-operators-subscription/tree/main/examples/ansible-pre-workflow/resources

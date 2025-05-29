@@ -16,7 +16,8 @@
 
 ## Overview
 
-Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to subscribe to a source repository [channel](https://github.com/open-cluster-management-io/multicloud-operators-channel) that can be the following types: Git repository, Helm release registry, or Object storage repository.
+Subscriptions (subscription.apps.open-cluster-management.io) allow clusters to subscribe to a source repository
+[channel](https://github.com/stolostron/multicloud-operators-channel) that can be the following types: Git repository, Helm release registry, or Object storage repository.
 
 Subscriptions can point to a channel for identifying new or updated resource templates. The subscription operator can then download directly from the storage location and deploy to targeted managed clusters without checking the hub cluster first. With a subscription, the subscription operator can monitor the channel for new or updated resources instead of the hub cluster.
 
@@ -29,7 +30,7 @@ Subscriptions can point to a channel for identifying new or updated resource tem
 Deploy the subscription operator.
 
 ```shell
-$ git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+$ git clone https://github.com/stolostron/multicloud-operators-subscription.git
 $ cd multicloud-operators-subscription
 $ make deploy-standalone
 $ kubectl -n open-cluster-management get deploy  multicluster-operators-subscription
@@ -105,7 +106,7 @@ application-manager   1/1     1            1           103s
 After a successful deployment, test the subscription operator with a `helm` subscription. Run the following command:
 
 ```Shell
-git clone https://github.com/open-cluster-management-io/multicloud-operators-subscription.git
+git clone https://github.com/stolostron/multicloud-operators-subscription.git
 cd multicloud-operators-subscription
 kubectl config use-context <hub cluster context> # kubectl config use-context kind-hub
 kubectl apply -f examples/helmrepo-hub-channel

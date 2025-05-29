@@ -260,7 +260,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", Ordered,
 			},
 			Spec: channelV1.ChannelSpec{
 				Type:     channelV1.ChannelTypeGit,
-				Pathname: "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
+				Pathname: "https://github.com/stolostron/multicloud-operators-subscription",
 			},
 		}
 
