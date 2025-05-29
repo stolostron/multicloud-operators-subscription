@@ -42,7 +42,7 @@ import (
 )
 
 const (
-	pullInterval = time.Second * 3
+	pullInterval = time.Second * 10
 )
 
 // Prehook should:
@@ -265,6 +265,8 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			Expect(k8sClt.Delete(ctx, chnIns)).Should(Succeed())
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 		}()
+
+		time.Sleep(120 * time.Second)
 
 		waitForSubscription := func() error {
 			u := &subv1.Subscription{}
