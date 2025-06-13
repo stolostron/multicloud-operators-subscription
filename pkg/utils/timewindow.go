@@ -17,7 +17,9 @@ package utils
 import (
 	"sort"
 	"strings"
+
 	"time"
+	_ "time/tzdata" // This line embeds the timezone database.
 
 	"k8s.io/klog"
 
