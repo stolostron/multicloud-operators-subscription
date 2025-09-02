@@ -35,6 +35,15 @@ spec:
           spec:
             description: GitOpsClusterSpec defines the desired state of GitOpsCluster.
             properties:
+              argoCDAgent:
+                description: ArgoCDAgent defines the configuration for the ArgoCD agent.
+                properties:
+                  enabled:
+                    default: false
+                    description: Enabled indicates whether the ArgoCD agent is enabled.
+                      Default is false.
+                    type: boolean
+                type: object
               argoServer:
                 description: ArgoServerSpec specifies the location of the Argo CD
                   server.
