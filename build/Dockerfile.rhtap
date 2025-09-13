@@ -52,7 +52,8 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
         POLICY_GEN_ENABLE_HELM=true
 
 LABEL \
-    name="multicloud-operators-subscription" \
+    name="rhacm2/multicluster-operators-subscription-rhel9" \
+    cpe="cpe:/a:redhat:acm:2.14::el9" \
     com.redhat.component="multicloud-operators-subscription" \
     description="multicluster subscription controller" \
     maintainer="acm-contact@redhat.com" \
