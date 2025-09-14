@@ -727,7 +727,7 @@ var _ = Describe("test patching labels via git kustomimzation", func() {
 
 		subitem.doSubscription()
 
-		time.Sleep(120 * time.Second)
+		time.Sleep(10 * time.Second)
 
 		Expect(len(subitem.resources)).To(Equal(3))
 
