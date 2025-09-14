@@ -77,6 +77,11 @@ build-images:
 # need to create the buildx builder as a fixed name and clean it up after usage
 # Or a new builder is created everytime and it will fail docker buildx image build eventually.
 build-images-non-amd64:
+	@if docker buildx ls | grep -q "local-builder"; then \
+		echo "Removing existing local-builder..."; \
+		docker buildx rm local-builder; \
+	fi
+
 	docker buildx create --name local-builder --use
 	docker buildx inspect local-builder --bootstrap
 	docker buildx build --platform linux/amd64 -t ${IMAGE_NAME_AND_VERSION} -f build/Dockerfile --load .
