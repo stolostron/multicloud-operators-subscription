@@ -335,6 +335,7 @@ spec:
           - authentication.open-cluster-management.io
           - policy.open-cluster-management.io
           resources:
+          - addondeploymentconfigs
           - channels
           - channels/status
           - channels/finalizers
