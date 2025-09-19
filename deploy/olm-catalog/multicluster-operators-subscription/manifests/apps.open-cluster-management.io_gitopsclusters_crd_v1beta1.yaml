@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.13.0
+    controller-gen.kubebuilder.io/version: v0.16.1
   name: gitopsclusters.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
@@ -21,29 +21,25 @@ spec:
           into the Argo CD.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
           spec:
             description: GitOpsClusterSpec defines the desired state of GitOpsCluster.
             properties:
-              argoCDAgent:
-                description: ArgoCDAgent defines the configuration for the ArgoCD agent.
-                properties:
-                  enabled:
-                    default: false
-                    description: Enabled indicates whether the ArgoCD agent is enabled.
-                      Default is false.
-                    type: boolean
-                type: object
               argoServer:
                 description: ArgoServerSpec specifies the location of the Argo CD
                   server.
@@ -65,68 +61,123 @@ spec:
               createPolicyTemplate:
                 description: Create default policy template if it is true.
                 type: boolean
+              gitopsAddon:
+                description: GitOpsAddon defines the configuration for the GitOps
+                  addon.
+                properties:
+                  action:
+                    description: Action specifies the action to be performed by the
+                      GitOps operator. Default is empty.
+                    type: string
+                  argoCDAgent:
+                    description: ArgoCDAgent defines the configuration for the ArgoCD
+                      agent.
+                    properties:
+                      enabled:
+                        default: false
+                        description: Enabled indicates whether the ArgoCD agent is
+                          enabled. Default is false.
+                        type: boolean
+                      image:
+                        description: Image specifies the ArgoCD agent container image.
+                          Default is empty.
+                        type: string
+                      mode:
+                        description: Mode specifies the ArgoCD agent mode. Default
+                          is empty.
+                        type: string
+                      propagateHubCA:
+                        default: true
+                        description: PropagateHubCA indicates whether to propagate
+                          the hub CA certificate to managed clusters via ManifestWork.
+                          Default is true.
+                        type: boolean
+                      serverAddress:
+                        description: ServerAddress specifies the ArgoCD server address
+                          for the agent. Default is empty.
+                        type: string
+                      serverPort:
+                        description: ServerPort specifies the ArgoCD server port for
+                          the agent. Default is empty.
+                        type: string
+                    type: object
+                  enabled:
+                    default: false
+                    description: |-
+                      Enabled indicates whether the GitOps addon is enabled. Default is false.
+                      When enabled, creates AddonDeploymentConfigs/ManagedClusterAddon resources.
+                    type: boolean
+                  gitOpsImage:
+                    description: GitOpsImage specifies the GitOps (ArgoCD) container
+                      image. Default is empty.
+                    type: string
+                  gitOpsNamespace:
+                    description: GitOpsNamespace specifies the GitOps namespace. Default
+                      is empty.
+                    type: string
+                  gitOpsOperatorImage:
+                    description: GitOpsOperatorImage specifies the GitOps operator
+                      container image. Default is empty.
+                    type: string
+                  gitOpsOperatorNamespace:
+                    description: GitOpsOperatorNamespace specifies the GitOps operator
+                      namespace. Default is empty.
+                    type: string
+                  reconcileScope:
+                    description: ReconcileScope specifies the reconcile scope for
+                      the GitOps operator. Default is empty.
+                    type: string
+                  redisImage:
+                    description: RedisImage specifies the Redis container image. Default
+                      is empty.
+                    type: string
+                type: object
               managedServiceAccountRef:
                 description: ManagedServiceAccountRef defines managed service account
                   in the managed cluster namespace used to create the ArgoCD cluster
                   secret.
                 type: string
               placementRef:
-                description: "ObjectReference contains enough information to let you
-                  inspect or modify the referred object. --- New uses of this type
-                  are discouraged because of difficulty describing its usage when
-                  embedded in APIs. 1. Ignored fields.  It includes many fields which
-                  are not generally honored.  For instance, ResourceVersion and FieldPath
-                  are both very rarely valid in actual usage. 2. Invalid usage help.
-                  \ It is impossible to add specific help for individual usage.  In
-                  most embedded usages, there are particular restrictions like, \"must
-                  refer only to types A and B\" or \"UID not honored\" or \"name must
-                  be restricted\". Those cannot be well described when embedded. 3.
-                  Inconsistent validation.  Because the usages are different, the
-                  validation rules are different by usage, which makes it hard for
-                  users to predict what will happen. 4. The fields are both imprecise
-                  and overly precise.  Kind is not a precise mapping to a URL. This
-                  can produce ambiguity during interpretation and require a REST mapping.
-                  \ In most cases, the dependency is on the group,resource tuple and
-                  the version of the actual struct is irrelevant. 5. We cannot easily
-                  change it.  Because this type is embedded in many locations, updates
-                  to this type will affect numerous schemas.  Don't make new APIs
-                  embed an underspecified API type they do not control. \n Instead
-                  of using this type, create a locally provided and used type that
-                  is well-focused on your reference. For example, ServiceReferences
-                  for admission registration: https://github.com/kubernetes/api/blob/release-1.17/admissionregistration/v1/types.go#L533
-                  ."
+                description: ObjectReference contains enough information to let you
+                  inspect or modify the referred object.
                 properties:
                   apiVersion:
                     description: API version of the referent.
                     type: string
                   fieldPath:
-                    description: 'If referring to a piece of an object instead of
-                      an entire object, this string should contain a valid JSON/Go
-                      field access statement, such as desiredState.manifest.containers[2].
-                      For example, if the object reference is to a container within
-                      a pod, this would take on a value like: "spec.containers{name}"
-                      (where "name" refers to the name of the container that triggered
-                      the event) or if no container name is specified "spec.containers[2]"
-                      (container with index 2 in this pod). This syntax is chosen
-                      only to have some well-defined way of referencing a part of
-                      an object. TODO: this design is not final and this field is
-                      subject to change in the future.'
+                    description: |-
+                      If referring to a piece of an object instead of an entire object, this string
+                      should contain a valid JSON/Go field access statement, such as desiredState.manifest.containers[2].
+                      For example, if the object reference is to a container within a pod, this would take on a value like:
+                      "spec.containers{name}" (where "name" refers to the name of the container that triggered
+                      the event) or if no container name is specified "spec.containers[2]" (container with
+                      index 2 in this pod). This syntax is chosen only to have some well-defined way of
+                      referencing a part of an object.
                     type: string
                   kind:
-                    description: 'Kind of the referent. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+                    description: |-
+                      Kind of the referent.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
                     type: string
                   name:
-                    description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names'
+                    description: |-
+                      Name of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
                     type: string
                   namespace:
-                    description: 'Namespace of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/'
+                    description: |-
+                      Namespace of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
                     type: string
                   resourceVersion:
-                    description: 'Specific resourceVersion to which this reference
-                      is made, if any. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency'
+                    description: |-
+                      Specific resourceVersion to which this reference is made, if any.
+                      More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
                     type: string
                   uid:
-                    description: 'UID of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids'
+                    description: |-
+                      UID of the referent.
+                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#uids
                     type: string
                 type: object
                 x-kubernetes-map-type: atomic
@@ -137,6 +188,67 @@ spec:
           status:
             description: GitOpsClusterStatus defines the observed state of GitOpsCluster.
             properties:
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the GitOpsCluster's current state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
               lastUpdateTime:
                 description: LastUpdateTime provides the last updated timestamp of
                   the gitOpsCluster status
@@ -147,8 +259,9 @@ spec:
                   status.
                 type: string
               phase:
-                description: Phase provides the overall phase of the GitOpsCluster
-                  status. Valid values include failed or successful.
+                description: |-
+                  Phase provides the overall phase of the GitOpsCluster status. Valid values include failed or successful.
+                  This field is kept for backward compatibility. For detailed status information, use the Conditions field.
                 type: string
             type: object
         required:
