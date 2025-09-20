@@ -123,6 +123,13 @@ spec:
                     description: GitOpsOperatorNamespace specifies the GitOps operator
                       namespace. Default is empty.
                     type: string
+                  overrideExistingConfigs:
+                    default: false
+                    description: |-
+                      OverrideExistingConfigs indicates whether to override existing configuration values in AddOnDeploymentConfig.
+                      When false (default), existing config values are preserved and only new ones are added.
+                      When true, config values from GitOpsCluster spec will override existing values.
+                    type: boolean
                   reconcileScope:
                     description: ReconcileScope specifies the reconcile scope for
                       the GitOps operator. Default is empty.
