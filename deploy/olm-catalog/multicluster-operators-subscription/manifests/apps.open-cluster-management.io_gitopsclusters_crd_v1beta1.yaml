@@ -65,10 +65,6 @@ spec:
                 description: GitOpsAddon defines the configuration for the GitOps
                   addon.
                 properties:
-                  action:
-                    description: Action specifies the action to be performed by the
-                      GitOps operator. Default is empty.
-                    type: string
                   argoCDAgent:
                     description: ArgoCDAgent defines the configuration for the ArgoCD
                       agent.
@@ -138,6 +134,13 @@ spec:
                     description: RedisImage specifies the Redis container image. Default
                       is empty.
                     type: string
+                  uninstall:
+                    default: false
+                    description: |-
+                      Uninstall indicates whether to uninstall the gitopsaddon. Default is false.
+                      When set to true, performs uninstall operations instead of install.
+                      When uninstall is true, OverrideExistingConfigs is automatically set to true.
+                    type: boolean
                 type: object
               managedServiceAccountRef:
                 description: ManagedServiceAccountRef defines managed service account
