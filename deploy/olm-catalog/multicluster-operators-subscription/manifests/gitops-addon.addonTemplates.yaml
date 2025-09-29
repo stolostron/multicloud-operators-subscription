@@ -61,8 +61,8 @@ spec:
                           value: '{{REDIS_IMAGE}}'
                         - name: RECONCILE_SCOPE
                           value: '{{RECONCILE_SCOPE}}'
-                        - name: ACTION
-                          value: '{{ACTION}}'
+                        - name: UNINSTALL
+                          value: '{{UNINSTALL}}'
                         - name: ARGOCD_AGENT_ENABLED
                           value: '{{ARGOCD_AGENT_ENABLED}}'
                         - name: ARGOCD_AGENT_IMAGE
