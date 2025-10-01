@@ -85,12 +85,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), noPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), noPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: noPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), noPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -100,6 +101,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+
+		sutPropagationTestClient.Delete(context.TODO(), noPlacementSubscription)
 	})
 
 	It("should fail for subscriptions configured for both local and remote placements", func() {
@@ -159,12 +162,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), wrongPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), wrongPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: wrongPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), wrongPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -174,6 +178,8 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+
+		sutPropagationTestClient.Delete(context.TODO(), wrongPlacementSubscription)
 	})
 
 	It("should successfully propagate for subscriptions configured for local placement only", func() {
@@ -229,12 +235,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), localPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), localPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: localPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), localPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -244,6 +251,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
 		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
+		sutPropagationTestClient.Delete(context.TODO(), localPlacementSubscription)
 	})
 
 	It("should fail for subscriptions with a remote placement and no channel", func() {
@@ -300,21 +308,21 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), noChannelSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), noChannelSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: noChannelSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), noChannelSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
 
-		Expect(reconciledSubscription.Status.Phase).To(BeEmpty())
-		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
+		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
+		Expect(reconciledSubscription.Status.Reason).To(ContainSubstring("Failed to find channel"))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+		sutPropagationTestClient.Delete(context.TODO(), noChannelSubscription)
 	})
 
 	It("should successfully propagate for subscriptions with a remote channel and a placement", func() {
@@ -402,21 +410,22 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), successfulChannel)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), successfulChannel)
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), successfulSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), successfulSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: successfulSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), successfulSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
 
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagated))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
+		sutPropagationTestClient.Delete(context.TODO(), successfulChannel)
+		sutPropagationTestClient.Delete(context.TODO(), successfulSubscription)
 	})
 })

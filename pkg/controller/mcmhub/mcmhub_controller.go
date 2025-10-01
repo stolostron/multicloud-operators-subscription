@@ -582,13 +582,16 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		primaryChannel, _, err := r.getChannel(instance)
 		if err != nil {
 			klog.Errorf("Failed to find a channel for subscription: %s", instance.GetName())
+
+			instance.Status.Phase = appv1.SubscriptionPropagationFailed
+			instance.Status.Reason = fmt.Sprintf("Failed to find channel: %s", err.Error())
+
 			metrics.PropagationFailedPullTime.
 				WithLabelValues(instance.Namespace, instance.Name).
 				Observe(0)
 
 			return reconcile.Result{}, nil
 		}
-
 		// This block is only for Git subscription
 		if strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGit) ||
 			strings.EqualFold(string(primaryChannel.Spec.Type), chnv1.ChannelTypeGitHub) {
