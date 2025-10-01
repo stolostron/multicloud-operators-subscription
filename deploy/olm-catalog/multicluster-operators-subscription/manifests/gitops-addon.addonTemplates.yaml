@@ -73,6 +73,8 @@ spec:
                           value: '{{ARGOCD_AGENT_SERVER_PORT}}'
                         - name: ARGOCD_AGENT_MODE
                           value: '{{ARGOCD_AGENT_MODE}}'
+                        - name: ARGOCD_AGENT_UNINSTALL
+                          value: '{{ARGOCD_AGENT_UNINSTALL}}'
                   volumes:
                     - name: tmp-volume
                       emptyDir: {}
