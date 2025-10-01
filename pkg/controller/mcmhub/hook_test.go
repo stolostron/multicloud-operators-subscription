@@ -266,6 +266,8 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 			Expect(k8sClt.Delete(ctx, subIns)).Should(Succeed())
 		}()
 
+		time.Sleep(20 * time.Second)
+
 		waitForSubscription := func() error {
 			u := &subv1.Subscription{}
 

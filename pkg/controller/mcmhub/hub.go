@@ -500,7 +500,7 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1.Subscription
 	}
 
 	keys, err := awsHandler.List(bucket, folderName)
-	klog.V(5).Infof("object keys: %v", keys)
+	klog.Infof("object keys: %v", keys)
 
 	if err != nil {
 		klog.Error("Failed to list objects in bucket ", bucket)
@@ -508,17 +508,35 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1.Subscription
 		return nil, err
 	}
 
-	// converting template from object store to resource
-	var errMsgs []string
+	// Check if this is a kustomization-based deployment
+	kustomizeDirs, regularFiles := utils.CategorizeObjectsForKustomization(keys)
 
 	resources := []*v1.ObjectReference{}
 
-	for _, key := range keys {
+	var errMsgs []string
+
+	// Process kustomization directories first
+	for kustomizeDir := range kustomizeDirs {
+		klog.Info("Processing kustomization directory: ", kustomizeDir)
+		kustomizeResources, err := r.processKustomizationForHub(kustomizeDir, keys, awsHandler, bucket, sub, isAdmin)
+
+		if err != nil {
+			klog.Errorf("Failed to process kustomization directory %s: %v", kustomizeDir, err)
+			errMsgs = append(errMsgs, fmt.Sprintf("kustomization error in %s: %v", kustomizeDir, err))
+
+			continue
+		}
+		resources = append(resources, kustomizeResources...)
+	}
+
+	// Process regular YAML files (not in kustomization directories)
+	for _, key := range regularFiles {
 		tplb, err := awsHandler.Get(bucket, key)
 		if err != nil {
 			klog.Error("Failed to get object ", key, " in bucket ", bucket)
+			errMsgs = append(errMsgs, fmt.Sprintf("failed to get object %s: %v", key, err))
 
-			return nil, err
+			continue
 		}
 
 		// skip empty body object store
@@ -530,7 +548,7 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1.Subscription
 		err = yaml.Unmarshal(tplb.Content, template)
 
 		if err != nil {
-			klog.V(5).Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
+			klog.Infof("Error in unmarshall template, err:%v |template: %v", err, string(tplb.Content))
 			continue
 		}
 
@@ -561,6 +579,48 @@ func (r *ReconcileSubscription) getObjectBucketResources(sub *appv1.Subscription
 	if len(errMsgs) > 0 {
 		return resources, errors.New(strings.Join(errMsgs, ","))
 	}
+
+	return resources, nil
+}
+
+// processKustomizationForHub downloads all files in a kustomization directory and runs kustomize build
+func (r *ReconcileSubscription) processKustomizationForHub(kustomizeDir string, allKeys []string,
+	awsHandler awsutils.ObjectStore, bucket string, sub *appv1.Subscription, isAdmin bool) ([]*v1.ObjectReference, error) {
+	// Use the common utils function to process the kustomization
+	kustomizedResources, err := utils.ProcessKustomization(kustomizeDir, allKeys, awsHandler, bucket, sub.Spec.PackageOverrides)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert unstructured resources to ObjectReferences
+	resources := []*v1.ObjectReference{}
+
+	for _, template := range kustomizedResources {
+		resource := &v1.ObjectReference{
+			Kind:       template.GetKind(),
+			Namespace:  template.GetNamespace(),
+			Name:       template.GetName(),
+			APIVersion: template.GetAPIVersion(),
+		}
+
+		// No need to save the namespace object to the resource list of the appsub
+		if resource.Kind == "Namespace" {
+			continue
+		}
+
+		// respect object customized namespace if the appsub user is subscription admin, or apply it to appsub namespace
+		if isAdmin {
+			if resource.Namespace == "" {
+				resource.Namespace = sub.Namespace
+			}
+		} else {
+			resource.Namespace = sub.Namespace
+		}
+
+		resources = append(resources, resource)
+	}
+
+	klog.Infof("Successfully processed kustomization %s with %d resources", kustomizeDir, len(resources))
 
 	return resources, nil
 }

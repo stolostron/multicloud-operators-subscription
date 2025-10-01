@@ -344,10 +344,34 @@ func (obsi *SubscriberItem) doSubscription() {
 		return
 	}
 
+	// Check if this is a kustomization-based deployment
+	kustomizeDirs, regularFiles := utils.CategorizeObjectsForKustomization(keys)
+
+	resources := make([]kubesynchronizer.ResourceUnit, 0)
+
+	var doErr error
+
+	// Process kustomization directories first
+	for kustomizeDir := range kustomizeDirs {
+		klog.Infof("Processing kustomization directory: %s", kustomizeDir)
+		klog.Infof("Available object keys for kustomization: %v", keys)
+
+		kustomizeResources, err := obsi.processKustomization(kustomizeDir, keys)
+		if err != nil {
+			klog.Errorf("Failed to process kustomization directory %s: %v", kustomizeDir, err)
+			doErr = err
+
+			continue
+		}
+
+		klog.Infof("Successfully processed kustomization %s, generated %d resources", kustomizeDir, len(kustomizeResources))
+		resources = append(resources, kustomizeResources...)
+	}
+
+	// Process regular YAML files (not in kustomization directories)
 	tpls := []unstructured.Unstructured{}
 
-	// converting template from obeject store to DPL
-	for _, key := range keys {
+	for _, key := range regularFiles {
 		tplb, err := obsi.objectStore.Get(obsi.bucket, key)
 		if err != nil {
 			klog.Error("Failed to get object ", key, " in bucket ", obsi.bucket)
@@ -380,11 +404,7 @@ func (obsi *SubscriberItem) doSubscription() {
 		tpls = append(tpls, *tpl)
 	}
 
-	resources := make([]kubesynchronizer.ResourceUnit, 0)
-
-	// track if there's any error when doSubscribeManifest, if there's any, then we should retry this
-	var doErr error
-
+	// Process regular templates
 	for _, tpl := range tpls {
 		resource, err := obsi.doSubscribeManifest(&tpl) // this is now the address of the inner tpl
 
@@ -512,4 +532,43 @@ func (obsi *SubscriberItem) doSubscribeManifest(template *unstructured.Unstructu
 	resource := &kubesynchronizer.ResourceUnit{Resource: template, Gvk: validgvk}
 
 	return resource, nil
+}
+
+// processKustomization downloads all files in a kustomization directory and runs kustomize build
+func (obsi *SubscriberItem) processKustomization(kustomizeDir string, allKeys []string) ([]kubesynchronizer.ResourceUnit, error) {
+	klog.Infof("Starting kustomization processing for directory: %s", kustomizeDir)
+	klog.Infof("Subscription namespace: %s, name: %s", obsi.Subscription.Namespace, obsi.Subscription.Name)
+
+	// Use the common utils function to process the kustomization
+	kustomizedResources, err := utils.ProcessKustomization(kustomizeDir, allKeys, obsi.objectStore, obsi.bucket, obsi.Subscription.Spec.PackageOverrides)
+	if err != nil {
+		klog.Errorf("ProcessKustomization failed for %s: %v", kustomizeDir, err)
+		return nil, err
+	}
+
+	klog.Infof("ProcessKustomization succeeded for %s, got %d raw resources", kustomizeDir, len(kustomizedResources))
+
+	// Convert unstructured resources to ResourceUnits by applying subscription processing
+	resourceUnits := []kubesynchronizer.ResourceUnit{}
+
+	for i, rsc := range kustomizedResources {
+		klog.Infof("Processing kustomized resource %d: %s/%s", i+1, rsc.GetKind(), rsc.GetName())
+
+		// Apply subscription processing to the resource
+		processedResource, err := obsi.doSubscribeManifest(rsc)
+		if err != nil {
+			klog.Errorf("Failed to process kustomized resource %s/%s: %v", rsc.GetKind(), rsc.GetName(), err)
+			continue
+		}
+
+		if processedResource != nil {
+			resourceUnits = append(resourceUnits, *processedResource)
+
+			klog.Infof("Successfully processed resource %s/%s", rsc.GetKind(), rsc.GetName())
+		}
+	}
+
+	klog.Infof("Successfully processed kustomization %s: %d raw resources -> %d processed resources", kustomizeDir, len(kustomizedResources), len(resourceUnits))
+
+	return resourceUnits, nil
 }

@@ -261,11 +261,14 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(6 * time.Second)
+	time.Sleep(30 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	klog.Infof("instanceResp status: %#v", instanceResp.Status)
+	klog.Infof("instanceResp status.DeployedRelease: %#v", *instanceResp.Status.DeployedRelease)
 
 	g.Expect(instanceResp.Status.DeployedRelease).NotTo(gomega.BeNil())
 
