@@ -96,6 +96,13 @@ spec:
                         description: ServerPort specifies the ArgoCD server port for
                           the agent. Default is empty.
                         type: string
+                      uninstall:
+                        default: false
+                        description: |-
+                          Uninstall indicates whether to uninstall only the ArgoCD agent component. Default is false.
+                          When set to true, only the agent component is uninstalled while keeping the gitopsAddon.
+                          This is different from GitOpsAddonSpec.Uninstall which removes everything.
+                        type: boolean
                     type: object
                   enabled:
                     default: false
