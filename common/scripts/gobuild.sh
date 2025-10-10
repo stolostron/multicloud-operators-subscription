@@ -16,6 +16,9 @@
 
 # This script builds and version stamps the output
 
+# Unset XDG_CACHE_HOME to let Go use its default cache location
+unset XDG_CACHE_HOME
+
 VERBOSE=${VERBOSE:-"0"}
 V=""
 if [[ "${VERBOSE}" == "1" ]];then

@@ -81,9 +81,9 @@ This is the multicloud-operators-subscription project - a Kubernetes operator th
 
 - Uses controller-runtime framework for Kubernetes controllers
 - Supports Kubernetes 1.28.3+ (see go.mod K8S_VERSION)
-- Built with Go 1.23.0
+- Built with Go 1.24.0
 - Integrates with OCM (Open Cluster Management) addon framework
-- Helm integration uses Helm v3.14.4
+- Helm integration uses Helm v3.18.6
 - Uses kubebuilder for code generation
 
 ## Testing
