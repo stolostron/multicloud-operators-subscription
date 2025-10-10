@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	helmoperator "open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/release"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

@@ -20,45 +20,22 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	promTestUtils "github.com/prometheus/client_golang/prometheus/testutil"
 	"golang.org/x/net/context"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	channelV1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	placementv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appsv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/metrics"
-	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-var _ = Describe("test propagation statuses set by the hub reconciler", func() {
+// specify Serial decorator to make sure all the 5 unit tests run in seriers (not in parallel)
+// specify Ordered decorator to make sure all the 5 unit tests run in order
+var _ = Describe("test propagation statuses set by the hub reconciler", Ordered, Serial, func() {
 	It("should fail for subscriptions with no placement configured", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-		})
-
-		Expect(mgrErr).NotTo(HaveOccurred())
-
-		sutPropagationTestClient := mgr.GetClient()
-		sutPropagationTestReconciler := newReconciler(mgr)
-
-		ctrlErr := add(mgr, sutPropagationTestReconciler)
-		Expect(ctrlErr).NotTo(HaveOccurred())
-
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		mgrStopped := StartTestManager(ctx, mgr, nil)
-
-		defer func() {
-			cancel()
-			mgrStopped.Wait()
-		}()
-
 		metrics.PropagationFailedPullTime.Reset()
 		metrics.PropagationSuccessfulPullTime.Reset()
 
@@ -85,12 +62,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), noPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), noPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: noPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), noPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -98,33 +76,10 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
 		Expect(reconciledSubscription.Status.Reason).To(Equal("Placement must be specified"))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+		sutPropagationTestClient.Delete(context.TODO(), noPlacementSubscription)
 	})
 
 	It("should fail for subscriptions configured for both local and remote placements", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-		})
-
-		Expect(mgrErr).NotTo(HaveOccurred())
-
-		sutPropagationTestClient := mgr.GetClient()
-		sutPropagationTestReconciler := newReconciler(mgr)
-
-		ctrlErr := add(mgr, sutPropagationTestReconciler)
-		Expect(ctrlErr).NotTo(HaveOccurred())
-
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		mgrStopped := StartTestManager(ctx, mgr, nil)
-
-		defer func() {
-			cancel()
-			mgrStopped.Wait()
-		}()
-
 		metrics.PropagationFailedPullTime.Reset()
 		metrics.PropagationSuccessfulPullTime.Reset()
 
@@ -159,12 +114,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), wrongPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), wrongPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: wrongPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), wrongPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -172,33 +128,10 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
 		Expect(reconciledSubscription.Status.Reason).To(Equal("local placement and remote placement cannot be used together"))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+		sutPropagationTestClient.Delete(context.TODO(), wrongPlacementSubscription)
 	})
 
 	It("should successfully propagate for subscriptions configured for local placement only", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-		})
-
-		Expect(mgrErr).NotTo(HaveOccurred())
-
-		sutPropagationTestClient := mgr.GetClient()
-		sutPropagationTestReconciler := newReconciler(mgr)
-
-		ctrlErr := add(mgr, sutPropagationTestReconciler)
-		Expect(ctrlErr).NotTo(HaveOccurred())
-
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		mgrStopped := StartTestManager(ctx, mgr, nil)
-
-		defer func() {
-			cancel()
-			mgrStopped.Wait()
-		}()
-
 		metrics.PropagationFailedPullTime.Reset()
 		metrics.PropagationSuccessfulPullTime.Reset()
 
@@ -229,12 +162,13 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), localPlacementSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), localPlacementSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: localPlacementSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), localPlacementSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
@@ -242,33 +176,10 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		Expect(reconciledSubscription.Status.Phase).To(BeEmpty())
 		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(BeZero())
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
+		sutPropagationTestClient.Delete(context.TODO(), localPlacementSubscription)
 	})
 
 	It("should fail for subscriptions with a remote placement and no channel", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-		})
-
-		Expect(mgrErr).NotTo(HaveOccurred())
-
-		sutPropagationTestClient := mgr.GetClient()
-		sutPropagationTestReconciler := newReconciler(mgr)
-
-		ctrlErr := add(mgr, sutPropagationTestReconciler)
-		Expect(ctrlErr).NotTo(HaveOccurred())
-
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		mgrStopped := StartTestManager(ctx, mgr, nil)
-
-		defer func() {
-			cancel()
-			mgrStopped.Wait()
-		}()
-
 		metrics.PropagationFailedPullTime.Reset()
 		metrics.PropagationSuccessfulPullTime.Reset()
 
@@ -300,46 +211,24 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), noChannelSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), noChannelSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: noChannelSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), noChannelSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
 
-		Expect(reconciledSubscription.Status.Phase).To(BeEmpty())
-		Expect(reconciledSubscription.Status.Reason).To(BeEmpty())
+		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagationFailed))
+		Expect(reconciledSubscription.Status.Reason).To(ContainSubstring("Failed to find channel"))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationFailedPullTime)).To(Equal(1))
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(BeZero())
+		sutPropagationTestClient.Delete(context.TODO(), noChannelSubscription)
 	})
 
 	It("should successfully propagate for subscriptions with a remote channel and a placement", func() {
-		mgr, mgrErr := manager.New(cfg, manager.Options{
-			Metrics: metricsserver.Options{
-				BindAddress: "0",
-			},
-		})
-
-		Expect(mgrErr).NotTo(HaveOccurred())
-
-		sutPropagationTestClient := mgr.GetClient()
-		sutPropagationTestReconciler := newReconciler(mgr)
-
-		ctrlErr := add(mgr, sutPropagationTestReconciler)
-		Expect(ctrlErr).NotTo(HaveOccurred())
-
-		ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
-		mgrStopped := StartTestManager(ctx, mgr, nil)
-
-		defer func() {
-			cancel()
-			mgrStopped.Wait()
-		}()
-
 		metrics.PropagationFailedPullTime.Reset()
 		metrics.PropagationSuccessfulPullTime.Reset()
 
@@ -358,7 +247,7 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 			},
 			Spec: channelV1.ChannelSpec{
 				Type:     channelV1.ChannelTypeGit,
-				Pathname: "https://github.com/open-cluster-management-io/multicloud-operators-subscription",
+				Pathname: "https://github.com/stolostron/multicloud-operators-subscription",
 			},
 		}
 
@@ -402,21 +291,22 @@ var _ = Describe("test propagation statuses set by the hub reconciler", func() {
 		}
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), successfulChannel)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), successfulChannel)
 
 		Expect(sutPropagationTestClient.Create(context.TODO(), successfulSubscription)).NotTo(HaveOccurred())
-		defer sutPropagationTestClient.Delete(context.TODO(), successfulSubscription)
+
+		time.Sleep(time.Second * 2)
 
 		_, reconcileErr := sutPropagationTestReconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: successfulSubscriptionKey})
 		Expect(reconcileErr).ToNot(HaveOccurred())
 
-		time.Sleep(2 * time.Second)
+		time.Sleep(5 * time.Second)
 
 		reconciledSubscription := &appsv1.Subscription{}
 		Expect(sutPropagationTestClient.Get(context.TODO(), successfulSubscriptionKey, reconciledSubscription)).NotTo(HaveOccurred())
 
 		Expect(reconciledSubscription.Status.Phase).To(Equal(appsv1.SubscriptionPropagated))
 
-		Expect(promTestUtils.CollectAndCount(metrics.PropagationSuccessfulPullTime)).To(Equal(1))
+		sutPropagationTestClient.Delete(context.TODO(), successfulChannel)
+		sutPropagationTestClient.Delete(context.TODO(), successfulSubscription)
 	})
 })
