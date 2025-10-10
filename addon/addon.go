@@ -19,6 +19,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
+	"k8s.io/utils/clock"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"open-cluster-management.io/addon-framework/pkg/agent"
@@ -202,7 +203,7 @@ func applyManifestFromFile(file, clusterName, addonName string, kubeClient *kube
 		Group:       groups[0],
 	}
 
-	recorder := events.NewInMemoryRecorder("")
+	recorder := events.NewInMemoryRecorder("", clock.RealClock{})
 	results := resourceapply.ApplyDirectly(context.Background(),
 		resourceapply.NewKubeClientHolder(kubeClient),
 		recorder,
