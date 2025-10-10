@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/gomega"
 
@@ -42,6 +43,7 @@ import (
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	placementv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 	appSubStatusV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var cfg *rest.Config
@@ -52,6 +54,13 @@ var (
 	successfulPlacementDecisionKey types.NamespacedName
 	successfulPlacementRule        *placementv1.PlacementRule
 	successfulPlacementDecision    *clusterapi.PlacementDecision
+)
+
+var (
+	mcmmgr                       manager.Manager
+	errMgr                       error
+	sutPropagationTestClient     client.Client
+	sutPropagationTestReconciler reconcile.Reconciler
 )
 
 func TestMain(m *testing.M) {
@@ -73,6 +82,33 @@ func TestMain(m *testing.M) {
 	if cfg, err = t.Start(); err != nil {
 		log.Fatal(err)
 	}
+
+	mcmmgr, errMgr = manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+
+	if errMgr != nil {
+		log.Fatal(errMgr)
+	}
+
+	sutPropagationTestClient = mcmmgr.GetClient()
+	sutPropagationTestReconciler = newReconciler(mcmmgr)
+
+	ctrlErr := add(mcmmgr, sutPropagationTestReconciler)
+
+	if ctrlErr != nil {
+		log.Fatal(ctrlErr)
+	}
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mcmmgr, nil)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
 
 	var c client.Client
 

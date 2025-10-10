@@ -20,7 +20,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	appsubReportV1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1alpha1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

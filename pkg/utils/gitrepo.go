@@ -39,7 +39,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	"strings"
 
@@ -718,7 +718,10 @@ type SkipFunc func(string, string) bool
 
 // SortResources sorts kube resources into different arrays for processing them later.
 func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string]string, map[string]string, []string, []string, []string, error) {
-	klog.V(4).Info("Git repo subscription directory: ", resourcePath)
+	//wait for 2 seconds until the local repo clone is ready.
+	time.Sleep(2 * time.Second)
+
+	klog.Info("Git repo subscription directory: ", resourcePath)
 
 	var skip SkipFunc
 

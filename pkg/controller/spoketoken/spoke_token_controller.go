@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -87,7 +87,7 @@ type applicationManagerSecretMapper struct {
 	client.Client
 }
 
-func (mapper *applicationManagerSecretMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+func (mapper *applicationManagerSecretMapper) Map(ctx context.Context, obj *corev1.Secret) []reconcile.Request {
 	var requests []reconcile.Request
 
 	// reconcile App addon application-manager SA if its associated secret changes
@@ -107,13 +107,25 @@ func (mapper *applicationManagerSecretMapper) Map(ctx context.Context, obj clien
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	klog.Info("Adding klusterlet token controller.")
 	// Create a new controller
-	c, err := controller.New("klusterlet-token-controller", mgr, controller.Options{Reconciler: r})
+	skipValidation := true
+	c, err := controller.New("klusterlet-token-controller", mgr, controller.Options{
+		Reconciler:         r,
+		SkipNameValidation: &skipValidation,
+	})
+
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to  App Addon application-manager service account.
-	err = c.Watch(source.Kind(mgr.GetCache(), &corev1.ServiceAccount{}), &handler.EnqueueRequestForObject{}, utils.ServiceAccountPredicateFunctions)
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.ServiceAccount{},
+			&handler.TypedEnqueueRequestForObject[*corev1.ServiceAccount]{},
+			utils.ServiceAccountPredicateFunctions,
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -121,9 +133,13 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// watch for changes to the secrets associated to the App Addon application-manager SA
 	saSecretMapper := &applicationManagerSecretMapper{mgr.GetClient()}
 	err = c.Watch(
-		source.Kind(mgr.GetCache(), &corev1.Secret{}),
-		handler.EnqueueRequestsFromMapFunc(saSecretMapper.Map),
-		applicationManagerSecretPredicateFunctions)
+		source.Kind(
+			mgr.GetCache(),
+			&corev1.Secret{},
+			handler.TypedEnqueueRequestsFromMapFunc(saSecretMapper.Map),
+			applicationManagerSecretPredicateFunctions,
+		),
+	)
 
 	if err != nil {
 		return err
@@ -428,12 +444,9 @@ func (r *ReconcileAgentToken) getKubeAPIServerAddress() (string, error) {
 }
 
 // detect if there is any change to the secret associated to the App Addon application-manager SA.
-var applicationManagerSecretPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newSecret, ok := e.ObjectNew.(*corev1.Secret)
-		if !ok {
-			return false
-		}
+var applicationManagerSecretPredicateFunctions = predicate.TypedFuncs[*corev1.Secret]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*corev1.Secret]) bool {
+		newSecret := e.ObjectNew
 
 		if newSecret.Namespace != appAddonNS {
 			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)
@@ -449,11 +462,8 @@ var applicationManagerSecretPredicateFunctions = predicate.Funcs{
 
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
-		newSecret, ok := e.Object.(*corev1.Secret)
-		if !ok {
-			return false
-		}
+	CreateFunc: func(e event.TypedCreateEvent[*corev1.Secret]) bool {
+		newSecret := e.Object
 
 		if newSecret.Namespace != appAddonNS {
 			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)
@@ -469,11 +479,8 @@ var applicationManagerSecretPredicateFunctions = predicate.Funcs{
 
 		return false
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		newSecret, ok := e.Object.(*corev1.Secret)
-		if !ok {
-			return false
-		}
+	DeleteFunc: func(e event.TypedDeleteEvent[*corev1.Secret]) bool {
+		newSecret := e.Object
 
 		if newSecret.Namespace != appAddonNS {
 			klog.Infof("secret namespace not matched, appAddonNS= %v", appAddonNS)

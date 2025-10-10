@@ -18,7 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
+	"k8s.io/utils/clock"
 	"open-cluster-management.io/addon-framework/pkg/addonfactory"
 	"open-cluster-management.io/addon-framework/pkg/addonmanager"
 	"open-cluster-management.io/addon-framework/pkg/agent"
@@ -202,7 +203,7 @@ func applyManifestFromFile(file, clusterName, addonName string, kubeClient *kube
 		Group:       groups[0],
 	}
 
-	recorder := events.NewInMemoryRecorder("")
+	recorder := events.NewInMemoryRecorder("", clock.RealClock{})
 	results := resourceapply.ApplyDirectly(context.Background(),
 		resourceapply.NewKubeClientHolder(kubeClient),
 		recorder,
@@ -245,8 +246,7 @@ func NewAddonManager(mgr manager.Manager, kubeConfig *rest.Config, agentImage st
 		klog.Errorf("unable to create kube client: %v", err)
 		return addonMgr, err
 	}
-
-	addonGetter := addonfactory.NewAddOnDeloymentConfigGetter(addonClient)
+	addonGetter := addonfactory.NewAddOnDeploymentConfigGetter(addonClient)
 
 	agentFactory := addonfactory.NewAgentAddonFactory(AppMgrAddonName, ChartFS, ChartDir).
 		// register the supported configuration types
@@ -259,7 +259,7 @@ func NewAddonManager(mgr manager.Manager, kubeConfig *rest.Config, agentImage st
 			// get the AddOnDeloymentConfig object and transform nodeSelector and toleration defined in spec.NodePlacement to Values object
 			// transform request/limit memory defined in Spec.CustomizedVariables to values object
 			// transform proxyConfig to values object
-			addonfactory.GetAddOnDeloymentConfigValues(
+			addonfactory.GetAddOnDeploymentConfigValues(
 				addonGetter,
 				addonfactory.ToAddOnNodePlacementValues,
 				toAddonResources,
