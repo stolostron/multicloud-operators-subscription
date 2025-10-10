@@ -19,7 +19,7 @@ import (
 
 	"github.com/spf13/pflag"
 
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	"open-cluster-management.io/multicloud-operators-subscription/cmd/manager/exec"
 )

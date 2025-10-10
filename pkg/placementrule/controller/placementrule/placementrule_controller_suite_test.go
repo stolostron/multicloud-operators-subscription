@@ -33,7 +33,9 @@ import (
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 )
 
-var cfg *rest.Config
+var (
+	cfg *rest.Config
+)
 
 func TestMain(m *testing.M) {
 	t := &envtest.Environment{
