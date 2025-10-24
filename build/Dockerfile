@@ -1,5 +1,5 @@
 FROM registry.ci.openshift.org/stolostron/builder:go1.24-linux AS plugin-builder
-ENV POLICY_GENERATOR_TAG=release-2.14
+ENV POLICY_GENERATOR_TAG=release-2.15
 
 WORKDIR /go/src/github.com/open-cluster-management/multicloud-operators-subscription
 COPY . .
