@@ -2,9 +2,10 @@ FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.23 AS plu
 
 WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
+
 RUN rm -fr vendor && \
         go mod vendor && \
-        make -f Makefile build
+        make build
 
 
 WORKDIR /appsub
@@ -22,11 +23,24 @@ RUN cd "./external/policy-generator-plugin" && \
         go mod vendor && \
         make build-binary
 
+# Build a policy generator plugin RHEL8 binary that can be mounted to other containers
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.24 AS plugin-builder-rhel8
+
+WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
+COPY . .
+
+RUN git submodule update --init
+
+RUN cd "./external/policy-generator-plugin" && \
+        rm -fr vendor && \
+        go mod vendor && \
+        make build-binary && \
+        mv PolicyGenerator PolicyGenerator-rhel8
+
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
-RUN  microdnf update -y \ 
-        && microdnf install -y git-core \
-        && microdnf install -y openssh-clients \
+RUN  microdnf update -y \
+        && microdnf install -y git-core openssh-clients \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
@@ -34,7 +48,8 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
         USER_NAME=multicluster-operators-subscription \
         ZONEINFO=/usr/share/timezone \
         KUSTOMIZE_PLUGIN_HOME=/etc/kustomize/plugin \
-        POLICY_GEN_ENABLE_HELM=true
+        POLICY_GEN_ENABLE_HELM=true \
+        APPSUB_BUILD_DIR=/go/src/github.com/stolostron/multicluster-operators-subscription
 
 LABEL \
     name="multicloud-operators-subscription" \
@@ -49,15 +64,21 @@ LABEL \
     io.openshift.tags="mce acm multicloud-operators-subscription"
 
 # install operator binary
-COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
-COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/multicluster-operators-placementrule /usr/local/bin/
-COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/uninstall-crd /usr/local/bin/
-COPY --from=plugin-builder /go/src/github.com/stolostron/multicluster-operators-subscription/build/_output/bin/appsubsummary /usr/local/bin/
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/build/_output/bin/multicluster-operators-subscription ${OPERATOR}
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/build/_output/bin/multicluster-operators-placementrule /usr/local/bin/
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/build/_output/bin/uninstall-crd /usr/local/bin/
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/build/_output/bin/appsubsummary /usr/local/bin/
 
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
-COPY --from=plugin-builder /appsub/external/policy-generator-plugin/PolicyGenerator $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
-COPY --from=plugin-builder /appsub/external/helm/bin/helm /usr/local/bin/
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/external/policy-generator-plugin/PolicyGenerator $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
+COPY --from=plugin-builder ${APPSUB_BUILD_DIR}/external/helm/bin/helm /usr/local/bin/
+
+# make available a RHEL8 policy generator binary for mounting in other containers
+RUN mkdir /policy-generator
+COPY --from=plugin-builder-rhel8 ${APPSUB_BUILD_DIR}/external/policy-generator-plugin/PolicyGenerator /policy-generator/PolicyGenerator-rhel8
+# Symlink to the old binary name for compatibility
+RUN ln -s /policy-generator/PolicyGenerator-rhel8 /policy-generator/PolicyGenerator-not-fips-compliant
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
