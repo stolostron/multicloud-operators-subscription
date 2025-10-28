@@ -30,7 +30,7 @@ RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-bina
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
 RUN  microdnf update -y \
-        && microdnf install -y git-core openssh-clients \
+        && microdnf install -y git-core openssh-clients tzdata \
         && microdnf clean all
 
 ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
