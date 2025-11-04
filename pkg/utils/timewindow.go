@@ -17,7 +17,9 @@ package utils
 import (
 	"sort"
 	"strings"
+
 	"time"
+	_ "time/tzdata" // This line embeds the timezone database.
 
 	"k8s.io/klog"
 
@@ -115,7 +117,8 @@ func UnifyTimeZone(tw *appv1alpha1.TimeWindow, t time.Time) time.Time {
 func getLoc(loc string) *time.Location {
 	l, err := time.LoadLocation(loc)
 	if err != nil {
-		klog.Errorf("Error %v while parsing the location string \"%v\", will UTC as location reference %v ", err, loc, l)
+		klog.Errorf("Error %v while parsing the location string \"%v\", will use UTC as location reference", err, loc)
+		return time.UTC
 	}
 
 	return l
