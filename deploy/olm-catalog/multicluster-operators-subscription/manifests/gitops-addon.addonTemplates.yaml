@@ -4,13 +4,6 @@ metadata:
   name: gitops-addon
 spec:
   addonName: gitops-addon
-  registration:
-    - type: CustomSigner
-      customSigner:
-        signerName: open-cluster-management.io/argocd-agent-addon
-        signingCA:
-          name: argocd-agent-ca
-          namespace: openshift-gitops
   agentSpec:
       workload:
         manifests:
@@ -61,20 +54,6 @@ spec:
                           value: '{{REDIS_IMAGE}}'
                         - name: RECONCILE_SCOPE
                           value: '{{RECONCILE_SCOPE}}'
-                        - name: UNINSTALL
-                          value: '{{UNINSTALL}}'
-                        - name: ARGOCD_AGENT_ENABLED
-                          value: '{{ARGOCD_AGENT_ENABLED}}'
-                        - name: ARGOCD_AGENT_IMAGE
-                          value: '{{ARGOCD_AGENT_IMAGE}}'
-                        - name: ARGOCD_AGENT_SERVER_ADDRESS
-                          value: '{{ARGOCD_AGENT_SERVER_ADDRESS}}'
-                        - name: ARGOCD_AGENT_SERVER_PORT
-                          value: '{{ARGOCD_AGENT_SERVER_PORT}}'
-                        - name: ARGOCD_AGENT_MODE
-                          value: '{{ARGOCD_AGENT_MODE}}'
-                        - name: ARGOCD_AGENT_UNINSTALL
-                          value: '{{ARGOCD_AGENT_UNINSTALL}}'
                   volumes:
                     - name: tmp-volume
                       emptyDir: {}
