@@ -7,6 +7,33 @@ spec:
   agentSpec:
       workload:
         manifests:
+          - kind: Job
+            apiVersion: batch/v1
+            metadata:
+              name: gitops-addon-cleanup
+              namespace: open-cluster-management-agent-addon
+              annotations:
+                addon.open-cluster-management.io/addon-pre-delete: ""
+            spec:
+              backoffLimit: 3
+              activeDeadlineSeconds: 600
+              template:
+                spec:
+                  serviceAccountName: gitops-addon
+                  restartPolicy: Never
+                  containers:
+                    - name: cleanup
+                      image: quay.io/stolostron/multicloud-integrations:latest
+                      imagePullPolicy: IfNotPresent
+                      command:
+                      - /usr/local/bin/gitopsaddon
+                      args:
+                      - "-cleanup"
+                      env:
+                        - name: GITOPS_OPERATOR_NAMESPACE
+                          value: '{{GITOPS_OPERATOR_NAMESPACE}}'
+                        - name: GITOPS_NAMESPACE
+                          value: '{{GITOPS_NAMESPACE}}'
           - kind: Deployment
             apiVersion: apps/v1
             metadata:
