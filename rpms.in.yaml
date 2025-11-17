@@ -12,6 +12,7 @@ packages:
   - findutils
   - git-core
   - openssh-clients
+  - openssl-libs
 context:
   containerfile: Dockerfile.rhtap
 arches:
