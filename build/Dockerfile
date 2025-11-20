@@ -1,11 +1,11 @@
-FROM registry.ci.openshift.org/stolostron/builder:go1.23-linux AS plugin-builder
+FROM registry.ci.openshift.org/stolostron/builder:go1.24-linux AS plugin-builder
 ENV POLICY_GENERATOR_TAG=release-2.11
 
 WORKDIR /go/src/github.com/open-cluster-management/multicloud-operators-subscription
 COPY . .
 RUN make -f Makefile build
 
-WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.14.4
+WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.18.6
 RUN CGO_ENABLED=1 make build
 
 WORKDIR /policy-generator
@@ -40,7 +40,7 @@ COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
 COPY --from=plugin-builder /policy-generator/PolicyGenerator $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
-COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.14.4/bin/helm /usr/local/bin/
+COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.18.6/bin/helm /usr/local/bin/
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup

@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	clusterapi "open-cluster-management.io/api/cluster/v1beta1"
 	appSubV1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
