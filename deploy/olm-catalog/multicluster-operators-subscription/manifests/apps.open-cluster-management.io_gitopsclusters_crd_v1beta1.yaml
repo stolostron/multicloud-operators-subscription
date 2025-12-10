@@ -119,6 +119,49 @@ spec:
                     description: GitOpsOperatorNamespace specifies the GitOps operator
                       namespace. Default is empty.
                     type: string
+                  olmSubscription:
+                    description: |-
+                      OLMSubscription defines the configuration for deploying the full OLM-managed
+                      OpenShift GitOps operator instead of the lightweight helm-based deployment.
+                      This is only supported on OpenShift ManagedClusters with OLM installed.
+                      When enabled, this takes precedence over the helm-based deployment.
+                      Requires gitopsAddon.enabled to be true.
+                    properties:
+                      channel:
+                        description: Channel is the OLM channel. Default is "stable".
+                        type: string
+                      enabled:
+                        default: false
+                        description: |-
+                          Enabled indicates whether to deploy via OLM Subscription. Default is false.
+                          When enabled, the full OLM-managed OpenShift GitOps operator is deployed
+                          instead of the lightweight helm-based operator.
+                        type: boolean
+                      installPlanApproval:
+                        description: |-
+                          InstallPlanApproval determines if InstallPlans should be automatically approved.
+                          Default is "Automatic".
+                        enum:
+                        - Automatic
+                        - Manual
+                        type: string
+                      name:
+                        description: Name is the name of the Subscription. Default
+                          is "openshift-gitops-operator".
+                        type: string
+                      namespace:
+                        description: Namespace is the namespace for the Subscription.
+                          Default is "openshift-operators".
+                        type: string
+                      source:
+                        description: Source is the CatalogSource name. Default is
+                          "redhat-operators".
+                        type: string
+                      sourceNamespace:
+                        description: SourceNamespace is the CatalogSource namespace.
+                          Default is "openshift-marketplace".
+                        type: string
+                    type: object
                   overrideExistingConfigs:
                     default: false
                     description: |-
