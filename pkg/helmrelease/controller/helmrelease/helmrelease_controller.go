@@ -27,23 +27,18 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
-	libpredicate "github.com/operator-framework/operator-lib/predicate"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/kube"
 	rpb "helm.sh/helm/v3/pkg/release"
 	"helm.sh/helm/v3/pkg/releaseutil"
 	"helm.sh/helm/v3/pkg/storage/driver"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -62,7 +57,7 @@ import (
 const (
 	finalizer = "uninstall-helm-release"
 
-	defaultMaxConcurrent = 2
+	defaultMaxConcurrent = 1
 )
 
 // Add creates a new HelmRelease Controller and adds it to the Manager. The Manager will set fields on the Controller
@@ -92,19 +87,30 @@ func Add(mgr manager.Manager) error {
 	klog.Info("The MaxConcurrentReconciles is set to: ", defaultMaxConcurrent)
 
 	// Create a new controller
-	c, err := controller.New("helmrelease-controller", mgr, controller.Options{Reconciler: r, MaxConcurrentReconciles: defaultMaxConcurrent})
+	skipValidation := true
+	c, err := controller.New("helmrelease-controller", mgr, controller.Options{
+		Reconciler:              r,
+		MaxConcurrentReconciles: defaultMaxConcurrent,
+		SkipNameValidation:      &skipValidation,
+	})
+
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to primary resource HelmRelease
-	if err := c.Watch(source.Kind(mgr.GetCache(), &appv1.HelmRelease{}), &handler.EnqueueRequestForObject{},
-		predicate.GenerationChangedPredicate{}); err != nil {
+	if err := c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&appv1.HelmRelease{},
+			&handler.TypedEnqueueRequestForObject[*appv1.HelmRelease]{},
+			predicate.TypedGenerationChangedPredicate[*appv1.HelmRelease]{},
+		),
+	); err != nil {
 		return err
 	}
 
-	watchDependentResources(mgr, r, c)
-
+	// remove watchDependentResources func as we won't need to watch resources deployed by the helmRelease
 	return nil
 }
 
@@ -1078,82 +1084,4 @@ func joinErrors(errs []error) string {
 	}
 
 	return strings.Join(es, "; ")
-}
-
-// coped and modified from https://github.com/operator-framework/operator-sdk/blob/v1.22.0/internal/helm/controller/controller.go
-func watchDependentResources(mgr manager.Manager, r *ReconcileHelmRelease, c controller.Controller) {
-	owner := &appv1.HelmRelease{}
-
-	var m sync.RWMutex
-
-	watches := map[schema.GroupVersionKind]struct{}{}
-	releaseHook := func(release *rpb.Release) error {
-		resources := releaseutil.SplitManifests(release.Manifest)
-
-		if len(resources) == 0 {
-			klog.Warning("Failed to find resources for release ", release.Name)
-		}
-
-		for _, resource := range resources {
-			var u unstructured.Unstructured
-			if err := yaml.Unmarshal([]byte(resource), &u); err != nil {
-				return err
-			}
-
-			gvk := u.GroupVersionKind()
-			if gvk.Empty() {
-				continue
-			}
-
-			var setWatchOnResource = func(dependent runtime.Object) error {
-				unstructuredObj := dependent.(*unstructured.Unstructured)
-
-				gvkDependent := unstructuredObj.GroupVersionKind()
-				if gvkDependent.Empty() {
-					return nil
-				}
-
-				m.RLock()
-				_, ok := watches[gvkDependent]
-				m.RUnlock()
-				if ok {
-					return nil
-				}
-
-				err := c.Watch(source.Kind(mgr.GetCache(), unstructuredObj), handler.EnqueueRequestForOwner(mgr.GetScheme(), mgr.GetRESTMapper(), owner),
-					libpredicate.DependentPredicate{})
-				if err != nil {
-					return err
-				}
-
-				m.Lock()
-				watches[gvkDependent] = struct{}{}
-				m.Unlock()
-				klog.Info("Watching dependent resource ownerApiVersion ", owner.GroupVersionKind().GroupVersion(),
-					" ownerKind ", owner.GroupVersionKind().Kind, " apiVersion ", gvkDependent.GroupVersion(), " kind ", gvkDependent.Kind)
-				return nil
-			}
-
-			// List is not actually a resource and therefore cannot have a
-			// watch on it. The watch will be on the kinds listed in the list
-			// and will therefore need to be handled individually.
-			listGVK := schema.GroupVersionKind{Group: "", Version: "v1", Kind: "List"}
-			if gvk == listGVK {
-				errListItem := u.EachListItem(func(obj runtime.Object) error {
-					return setWatchOnResource(obj)
-				})
-				if errListItem != nil {
-					return errListItem
-				}
-			} else {
-				err := setWatchOnResource(&u)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		return nil
-	}
-	r.releaseHook = releaseHook
 }

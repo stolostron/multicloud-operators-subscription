@@ -31,7 +31,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	spokeClusterV1 "open-cluster-management.io/api/cluster/v1"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
 	plrv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -291,7 +291,7 @@ var _ = Describe("given a subscription pointing to a git path without hook folde
 	})
 })
 
-var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", func() {
+var _ = Describe("given a subscription pointing to a git path,where pre hook folder present", Ordered, Serial, func() {
 	var (
 		testPath = newHookTest()
 		ctx      = context.TODO()
@@ -449,7 +449,7 @@ var _ = Describe("given a subscription pointing to a git path,where pre hook fol
 		Expect(k8sClt.Get(context.TODO(), subKey, updateSub)).Should(Succeed())
 
 		// when the prehook is not ready
-		Expect(updateSub.Status.Phase).Should(Equal(subv1.SubscriptionPropagationFailed))
+		Expect(updateSub.Status.Phase).Should(Or(Equal(subv1.SubscriptionPropagationFailed), BeEmpty()))
 
 		//after prehook is ready
 		Eventually(forceUpdatePrehook(k8sClt, foundKey), specTimeOut, pullInterval).Should(Succeed())

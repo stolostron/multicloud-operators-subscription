@@ -50,7 +50,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -73,15 +73,10 @@ var (
 )
 
 // PlacementDecisionPredicateFunctions filters PlacementDecision status decisions update
-var PlacementDecisionPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newPd, newOK := e.ObjectNew.(*clusterapi.PlacementDecision)
-		oldPd, oldOK := e.ObjectOld.(*clusterapi.PlacementDecision)
-
-		if !newOK || !oldOK {
-			klog.Infof("not placementDecision object, skip....")
-			return false
-		}
+var PlacementDecisionPredicateFunctions = predicate.TypedFuncs[*clusterapi.PlacementDecision]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*clusterapi.PlacementDecision]) bool {
+		newPd := e.ObjectNew
+		oldPd := e.ObjectOld
 
 		if !reflect.DeepEqual(newPd.Status.Decisions, oldPd.Status.Decisions) {
 			klog.Infof("cluster Decision list updated old: %v, new:%v", oldPd.Status.Decisions, newPd.Status.Decisions)
@@ -90,11 +85,11 @@ var PlacementDecisionPredicateFunctions = predicate.Funcs{
 
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*clusterapi.PlacementDecision]) bool {
 		return true
 	},
 
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*clusterapi.PlacementDecision]) bool {
 		return true
 	},
 }
@@ -115,8 +110,8 @@ func IsSubscriptionResourceChanged(oSub, nSub *appv1.Subscription) bool {
 	return false
 }
 
-var AppSubSummaryPredicateFunc = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
+var AppSubSummaryPredicateFunc = predicate.TypedFuncs[*appsubReportV1alpha1.SubscriptionReport]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*appsubReportV1alpha1.SubscriptionReport]) bool {
 		klog.Info("UpdateFunc oldlabels:", e.ObjectOld.GetLabels())
 		var clusterLabel string
 		_, oldOK := e.ObjectOld.GetLabels()["apps.open-cluster-management.io/cluster"]
@@ -128,21 +123,12 @@ var AppSubSummaryPredicateFunc = predicate.Funcs{
 			return false
 		}
 
-		oldAppSubSummary, ok := e.ObjectOld.(*appsubReportV1alpha1.SubscriptionReport)
-		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, old: %v/%v", e.ObjectOld.GetNamespace(), e.ObjectOld.GetName())
-			return false
-		}
-
-		newAppSubSummary, ok := e.ObjectNew.(*appsubReportV1alpha1.SubscriptionReport)
-		if !ok {
-			klog.V(1).Infof("Not a valid managed cluster appSubPackageStatus, new: %v/%v", e.ObjectNew.GetNamespace(), e.ObjectNew.GetName())
-			return false
-		}
+		oldAppSubSummary := e.ObjectOld
+		newAppSubSummary := e.ObjectNew
 
 		return !equality.Semantic.DeepEqual(oldAppSubSummary, newAppSubSummary)
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*appsubReportV1alpha1.SubscriptionReport]) bool {
 		klog.Info("CreateFunc oldlabels:", e.Object.GetLabels())
 
 		var clusterLabel string
@@ -156,7 +142,7 @@ var AppSubSummaryPredicateFunc = predicate.Funcs{
 		klog.V(1).Infof("New managed cluster appSubPackageStatus created: %v/%v", e.Object.GetNamespace(), e.Object.GetName())
 		return true
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*appsubReportV1alpha1.SubscriptionReport]) bool {
 		klog.Info("DeleteFunc oldlabels:", e.Object.GetLabels())
 
 		var clusterLabel string
@@ -172,10 +158,10 @@ var AppSubSummaryPredicateFunc = predicate.Funcs{
 }
 
 // SubscriptionPredicateFunctions filters status update
-var SubscriptionPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		subOld := e.ObjectOld.(*appv1.Subscription)
-		subNew := e.ObjectNew.(*appv1.Subscription)
+var SubscriptionPredicateFunctions = predicate.TypedFuncs[*appv1.Subscription]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*appv1.Subscription]) bool {
+		subOld := e.ObjectOld
+		subNew := e.ObjectNew
 
 		return IsSubscriptionBasicChanged(subOld, subNew)
 	},
@@ -358,10 +344,10 @@ func isAnsibleStatusEqual(a, b appv1.AnsibleJobsStatus) bool {
 }
 
 // ChannelPredicateFunctions filters channel spec update
-var ChannelPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newChn := e.ObjectNew.(*chnv1.Channel)
-		oldChn := e.ObjectOld.(*chnv1.Channel)
+var ChannelPredicateFunctions = predicate.TypedFuncs[*chnv1.Channel]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*chnv1.Channel]) bool {
+		newChn := e.ObjectNew
+		oldChn := e.ObjectOld
 
 		oldAnnotations := oldChn.GetAnnotations()
 		newAnnotations := newChn.GetAnnotations()
@@ -372,19 +358,19 @@ var ChannelPredicateFunctions = predicate.Funcs{
 
 		return !reflect.DeepEqual(newChn.Spec, oldChn.Spec)
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*chnv1.Channel]) bool {
 		return true
 	},
 
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*chnv1.Channel]) bool {
 		return true
 	},
 }
 
 // ServiceAccountPredicateFunctions watches for App Addon SA changes
-var ServiceAccountPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newSA := e.ObjectNew.(*corev1.ServiceAccount)
+var ServiceAccountPredicateFunctions = predicate.TypedFuncs[*corev1.ServiceAccount]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*corev1.ServiceAccount]) bool {
+		newSA := e.ObjectNew
 
 		if strings.EqualFold(newSA.Namespace, addonServiceAccountNamespace) && strings.EqualFold(newSA.Name, addonServiceAccountName) {
 			klog.Infof("App Addon SA updated: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)
@@ -393,8 +379,8 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 
 		return false
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
-		sa := e.Object.(*corev1.ServiceAccount)
+	CreateFunc: func(e event.TypedCreateEvent[*corev1.ServiceAccount]) bool {
+		sa := e.Object
 
 		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
 			klog.Infof("App Addon SA created: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)
@@ -403,8 +389,8 @@ var ServiceAccountPredicateFunctions = predicate.Funcs{
 
 		return false
 	},
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		sa := e.Object.(*corev1.ServiceAccount)
+	DeleteFunc: func(e event.TypedDeleteEvent[*corev1.ServiceAccount]) bool {
+		sa := e.Object
 
 		if strings.EqualFold(sa.Namespace, addonServiceAccountNamespace) && strings.EqualFold(sa.Name, addonServiceAccountName) {
 			klog.Infof("App Addon SA deleted: %v/%v", addonServiceAccountNamespace, addonServiceAccountName)

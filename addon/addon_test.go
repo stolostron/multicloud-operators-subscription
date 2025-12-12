@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	appsv1 "k8s.io/api/apps/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -22,6 +23,7 @@ var (
 
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
+	_ = apiextensionsv1beta1.AddToScheme(scheme)
 }
 
 func newCluster(name string) *clusterv1.ManagedCluster {
