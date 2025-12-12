@@ -19,6 +19,9 @@ set -e
 ###!!!!!!!! On travis this script is run on the .git level
 echo -e "E2E TESTS GO HERE!"
 
+# Unset XDG_CACHE_HOME to let Go use its default cache location
+unset XDG_CACHE_HOME
+
 # need to find a way to use the Makefile to set these
 REGISTRY=quay.io/stolostron
 IMG=$(cat COMPONENT_NAME 2> /dev/null)

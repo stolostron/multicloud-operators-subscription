@@ -21,7 +21,7 @@ import (
 	"time"
 	_ "time/tzdata" // This line embeds the timezone database.
 
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )

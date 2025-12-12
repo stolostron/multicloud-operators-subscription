@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/util/retry"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -58,16 +58,25 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Enable the concurrent reconcile in case some placementrule could take longer to generate cluster decisions
+	skipValidation := true
 	c, err := controller.New("placementrule-controller", mgr, controller.Options{
 		Reconciler:              r,
 		MaxConcurrentReconciles: 1,
+		SkipNameValidation:      &skipValidation,
 	})
+
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to PlacementRule
-	err = c.Watch(source.Kind(mgr.GetCache(), &appv1alpha1.PlacementRule{}), &handler.EnqueueRequestForObject{})
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&appv1alpha1.PlacementRule{},
+			&handler.TypedEnqueueRequestForObject[*appv1alpha1.PlacementRule]{},
+		),
+	)
 	if err != nil {
 		return err
 	}
@@ -75,9 +84,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	if utils.IsReadyACMClusterRegistry(mgr.GetAPIReader()) {
 		cpMapper := &ClusterPlacementRuleMapper{mgr.GetClient()}
 		err = c.Watch(
-			source.Kind(mgr.GetCache(), &spokeClusterV1.ManagedCluster{}),
-			handler.EnqueueRequestsFromMapFunc(cpMapper.Map),
-			utils.ClusterPredicateFunc,
+			source.Kind(
+				mgr.GetCache(),
+				&spokeClusterV1.ManagedCluster{},
+				handler.TypedEnqueueRequestsFromMapFunc(cpMapper.Map),
+				utils.ClusterPredicateFunc,
+			),
 		)
 
 		if err != nil {
@@ -103,7 +115,7 @@ type ClusterPlacementRuleMapper struct {
 }
 
 // Map triggers all placements.
-func (mapper *ClusterPlacementRuleMapper) Map(ctx context.Context, obj client.Object) []reconcile.Request {
+func (mapper *ClusterPlacementRuleMapper) Map(ctx context.Context, obj *spokeClusterV1.ManagedCluster) []reconcile.Request {
 	plList := &appv1alpha1.PlacementRuleList{}
 
 	listopts := &client.ListOptions{}

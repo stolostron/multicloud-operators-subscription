@@ -21,7 +21,7 @@ import (
 	plrv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -34,18 +34,18 @@ import (
 )
 
 // PlacementRuleStatusPredicateFunctions filters PlacementRule status decisions update
-var placementRuleStatusPredicateFunctions = predicate.Funcs{
-	UpdateFunc: func(e event.UpdateEvent) bool {
-		newPlr := e.ObjectNew.(*plrv1.PlacementRule)
-		oldPlr := e.ObjectOld.(*plrv1.PlacementRule)
+var placementRuleStatusPredicateFunctions = predicate.TypedFuncs[*plrv1.PlacementRule]{
+	UpdateFunc: func(e event.TypedUpdateEvent[*plrv1.PlacementRule]) bool {
+		newPlr := e.ObjectNew
+		oldPlr := e.ObjectOld
 
 		return !reflect.DeepEqual(newPlr.Status.Decisions, oldPlr.Status.Decisions)
 	},
-	CreateFunc: func(e event.CreateEvent) bool {
+	CreateFunc: func(e event.TypedCreateEvent[*plrv1.PlacementRule]) bool {
 		return true
 	},
 
-	DeleteFunc: func(e event.DeleteEvent) bool {
+	DeleteFunc: func(e event.TypedDeleteEvent[*plrv1.PlacementRule]) bool {
 		return true
 	},
 }
@@ -63,17 +63,26 @@ func genReconciler(mgr manager.Manager) reconcile.Reconciler {
 }
 
 func addRec(mgr manager.Manager, r reconcile.Reconciler) error {
+	skipValidation := true
 	c, err := controller.New("placementrule-status-controller", mgr, controller.Options{
 		Reconciler:              r,
 		MaxConcurrentReconciles: 1,
+		SkipNameValidation:      &skipValidation,
 	})
+
 	if err != nil {
 		return err
 	}
 
 	// Watch for changes to PlacementRule Status
-	err = c.Watch(source.Kind(mgr.GetCache(), &plrv1.PlacementRule{}), &handler.EnqueueRequestForObject{},
-		placementRuleStatusPredicateFunctions)
+	err = c.Watch(
+		source.Kind(
+			mgr.GetCache(),
+			&plrv1.PlacementRule{},
+			&handler.TypedEnqueueRequestForObject[*plrv1.PlacementRule]{},
+			placementRuleStatusPredicateFunctions,
+		),
+	)
 	if err != nil {
 		return err
 	}

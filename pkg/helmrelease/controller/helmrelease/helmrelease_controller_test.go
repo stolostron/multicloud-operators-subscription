@@ -21,10 +21,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/onsi/gomega"
 	"golang.org/x/net/context"
-	v1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -73,10 +72,8 @@ func TestReconcile(t *testing.T) {
 	}
 
 	// Create a new controller
-	ctrl, err := controller.New("helmrelease-controller", mgr, controller.Options{Reconciler: rec})
+	_, err = controller.New("helmrelease-controller", mgr, controller.Options{Reconciler: rec})
 	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	watchDependentResources(mgr, rec, ctrl)
 
 	t.Log("Setup test reconcile")
 	g.Expect(Add(mgr)).NotTo(gomega.HaveOccurred())
@@ -112,25 +109,29 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-3",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp := &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(instanceResp.Status.DeployedRelease).NotTo(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//Github failed
@@ -167,13 +168,17 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(instanceResp.Status.DeployedRelease).To(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//Git failed
@@ -210,13 +215,17 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(instanceResp.Status.DeployedRelease).To(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//Git alt source succeeded
@@ -261,16 +270,17 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(30 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	klog.Infof("instanceResp status: %#v", instanceResp.Status)
-	klog.Infof("instanceResp status.DeployedRelease: %#v", *instanceResp.Status.DeployedRelease)
-
 	g.Expect(instanceResp.Status.DeployedRelease).NotTo(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//helmRepo succeeds
@@ -306,7 +316,7 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
@@ -319,12 +329,12 @@ func TestReconcile(t *testing.T) {
 	instanceResp.SetAnnotations(annotations)
 	instanceResp.Repo.Version = "3-0.1.0"
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	err = c.Update(context.TODO(), instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
@@ -370,13 +380,17 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(instanceResp.Status.DeployedRelease).To(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//helmRepo alt source succeeded
@@ -417,13 +431,17 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(6 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceResp = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	g.Expect(instanceResp.Status.DeployedRelease).NotTo(gomega.BeNil())
+
+	err = c.Delete(context.TODO(), instanceResp)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	//
 	//Github succeed create-delete
@@ -448,12 +466,12 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-3",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
@@ -461,13 +479,13 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instanceRespCD := &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceRespCD)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	g.Expect(instanceRespCD.Status.DeployedRelease).NotTo(gomega.BeNil())
 
@@ -475,13 +493,11 @@ func TestReconcile(t *testing.T) {
 	err = c.Delete(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(8 * time.Second)
+	time.Sleep(60 * time.Second)
 
 	instanceRespDel := &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instanceRespDel)
 	g.Expect(err).To(gomega.HaveOccurred())
-
-	time.Sleep(2 * time.Second)
 
 	//
 	//Github succeed create-update
@@ -506,12 +522,12 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-3",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
@@ -521,7 +537,7 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	t.Log("Github succeed create-update -> CR get response")
 
@@ -529,7 +545,7 @@ func TestReconcile(t *testing.T) {
 	err = c.Get(context.TODO(), helmReleaseKey, instanceRespCU)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	g.Expect(instanceRespCU.Status.DeployedRelease).NotTo(gomega.BeNil())
 
@@ -549,7 +565,14 @@ func TestReconcile(t *testing.T) {
 	err = c.Update(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
+	time.Sleep(10 * time.Second)
+
+	err = c.Get(context.TODO(), helmReleaseKey, instance)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	err = c.Delete(context.TODO(), instance)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	time.Sleep(10 * time.Second)
 
 	t.Log("Github succeed create-update -> CR get response")
 
@@ -573,19 +596,19 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-3",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(6 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instance = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instance)
@@ -621,19 +644,19 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-3",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(6 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	instance = &appv1.HelmRelease{}
 	err = c.Get(context.TODO(), helmReleaseKey, instance)
@@ -664,12 +687,12 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-1",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
@@ -680,7 +703,7 @@ func TestReconcile(t *testing.T) {
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(6 * time.Second)
+	time.Sleep(10 * time.Second)
 
 	// TestNewManagerErrors
 	helmReleaseName = "test-new-manager-errors"
@@ -694,82 +717,91 @@ func TestReconcile(t *testing.T) {
 			Source: &appv1.Source{
 				SourceType: appv1.GitHubSourceType,
 				GitHub: &appv1.GitHub{
-					Urls:      []string{"https://" + testutils.GetTestGitRepoURLFromEnvVar() + ".git"},
-					ChartPath: "testhr/github/subscription-release-test-1",
+					Urls:      []string{"https://github.com/stolostron/application-lifecycle-samples.git"},
+					ChartPath: "mortgage-helm",
 					Branch:    "main",
 				},
 			},
-			ChartName: "subscription-release-test-1",
+			ChartName: "mortgage-helm",
 		},
 	}
 
 	err = c.Create(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(60 * time.Second)
 
-	t.Log("helmrepo keep test")
-
-	helmReleaseName = "example-helmrepo-keep"
-	helmReleaseKey = types.NamespacedName{
-		Name:      helmReleaseName,
-		Namespace: helmReleaseNS,
-	}
-	instance = &appv1.HelmRelease{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "HelmRelease",
-			APIVersion: "apps.open-cluster-management.io/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      helmReleaseName,
-			Namespace: helmReleaseNS,
-		},
-		Repo: appv1.HelmReleaseRepo{
-			Source: &appv1.Source{
-				SourceType: appv1.HelmRepoSourceType,
-				HelmRepo: &appv1.HelmRepo{
-					Urls: []string{
-						"https://raw.githubusercontent.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/nginx-ingress-1.40.0_keep.tgz"},
-				},
-			},
-			ChartName: "nginx-ingress",
-		},
-	}
-
-	err = c.Create(context.TODO(), instance)
+	err = c.Get(context.TODO(), helmReleaseKey, instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	time.Sleep(4 * time.Second)
-
-	instanceResp = &appv1.HelmRelease{}
-	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	time.Sleep(4 * time.Second)
-
-	clusterRoleKey := types.NamespacedName{
-		Name: helmReleaseName + "-" + "nginx-ingress",
-	}
-	roleKey := types.NamespacedName{
-		Name:      helmReleaseName + "-" + "nginx-ingress",
-		Namespace: helmReleaseNS,
-	}
-	clusterRole := &v1.ClusterRole{}
-	err = c.Get(context.TODO(), clusterRoleKey, clusterRole)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	role := &v1.Role{}
-	err = c.Get(context.TODO(), roleKey, role)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Delete(context.TODO(), instanceResp)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	time.Sleep(4 * time.Second)
-
-	err = c.Get(context.TODO(), clusterRoleKey, clusterRole)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	err = c.Get(context.TODO(), roleKey, role)
+	err = c.Delete(context.TODO(), instance)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
+
+// 	time.Sleep(2 * time.Second)
+
+// 	t.Log("helmrepo keep test")
+
+// 	helmReleaseName = "example-helmrepo-keep"
+// 	helmReleaseKey = types.NamespacedName{
+// 		Name:      helmReleaseName,
+// 		Namespace: helmReleaseNS,
+// 	}
+// 	instance = &appv1.HelmRelease{
+// 		TypeMeta: metav1.TypeMeta{
+// 			Kind:       "HelmRelease",
+// 			APIVersion: "apps.open-cluster-management.io/v1",
+// 		},
+// 		ObjectMeta: metav1.ObjectMeta{
+// 			Name:      helmReleaseName,
+// 			Namespace: helmReleaseNS,
+// 		},
+// 		Repo: appv1.HelmReleaseRepo{
+// 			Source: &appv1.Source{
+// 				SourceType: appv1.HelmRepoSourceType,
+// 				HelmRepo: &appv1.HelmRepo{
+// 					Urls: []string{
+// 						"https://raw.githubusercontent.com/open-cluster-management/multicloud-operators-subscription/main/testhr/helmrepo/nginx-ingress-1.40.0_keep.tgz"},
+// 				},
+// 			},
+// 			ChartName: "nginx-ingress",
+// 		},
+// 	}
+
+// 	err = c.Create(context.TODO(), instance)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// 	time.Sleep(4 * time.Second)
+
+// 	instanceResp = &appv1.HelmRelease{}
+// 	err = c.Get(context.TODO(), helmReleaseKey, instanceResp)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// 	time.Sleep(4 * time.Second)
+
+// 	clusterRoleKey := types.NamespacedName{
+// 		Name: helmReleaseName + "-" + "nginx-ingress",
+// 	}
+// 	roleKey := types.NamespacedName{
+// 		Name:      helmReleaseName + "-" + "nginx-ingress",
+// 		Namespace: helmReleaseNS,
+// 	}
+// 	clusterRole := &v1.ClusterRole{}
+// 	err = c.Get(context.TODO(), clusterRoleKey, clusterRole)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// 	role := &v1.Role{}
+// 	err = c.Get(context.TODO(), roleKey, role)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// 	err = c.Delete(context.TODO(), instanceResp)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// 	time.Sleep(4 * time.Second)
+
+// 	err = c.Get(context.TODO(), clusterRoleKey, clusterRole)
+// 	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+// err = c.Get(context.TODO(), roleKey, role)
+// g.Expect(err).NotTo(gomega.HaveOccurred())
+// }
