@@ -46,6 +46,9 @@ jobs:
         run: |
           kind load docker-image --name=cluster1 quay.io/stolostron/multicloud-operators-subscription:latest
           kind load docker-image --name=hub quay.io/stolostron/multicloud-operators-subscription:latest
+          docker system df
+          docker system prune -a -f
+
       - name: Run e2e test
         run: |
           make test-e2e
