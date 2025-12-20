@@ -1,13 +1,15 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "schedule": "on Mondays",
+  "schedule": "on Monday",
   "enabledManagers": [
     "tekton",
     "git-submodules"
   ],
   "packageRules": [
     {
-      "matchDepNames": ["external/helm"],
+      "matchDepNames": [
+        "external/helm"
+      ],
       "allowedVersions": "<=3.19"
     }
   ]
