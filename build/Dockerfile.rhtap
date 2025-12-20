@@ -1,4 +1,4 @@
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.24 AS plugin-builder
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_9_1.25 AS plugin-builder
 
 WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
@@ -18,7 +18,7 @@ RUN VERSION="" ./build/build-binary.sh "external/helm" "CGO_ENABLED=1 make build
 RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
 
 # Build a policy generator plugin RHEL8 binary that can be mounted to other containers
-FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.24 AS plugin-builder-rhel8
+FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.25 AS plugin-builder-rhel8
 
 WORKDIR /go/src/github.com/stolostron/multicluster-operators-subscription
 COPY . .
