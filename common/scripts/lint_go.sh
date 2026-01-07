@@ -14,9 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.64.4
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
 export GOLANGCI_LINT_CACHE=/tmp/golangci-cache
-export GOROOT=`go env GOROOT`
+export GOROOT=$(go env GOROOT)
+export GOPATH=$(go env GOPATH)
 rm -rf $GOLANGCI_LINT_CACHE
-GOGC=25 golangci-lint run -c ./common/config/.golangci.yml
+GOGC=25 "${GOPATH}/bin/golangci-lint" run -c ./common/config/.golangci.yml
