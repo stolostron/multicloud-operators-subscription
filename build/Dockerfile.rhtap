@@ -43,7 +43,7 @@ ENV OPERATOR=/usr/local/bin/multicluster-operators-subscription \
 
 LABEL \
     name="rhacm2/multicluster-operators-subscription-rhel9" \
-    cpe="cpe:/a:redhat:acm:2.15::el9" \
+    cpe="cpe:/a:redhat:acm:2.16::el9" \
     com.redhat.component="multicloud-operators-subscription" \
     description="multicluster subscription controller" \
     maintainer="acm-contact@redhat.com" \
