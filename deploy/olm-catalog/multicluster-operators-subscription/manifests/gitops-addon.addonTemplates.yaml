@@ -1,3 +1,4 @@
+# should sync with the subscription/installer repo
 apiVersion: addon.open-cluster-management.io/v1alpha1
 kind: AddOnTemplate
 metadata:
@@ -30,10 +31,10 @@ spec:
                       args:
                       - "-cleanup"
                       env:
-                        - name: GITOPS_OPERATOR_NAMESPACE
-                          value: '{{GITOPS_OPERATOR_NAMESPACE}}'
-                        - name: GITOPS_NAMESPACE
-                          value: '{{GITOPS_NAMESPACE}}'
+                        - name: GITOPS_OPERATOR_IMAGE
+                          value: '{{GITOPS_OPERATOR_IMAGE}}'
+                        - name: ARGOCD_IMAGE
+                          value: '{{ARGOCD_IMAGE}}'
           - kind: Deployment
             apiVersion: apps/v1
             metadata:
@@ -71,16 +72,42 @@ spec:
                       env:
                         - name: GITOPS_OPERATOR_IMAGE
                           value: '{{GITOPS_OPERATOR_IMAGE}}'
-                        - name: GITOPS_OPERATOR_NAMESPACE
-                          value: '{{GITOPS_OPERATOR_NAMESPACE}}'
-                        - name: GITOPS_IMAGE
-                          value: '{{GITOPS_IMAGE}}'
-                        - name: GITOPS_NAMESPACE
-                          value: '{{GITOPS_NAMESPACE}}'
-                        - name: REDIS_IMAGE
-                          value: '{{REDIS_IMAGE}}'
-                        - name: RECONCILE_SCOPE
-                          value: '{{RECONCILE_SCOPE}}'
+                        - name: ARGOCD_IMAGE
+                          value: '{{ARGOCD_IMAGE}}'
+                        - name: ARGOCD_REPOSERVER_IMAGE
+                          value: '{{ARGOCD_REPOSERVER_IMAGE}}'
+                        - name: ARGOCD_REDIS_IMAGE
+                          value: '{{ARGOCD_REDIS_IMAGE}}'
+                        - name: ARGOCD_REDIS_HA_IMAGE
+                          value: '{{ARGOCD_REDIS_HA_IMAGE}}'
+                        - name: ARGOCD_REDIS_HA_PROXY_IMAGE
+                          value: '{{ARGOCD_REDIS_HA_PROXY_IMAGE}}'
+                        - name: ARGOCD_DEX_IMAGE
+                          value: '{{ARGOCD_DEX_IMAGE}}'
+                        - name: BACKEND_IMAGE
+                          value: '{{BACKEND_IMAGE}}'
+                        - name: GITOPS_CONSOLE_PLUGIN_IMAGE
+                          value: '{{GITOPS_CONSOLE_PLUGIN_IMAGE}}'
+                        - name: ARGOCD_EXTENSION_IMAGE
+                          value: '{{ARGOCD_EXTENSION_IMAGE}}'
+                        - name: ARGO_ROLLOUTS_IMAGE
+                          value: '{{ARGO_ROLLOUTS_IMAGE}}'
+                        - name: ARGOCD_IMAGE_UPDATER_IMAGE
+                          value: '{{ARGOCD_IMAGE_UPDATER_IMAGE}}'
+                        - name: HTTP_PROXY
+                          value: '{{HTTP_PROXY}}'
+                        - name: HTTPS_PROXY
+                          value: '{{HTTPS_PROXY}}'
+                        - name: NO_PROXY
+                          value: '{{NO_PROXY}}'
+                        - name: ARGOCD_AGENT_ENABLED
+                          value: '{{ARGOCD_AGENT_ENABLED}}'
+                        - name: ARGOCD_AGENT_SERVER_ADDRESS
+                          value: '{{ARGOCD_AGENT_SERVER_ADDRESS}}'
+                        - name: ARGOCD_AGENT_SERVER_PORT
+                          value: '{{ARGOCD_AGENT_SERVER_PORT}}'
+                        - name: ARGOCD_AGENT_MODE
+                          value: '{{ARGOCD_AGENT_MODE}}'
                   volumes:
                     - name: tmp-volume
                       emptyDir: {}

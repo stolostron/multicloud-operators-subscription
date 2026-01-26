@@ -74,10 +74,6 @@ spec:
                         description: Enabled indicates whether the ArgoCD agent is
                           enabled. Default is false.
                         type: boolean
-                      image:
-                        description: Image specifies the ArgoCD agent container image.
-                          Default is empty.
-                        type: string
                       mode:
                         description: Mode specifies the ArgoCD agent mode. Default
                           is empty.
@@ -103,13 +99,11 @@ spec:
                       Enabled indicates whether the GitOps addon is enabled. Default is false.
                       When enabled, creates AddonDeploymentConfigs/ManagedClusterAddon resources.
                     type: boolean
-                  gitOpsImage:
-                    description: GitOpsImage specifies the GitOps (ArgoCD) container
-                      image. Default is empty.
-                    type: string
                   gitOpsOperatorImage:
-                    description: GitOpsOperatorImage specifies the GitOps operator
-                      container image. Default is empty.
+                    description: |-
+                      GitOpsOperatorImage specifies the GitOps operator container image. Default is empty.
+                      This is the only image that needs to be specified - the operator uses environment
+                      variables to determine all other component images (ArgoCD, Redis, etc.).
                     type: string
                   olmSubscription:
                     description: |-
@@ -161,14 +155,6 @@ spec:
                       When false (default), existing config values are preserved and only new ones are added.
                       When true, config values from GitOpsCluster spec will override existing values.
                     type: boolean
-                  reconcileScope:
-                    description: ReconcileScope specifies the reconcile scope for
-                      the GitOps operator. Default is empty.
-                    type: string
-                  redisImage:
-                    description: RedisImage specifies the Redis container image. Default
-                      is empty.
-                    type: string
                 type: object
               managedServiceAccountRef:
                 description: ManagedServiceAccountRef defines managed service account
