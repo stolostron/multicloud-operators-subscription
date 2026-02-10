@@ -491,6 +491,13 @@ spec:
           - get
           - list
           - watch
+        - verbs:
+          - get
+          - list
+          apiGroups:
+          - clusterview.open-cluster-management.io
+          resources:
+          - userpermissions
         serviceAccountName: multicluster-applications
       deployments:
       - name: multicluster-integrations
