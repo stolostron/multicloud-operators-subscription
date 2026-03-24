@@ -310,42 +310,58 @@ func (r *ReconcileAgentToken) getServiceAccountTokenSecret() (string, bool) {
 		return "", false
 	}
 
-	// first loop through secret list from the application-manager SA to find application-manager-dockercfg secret
+	var legacyToken string
+
+	// Loop through secret list from the application-manager SA to find application-manager-dockercfg secret
 	for _, secret := range sa.Secrets {
 		if strings.HasPrefix(secret.Name, "application-manager-dockercfg") {
 			klog.Info("found the application-manager-dockercfg secret " + secret.Name)
 
-			// application-manager-token secret is owned by the dockercfg secret
 			dockerSecret := &corev1.Secret{}
 
 			err = r.Client.Get(context.TODO(), types.NamespacedName{Name: secret.Name, Namespace: appAddonNS}, dockerSecret)
 			if err != nil {
 				klog.Errorf("secret not found: %v/%v, err: %v", appAddonNS, secret.Name, err.Error())
-				return "", false
+				break
 			}
 
 			anno := dockerSecret.GetAnnotations()
 
 			if anno["openshift.io/token-secret.value"] > "" {
 				klog.Info("found the application-manager-token secret " + anno["openshift.io/token-secret.name"])
-				return anno["openshift.io/token-secret.value"], false
+				legacyToken = anno["openshift.io/token-secret.value"]
 			}
+
+			break
 		}
 	}
 
-	// If not found, check the secret associated to the application-manager SA
-	skipCreateSecret, err := r.createOrUpdateApplicationManagerSecret()
+	// Always ensure ManagedServiceAccount exists for short-lived token rotation,
+	// even when the legacy token is available, for forward compatibility.
+	_, err = r.createOrUpdateApplicationManagerSecret()
 	if err != nil {
-		klog.Error(err.Error())
+		klog.Errorf("failed to ensure ManagedServiceAccount: %v", err)
+
+		if legacyToken != "" {
+			klog.Info("falling back to legacy token for cluster secret")
+			return legacyToken, false
+		}
+
 		return "", false
 	}
 
-	return "", skipCreateSecret
+	if legacyToken != "" {
+		return legacyToken, false
+	}
+
+	return "", true
 }
 
 func (r *ReconcileAgentToken) createOrUpdateApplicationManagerSecret() (bool, error) {
-	// For OCP >= 4.16 only as they stopped creating tokens for service accounts
-	// We will create a short lived token(7 days) instead
+	// Ensure ManagedServiceAccount exists with a short-lived 7-day rotating token.
+	// On OCP >= 4.16, long-lived SA tokens are no longer auto-generated, so this
+	// is the primary token source. On older OCP versions, this runs alongside the
+	// legacy token for forward compatibility.
 	ManagedServiceAccount := &authv1beta1.ManagedServiceAccount{}
 	ManagedServiceAccountName := types.NamespacedName{Namespace: r.syncid.Name, Name: appAddonName}
 	err := r.hubclient.Get(context.TODO(), ManagedServiceAccountName, ManagedServiceAccount)
