@@ -32,6 +32,23 @@ spec:
                       - /usr/local/bin/gitopsaddon
                       args:
                       - "-cleanup"
+                      env:
+                        - name: ARGOCD_NAMESPACE
+                          value: '{{ARGOCD_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_ENABLED
+                          value: '{{OLM_SUBSCRIPTION_ENABLED}}'
+                        - name: OLM_SUBSCRIPTION_NAME
+                          value: '{{OLM_SUBSCRIPTION_NAME}}'
+                        - name: OLM_SUBSCRIPTION_NAMESPACE
+                          value: '{{OLM_SUBSCRIPTION_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_CHANNEL
+                          value: '{{OLM_SUBSCRIPTION_CHANNEL}}'
+                        - name: OLM_SUBSCRIPTION_SOURCE
+                          value: '{{OLM_SUBSCRIPTION_SOURCE}}'
+                        - name: OLM_SUBSCRIPTION_SOURCE_NAMESPACE
+                          value: '{{OLM_SUBSCRIPTION_SOURCE_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_INSTALL_PLAN_APPROVAL
+                          value: '{{OLM_SUBSCRIPTION_INSTALL_PLAN_APPROVAL}}'
           - kind: Deployment
             apiVersion: apps/v1
             metadata:
@@ -108,84 +125,25 @@ spec:
                           value: '{{ARGOCD_AGENT_SERVER_PORT}}'
                         - name: ARGOCD_AGENT_MODE
                           value: '{{ARGOCD_AGENT_MODE}}'
+                        - name: ARGOCD_NAMESPACE
+                          value: '{{ARGOCD_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_ENABLED
+                          value: '{{OLM_SUBSCRIPTION_ENABLED}}'
+                        - name: OLM_SUBSCRIPTION_NAME
+                          value: '{{OLM_SUBSCRIPTION_NAME}}'
+                        - name: OLM_SUBSCRIPTION_NAMESPACE
+                          value: '{{OLM_SUBSCRIPTION_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_CHANNEL
+                          value: '{{OLM_SUBSCRIPTION_CHANNEL}}'
+                        - name: OLM_SUBSCRIPTION_SOURCE
+                          value: '{{OLM_SUBSCRIPTION_SOURCE}}'
+                        - name: OLM_SUBSCRIPTION_SOURCE_NAMESPACE
+                          value: '{{OLM_SUBSCRIPTION_SOURCE_NAMESPACE}}'
+                        - name: OLM_SUBSCRIPTION_INSTALL_PLAN_APPROVAL
+                          value: '{{OLM_SUBSCRIPTION_INSTALL_PLAN_APPROVAL}}'
                   volumes:
                     - name: tmp-volume
                       emptyDir: {}
-          - kind: ServiceAccount
-            apiVersion: v1
-            metadata:
-              name: gitops-addon
-              namespace: open-cluster-management-agent-addon
-              labels:
-                apps.open-cluster-management.io/gitopsaddon: "true"
-            imagePullSecrets:
-              - name: open-cluster-management-image-pull-credentials
-          - kind: ClusterRoleBinding
-            apiVersion: rbac.authorization.k8s.io/v1
-            metadata:
-              name: gitops-addon
-              labels:
-                apps.open-cluster-management.io/gitopsaddon: "true"
-            roleRef:
-              apiGroup: rbac.authorization.k8s.io
-              kind: ClusterRole
-              name: cluster-admin
-            subjects:
-              - kind: ServiceAccount
-                name: gitops-addon
-                namespace: open-cluster-management-agent-addon
----
-apiVersion: addon.open-cluster-management.io/v1alpha1
-kind: AddOnTemplate
-metadata:
-  name: gitops-addon-olm
-spec:
-  addonName: gitops-addon
-  agentSpec:
-      workload:
-        manifests:
-          - kind: Job
-            apiVersion: batch/v1
-            metadata:
-              name: gitops-addon-cleanup
-              namespace: open-cluster-management-agent-addon
-              annotations:
-                addon.open-cluster-management.io/addon-pre-delete: ""
-              labels:
-                apps.open-cluster-management.io/gitopsaddon: "true"
-            spec:
-              backoffLimit: 3
-              activeDeadlineSeconds: 600
-              template:
-                spec:
-                  serviceAccountName: gitops-addon
-                  restartPolicy: Never
-                  containers:
-                    - name: cleanup
-                      image: quay.io/stolostron/multicloud-integrations:latest
-                      imagePullPolicy: IfNotPresent
-                      command:
-                      - /usr/local/bin/gitopsaddon
-                      args:
-                      - "-cleanup"
-          - kind: Subscription
-            apiVersion: operators.coreos.com/v1alpha1
-            metadata:
-              name: openshift-gitops-operator
-              namespace: openshift-operators
-              labels:
-                app.kubernetes.io/managed-by: multicloud-integrations
-                apps.open-cluster-management.io/gitopsaddon: "true"
-            spec:
-              channel: latest
-              name: openshift-gitops-operator
-              source: redhat-operators
-              sourceNamespace: openshift-marketplace
-              installPlanApproval: Automatic
-              config:
-                env:
-                  - name: DISABLE_DEFAULT_ARGOCD_INSTANCE
-                    value: "true"
           - kind: ServiceAccount
             apiVersion: v1
             metadata:
