@@ -426,6 +426,14 @@ spec:
           - get
           - list
           - watch
+          apiGroups:
+          - ''
+          resources:
+          - nodes
+        - verbs:
+          - get
+          - list
+          - watch
           - create
           - update
           - patch
