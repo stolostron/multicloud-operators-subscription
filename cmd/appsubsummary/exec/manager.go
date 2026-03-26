@@ -15,24 +15,28 @@
 package exec
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"os"
 
+	ocinfrav1 "github.com/openshift/api/config/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 	"k8s.io/klog"
-	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
-	managedClusterView "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/view/v1beta1"
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
-	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
+
+	appsubapi "open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
+	managedClusterView "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/view/v1beta1"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils/tlsconfig"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -70,6 +74,10 @@ func RunManager() {
 		}
 	}
 
+	schemeForTLS := runtime.NewScheme()
+	_ = ocinfrav1.AddToScheme(schemeForTLS)
+	tlsconfig.InitClusterTLSConfig(context.Background(), cfg, schemeForTLS)
+
 	klog.Info("Leader election settings",
 		"leaseDuration", options.LeaderElectionLeaseDuration,
 		"renewDeadline", options.LeaderElectionRenewDeadline,
@@ -77,7 +85,9 @@ func RunManager() {
 
 	webhookOption := k8swebhook.Options{}
 	webhookOption.TLSOpts = append(webhookOption.TLSOpts, func(config *tls.Config) {
-		config.MinVersion = appsubv1.TLSMinVersionInt
+		c := tlsconfig.GetClusterTLSConfig()
+		config.MinVersion = c.MinVersion
+		config.CipherSuites = c.CipherSuites
 	})
 	webhookServer := k8swebhook.NewServer(webhookOption)
 
@@ -126,6 +136,7 @@ func RunManager() {
 	}
 
 	sig := signals.SetupSignalHandler()
+	go tlsconfig.StartAPIServerTLSProfileWatch(sig, cfg)
 
 	klog.Info("Starting the Cmd.")
 

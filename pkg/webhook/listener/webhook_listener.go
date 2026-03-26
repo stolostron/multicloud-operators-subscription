@@ -16,7 +16,6 @@ package listener
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"os"
@@ -40,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils/tlsconfig"
 
 	appv1alpha1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -115,9 +115,7 @@ func (listener *WebhookListener) Start(ctx context.Context) error {
 			Addr:              ":8443",
 			Handler:           mux,
 			ReadHeaderTimeout: 32 * time.Second,
-			TLSConfig: &tls.Config{
-				MinVersion: appv1alpha1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
-			},
+			TLSConfig:         tlsconfig.GetClusterTLSConfig(),
 		}
 
 		klog.Fatal(s.ListenAndServeTLS(listener.TLSCrtFile, listener.TLSKeyFile))
