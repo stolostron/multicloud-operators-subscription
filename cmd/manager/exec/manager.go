@@ -25,6 +25,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -46,12 +47,12 @@ import (
 	agentaddon "open-cluster-management.io/multicloud-operators-subscription/addon"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/apis"
 	ansiblejob "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/ansible/v1alpha1"
-	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/controller"
 	leasectrl "open-cluster-management.io/multicloud-operators-subscription/pkg/controller/subscription"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/subscriber"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/synchronizer"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils"
+	"open-cluster-management.io/multicloud-operators-subscription/pkg/utils/tlsconfig"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/webhook"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	k8swebhook "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -115,6 +116,11 @@ func RunManager() {
 	cfg.QPS = 100.0
 	cfg.Burst = 200
 
+	// Cache cluster TLS profile (API Server) for use by webhook, health server, and listeners.
+	schemeForTLS := runtime.NewScheme()
+	_ = ocinfrav1.AddToScheme(schemeForTLS)
+	tlsconfig.InitClusterTLSConfig(context.Background(), cfg, schemeForTLS)
+
 	klog.Info("Leader election settings",
 		"leaseDuration", Options.LeaderElectionLeaseDuration,
 		"renewDeadline", Options.LeaderElectionRenewDeadline,
@@ -122,7 +128,9 @@ func RunManager() {
 
 	webhookOption := k8swebhook.Options{}
 	webhookOption.TLSOpts = append(webhookOption.TLSOpts, func(config *tls.Config) {
-		config.MinVersion = appsubv1.TLSMinVersionInt
+		c := tlsconfig.GetClusterTLSConfig()
+		config.MinVersion = c.MinVersion
+		config.CipherSuites = c.CipherSuites
 	})
 	webhookServer := k8swebhook.NewServer(webhookOption)
 
@@ -397,9 +405,7 @@ func serveHealthProbes(healthProbeBindAddress string, configCheck healthz.Checke
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 		Addr:              healthProbeBindAddress,
-		TLSConfig: &tls.Config{
-			MinVersion: appsubv1.TLSMinVersionInt, // #nosec G402 -- TLS 1.2 is required for FIPS
-		},
+		TLSConfig:         tlsconfig.GetClusterTLSConfig(),
 	}
 
 	klog.Infof("heath probes server is running...")
