@@ -52,6 +52,7 @@ func InitClusterTLSConfig(ctx context.Context, cfg *rest.Config, scheme *runtime
 		if cfg != nil && scheme != nil {
 			cachedTLSConfig = fetchTLSConfigFromCluster(ctx, cfg, scheme)
 		}
+
 		if cachedTLSConfig == nil {
 			cachedTLSConfig = profileSpecToTLSConfig(configv1.TLSProfiles[configv1.TLSProfileIntermediateType])
 		}
@@ -65,6 +66,7 @@ func GetClusterTLSConfig() *tls.Config {
 	if cachedTLSConfig != nil {
 		return cachedTLSConfig
 	}
+
 	return profileSpecToTLSConfig(configv1.TLSProfiles[configv1.TLSProfileIntermediateType])
 }
 
@@ -75,17 +77,22 @@ func fetchTLSConfigFromCluster(ctx context.Context, cfg *rest.Config, scheme *ru
 	if err != nil {
 		return nil
 	}
+
 	var apiServer configv1.APIServer
 	if err := kubeClient.Get(ctx, types.NamespacedName{Name: apiserverClusterName}, &apiServer); err != nil {
 		return nil
 	}
+
 	spec := getEffectiveProfileSpec(apiServer.Spec.TLSSecurityProfile)
+
 	profileType := configv1.TLSProfileIntermediateType
 	if p := apiServer.Spec.TLSSecurityProfile; p != nil {
 		profileType = p.Type
 	}
+
 	klog.Infof("TLS security profile used: profileType=%s minTLSVersion=%s cipherSuiteCount=%d",
 		profileType, spec.MinTLSVersion, len(spec.Ciphers))
+
 	return profileSpecToTLSConfig(spec)
 }
 
@@ -95,12 +102,15 @@ func getEffectiveProfileSpec(profile *configv1.TLSSecurityProfile) *configv1.TLS
 	if profile == nil {
 		return configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
 	}
+
 	if profile.Type == configv1.TLSProfileCustomType && profile.Custom != nil {
 		return &profile.Custom.TLSProfileSpec
 	}
+
 	if spec := configv1.TLSProfiles[profile.Type]; spec != nil {
 		return spec
 	}
+
 	return configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
 }
 
@@ -117,5 +127,6 @@ func profileSpecToTLSConfig(spec *configv1.TLSProfileSpec) *tls.Config {
 		MinVersion:   minVersion,
 		CipherSuites: cipherIDs,
 	}
+
 	return crypto.SecureTLSConfig(config)
 }
