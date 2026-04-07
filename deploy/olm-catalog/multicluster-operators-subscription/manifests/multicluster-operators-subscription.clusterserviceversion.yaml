@@ -506,6 +506,14 @@ spec:
           - clusterview.open-cluster-management.io
           resources:
           - userpermissions
+        - verbs:
+          - get
+          - list
+          - watch
+          apiGroups:
+          - config.openshift.io
+          resources:
+          - apiservers
         serviceAccountName: multicluster-applications
       deployments:
       - name: multicluster-integrations
