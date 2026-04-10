@@ -10,7 +10,7 @@
       "matchDepNames": [
         "external/helm"
       ],
-      "allowedVersions": "<=3.19"
+      "allowedVersions": "<=3.20"
     }
   ]
 }
