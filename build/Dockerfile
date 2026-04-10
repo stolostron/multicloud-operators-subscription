@@ -5,7 +5,7 @@ WORKDIR /go/src/github.com/open-cluster-management/multicloud-operators-subscrip
 COPY . .
 RUN make -f Makefile build
 
-WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.18.6
+WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.20.2
 RUN CGO_ENABLED=1 make build
 
 WORKDIR /policy-generator
@@ -40,7 +40,7 @@ COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
 COPY --from=plugin-builder /policy-generator/PolicyGenerator $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
-COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.18.6/bin/helm /usr/local/bin/
+COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.20.2/bin/helm /usr/local/bin/
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
