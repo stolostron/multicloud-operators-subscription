@@ -18,7 +18,10 @@ spec:
     singular: multiclusterapplicationsetreport
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - deprecated: true
+    deprecationWarning: apps.open-cluster-management.io/v1alpha1 MulticlusterApplicationSetReport
+      is deprecated and will be removed in a future release.
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: MulticlusterApplicationSetReport provides a report of the status
