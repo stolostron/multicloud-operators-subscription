@@ -74,7 +74,14 @@ type EventTime struct {
 
 // UnmarshalJSON - override unmarshal json.
 func (e *EventTime) UnmarshalJSON(b []byte) (err error) {
-	t, err := time.Parse("2006-01-02T15:04:05.999999999", strings.Trim(string(b), "\"\\"))
+	s := strings.Trim(string(b), "\"\\")
+
+	// Try RFC3339Nano first to handle timestamps with timezone offsets (e.g. from AAP 2.6+)
+	t, err := time.Parse(time.RFC3339Nano, s)
+	if err != nil {
+		t, err = time.Parse("2006-01-02T15:04:05.999999999", s)
+	}
+
 	e.Time = metav1.NewTime(t)
 
 	return
