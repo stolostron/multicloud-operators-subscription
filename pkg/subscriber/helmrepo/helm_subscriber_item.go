@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	gerr "github.com/pkg/errors"
@@ -52,6 +53,7 @@ type SubscriberItem struct {
 	reconcileRate string
 	syncTime      string
 	stopch        chan struct{}
+	wg            sync.WaitGroup
 	count         int
 	syncinterval  int
 	success       bool
@@ -96,35 +98,47 @@ func (hrsi *SubscriberItem) Start(restart bool) {
 		return
 	}
 
-	go wait.Until(func() {
-		tw := hrsi.SubscriberItem.Subscription.Spec.TimeWindow
-		if tw != nil {
-			nextRun := utils.NextStartPoint(tw, time.Now())
-			if nextRun > time.Duration(0) {
-				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
-					hrsi.SubscriberItem.Subscription.GetNamespace(),
-					hrsi.SubscriberItem.Subscription.GetName(), nextRun)
+	hrsi.wg.Add(1)
+
+	go func() {
+		defer hrsi.wg.Done()
+
+		wait.Until(func() {
+			tw := hrsi.SubscriberItem.Subscription.Spec.TimeWindow
+			if tw != nil {
+				nextRun := utils.NextStartPoint(tw, time.Now())
+				if nextRun > time.Duration(0) {
+					klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
+						hrsi.SubscriberItem.Subscription.GetNamespace(),
+						hrsi.SubscriberItem.Subscription.GetName(), nextRun)
+
+					return
+				}
+			}
+
+			// if the subscription pause lable is true, stop subscription here.
+			if utils.GetPauseLabel(hrsi.SubscriberItem.Subscription) {
+				klog.Infof("Helm Subscription %v/%v is paused.", hrsi.SubscriberItem.Subscription.GetNamespace(), hrsi.SubscriberItem.Subscription.GetName())
 
 				return
 			}
-		}
 
-		// if the subscription pause lable is true, stop subscription here.
-		if utils.GetPauseLabel(hrsi.SubscriberItem.Subscription) {
-			klog.Infof("Helm Subscription %v/%v is paused.", hrsi.SubscriberItem.Subscription.GetNamespace(), hrsi.SubscriberItem.Subscription.GetName())
-
-			return
-		}
-
-		hrsi.doSubscriptionWithRetries(retryInterval, retries)
-	}, loopPeriod, hrsi.stopch)
+			hrsi.doSubscriptionWithRetries(retryInterval, retries)
+		}, loopPeriod, hrsi.stopch)
+	}()
 }
 
+// Stop unsubscribes a subscriber item and waits for the current
+// doSubscription goroutine to finish before returning. This prevents a
+// concurrent new goroutine (started by the next Start call) from racing on
+// shared SubscriberItem fields such as hrsi.success.
 func (hrsi *SubscriberItem) Stop() {
 	if hrsi.stopch != nil {
 		close(hrsi.stopch)
 		hrsi.stopch = nil
 	}
+
+	hrsi.wg.Wait()
 }
 
 func (hrsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
@@ -174,6 +188,10 @@ func (hrsi *SubscriberItem) getRepoInfo(usePrimary bool) (*repo.IndexFile, strin
 }
 
 func (hrsi *SubscriberItem) doSubscription() {
+	// Reset success so that a stale true from a previous run cannot cause the
+	// retry loop in doSubscriptionWithRetries to exit early on the next failure.
+	hrsi.success = false
+
 	var indexFile *repo.IndexFile
 
 	var hash string
