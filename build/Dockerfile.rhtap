@@ -5,17 +5,17 @@ COPY . .
 
 RUN rm -fr vendor && \
         go mod vendor && \
-        make build
+        CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime make build
 
 # Update git submodules
 RUN git submodule update --init
 
 # Build the helm binary
 # VERSION is specified here because the builder sets it, but Helm also relies on it for versioning
-RUN VERSION="" ./build/build-binary.sh "external/helm" "CGO_ENABLED=1 make build"
+RUN VERSION="" ./build/build-binary.sh "external/helm" "CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime make build"
 
 # Build the policy generator plugin binary
-RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
 
 # Build a policy generator plugin RHEL8 binary that can be mounted to other containers
 FROM brew.registry.redhat.io/rh-osbs/openshift-golang-builder:rhel_8_1.25 AS plugin-builder-rhel8
@@ -25,7 +25,7 @@ COPY . .
 
 RUN git submodule update --init
 
-RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
+RUN CGO_ENABLED=1 GOEXPERIMENT=strictfipsruntime ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
 
