@@ -6,7 +6,10 @@ COPY . .
 RUN make -f Makefile build
 
 WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.20.2
-RUN CGO_ENABLED=1 make build
+# Fix CVE in github.com/moby/spdystream before building the helm binary
+RUN chmod -R u+w . && \
+        go mod edit -replace github.com/moby/spdystream=github.com/moby/spdystream@v0.5.1 && \
+        CGO_ENABLED=1 make build
 
 WORKDIR /policy-generator
 RUN git clone --branch=${POLICY_GENERATOR_TAG} --depth=1 \
