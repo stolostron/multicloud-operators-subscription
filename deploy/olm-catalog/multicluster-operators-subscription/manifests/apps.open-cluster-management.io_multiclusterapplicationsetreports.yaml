@@ -3,8 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.6.0
-  creationTimestamp: null
+    controller-gen.kubebuilder.io/version: v0.17.3
   name: multiclusterapplicationsetreports.apps.open-cluster-management.io
 spec:
   group: apps.open-cluster-management.io
@@ -24,22 +23,26 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: MulticlusterApplicationSetReport provides a report of the status
-          of an application from all the managed clusters where the application is
-          deployed on. It provides a summary of the number of clusters in the various
-          states. If an error or warning occurred when installing the application
-          on a managed cluster, the conditions, including the waring and error message,
-          is captured in the report.
+        description: |-
+          MulticlusterApplicationSetReport provides a report of the status of an application from all the managed clusters
+          where the application is deployed on. It provides a summary of the number of clusters in the various states.
+          If an error or warning occurred when installing the application on a managed cluster, the conditions, including
+          the waring and error message, is captured in the report.
         properties:
           apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
             type: string
           kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
             type: string
           metadata:
             type: object
@@ -72,13 +75,13 @@ spec:
                       type: array
                     healthStatus:
                       type: string
-                    syncStatus:
+                    operationStatePhase:
                       type: string
                     operationStateStartedAt:
                       type: string
-                    operationStatePhase:
-                      type: string
                     syncRevision:
+                      type: string
+                    syncStatus:
                       type: string
                   type: object
                 type: array
@@ -98,11 +101,10 @@ spec:
                   type: object
                 type: array
               summary:
-                description: 'ReportSummary provides a summary by providing a count
-                  of the total number of clusters where the application is deployed.
-                  It also provides a count of how many clusters where an application
-                  are in the following states: synced, notSynced, healthy, notHealthy,
-                  and inProgress.'
+                description: |-
+                  ReportSummary provides a summary by providing a count of the total number of clusters where the application is
+                  deployed. It also provides a count of how many clusters where an application are in the following states:
+                  synced, notSynced, healthy, notHealthy, and inProgress.
                 properties:
                   clusters:
                     description: Clusters provides the count of all managed clusters
@@ -131,9 +133,3 @@ spec:
         type: object
     served: true
     storage: true
-status:
-  acceptedNames:
-    kind: ""
-    plural: ""
-  conditions: []
-  storedVersions: []
