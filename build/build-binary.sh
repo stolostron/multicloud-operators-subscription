@@ -78,6 +78,14 @@ fi
 for _r in "${go_replace_directives[@]}"; do
   echo "* Applying go mod replace: ${_r}"
   go mod edit -replace "${_r}"
+  # Populate go.sum from the module cache without consulting the sum database,
+  # so that go mod vendor succeeds in hermetic (network-isolated) builds.
+  # Use || true because the module may already be present in go.sum (e.g. newer
+  # helm versions that already pin this version natively), in which case the
+  # download is not needed and may not be available in the prefetch cache.
+  _new_module="${_r#*=}"
+  echo "* Downloading replacement to populate go.sum: ${_new_module}"
+  GONOSUMDB=* go mod download "${_new_module}" || true
 done
 
 rm -rf vendor
