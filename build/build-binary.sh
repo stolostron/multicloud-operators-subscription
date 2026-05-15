@@ -4,13 +4,45 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 
-repo_path=${1}
-build_cmd=${2}
+usage() {
+  echo "Usage: build-binary.sh <repo-path> <build-cmd> [--replace <old>=<new>[@version]] ..."
+  echo ""
+  echo "  repo-path   Path to the submodule relative to the repo root"
+  echo "  build-cmd   Shell command to build the binary"
+  echo "  --replace   Optional, repeatable. Passed directly to 'go mod edit -replace'."
+  echo "              Example: --replace github.com/foo/bar=github.com/foo/bar@v1.2.3"
+}
+
+repo_path=${1:-""}
+build_cmd=${2:-""}
 
 if [[ -z ${repo_path} ]] || [[ -z ${build_cmd} ]]; then
   echo "error: must provide the repo path and build command as positional arguments."
+  usage
   exit 1
 fi
+
+shift 2
+
+go_replace_directives=()
+while [[ $# -gt 0 ]]; do
+  case "${1}" in
+    --replace)
+      if [[ -z "${2:-}" ]]; then
+        echo "error: --replace requires an argument."
+        usage
+        exit 1
+      fi
+      go_replace_directives+=("${2}")
+      shift 2
+      ;;
+    *)
+      echo "error: unknown argument '${1}'."
+      usage
+      exit 1
+      ;;
+  esac
+done
 
 if ! [[ -d ${SCRIPT_DIR}/../${repo_path} ]]; then
   echo "error: failed to find repo path '${repo_path}'."
@@ -42,6 +74,16 @@ if [[ -f "${parent_gitmodules}" ]]; then
     esac
   fi
 fi
+
+for _r in "${go_replace_directives[@]}"; do
+  echo "* Applying go mod replace: ${_r}"
+  go mod edit -replace "${_r}"
+  # Populate go.sum from the module cache without consulting the sum database,
+  # so that go mod vendor succeeds in hermetic (network-isolated) builds.
+  _new_module="${_r#*=}"
+  echo "* Downloading replacement to populate go.sum: ${_new_module}"
+  GONOSUMDB=* go mod download "${_new_module}"
+done
 
 rm -rf vendor
 go mod vendor

@@ -12,7 +12,9 @@ RUN git submodule update --init
 
 # Build the helm binary
 # VERSION is specified here because the builder sets it, but Helm also relies on it for versioning
-RUN VERSION="" ./build/build-binary.sh "external/helm" "CGO_ENABLED=1 make build"
+# --replace patches go.mod inside the submodule before vendoring to fix CVEs
+RUN VERSION="" ./build/build-binary.sh "external/helm" "CGO_ENABLED=1 make build" \
+        --replace github.com/moby/spdystream=github.com/moby/spdystream@v0.5.1
 
 # Build the policy generator plugin binary
 RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
