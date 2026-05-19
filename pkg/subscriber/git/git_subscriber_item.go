@@ -552,7 +552,7 @@ func checkSubscriptionAnnotation(resource kubeResource) error {
 func (ghsi *SubscriberItem) subscribeResources(rscFiles []string) error {
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 -- resourcePath validated against repoRoot by IsPathWithinRoot in sortClonedGitRepo
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)
@@ -924,6 +924,10 @@ func (ghsi *SubscriberItem) sortClonedGitRepo() error {
 		resourcePath = filepath.Join(ghsi.repoRoot, annotations[appv1.AnnotationGitPath])
 	} else if ghsi.SubscriberItem.SubscriptionConfigMap != nil {
 		resourcePath = filepath.Join(ghsi.repoRoot, ghsi.SubscriberItem.SubscriptionConfigMap.Data["path"])
+	}
+
+	if !utils.IsPathWithinRoot(ghsi.repoRoot, resourcePath) {
+		return fmt.Errorf("git-path %q escapes the repository root %q", resourcePath, ghsi.repoRoot)
 	}
 
 	// chartDirs contains helm chart directories

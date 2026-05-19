@@ -205,6 +205,10 @@ func getConnectionOptions(cloneOptions *GitCloneOption, primary bool) (connectio
 		options.SingleBranch = true
 	}
 
+	if strings.HasPrefix(options.URL, "file://") {
+		return nil, fmt.Errorf("channel URL scheme file:// is not permitted: %s", options.URL)
+	}
+
 	if strings.HasPrefix(options.URL, "http") {
 		klog.Info("Connecting to Git server via HTTP")
 
@@ -716,7 +720,17 @@ func GetLocalGitFolder(sub *appv1.Subscription) string {
 
 type SkipFunc func(string, string) bool
 
-// SortResources sorts kube resources into different arrays for processing them later.
+// IsPathWithinRoot returns true only when candidate is equal to root or is
+// a descendant of root. Both paths must already be cleaned (e.g. via
+// filepath.Clean / filepath.Join).  The trailing-slash trick prevents a
+// directory named "/tmp/foo-evil" from being accepted when root is "/tmp/foo".
+func IsPathWithinRoot(root, candidate string) bool {
+	root = filepath.Clean(root)
+	candidate = filepath.Clean(candidate)
+
+	return candidate == root || strings.HasPrefix(candidate, root+string(filepath.Separator))
+}
+
 func SortResources(repoRoot, resourcePath string, skips ...SkipFunc) (map[string]string, map[string]string, []string, []string, []string, error) {
 	//wait for 2 seconds until the local repo clone is ready.
 	time.Sleep(2 * time.Second)
@@ -817,7 +831,7 @@ func sortKubeResource(crdsAndNamespaceFiles, rbacFiles, otherFiles []string, pat
 	if strings.EqualFold(filepath.Ext(path), ".yml") || strings.EqualFold(filepath.Ext(path), ".yaml") {
 		klog.V(4).Info("Reading file: ", path)
 
-		file, err := os.ReadFile(path) // #nosec G304 path is not user input
+		file, err := os.ReadFile(path) // #nosec G304 -- callers validate resourcePath with IsPathWithinRoot before calling SortResources
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+path)

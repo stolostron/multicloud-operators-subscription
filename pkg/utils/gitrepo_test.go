@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -1385,6 +1386,95 @@ func TestParseChannelSecret(t *testing.T) {
 
 			if !reflect.DeepEqual(got5, tt.want5) {
 				t.Errorf("ParseChannelSecret() got5 = %v, want %v", got5, tt.want5)
+			}
+		})
+	}
+}
+
+func TestIsPathWithinRoot(t *testing.T) {
+	tests := []struct {
+		name      string
+		root      string
+		candidate string
+		want      bool
+	}{
+		{
+			name:      "candidate equals root",
+			root:      "/tmp/repo",
+			candidate: "/tmp/repo",
+			want:      true,
+		},
+		{
+			name:      "legitimate subdirectory",
+			root:      "/tmp/repo",
+			candidate: "/tmp/repo/charts/myapp",
+			want:      true,
+		},
+		{
+			name:      "single dot-dot traversal",
+			root:      "/tmp/repo",
+			candidate: "/tmp/repo/../../etc",
+			want:      false,
+		},
+		{
+			name:      "resolved traversal escaping root",
+			root:      "/tmp/repo",
+			candidate: "/tmp/etc",
+			want:      false,
+		},
+		{
+			name:      "sibling directory with shared prefix (no false positive)",
+			root:      "/tmp/repo",
+			candidate: "/tmp/repo-evil",
+			want:      false,
+		},
+		{
+			name:      "trailing slash on root is normalised",
+			root:      "/tmp/repo/",
+			candidate: "/tmp/repo/subdir",
+			want:      true,
+		},
+		{
+			name:      "candidate is parent of root",
+			root:      "/tmp/repo/sub",
+			candidate: "/tmp/repo",
+			want:      false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsPathWithinRoot(tt.root, tt.candidate)
+			if got != tt.want {
+				t.Errorf("IsPathWithinRoot(%q, %q) = %v, want %v", tt.root, tt.candidate, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetConnectionOptionsRejectsFileScheme(t *testing.T) {
+	fileURLs := []string{
+		"file:///tmp/local-repo",
+		"file://localhost/tmp/local-repo",
+		"file:///etc/shadow",
+	}
+
+	for _, url := range fileURLs {
+		t.Run(url, func(t *testing.T) {
+			opts := &GitCloneOption{
+				PrimaryConnectionOption: &ChannelConnectionCfg{
+					RepoURL: url,
+				},
+				DestDir: t.TempDir(),
+			}
+
+			_, err := getConnectionOptions(opts, true)
+			if err == nil {
+				t.Fatalf("getConnectionOptions(%q) expected an error for file:// scheme, got nil", url)
+			}
+
+			if !strings.Contains(err.Error(), "file://") {
+				t.Errorf("expected error message to mention file://, got: %v", err)
 			}
 		})
 	}
