@@ -17,6 +17,7 @@ package objectbucket
 import (
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -45,6 +46,7 @@ type SubscriberItem struct {
 	bucket        string
 	objectStore   awsutils.ObjectStore
 	stopch        chan struct{}
+	wg            sync.WaitGroup
 	successful    bool
 	clusterAdmin  bool
 	syncinterval  int
@@ -79,36 +81,47 @@ func (obsi *SubscriberItem) Start(restart bool) {
 		return
 	}
 
-	go wait.Until(func() {
-		tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
-		if tw != nil {
-			nextRun := utils.NextStartPoint(tw, time.Now())
-			if nextRun > time.Duration(0) {
-				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
-					obsi.SubscriberItem.Subscription.GetNamespace(),
-					obsi.SubscriberItem.Subscription.GetName(), nextRun)
+	obsi.wg.Add(1)
+
+	go func() {
+		defer obsi.wg.Done()
+
+		wait.Until(func() {
+			tw := obsi.SubscriberItem.Subscription.Spec.TimeWindow
+			if tw != nil {
+				nextRun := utils.NextStartPoint(tw, time.Now())
+				if nextRun > time.Duration(0) {
+					klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
+						obsi.SubscriberItem.Subscription.GetNamespace(),
+						obsi.SubscriberItem.Subscription.GetName(), nextRun)
+
+					return
+				}
+			}
+
+			// if the subscription pause lable is true, stop subscription here.
+			if utils.GetPauseLabel(obsi.SubscriberItem.Subscription) {
+				klog.Infof("Object bucket Subscription %v/%v is paused.", obsi.SubscriberItem.Subscription.GetNamespace(), obsi.SubscriberItem.Subscription.GetName())
 
 				return
 			}
-		}
 
-		// if the subscription pause lable is true, stop subscription here.
-		if utils.GetPauseLabel(obsi.SubscriberItem.Subscription) {
-			klog.Infof("Object bucket Subscription %v/%v is paused.", obsi.SubscriberItem.Subscription.GetNamespace(), obsi.SubscriberItem.Subscription.GetName())
-
-			return
-		}
-
-		obsi.doSubscriptionWithRetries(retryInterval, retries)
-	}, loopPeriod, obsi.stopch)
+			obsi.doSubscriptionWithRetries(retryInterval, retries)
+		}, loopPeriod, obsi.stopch)
+	}()
 }
 
-// Stop the subscriber.
+// Stop unsubscribes a subscriber item and waits for the current
+// doSubscription goroutine to finish before returning. This prevents a
+// concurrent new goroutine (started by the next Start call) from racing on
+// shared SubscriberItem fields such as obsi.successful and obsi.objectStore.
 func (obsi *SubscriberItem) Stop() {
 	if obsi.stopch != nil {
 		close(obsi.stopch)
 		obsi.stopch = nil
 	}
+
+	obsi.wg.Wait()
 }
 
 func (obsi *SubscriberItem) getChannelConfig(primary bool) (
@@ -256,6 +269,10 @@ func (obsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duratio
 }
 
 func (obsi *SubscriberItem) doSubscription() {
+	// Reset successful so that a stale true from a previous run cannot cause the
+	// retry loop in doSubscriptionWithRetries to exit early on the next failure.
+	obsi.successful = false
+
 	var folderName *string
 
 	//Update the secret and config map
