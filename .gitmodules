@@ -6,4 +6,4 @@
 [submodule "helm"]
 	path = external/helm
 	url = https://github.com/helm/helm
-	branch = v3.20.2
+	branch = v3.21.0

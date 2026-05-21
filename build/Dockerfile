@@ -5,7 +5,7 @@ WORKDIR /go/src/github.com/open-cluster-management/multicloud-operators-subscrip
 COPY . .
 RUN make -f Makefile build
 
-WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.20.2
+WORKDIR /go/pkg/mod/helm.sh/helm/v3@v3.21.0
 # Fix CVE in github.com/moby/spdystream before building the helm binary
 RUN chmod -R u+w . && \
         go mod edit -replace github.com/moby/spdystream=github.com/moby/spdystream@v0.5.1 && \
@@ -44,7 +44,7 @@ COPY --from=plugin-builder /go/src/github.com/open-cluster-management/multicloud
 # install the policy generator Kustomize plugin
 RUN mkdir -p $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator
 COPY --from=plugin-builder /policy-generator/PolicyGenerator $KUSTOMIZE_PLUGIN_HOME/policy.open-cluster-management.io/v1/policygenerator/PolicyGenerator
-COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.20.2/bin/helm /usr/local/bin/
+COPY --from=plugin-builder /go/pkg/mod/helm.sh/helm/v3@v3.21.0/bin/helm /usr/local/bin/
 
 COPY build/bin /usr/local/bin
 RUN  /usr/local/bin/user_setup
