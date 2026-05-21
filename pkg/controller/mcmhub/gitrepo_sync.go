@@ -16,6 +16,7 @@ package mcmhub
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,6 +87,10 @@ func (r *ReconcileSubscription) GetGitResources(sub *appv1.Subscription, isAdmin
 
 		baseDir := r.hubGitOps.GetRepoRootDirctory(sub)
 		resourcePath := getResourcePath(r.hubGitOps.ResolveLocalGitFolder, sub)
+
+		if !utils.IsPathWithinRoot(baseDir, resourcePath) {
+			return nil, fmt.Errorf("git-path %q escapes the repository root %q", resourcePath, baseDir)
+		}
 
 		objRefList, err = r.processRepo(primaryChannel, sub, r.hubGitOps.ResolveLocalGitFolder(sub), resourcePath, baseDir, isAdmin)
 		if err != nil {
@@ -227,7 +232,7 @@ func (r *ReconcileSubscription) subscribeResources(
 	rscFiles []string, objRefMap map[v1.ObjectReference]*v1.ObjectReference) error {
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 -- resourcePath validated against baseDir by IsPathWithinRoot before processRepo is called
 
 		if err != nil {
 			klog.Error(err, "Failed to read YAML file "+rscFile)

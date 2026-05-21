@@ -636,6 +636,10 @@ type gitSortResult struct {
 func sortClonedGitRepoGievnDestPath(repoRoot string, destPath string, logger logr.Logger) (gitSortResult, error) {
 	resourcePath := filepath.Join(repoRoot, destPath)
 
+	if !utils.IsPathWithinRoot(repoRoot, resourcePath) {
+		return gitSortResult{}, fmt.Errorf("git-path %q escapes the repository root %q", resourcePath, repoRoot)
+	}
+
 	sortWrapper := func() (gitSortResult, error) {
 		_, kustomizeDirs, _, _, kubeRes, err := utils.SortResources(repoRoot, resourcePath)
 		if len(kustomizeDirs) != 0 {
@@ -703,7 +707,7 @@ func parseAsAnsibleJobs(rscFiles []string, parser func([]byte) [][]byte, logger 
 	jobs := []ansiblejob.AnsibleJob{}
 	// sync kube resource manifests
 	for _, rscFile := range rscFiles {
-		file, err := os.ReadFile(rscFile) // #nosec G304 rscFile is not user input
+		file, err := os.ReadFile(rscFile) // #nosec G304 -- resourcePath validated against repoRoot by IsPathWithinRoot in sortClonedGitRepoGievnDestPath
 
 		if err != nil {
 			return []ansiblejob.AnsibleJob{}, err
