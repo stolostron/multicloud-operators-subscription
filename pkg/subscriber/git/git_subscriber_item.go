@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/ghodss/yaml"
@@ -72,6 +73,7 @@ type SubscriberItem struct {
 	desiredTag             string
 	syncTime               string
 	stopch                 chan struct{}
+	wg                     sync.WaitGroup
 	syncinterval           int
 	count                  int
 	synchronizer           SyncSource
@@ -92,12 +94,16 @@ type kubeResource struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
-// Start subscribes a subscriber item with github channel
+// Start subscribes a subscriber item with github channel.
+// When restart is true, Stop is called first which blocks until the current
+// doSubscription goroutine finishes, ensuring no two goroutines race on
+// shared SubscriberItem fields.
 func (ghsi *SubscriberItem) Start(restart bool) {
 	// do nothing if already started
 	if ghsi.stopch != nil {
 		if restart {
-			// restart this goroutine
+			// Stop blocks until the running goroutine has fully exited before
+			// we create a new one, preventing concurrent access to shared state.
 			klog.Info("Stopping SubscriberItem: ", ghsi.Subscription.Name)
 			ghsi.Stop()
 		} else {
@@ -120,34 +126,49 @@ func (ghsi *SubscriberItem) Start(restart bool) {
 		return
 	}
 
-	go wait.Until(func() {
-		tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
-		if tw != nil {
-			nextRun := utils.NextStartPoint(tw, time.Now())
-			if nextRun > time.Duration(0) {
-				klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
-					ghsi.SubscriberItem.Subscription.GetNamespace(),
-					ghsi.SubscriberItem.Subscription.GetName(), nextRun)
+	ghsi.wg.Add(1)
+
+	go func() {
+		defer ghsi.wg.Done()
+
+		wait.Until(func() {
+			tw := ghsi.SubscriberItem.Subscription.Spec.TimeWindow
+			if tw != nil {
+				nextRun := utils.NextStartPoint(tw, time.Now())
+				if nextRun > time.Duration(0) {
+					klog.Infof("Subscription is currently blocked by the time window. It %v/%v will be deployed after %v",
+						ghsi.SubscriberItem.Subscription.GetNamespace(),
+						ghsi.SubscriberItem.Subscription.GetName(), nextRun)
+
+					return
+				}
+			}
+
+			// if the subscription pause lable is true, stop subscription here.
+			if utils.GetPauseLabel(ghsi.SubscriberItem.Subscription) {
+				klog.Infof("Git Subscription %v/%v is paused.", ghsi.SubscriberItem.Subscription.GetNamespace(), ghsi.SubscriberItem.Subscription.GetName())
 
 				return
 			}
-		}
 
-		// if the subscription pause lable is true, stop subscription here.
-		if utils.GetPauseLabel(ghsi.SubscriberItem.Subscription) {
-			klog.Infof("Git Subscription %v/%v is paused.", ghsi.SubscriberItem.Subscription.GetNamespace(), ghsi.SubscriberItem.Subscription.GetName())
-
-			return
-		}
-
-		ghsi.doSubscriptionWithRetries(retryInterval, retries)
-	}, loopPeriod, ghsi.stopch)
+			ghsi.doSubscriptionWithRetries(retryInterval, retries)
+		}, loopPeriod, ghsi.stopch)
+	}()
 }
 
-// Stop unsubscribes a subscriber item with namespace channel
+// Stop unsubscribes a subscriber item with namespace channel and waits for the
+// current doSubscription goroutine to finish before returning. This prevents a
+// concurrent new goroutine (started by the next Start call) from racing on
+// shared SubscriberItem fields such as ghsi.resources.
 func (ghsi *SubscriberItem) Stop() {
 	klog.Info("Stopping SubscriberItem ", ghsi.Subscription.Name)
-	close(ghsi.stopch)
+
+	if ghsi.stopch != nil {
+		close(ghsi.stopch)
+		ghsi.stopch = nil
+	}
+
+	ghsi.wg.Wait()
 }
 
 func (ghsi *SubscriberItem) doSubscriptionWithRetries(retryInterval time.Duration, retries int) {
@@ -183,6 +204,11 @@ func (ghsi *SubscriberItem) doSubscription() error {
 	klog.Info("enter doSubscription: ", hostkey.String())
 
 	defer klog.Info("exit doSubscription: ", hostkey.String())
+
+	// Reset successful so that an empty resource list from a previous run cannot
+	// bypass the guard at the bottom of this function and trigger a spurious
+	// PurgeAllSubscribedResources call.
+	ghsi.successful = false
 
 	utils.UpdateLastUpdateTime(ghsi.synchronizer.GetLocalClient(), ghsi.Subscription)
 
