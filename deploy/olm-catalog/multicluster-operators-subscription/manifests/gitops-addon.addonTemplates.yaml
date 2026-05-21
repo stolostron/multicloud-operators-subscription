@@ -8,6 +8,76 @@ spec:
   agentSpec:
       workload:
         manifests:
+          - kind: ClusterRole
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+              name: gitops-addon-cleanup
+              annotations:
+                addon.open-cluster-management.io/addon-pre-delete: ""
+              labels:
+                apps.open-cluster-management.io/gitopsaddon: "true"
+            rules:
+              - apiGroups: [""]
+                resources: ["namespaces"]
+                verbs: ["get", "list", "watch"]
+              - apiGroups: [""]
+                resources: ["serviceaccounts"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: [""]
+                resources: ["pods"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: [""]
+                resources: ["configmaps"]
+                verbs: ["get", "list", "watch", "create", "update", "delete"]
+              - apiGroups: [""]
+                resources: ["services"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: [""]
+                resources: ["events"]
+                verbs: ["create", "patch"]
+              - apiGroups: ["apps"]
+                resources: ["deployments"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: ["apps"]
+                resources: ["statefulsets"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: ["rbac.authorization.k8s.io"]
+                resources: ["roles", "rolebindings"]
+                verbs: ["get", "list", "delete"]
+              - apiGroups: ["rbac.authorization.k8s.io"]
+                resources: ["clusterroles", "clusterrolebindings"]
+                verbs: ["get", "list", "delete"]
+              - apiGroups: ["argoproj.io"]
+                resources: ["argocds"]
+                verbs: ["get", "list", "watch", "delete", "patch"]
+              - apiGroups: ["operators.coreos.com"]
+                resources: ["subscriptions"]
+                verbs: ["get", "list", "delete"]
+              - apiGroups: ["operators.coreos.com"]
+                resources: ["clusterserviceversions"]
+                verbs: ["get", "list", "delete"]
+              - apiGroups: ["operators.coreos.com"]
+                resources: ["installplans"]
+                verbs: ["get", "list", "delete"]
+              - apiGroups: ["pipelines.openshift.io"]
+                resources: ["gitopsservices"]
+                verbs: ["get", "delete"]
+          - kind: ClusterRoleBinding
+            apiVersion: rbac.authorization.k8s.io/v1
+            metadata:
+              name: gitops-addon-cleanup
+              annotations:
+                addon.open-cluster-management.io/addon-pre-delete: ""
+              labels:
+                apps.open-cluster-management.io/gitopsaddon: "true"
+            roleRef:
+              apiGroup: rbac.authorization.k8s.io
+              kind: ClusterRole
+              name: gitops-addon-cleanup
+            subjects:
+              - kind: ServiceAccount
+                name: gitops-addon
+                namespace: open-cluster-management-agent-addon
           - kind: Job
             apiVersion: batch/v1
             metadata:
@@ -18,9 +88,16 @@ spec:
               labels:
                 apps.open-cluster-management.io/gitopsaddon: "true"
             spec:
+              manualSelector: true
               backoffLimit: 3
               activeDeadlineSeconds: 600
+              selector:
+                matchLabels:
+                  job-name: gitops-addon-cleanup
               template:
+                metadata:
+                  labels:
+                    job-name: gitops-addon-cleanup
                 spec:
                   serviceAccountName: gitops-addon
                   restartPolicy: Never
@@ -168,7 +245,7 @@ spec:
                 verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
               - apiGroups: [""]
                 resources: ["serviceaccounts"]
-                verbs: ["get", "list", "watch", "create", "update", "patch"]
+                verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
               - apiGroups: [""]
                 resources: ["pods"]
                 verbs: ["get", "list", "watch", "delete"]
@@ -177,7 +254,7 @@ spec:
                 verbs: ["get", "list", "watch", "create", "update", "delete"]
               - apiGroups: [""]
                 resources: ["services"]
-                verbs: ["get", "list", "watch", "create", "update", "patch"]
+                verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
               - apiGroups: [""]
                 resources: ["events"]
                 verbs: ["create", "patch"]
