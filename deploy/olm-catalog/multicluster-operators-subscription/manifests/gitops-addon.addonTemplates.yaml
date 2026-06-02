@@ -251,7 +251,7 @@ spec:
                 verbs: ["get", "list", "watch", "delete"]
               - apiGroups: [""]
                 resources: ["configmaps"]
-                verbs: ["get", "list", "watch", "create", "update", "delete"]
+                verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
               - apiGroups: [""]
                 resources: ["services"]
                 verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
@@ -266,7 +266,7 @@ spec:
                 verbs: ["update"]
               - apiGroups: ["rbac.authorization.k8s.io"]
                 resources: ["roles", "rolebindings"]
-                verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+                verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "escalate", "bind"]
               - apiGroups: ["rbac.authorization.k8s.io"]
                 resources: ["clusterroles", "clusterrolebindings"]
                 verbs: ["get", "list", "watch", "create", "update", "patch", "delete", "escalate", "bind"]
@@ -299,7 +299,7 @@ spec:
                 verbs: ["list"]
               - apiGroups: ["coordination.k8s.io"]
                 resources: ["leases"]
-                verbs: ["get", "list", "watch", "create", "update"]
+                verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
           - kind: ClusterRoleBinding
             apiVersion: rbac.authorization.k8s.io/v1
             metadata:
