@@ -73,10 +73,28 @@ func TestAnsible(t *testing.T) {
 	g.Expect(e).To(gomega.Equal([]byte(`"0001-01-01T00:00:00"`)))
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	// Unmarshal event time
+	// Unmarshal event time - empty input
 	newE := EventTime{metav1.Time{}}
 	newE.UnmarshalJSON([]byte(""))
 	g.Expect(newE).To(gomega.Equal(EventTime{metav1.Time{}}))
+
+	// Unmarshal event time - without timezone (original format)
+	noTZ := EventTime{}
+	err = noTZ.UnmarshalJSON([]byte(`"2026-03-31T13:45:17.374232"`))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(noTZ.Time.Time.Year()).To(gomega.Equal(2026))
+
+	// Unmarshal event time - with timezone offset (AAP 2.6+)
+	withTZ := EventTime{}
+	err = withTZ.UnmarshalJSON([]byte(`"2026-03-31T13:45:17.374232+00:00"`))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(withTZ.Time.Time.Year()).To(gomega.Equal(2026))
+
+	// Unmarshal event time - with Z timezone
+	withZ := EventTime{}
+	err = withZ.UnmarshalJSON([]byte(`"2026-03-31T13:45:17.374232Z"`))
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(withZ.Time.Time.Year()).To(gomega.Equal(2026))
 }
 
 func TestAnsibleWorkflow(t *testing.T) {
