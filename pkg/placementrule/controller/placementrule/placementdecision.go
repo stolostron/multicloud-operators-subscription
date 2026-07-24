@@ -146,7 +146,7 @@ func (r *ReconcilePlacementRuleStatus) createOrUpdatePlacementDecision(
 	clusterDecisions []clusterapi.ClusterDecision,
 ) error {
 	if len(clusterDecisions) > maxNumOfClusterDecisions {
-		return fmt.Errorf("the number of clusterdecisions %q exceeds the max limitation %q", len(clusterDecisions), maxNumOfClusterDecisions)
+		return fmt.Errorf("the number of clusterdecisions %d exceeds the max limitation %d", len(clusterDecisions), maxNumOfClusterDecisions)
 	}
 
 	pdNsn := types.NamespacedName{Namespace: placementRule.Namespace, Name: placementDecisionName}
