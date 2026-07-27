@@ -77,6 +77,11 @@ linters:
     - mirror
     - godox
   fast: false
+  exclusions:
+    rules:
+      - linters:
+          - govet
+        text: "inline:"
 
 linters-settings:
   testifylint:
