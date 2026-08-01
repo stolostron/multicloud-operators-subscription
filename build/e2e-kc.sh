@@ -620,7 +620,9 @@ kubectl apply -f test/e2e/cases/19-verify-git-pull-time-metric/successful
 sleep 15
 
 kubectl config use-context kind-cluster1
-kubectl -n git-pull-time-metric-test rollout status deployment/git-simple-subscription
+RUN_CMD="kubectl -n git-pull-time-metric-test rollout status deployment/git-simple-subscription --timeout=30s"
+WAIT_MSG="deployment/git-simple-subscription is not available yet"
+waitForCMD "\${RUN_CMD}" "\${WAIT_MSG}"
 
 echo "19-verify-git-pull-time-metric: fetching successful managed cluster metrics"
 collectedSuccesfulMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
@@ -629,7 +631,7 @@ IFS=' ' read -a successPullTimeCount <<< $(echo "$collectedSuccesfulMcMetrics" |
 IFS=' ' read -a successPullTimeSum <<< $(echo "$collectedSuccesfulMcMetrics" | grep "subscription_name=\"git-pull-time-metric-sub\"" | grep git_successful_pull_time_sum)
 
 echo "19-verify-git-pull-time-metric: verifying expected git_successful_pull_time metrics for succesful subscription"
-if [ "${successPullTimeCount[1]}" \> 0 ] && [ "${successPullTimeSum[1]}" \> 100 ] ; then
+if [ "${successPullTimeCount[1]:-0}" \> 0 ] && [ "${successPullTimeSum[1]:-0}" \> 100 ] ; then
     echo "19-verify-git-pull-time-metric: git_successful_pull_time metrics collected by the managed cluster's metrics service"
 else
     echo "19-verify-git-pull-time-metric: FAILED: git_successful_pull_time metrics not collected by the managed cluster's metrics service"
@@ -658,7 +660,7 @@ kubectl get appsub -n git-pull-time-metric-test   git-pull-time-metric-sub-faile
 kubectl get pods -n open-cluster-management-agent-addon  -l component=application-manager
 kubectl logs -n open-cluster-management-agent-addon  -l component=application-manager
 
-if [ "${failedPullTimeCount[1]}" \> 0 ]; then
+if [ "${failedPullTimeCount[1]:-0}" \> 0 ]; then
     echo "19-verify-git-pull-time-metric: git_failed_pull_time metrics collected by the managed cluster's metrics service"
 else
     echo "19-verify-git-pull-time-metric: FAILED: git_failed_pull_time metrics not collected by the managed cluster's metrics service"
@@ -690,7 +692,7 @@ IFS=' ' read -a failedPlWrongPropagationCount <<< $(echo "$collectedMcMetrics" |
 IFS=' ' read -a standalonePropagationMetric <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"standalone-successful-time-metric-sub\"" | grep propagation_successful_time_count)
 
 echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for successful propagation"
-if [ "${successfulPropagationCount[1]}" \> 0 ]; then
+if [ "${successfulPropagationCount[1]:-0}" \> 0 ]; then
     echo "20-verify-propagation-time-metric: propagation_successful_time metrics collected by the hub cluster's metrics service"
 else
     echo "20-verify-propagation-time-metric: FAILED: propagation_successful_time metrics not collected by the hub cluster's metrics service"
@@ -698,7 +700,7 @@ else
 fi
 
 echo "20-verify-propagation-time-metric: verifying expected propagation_failed_time for failed propagation"
-if [ "${failedNoPlPropagationCount[1]}" \> 0 ] && [ "${failedPlWrongPropagationCount[1]}" \> 0 ]; then
+if [ "${failedNoPlPropagationCount[1]:-0}" \> 0 ] && [ "${failedPlWrongPropagationCount[1]:-0}" \> 0 ]; then
     echo "20-verify-propagation-time-metric: propagation_failed_time metrics collected by the hub cluster's metrics service"
 else
     echo "20-verify-propagation-time-metric: FAILED: propagation_failed_time metrics not collected by the hub cluster's metrics service"
@@ -706,7 +708,7 @@ else
 fi
 
 echo "20-verify-propagation-time-metric: verifying expected propagation_successful_time for a standalone deployment"
-if [ "${standalonePropagationMetric[1]}" \> 0 ]; then
+if [ "${standalonePropagationMetric[1]:-0}" \> 0 ]; then
     echo "20-verify-propagation-time-metric: propagation_successful_time metrics collected by the hub cluster's metrics service"
 else
     echo "20-verify-propagation-time-metric: FAILED: propagation_successful_time metrics not collected by the hub cluster's metrics service"
@@ -730,7 +732,9 @@ kubectl apply -f test/e2e/cases/21-verify-local-deployment-time-metric
 sleep 20
 
 kubectl config use-context kind-cluster1
-kubectl -n local-deployment-metric-test rollout status deployment/git-simple-subscription
+RUN_CMD="kubectl -n local-deployment-metric-test rollout status deployment/git-simple-subscription --timeout=30s"
+WAIT_MSG="deployment/git-simple-subscription is not available yet"
+waitForCMD "\${RUN_CMD}" "\${WAIT_MSG}"
 
 echo "21-verify-local-deployment-time-metric: fetching collected managed cluster metrics"
 collectedMcMetrics=`kubectl exec -n open-cluster-management-agent-addon deploy/application-manager -- curl http://localhost:8388/metrics`
@@ -740,7 +744,7 @@ IFS=' ' read -a successfulDeploymentSum <<< $(echo "$collectedMcMetrics" | grep 
 IFS=' ' read -a failedDeploymentCount <<< $(echo "$collectedMcMetrics" | grep "subscription_name=\"local-deployment-metric-sub\"" | grep local_deployment_failed_time_count)
 
 echo "21-verify-local-deployment-time-metric: verifying expected local_deployment_successful_time metric for succesful subscription"
-if [ "${successfulDeploymentCount[1]}" \> 0 ] && [ "${successfulDeploymentSum[1]}" \> 100 ] ; then
+if [ "${successfulDeploymentCount[1]:-0}" \> 0 ] && [ "${successfulDeploymentSum[1]:-0}" \> 100 ] ; then
     echo "21-verify-local-deployment-time-metric: local_deployment_successful_time metric collected by the managed cluster's metrics service"
 else
     echo "21-verify-local-deployment-time-metric: FAILED: local_deployment_successful_time metrics not collected by the managed cluster's metrics service"
