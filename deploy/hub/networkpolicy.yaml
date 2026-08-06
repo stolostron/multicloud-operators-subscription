@@ -1,0 +1,194 @@
+# Copyright Contributors to the Open Cluster Management project
+#
+# NetworkPolicies for the hub-side application lifecycle controllers deployed by
+# `make deploy-hub` (multicluster-operators-hub-subscription, multicluster-operators-channel,
+# multicluster-operators-placementrule, multicluster-operators-subscription-report) into the
+# shared "open-cluster-management" namespace.
+#
+# Design principles (least privilege / deny by default):
+#   - Each policy is scoped to a single component via podSelector, so unrelated workloads that
+#     also run in the shared "open-cluster-management" namespace (e.g. other ACM operators) are
+#     never affected and keep their own default (fully open) network behavior.
+#   - Once a NetworkPolicy selects a pod, only the traffic explicitly listed below is allowed for
+#     that pod; everything else is denied by default, per Kubernetes NetworkPolicy semantics.
+#   - Every ingress/egress rule carries a short "Allow ..." comment stating exactly what traffic it
+#     permits, so each policy can be audited at a glance without cross-referencing port numbers.
+#   - DNS, Kubernetes API, metrics-ingress and admission-webhook-ingress rules are all port-based
+#     only (no namespaceSelector/podSelector "from"/"to" restriction) for portability:
+#       * Prometheus can live in an OpenShift-labeled monitoring namespace or in an arbitrary
+#         "monitoring" namespace on non-OpenShift clusters (this project's own docs/metrics.md
+#         documents both), neither of which is guaranteed to carry an OpenShift-specific
+#         namespace label, so pinning one would silently break scraping in the other environment.
+#         Metrics endpoints only expose aggregate operational counters, so the low sensitivity of
+#         the data justifies favoring portability, matching backplane-operator's
+#         cluster-permission NetworkPolicy, which leaves its own metrics port unrestricted for the
+#         same reason.
+#       * On managed Kubernetes offerings (EKS, GKE, AKS) the control plane isn't part of the
+#         cluster's pod network at all, so kube-apiserver traffic (admission webhook calls) would
+#         never match a namespaceSelector/podSelector "from" restriction in the first place; an
+#         OpenShift-specific host-network namespace label (as used by multiclusterhub-operator's
+#         cluster-backup NetworkPolicy) only helps on OpenShift and is a no-op/breaking
+#         restriction elsewhere.
+---
+# multicluster-operators-hub-subscription: reconciles Subscription/Channel resources on the hub
+# and propagates them to managed clusters. It also runs an inbound Git/GitLab/Bitbucket webhook
+# listener (port 8443) so channels can react to push events instead of polling, and it must reach
+# arbitrary user-configured Git, Helm and object-storage (S3) endpoints referenced by Channels.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-hub-subscription-policy
+  namespace: open-cluster-management
+spec:
+  podSelector:
+    matchLabels:
+      app: multicluster-operators-hub-subscription
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8381
+  # Allow Git provider (GitHub/GitLab/Bitbucket) webhook events ingress
+  - ports:
+    - protocol: TCP
+      port: 8443
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server (this cluster and managed clusters via ManifestWork)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # Allow egress to arbitrary Git, Helm repo and S3-compatible object-storage endpoints referenced by Channels
+  - {}
+---
+# multicluster-operators-channel: validates and reconciles Channel resources and serves content
+# for ObjectBucket-type channels. Runs a validating admission webhook on port 9443, invoked
+# directly by kube-apiserver.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-channel-policy
+  namespace: open-cluster-management
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-operators-channel
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8384
+  # Allow Channel validating webhook ingress (called directly by kube-apiserver)
+  - ports:
+    - protocol: TCP
+      port: 9443
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # Allow egress to S3-compatible object-storage endpoints referenced by ObjectBucket-type Channels
+  - {}
+---
+# multicluster-operators-placementrule: reconciles the legacy PlacementRule API against
+# ManagedCluster/ManagedClusterSet objects on the hub. No external repo access is required.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-placementrule-policy
+  namespace: open-cluster-management
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-operators-placementrule
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8383
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+---
+# multicluster-operators-subscription-report (appsubsummary): aggregates SubscriptionStatus into
+# SubscriptionReport/ClusterSubscriptionReport objects on the hub. Kubernetes API access only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-subscription-report-policy
+  namespace: open-cluster-management
+spec:
+  podSelector:
+    matchLabels:
+      app: multicluster-operators-subscription-report
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8391
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
