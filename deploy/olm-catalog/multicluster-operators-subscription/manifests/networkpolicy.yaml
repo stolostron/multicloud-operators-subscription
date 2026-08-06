@@ -37,6 +37,17 @@
 #         OpenShift-specific host-network namespace label (as used by multiclusterhub-operator's
 #         cluster-backup NetworkPolicy) only helps on OpenShift and is a no-op/breaking
 #         restriction elsewhere.
+#
+# Optional install gate: this file is picked up by the ACM installer automation and merged as-is
+# into the multicloud-operators-subscription toggle Helm chart
+# (multiclusterhub-operator/pkg/templates/charts/toggle/multicloud-operators-subscription). The
+# Helm "if/end" action wrapped around the resources below only has meaning once rendered by that
+# chart; it makes installing these NetworkPolicies opt-in there, controlled by the
+# global.networkPolicies.enabled value in that chart (see its values.yaml, which defaults this to
+# true). Note that once this action is present, this file must be rendered through the Helm
+# template engine (e.g. `helm template`) rather than applied directly as plain YAML, since Go's
+# text/template scans the whole file - including comments - for its delimiters.
+{{- if .Values.global.networkPolicies.enabled }}
 ---
 # multicluster-operators-hub-subscription
 apiVersion: networking.k8s.io/v1
@@ -282,3 +293,4 @@ spec:
       port: 443
     - protocol: TCP
       port: 6443
+{{- end }}
