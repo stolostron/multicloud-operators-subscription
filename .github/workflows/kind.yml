@@ -25,7 +25,7 @@ jobs:
       RUN_ON: github
     strategy:
       matrix:
-        go: [ '1.25' ]
+        go: [ '1.26' ]
     name: KinD tests
     steps:
     # Checks out a copy of your repository on the ubuntu-latest machine
