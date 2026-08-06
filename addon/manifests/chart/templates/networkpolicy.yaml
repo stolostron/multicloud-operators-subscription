@@ -1,0 +1,49 @@
+# NetworkPolicy for the application-manager addon agent, installed by the addon-framework into
+# {{ .Release.Namespace }} on every managed cluster (typically
+# "open-cluster-management-agent-addon"). See deploy/hub/networkpolicy.yaml for the design
+# rationale.
+#
+# This pod reconciles Subscriptions on the managed cluster using the hub kubeconfig mounted from
+# the hub-kubeconfig secret, applies the resources described by Channels, and therefore needs the
+# same broad Git/Helm/object-storage egress as the hub-side controllers. It does not run a webhook
+# listener in this mode; it does expose an HTTP liveness probe on 8000.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ template "application-manager.fullname" . }}-policy
+  namespace: {{ .Release.Namespace }}
+spec:
+  podSelector:
+    matchLabels:
+      component: "application-manager"
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8388
+  # Allow health probe ingress (kubelet-initiated liveness probe)
+  - ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server (local managed-cluster API server and hub API server via the mounted hub kubeconfig)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # Allow egress to arbitrary Git, Helm repo and S3-compatible object-storage endpoints referenced by Channels
+  - {}

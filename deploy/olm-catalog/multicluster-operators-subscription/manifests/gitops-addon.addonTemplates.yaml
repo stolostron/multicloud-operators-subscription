@@ -221,6 +221,80 @@ spec:
                   volumes:
                     - name: tmp-volume
                       emptyDir: {}
+          # NetworkPolicy for the long-running gitops-addon agent. Charts are embedded
+          # (go:embed); the agent only talks to the managed-cluster Kubernetes API to
+          # install/upgrade OpenShift GitOps + Argo CD. HTTP_PROXY/HTTPS_PROXY are
+          # passed through to those workloads and are not used by this agent itself.
+          # No admission webhook; no health-probe port is configured on the Deployment.
+          - kind: NetworkPolicy
+            apiVersion: networking.k8s.io/v1
+            metadata:
+              name: gitops-addon-policy
+              namespace: open-cluster-management-agent-addon
+              labels:
+                apps.open-cluster-management.io/gitopsaddon: "true"
+            spec:
+              podSelector:
+                matchLabels:
+                  app: gitops-addon
+              policyTypes:
+              - Ingress
+              - Egress
+              ingress:
+              # Allow Metrics ingress
+              - ports:
+                - protocol: TCP
+                  port: 8387
+              egress:
+              # Allow DNS egress
+              - ports:
+                - protocol: UDP
+                  port: 53
+                - protocol: TCP
+                  port: 53
+                - protocol: UDP
+                  port: 5353
+                - protocol: TCP
+                  port: 5353
+              # Allow egress to Kubernetes API server
+              - ports:
+                - protocol: TCP
+                  port: 443
+                - protocol: TCP
+                  port: 6443
+          # NetworkPolicy for the pre-delete cleanup Job (gitopsaddon -cleanup).
+          # Short-lived; Kubernetes API access only; no listening ports.
+          - kind: NetworkPolicy
+            apiVersion: networking.k8s.io/v1
+            metadata:
+              name: gitops-addon-cleanup-policy
+              namespace: open-cluster-management-agent-addon
+              labels:
+                apps.open-cluster-management.io/gitopsaddon: "true"
+            spec:
+              podSelector:
+                matchLabels:
+                  job-name: gitops-addon-cleanup
+              policyTypes:
+              - Ingress
+              - Egress
+              egress:
+              # Allow DNS egress
+              - ports:
+                - protocol: UDP
+                  port: 53
+                - protocol: TCP
+                  port: 53
+                - protocol: UDP
+                  port: 5353
+                - protocol: TCP
+                  port: 5353
+              # Allow egress to Kubernetes API server
+              - ports:
+                - protocol: TCP
+                  port: 443
+                - protocol: TCP
+                  port: 6443
           - kind: ServiceAccount
             apiVersion: v1
             metadata:

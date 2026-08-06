@@ -1,0 +1,49 @@
+# Copyright Contributors to the Open Cluster Management project
+#
+# NetworkPolicy for the standalone subscription controller deployed by `make deploy-standalone`
+# (single-cluster mode, no hub). See deploy/hub/networkpolicy.yaml for the design rationale.
+#
+# multicluster-operators-standalone-subscription runs the same subscription/channel/helmrelease
+# reconciliation loop as the hub-subscription pod, plus its own Git webhook listener on 8443, and
+# needs to reach arbitrary user-configured Git/Helm/object-storage endpoints referenced by
+# Channels since it is the pod that actually applies the subscribed content in standalone mode.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-standalone-subscription-policy
+  namespace: open-cluster-management
+spec:
+  podSelector:
+    matchLabels:
+      app: multicluster-operators-standalone-subscription
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8389
+  # Allow Git provider (GitHub/GitLab/Bitbucket) webhook events ingress
+  - ports:
+    - protocol: TCP
+      port: 8443
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # Allow egress to arbitrary Git, Helm repo and S3-compatible object-storage endpoints referenced by Channels
+  - {}

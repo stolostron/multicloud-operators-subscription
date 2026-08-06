@@ -1,0 +1,53 @@
+# Copyright Contributors to the Open Cluster Management project
+#
+# NetworkPolicy for the legacy managed-cluster subscription controller manifest
+# (deploy/managed/operator.yaml), running in the "open-cluster-management-agent-addon" namespace.
+# See deploy/hub/networkpolicy.yaml for the design rationale. Note this deployment path has
+# largely been superseded by the addon-framework based install
+# (addon/manifests/chart/templates/deployment.yaml, see the sibling NetworkPolicy there), but the
+# policy is provided here too so this manifest remains safe to use standalone.
+#
+# This pod reconciles Subscriptions on the managed cluster: it reads the hub kubeconfig mounted
+# from the "application-manager-hub-kubeconfig" secret to talk to the hub API server, applies the
+# resources described by Channels, and therefore needs the same broad Git/Helm/object-storage
+# egress as the hub-side controllers. It does not run a webhook listener in this mode.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: multicluster-operators-subscription-policy
+  namespace: open-cluster-management-agent-addon
+spec:
+  podSelector:
+    matchLabels:
+      name: multicluster-operators-subscription
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  # Allow Metrics ingress
+  - ports:
+    - protocol: TCP
+      port: 8388
+  # Allow health probe ingress (kubelet-initiated liveness probe)
+  - ports:
+    - protocol: TCP
+      port: 8000
+  egress:
+  # Allow DNS egress
+  - ports:
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 5353
+    - protocol: TCP
+      port: 5353
+  # Allow egress to Kubernetes API server (local managed-cluster API server and hub API server via the mounted hub kubeconfig)
+  - ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 6443
+  # Allow egress to arbitrary Git, Helm repo and S3-compatible object-storage endpoints referenced by Channels
+  - {}
