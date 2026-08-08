@@ -23,6 +23,7 @@ import (
 	promTestUtils "github.com/prometheus/client_golang/prometheus/testutil"
 	apps "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -635,6 +636,50 @@ var _ = Describe("test ProcessSubResources", Ordered, func() {
 
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(BeZero())
 		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
+	})
+
+	// Security: a non-subscription-admin must not be able to deploy cluster-scoped resources
+	// (e.g. ClusterRoleBinding) even when no deny list is set, because the controller applies
+	// resources with its own elevated credentials.
+	It("should block cluster-scoped resources for non-admin subscriptions", func() {
+		appsub := workload5Subscription.DeepCopy()
+		Expect(k8sClient.Create(context.TODO(), appsub)).NotTo(HaveOccurred())
+
+		defer k8sClient.Delete(context.TODO(), appsub)
+
+		crb := &unstructured.Unstructured{}
+		crb.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "rbac.authorization.k8s.io",
+			Version: "v1",
+			Kind:    "ClusterRoleBinding",
+		})
+		crb.SetName("attacker-crb")
+		crb.SetAnnotations(map[string]string{
+			appv1alpha1.AnnotationHosting: hostworkload5.Namespace + "/" + hostworkload5.Name,
+		})
+
+		resourceList := []ResourceUnit{{Resource: crb, Gvk: crb.GetObjectKind().GroupVersionKind()}}
+
+		// isAdmin=false, no deny list: cluster-scoped resource must still be rejected.
+		// ProcessSubResources aggregates per-resource errors internally and does not
+		// propagate them as a top-level error (consistent with the other ProcessSubResources
+		// tests in this file), so we assert the rejection via the failure metric and by
+		// confirming the resource was never actually deployed.
+		err = sync.ProcessSubResources(appsub, resourceList, nil, nil, false, false)
+		Expect(err).NotTo(HaveOccurred())
+
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentFailedPullTime)).To(Equal(1))
+		Expect(promTestUtils.CollectAndCount(metrics.LocalDeploymentSuccessfulPullTime)).To(BeZero())
+
+		deployedCRB := &unstructured.Unstructured{}
+		deployedCRB.SetGroupVersionKind(schema.GroupVersionKind{
+			Group:   "rbac.authorization.k8s.io",
+			Version: "v1",
+			Kind:    "ClusterRoleBinding",
+		})
+		getErr := k8sClient.Get(context.TODO(), types.NamespacedName{Name: "attacker-crb"}, deployedCRB)
+		Expect(getErr).To(HaveOccurred())
+		Expect(errors.IsNotFound(getErr)).To(BeTrue())
 	})
 
 	AfterAll(func() {
