@@ -47,7 +47,6 @@
 # true). Note that once this action is present, this file must be rendered through the Helm
 # template engine (e.g. `helm template`) rather than applied directly as plain YAML, since Go's
 # text/template scans the whole file - including comments - for its delimiters.
-{{- if .Values.global.networkPolicies.enabled }}
 ---
 # multicluster-operators-hub-subscription
 apiVersion: networking.k8s.io/v1
@@ -293,4 +292,3 @@ spec:
       port: 443
     - protocol: TCP
       port: 6443
-{{- end }}
