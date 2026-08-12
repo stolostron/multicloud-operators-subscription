@@ -628,6 +628,19 @@ func (sync *KubeSynchronizer) applyTemplate(nri dynamic.NamespaceableResourceInt
 		return nil
 	}
 
+	// Cluster-scoped resources require subscription-admin privilege. Without this gate a
+	// non-admin user could include a ClusterRoleBinding in a Helm chart and have the
+	// controller (which runs with elevated credentials) apply it on their behalf.
+	if !namespaced && !isAdmin {
+		blockErr := fmt.Errorf("not deployed by a subscription admin. cluster-scoped resource "+
+			"apiVersion: %s kind: %s name: %s is not deployed",
+			tplunit.GetAPIVersion(), tplunit.GetKind(), tplunit.GetName())
+
+		klog.Info(blockErr.Error())
+
+		return blockErr
+	}
+
 	if utils.IsResourceDenied(*tplunit, denyList, isAdmin) {
 		denyError := fmt.Errorf("the resource apiVersion: %s kind: %s is on the deny list. Not deployed",
 			tplunit.GetAPIVersion(), tplunit.GetKind())
