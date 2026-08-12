@@ -514,6 +514,18 @@ spec:
           - config.openshift.io
           resources:
           - apiservers
+        - verbs:
+          - get
+          - list
+          - watch
+          - update
+          - patch
+          apiGroups:
+          - imageregistry.open-cluster-management.io
+          resources:
+          - managedclusterimageregistries
+          - managedclusterimageregistries/status
+          - managedclusterimageregistries/finalizers
         serviceAccountName: multicluster-applications
       deployments:
       - name: multicluster-integrations
