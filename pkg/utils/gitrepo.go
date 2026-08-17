@@ -51,6 +51,7 @@ import (
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	workv1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -961,7 +962,7 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
 
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
-		if !doesWebhookExist || // not on the hub cluster
+		if (!doesWebhookExist && isSubscriptionFromManifestWork(client, sub)) || // not on the hub cluster, and verified to have been applied by the work agent
 			(doesWebhookExist && strings.HasSuffix(sub.GetName(), "-local")) { // on the hub cluster and the subscription has -local suffix
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
@@ -988,6 +989,45 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	klog.Infof("isClusterAdmin = %v", isClusterAdmin)
 
 	return isClusterAdmin
+}
+
+// isSubscriptionFromManifestWork verifies that the Subscription on a managed
+// cluster was actually applied by the OCM work agent and not directly created
+// by a tenant who forged the hosting-subscription and cluster-admin
+// annotations. The work agent sets an ownerReference to a cluster-scoped
+// AppliedManifestWork on every resource it applies; we resolve that owner and
+// confirm it lists this Subscription in its status.appliedResources. A
+// namespace-admin tenant cannot create or update cluster-scoped
+// AppliedManifestWork resources, so this check is not forgeable.
+func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) bool {
+	for _, owner := range sub.GetOwnerReferences() {
+		if owner.Kind != "AppliedManifestWork" ||
+			!strings.HasPrefix(owner.APIVersion, workv1.GroupName+"/") {
+			continue
+		}
+
+		amw := &workv1.AppliedManifestWork{}
+		if err := clt.Get(context.TODO(), types.NamespacedName{Name: owner.Name}, amw); err != nil {
+			klog.Warningf("subscription %s/%s ownerReference AppliedManifestWork %q not resolvable: %v",
+				sub.GetNamespace(), sub.GetName(), owner.Name, err)
+
+			continue
+		}
+
+		for _, r := range amw.Status.AppliedResources {
+			if r.Group == appv1.SchemeGroupVersion.Group &&
+				r.Resource == "subscriptions" &&
+				r.Namespace == sub.GetNamespace() &&
+				r.Name == sub.GetName() {
+				return true
+			}
+		}
+
+		klog.Warningf("subscription %s/%s not listed in AppliedManifestWork %q appliedResources; ignoring cluster-admin annotation",
+			sub.GetNamespace(), sub.GetName(), owner.Name)
+	}
+
+	return false
 }
 
 func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bool {
