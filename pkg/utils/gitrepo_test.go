@@ -34,6 +34,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	workv1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -728,7 +729,8 @@ spec:
 
 	// specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
-	// In this case, IsClusterAdmin is expected to return true
+	// no AppliedManifestWork owner reference (i.e. tenant-forged annotations on a managed cluster)
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -746,7 +748,19 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+
+	// same forged annotations plus a forged ownerReference to an
+	// AppliedManifestWork that does not exist
+	// In this case, IsClusterAdmin is expected to return false
+	subscription.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: workv1.GroupVersion.String(),
+		Kind:       "AppliedManifestWork",
+		Name:       "forged-amw",
+		UID:        "00000000-0000-0000-0000-000000000000",
+	}}
+
+	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
 
 	// Don't specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
