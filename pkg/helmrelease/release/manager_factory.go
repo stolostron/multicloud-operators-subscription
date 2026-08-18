@@ -18,6 +18,7 @@ package release
 
 import (
 	"fmt"
+	"strings"
 
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart"
@@ -32,6 +33,7 @@ import (
 	crmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/helmrelease/v1"
+	appsubv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/client"
 )
 
@@ -51,6 +53,15 @@ type managerFactory struct {
 // NewManagerFactory returns a new Helm manager factory capable of installing and uninstalling releases.
 func NewManagerFactory(mgr crmanager.Manager, chartDir string) ManagerFactory {
 	return &managerFactory{mgr, chartDir}
+}
+
+// isClusterAdminCR reports whether the HelmRelease CR carries the
+// cluster-admin annotation, i.e. its owning Subscription was created/updated
+// by a user bound to the open-cluster-management:subscription-admin
+// ClusterRoleBinding. Only subscription admins are allowed to deploy charts
+// containing cluster-scoped resources; see clusterscope.go.
+func isClusterAdminCR(cr *unstructured.Unstructured) bool {
+	return strings.EqualFold(cr.GetAnnotations()[appsubv1.AnnotationClusterAdmin], "true")
 }
 
 func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues map[string]string) (Manager, error) {
@@ -112,17 +123,25 @@ func (f managerFactory) NewManager(cr *unstructured.Unstructured, overrideValues
 		Log:              func(_ string, _ ...interface{}) {},
 	}
 
+	// The cluster-admin annotation is copied onto the HelmRelease CR (see
+	// utils.CreateHelmCRManifest) whenever the owning Subscription was
+	// created/updated by a subscription admin. Only subscription admins are
+	// allowed to deploy charts containing cluster-scoped resources.
+	isAdmin := isClusterAdminCR(cr)
+
 	return &manager{
 		actionConfig:   actionConfig,
 		storageBackend: storageBackend,
 		kubeClient:     ownerRefClient,
+		restMapper:     restMapper,
 
 		releaseName: releaseName,
 		namespace:   cr.GetNamespace(),
 
-		chart:  crChart,
-		values: values,
-		status: appv1.StatusFor(cr),
+		chart:   crChart,
+		values:  values,
+		status:  appv1.StatusFor(cr),
+		isAdmin: isAdmin,
 	}, nil
 }
 
