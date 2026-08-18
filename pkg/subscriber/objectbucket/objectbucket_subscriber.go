@@ -121,6 +121,8 @@ func (obs *Subscriber) SubscribeItem(subitem *appv1alpha1.SubscriberItem) error 
 	if strings.EqualFold(subAnnotations[appv1alpha1.AnnotationClusterAdmin], "true") {
 		klog.Info("Cluster admin role enabled on SubscriberItem ", obssubitem.Subscription.Name)
 		obssubitem.clusterAdmin = true
+	} else {
+		obssubitem.clusterAdmin = false
 	}
 
 	obssubitem.reconcileRate = utils.GetReconcileRate(chnAnnotations, subAnnotations)
