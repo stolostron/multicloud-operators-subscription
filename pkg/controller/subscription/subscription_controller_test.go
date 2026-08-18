@@ -231,6 +231,86 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 }
 
+// TestDoReconcileHelmRepoRechecksClusterAdmin covers the fix that added
+// chnv1.ChannelTypeHelmRepo to the set of channel types whose cluster-admin
+// annotation is re-verified via utils.IsClusterAdmin on every reconcile.
+// Before the fix, Helm-repo subscriptions were excluded from this recheck, so
+// a stale "cluster-admin: true" annotation (e.g. left over after the
+// subscription is no longer considered hub-propagated) would never be
+// de-escalated.
+func TestDoReconcileHelmRepoRechecksClusterAdmin(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+
+	mgr, err := manager.New(cfg, manager.Options{
+		Metrics: metricsserver.Options{
+			BindAddress: "0",
+		},
+	})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	c = mgr.GetClient()
+
+	ctx, cancel := context.WithTimeout(context.TODO(), 5*time.Minute)
+	mgrStopped := StartTestManager(ctx, mgr, g)
+
+	defer func() {
+		cancel()
+		mgrStopped.Wait()
+	}()
+
+	rec := newReconciler(mgr, mgr.GetClient(), nil, false).(*ReconcileSubscription)
+
+	helmChnKey := types.NamespacedName{Name: "test-helmrepo-chn", Namespace: chnkey.Namespace}
+	helmChn := &chnv1alpha1.Channel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmChnKey.Name,
+			Namespace: helmChnKey.Namespace,
+		},
+		Spec: chnv1alpha1.ChannelSpec{
+			Type:     chnv1alpha1.ChannelTypeHelmRepo,
+			Pathname: "https://charts.example.com/",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), helmChn)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), helmChn)
+
+	instance := &appv1alpha1.Subscription{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-helmrepo-clusteradmin-recheck",
+			Namespace: subkey.Namespace,
+			Annotations: map[string]string{
+				appv1alpha1.AnnotationHosting:      "hub-namespace/hub-sub",
+				appv1alpha1.AnnotationClusterAdmin: "true",
+			},
+		},
+		Spec: appv1alpha1.SubscriptionSpec{
+			Channel: helmChnKey.String(),
+		},
+	}
+	g.Expect(c.Create(context.TODO(), instance)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), instance)
+
+	// The subscription is (simulated as) propagated from the hub and there is
+	// no ACM mutating webhook in this test environment, so IsClusterAdmin
+	// respects the existing cluster-admin annotation and keeps it set.
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	g.Expect(instance.GetAnnotations()[appv1alpha1.AnnotationClusterAdmin]).To(gomega.Equal("true"))
+
+	// Simulate the subscription no longer being considered hub-propagated
+	// (e.g. the hosting-subscription annotation is gone) while the
+	// cluster-admin annotation is still stale/true from before. If Helm-repo
+	// subscriptions are correctly rechecked on every reconcile, the stale
+	// annotation must be removed.
+	annotations := instance.GetAnnotations()
+	delete(annotations, appv1alpha1.AnnotationHosting)
+	instance.SetAnnotations(annotations)
+
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	g.Expect(instance.GetAnnotations()[appv1alpha1.AnnotationClusterAdmin]).NotTo(gomega.Equal("true"))
+}
+
 type testClock struct {
 	timestamp string
 }
