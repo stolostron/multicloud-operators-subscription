@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/cli-runtime/pkg/resource"
@@ -65,12 +66,20 @@ type manager struct {
 	actionConfig   *action.Configuration
 	storageBackend *storage.Storage
 	kubeClient     kube.Interface
+	restMapper     meta.RESTMapper
 
 	releaseName string
 	namespace   string
 
 	values map[string]interface{}
 	status *appv1.HelmAppStatus
+
+	// isAdmin reflects whether the owning Subscription carries the
+	// cluster-admin annotation, i.e. was created/updated by a user bound to
+	// the open-cluster-management:subscription-admin ClusterRoleBinding.
+	// Only subscription admins may deploy charts containing cluster-scoped
+	// resources; see clusterscope.go.
+	isAdmin bool
 
 	isInstalled       bool
 	isUpgradeRequired bool
@@ -170,6 +179,7 @@ func (m manager) getCandidateRelease(namespace, name string, chart *cpb.Chart,
 	upgrade := action.NewUpgrade(m.actionConfig)
 	upgrade.Namespace = namespace
 	upgrade.DryRun = true
+	upgrade.PostRenderer = newClusterScopeGate(m.restMapper, m.isAdmin)
 
 	return upgrade.Run(name, chart, values)
 }
@@ -185,6 +195,10 @@ func (m manager) InstallRelease(ctx context.Context, opts ...InstallOption) (*rp
 			return nil, fmt.Errorf("failed to apply install option: %w", err)
 		}
 	}
+
+	// Enforce the cluster-scoped resource restriction last so no InstallOption
+	// can accidentally override it.
+	install.PostRenderer = newClusterScopeGate(m.restMapper, m.isAdmin)
 
 	return install.Run(m.chart, m.values)
 }
@@ -206,6 +220,10 @@ func (m manager) UpgradeRelease(ctx context.Context, opts ...UpgradeOption) (*rp
 			return nil, nil, fmt.Errorf("failed to apply upgrade option: %w", err)
 		}
 	}
+
+	// Enforce the cluster-scoped resource restriction last so no UpgradeOption
+	// can accidentally override it.
+	upgrade.PostRenderer = newClusterScopeGate(m.restMapper, m.isAdmin)
 
 	upgradedRelease, err := upgrade.Run(m.releaseName, m.chart, m.values)
 	if err != nil {
