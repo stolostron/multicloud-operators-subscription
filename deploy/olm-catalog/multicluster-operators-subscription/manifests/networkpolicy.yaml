@@ -253,8 +253,8 @@ spec:
 ---
 # multicluster-integrations: one pod with three containers -
 #   propagation (metrics 8386), gitopssyncresc (metrics 8392), multiclusterstatusaggregation
-#   (metrics 8383). All three watch Argo CD and OCM ManifestWork objects purely via the
-#   Kubernetes API.
+#   (metrics 8383). All three watch Argo CD and OCM ManifestWork objects via the Kubernetes API;
+#   gitopssyncresc additionally queries the search-search-api service for Argo Application data.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -292,3 +292,7 @@ spec:
       port: 443
     - protocol: TCP
       port: 6443
+  # Allow egress to search-api server
+  - ports:
+    - protocol: TCP
+      port: 4010
