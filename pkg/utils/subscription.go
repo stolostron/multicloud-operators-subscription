@@ -1164,7 +1164,12 @@ func ParseNamespacedName(namespacedName string) (string, string) {
 	return parsedstr[0], parsedstr[1]
 }
 
-// FetchChannelReferences best-effort to return the channel secret and configmap if they exist
+// FetchChannelReferences best-effort to return the channel secret and configmap if they exist.
+// The SecretRef.Namespace and ConfigMapRef.Namespace fields are deliberately ignored: the
+// referenced object is always read from the Channel's own namespace. Honouring a
+// tenant-supplied namespace here allowed a namespace-admin to point at a Secret in any
+// namespace; ListAndDeployReferredObject then copies the full Secret (.Data included) into
+// the Subscription namespace where the tenant can read it.
 func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.Secret, cm *corev1.ConfigMap) {
 	if chn.Spec.SecretRef != nil {
 		secret := &corev1.Secret{}
@@ -1174,8 +1179,9 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 			Namespace: chn.GetNamespace(),
 		}
 
-		if chn.Spec.SecretRef.Namespace != "" {
-			chnseckey.Namespace = chn.Spec.SecretRef.Namespace
+		if chn.Spec.SecretRef.Namespace != "" && chn.Spec.SecretRef.Namespace != chn.GetNamespace() {
+			klog.Warningf("ignoring channel %s/%s spec.secretRef.namespace %q; reading Secret from channel namespace",
+				chn.GetNamespace(), chn.GetName(), chn.Spec.SecretRef.Namespace)
 		}
 
 		if err := clt.Get(context.TODO(), chnseckey, secret); err != nil {
@@ -1193,8 +1199,9 @@ func FetchChannelReferences(clt client.Client, chn chnv1.Channel) (sec *corev1.S
 			Namespace: chn.GetNamespace(),
 		}
 
-		if chn.Spec.ConfigMapRef.Namespace != "" {
-			chncmkey.Namespace = chn.Spec.ConfigMapRef.Namespace
+		if chn.Spec.ConfigMapRef.Namespace != "" && chn.Spec.ConfigMapRef.Namespace != chn.GetNamespace() {
+			klog.Warningf("ignoring channel %s/%s spec.configMapRef.namespace %q; reading ConfigMap from channel namespace",
+				chn.GetNamespace(), chn.GetName(), chn.Spec.ConfigMapRef.Namespace)
 		}
 
 		if err := clt.Get(context.TODO(), chncmkey, configMap); err != nil {
