@@ -926,8 +926,17 @@ func IsGitChannel(chType string) bool {
 // in-cluster client), NOT the restricted hub kubeconfig used for hub-side
 // reads, since AppliedManifestWork lives on the managed cluster and the hub
 // credential is generally not permitted to read it.
-func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClient client.Client, eventRecorder *EventRecorder) bool {
-	isClusterAdmin := false
+//
+// The second return value, isPending, is true when the cluster-admin
+// annotation is present and the subscription's AppliedManifestWork owner has
+// been resolved, but the work agent has not yet reported this subscription in
+// status.appliedResources. This is a normal, transient eventual-consistency
+// window right after the subscription is first applied, and is distinct from
+// isClusterAdmin=false: callers should not treat a pending result as "not
+// admin" (which would let a deny list be silently bypassed on the first
+// reconcile); instead they should defer applying any resources until the
+// status resolves one way or the other.
+func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClient client.Client, eventRecorder *EventRecorder) (isClusterAdmin, isPending bool) {
 	isUserSubAdmin := false
 	isSubPropagatedFromHub := false
 	isClusterAdminAnnotationTrue := false
@@ -981,15 +990,28 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
 
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
-		if (!doesWebhookExist && isSubscriptionFromManifestWork(localClient, sub)) || // not on the hub cluster, and verified to have been applied by the work agent
-			(doesWebhookExist && strings.HasSuffix(sub.GetName(), "-local")) { // on the hub cluster and the subscription has -local suffix
+		switch {
+		case !doesWebhookExist: // not on the hub cluster; verify it was applied by the work agent
+			verified, pending := isSubscriptionFromManifestWork(localClient, sub)
+
+			if verified {
+				if eventRecorder != nil {
+					eventRecorder.RecordEvent(sub, "RoleElevation",
+						"Role was elevated to cluster admin for subscription "+sub.Name, nil)
+				}
+
+				isClusterAdmin = true
+			} else if pending {
+				isPending = true
+			}
+		case strings.HasSuffix(sub.GetName(), "-local"): // on the hub cluster and the subscription has -local suffix
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
 					"Role was elevated to cluster admin for subscription "+sub.Name, nil)
 			}
 
 			isClusterAdmin = true
-		} else if isHubSubOfHubSub { // hub appsub of a hub appsub
+		case isHubSubOfHubSub: // hub appsub of a hub appsub
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
 					"Role was elevated to cluster admin for hub subscription of hub subscription "+sub.Name, nil)
@@ -1005,9 +1027,9 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 		isClusterAdmin = true
 	}
 
-	klog.Infof("isClusterAdmin = %v", isClusterAdmin)
+	klog.Infof("isClusterAdmin = %v, isPending = %v", isClusterAdmin, isPending)
 
-	return isClusterAdmin
+	return isClusterAdmin, isPending
 }
 
 // isSubscriptionFromManifestWork verifies that the Subscription on a managed
@@ -1018,7 +1040,20 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 // confirm it lists this Subscription in its status.appliedResources. A
 // namespace-admin tenant cannot create or update cluster-scoped
 // AppliedManifestWork resources, so this check is not forgeable.
-func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) bool {
+//
+// verified is true only once the owning AppliedManifestWork's
+// status.appliedResources actually lists this Subscription.
+//
+// pending is true when an AppliedManifestWork owner was resolved (i.e. it
+// exists and is a real, cluster-scoped object that a tenant could not have
+// forged) but it has not yet reported this Subscription in
+// status.appliedResources. That status is populated asynchronously by the
+// work agent shortly after it creates the AppliedManifestWork and the
+// Subscription, so this is expected to be transient. If the owner reference
+// cannot be resolved at all (e.g. a forged name pointing at an
+// AppliedManifestWork that was never created), pending stays false: that is
+// not eventual consistency, it is indistinguishable from a forgery attempt.
+func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) (verified, pending bool) {
 	for _, owner := range sub.GetOwnerReferences() {
 		if owner.Kind != "AppliedManifestWork" ||
 			!strings.HasPrefix(owner.APIVersion, workv1.GroupName+"/") {
@@ -1033,20 +1068,30 @@ func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) 
 			continue
 		}
 
+		found := false
+
 		for _, r := range amw.Status.AppliedResources {
 			if r.Group == appv1.SchemeGroupVersion.Group &&
 				r.Resource == "subscriptions" &&
 				r.Namespace == sub.GetNamespace() &&
 				r.Name == sub.GetName() {
-				return true
+				found = true
+
+				break
 			}
 		}
 
-		klog.Warningf("subscription %s/%s not listed in AppliedManifestWork %q appliedResources; ignoring cluster-admin annotation",
+		if found {
+			return true, false
+		}
+
+		klog.Warningf("subscription %s/%s not yet listed in AppliedManifestWork %q appliedResources; cluster-admin status is pending",
 			sub.GetNamespace(), sub.GetName(), owner.Name)
+
+		pending = true
 	}
 
-	return false
+	return false, pending
 }
 
 func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bool {

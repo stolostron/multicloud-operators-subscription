@@ -762,6 +762,66 @@ spec:
 
 	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 
+	// same annotations, but the ownerReference now points at a real
+	// AppliedManifestWork that exists and has not yet reported this
+	// subscription in status.appliedResources (eventual consistency window
+	// right after the subscription is first created by the work agent).
+	// In this case, IsClusterAdmin is expected to return false, but pending
+	// (the second return value) is expected to be true.
+	realAMW := &workv1.AppliedManifestWork{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "real-amw-pending",
+		},
+		Spec: workv1.AppliedManifestWorkSpec{
+			HubHash:          "test-hub-hash",
+			ManifestWorkName: "test-manifestwork",
+		},
+	}
+
+	err = c.Create(context.TODO(), realAMW)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), realAMW)
+
+	time.Sleep(1 * time.Second)
+
+	subscription.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: workv1.GroupVersion.String(),
+		Kind:       "AppliedManifestWork",
+		Name:       realAMW.GetName(),
+		UID:        realAMW.GetUID(),
+	}}
+
+	isAdmin, isPending := IsClusterAdmin(c, subscription, c, nil)
+	g.Expect(isAdmin).To(gomega.BeFalse())
+	g.Expect(isPending).To(gomega.BeTrue())
+
+	// same setup, but the AppliedManifestWork's status now lists this
+	// subscription in appliedResources, meaning the work agent has confirmed
+	// it delivered the subscription.
+	// In this case, IsClusterAdmin is expected to return true, and pending is
+	// expected to be false.
+	realAMW.Status.AppliedResources = []workv1.AppliedManifestResourceMeta{
+		{
+			ResourceIdentifier: workv1.ResourceIdentifier{
+				Group:     appv1.SchemeGroupVersion.Group,
+				Resource:  "subscriptions",
+				Namespace: subscription.GetNamespace(),
+				Name:      subscription.GetName(),
+			},
+			Version: "v1",
+		},
+	}
+
+	err = c.Status().Update(context.TODO(), realAMW)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(1 * time.Second)
+
+	isAdmin, isPending = IsClusterAdmin(c, subscription, c, nil)
+	g.Expect(isAdmin).To(gomega.BeTrue())
+	g.Expect(isPending).To(gomega.BeFalse())
+
 	// Don't specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
 	// In this case, IsClusterAdmin is expected to return false
