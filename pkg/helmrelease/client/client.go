@@ -16,6 +16,7 @@ package client
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 
@@ -32,6 +33,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"open-cluster-management.io/multicloud-operators-subscription/pkg/helmrelease/internal/util/k8sutil"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -134,9 +136,34 @@ func (c *ownerRefInjectingClient) Build(reader io.Reader, validate bool) (kube.R
 		return resourceList, err
 	}
 
+	isClusterAdmin := c.owner != nil &&
+		strings.EqualFold(c.owner.GetAnnotations()[appv1.AnnotationClusterAdmin], "true")
+	ownerNamespace := ""
+
+	if c.owner != nil {
+		ownerNamespace = c.owner.GetNamespace()
+	}
+
 	err = resourceList.Visit(func(r *resource.Info, err error) error {
 		if err != nil {
 			return err
+		}
+
+		// Constrain rendered chart resources to the HelmRelease's own
+		// namespace unless the HelmRelease was created by a
+		// subscription-admin (annotated by the Subscription controller).
+		// This brings the HelmRelease apply path to parity with the Git
+		// subscriber's namespace coercion / cluster-scoped gating.
+		if !isClusterAdmin {
+			if !r.Namespaced() {
+				return fmt.Errorf("not deployed by a subscription admin: cluster-scoped resource %s/%s kind %s is not deployed",
+					r.Mapping.GroupVersionKind.GroupVersion(), r.Name, r.Mapping.GroupVersionKind.Kind)
+			}
+
+			if r.Namespace != "" && r.Namespace != ownerNamespace {
+				return fmt.Errorf("not deployed by a subscription admin: resource %s/%s kind %s targets namespace %q outside HelmRelease namespace %q",
+					r.Mapping.GroupVersionKind.GroupVersion(), r.Name, r.Mapping.GroupVersionKind.Kind, r.Namespace, ownerNamespace)
+			}
 		}
 
 		objMap, err := runtime.DefaultUnstructuredConverter.ToUnstructured(r.Object)
