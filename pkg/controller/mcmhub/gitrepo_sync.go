@@ -130,7 +130,7 @@ func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscriptio
 		delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
 	}
 
-	if utils.IsClusterAdmin(r.Client, sub, r.eventRecorder) {
+	if utils.IsClusterAdmin(r.Client, sub, r.Client, r.eventRecorder) {
 		annotations[appv1.AnnotationClusterAdmin] = "true"
 		sub.SetAnnotations(annotations)
 

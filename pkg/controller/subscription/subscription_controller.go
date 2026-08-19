@@ -486,7 +486,14 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		strings.EqualFold(subtype, chnv1.ChannelTypeObjectBucket) || strings.EqualFold(subtype, chnv1.ChannelTypeHelmRepo) {
 		annotations := instance.GetAnnotations()
 
-		if utils.IsClusterAdmin(r.hubclient, instance, r.eventRecorder) {
+		// The AppliedManifestWork ownership check inside IsClusterAdmin must run against
+		// this cluster's own client (r.Client), not r.hubclient: AppliedManifestWork is
+		// created by the work agent on this (local/managed) cluster, and the hub
+		// kubeconfig used for r.hubclient is typically scoped with far fewer
+		// permissions than this operator's own in-cluster credentials, so it cannot
+		// read AppliedManifestWork even when hub and local happen to be the same
+		// physical cluster (e.g. local-cluster).
+		if utils.IsClusterAdmin(r.hubclient, instance, r.Client, r.eventRecorder) {
 			klog.Info("ADDING apps.open-cluster-management.io/cluster-admin: true")
 
 			annotations[appv1.AnnotationClusterAdmin] = "true"
