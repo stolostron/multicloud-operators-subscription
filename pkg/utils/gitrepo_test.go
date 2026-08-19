@@ -33,6 +33,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	workv1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -680,7 +681,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 
 	// specify hosting-subscription annotation
 	// Don't specify cluster-admin annotation
@@ -701,7 +702,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 
 	// specify hosting-subscription annotation
 	// specify cluster-admin annotation to be false
@@ -723,11 +724,12 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 
 	// specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
-	// In this case, IsClusterAdmin is expected to return true
+	// no AppliedManifestWork owner reference (i.e. tenant-forged annotations on a managed cluster)
+	// In this case, IsClusterAdmin is expected to return false
 	subscriptionYAML = `apiVersion: apps.open-cluster-management.io/v1
 kind: Subscription
 metadata:
@@ -745,7 +747,79 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
+
+	// same forged annotations plus a forged ownerReference to an
+	// AppliedManifestWork that does not exist
+	// In this case, IsClusterAdmin is expected to return false
+	subscription.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: workv1.GroupVersion.String(),
+		Kind:       "AppliedManifestWork",
+		Name:       "forged-amw",
+		UID:        "00000000-0000-0000-0000-000000000000",
+	}}
+
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
+
+	// same annotations, but the ownerReference now points at a real
+	// AppliedManifestWork that exists and has not yet reported this
+	// subscription in status.appliedResources (eventual consistency window
+	// right after the subscription is first created by the work agent).
+	// In this case, IsClusterAdmin is expected to return false, but pending
+	// (the second return value) is expected to be true.
+	realAMW := &workv1.AppliedManifestWork{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "real-amw-pending",
+		},
+		Spec: workv1.AppliedManifestWorkSpec{
+			HubHash:          "test-hub-hash",
+			ManifestWorkName: "test-manifestwork",
+		},
+	}
+
+	err = c.Create(context.TODO(), realAMW)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), realAMW)
+
+	time.Sleep(1 * time.Second)
+
+	subscription.OwnerReferences = []metav1.OwnerReference{{
+		APIVersion: workv1.GroupVersion.String(),
+		Kind:       "AppliedManifestWork",
+		Name:       realAMW.GetName(),
+		UID:        realAMW.GetUID(),
+	}}
+
+	isAdmin, isPending := IsClusterAdmin(c, subscription, c, nil)
+	g.Expect(isAdmin).To(gomega.BeFalse())
+	g.Expect(isPending).To(gomega.BeTrue())
+
+	// same setup, but the AppliedManifestWork's status now lists this
+	// subscription in appliedResources, meaning the work agent has confirmed
+	// it delivered the subscription.
+	// In this case, IsClusterAdmin is expected to return true, and pending is
+	// expected to be false.
+	realAMW.Status.AppliedResources = []workv1.AppliedManifestResourceMeta{
+		{
+			ResourceIdentifier: workv1.ResourceIdentifier{
+				Group:     appv1.SchemeGroupVersion.Group,
+				Resource:  "subscriptions",
+				Namespace: subscription.GetNamespace(),
+				Name:      subscription.GetName(),
+			},
+			Version: "v1",
+		},
+	}
+
+	err = c.Status().Update(context.TODO(), realAMW)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+
+	time.Sleep(1 * time.Second)
+
+	isAdmin, isPending = IsClusterAdmin(c, subscription, c, nil)
+	g.Expect(isAdmin).To(gomega.BeTrue())
+	g.Expect(isPending).To(gomega.BeFalse())
 
 	// Don't specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
@@ -766,7 +840,7 @@ spec:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 	// specify ocm-mutating-webhook webhook to indicate the appsub is on hub
 	// specify hosting-subscription annotation
 	// specify cluster-admin annotation to be true
@@ -815,7 +889,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeTrue())
 }
 
 func TestIsClusterAdminRemote(t *testing.T) {
@@ -899,7 +973,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeTrue())
 
 	// user group: subscription-admin,test-group
 	// user identity: joe
@@ -922,7 +996,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeTrue())
 
 	// user group: test-group
 	// user identity: jane
@@ -945,7 +1019,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeFalse())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeFalse())
 
 	// user group: system:serviceaccounts:default
 	// user identity: system:serviceaccounts:default:adminsa
@@ -968,7 +1042,7 @@ metadata:
 	err = yaml.Unmarshal([]byte(subscriptionYAML), &subscription)
 	g.Expect(err).NotTo(gomega.HaveOccurred())
 
-	g.Expect(IsClusterAdmin(c, subscription, nil)).To(gomega.BeTrue())
+	g.Expect(IsClusterAdmin(c, subscription, c, nil)).To(gomega.BeTrue())
 }
 
 func subAdminClusterRole() *rbacv1.ClusterRole {
