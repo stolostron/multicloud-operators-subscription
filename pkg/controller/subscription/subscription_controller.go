@@ -49,6 +49,14 @@ const (
 	subscriptionBlock  string = "Blocked"
 )
 
+// ErrClusterAdminPending is returned by doReconcile when the subscription's
+// cluster-admin annotation is set but its owning AppliedManifestWork hasn't
+// yet reported the subscription in status.appliedResources. Reconcile treats
+// this as a signal to retry shortly without touching the subscription's
+// status or deploying any resources, since the eventual isAdmin value could
+// still resolve to true and needs to gate the deny list from the start.
+var ErrClusterAdminPending = gerr.New("cluster-admin status is pending AppliedManifestWork status update")
+
 /**
 * USER ACTION REQUIRED: This is a scaffold file intended for the user to modify with their own Controller
 * business logic.  Delete these comments after modifying this file.*
@@ -246,6 +254,12 @@ func (r *ReconcileSubscription) Reconcile(ctx context.Context, request reconcile
 		if (strings.EqualFold(annotations[appv1.AnnotationHosting], "") && r.standalone) ||
 			(!strings.EqualFold(annotations[appv1.AnnotationHosting], "") && !r.standalone) {
 			reconcileErr := r.doReconcile(instance)
+
+			if reconcileErr == ErrClusterAdminPending { //nolint:errorlint
+				klog.Infof("cluster-admin status pending for subscription %v, retrying shortly without changing status", request.NamespacedName)
+
+				return reconcile.Result{RequeueAfter: 5 * time.Second}, nil
+			}
 
 			// doReconcile updates the subscription. Later this function fails to update the subscription status
 			// if the same subscription resource is used because it has already been updated by reconcile.
@@ -493,7 +507,21 @@ func (r *ReconcileSubscription) doReconcile(instance *appv1.Subscription) error 
 		// permissions than this operator's own in-cluster credentials, so it cannot
 		// read AppliedManifestWork even when hub and local happen to be the same
 		// physical cluster (e.g. local-cluster).
-		if utils.IsClusterAdmin(r.hubclient, instance, r.Client, r.eventRecorder) {
+		isClusterAdmin, isClusterAdminPending := utils.IsClusterAdmin(r.hubclient, instance, r.Client, r.eventRecorder)
+
+		if isClusterAdminPending {
+			// The cluster-admin annotation is set and the subscription was delivered by the
+			// work agent, but the owning AppliedManifestWork hasn't reported this subscription
+			// in status.appliedResources yet (eventual consistency right after creation). Do
+			// not deploy anything this reconcile: treating this window as isAdmin=false would
+			// let deny-listed resources slip through before the deny list can be enforced.
+			klog.Infof("cluster-admin status for subscription %v/%v is still pending on AppliedManifestWork status; skipping this reconcile",
+				instance.GetNamespace(), instance.GetName())
+
+			return ErrClusterAdminPending
+		}
+
+		if isClusterAdmin {
 			klog.Info("ADDING apps.open-cluster-management.io/cluster-admin: true")
 
 			annotations[appv1.AnnotationClusterAdmin] = "true"
