@@ -20,7 +20,6 @@ import (
 	"context"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,42 +44,26 @@ func GetPassword(secret *corev1.Secret) string {
 }
 
 // GetConfigMap search the config map containing the helm repo client configuration.
+// The configMapRef.Namespace field is ignored: the ConfigMap is always read from
+// the parent (HelmRelease) namespace to prevent a tenant from referencing a
+// ConfigMap in another tenant's namespace via a directly-created HelmRelease.
 func GetConfigMap(client client.Client, parentNamespace string, configMapRef *corev1.ObjectReference) (configMap *corev1.ConfigMap, err error) {
 	if configMapRef != nil {
 		klog.V(5).Info("Retrieve configMap ", parentNamespace, "/", configMapRef.Name)
 
-		// The secret is copied into the subscription namespace on managed cluster.
-		// If namespace is not specified, look for the secret in the parent (subscription) namespace.
-		// If namespace is specified, FIRST look for the secret in the specified namespace.
-		//     THEN look for the secret in the parent (subscription) namespace.
-		usingParentNs := false
-
-		ns := configMapRef.Namespace
-
-		if ns == "" {
-			ns = parentNamespace
-			usingParentNs = true
+		if configMapRef.Namespace != "" && configMapRef.Namespace != parentNamespace {
+			klog.Warningf("ignoring configMapRef.namespace %q; reading ConfigMap %q from HelmRelease namespace %q",
+				configMapRef.Namespace, configMapRef.Name, parentNamespace)
 		}
 
 		configMap = &corev1.ConfigMap{}
 
-		err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: configMapRef.Name}, configMap)
+		err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: configMapRef.Name}, configMap)
 		if err != nil {
-			if !usingParentNs && errors.IsNotFound(err) {
-				// Now try to find the config map in subscription namespace
-				err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: configMapRef.Name}, configMap)
-
-				if err != nil {
-					return nil, err
-				}
-
-				klog.Info("configMap found ", "Name: ", configMapRef.Name, " in namespace: ", parentNamespace)
-			} else {
-				return nil, err
-			}
-		} else {
-			klog.Info("ConfigMap found ", "Name:", configMapRef.Name, " in namespace: ", ns)
+			return nil, err
 		}
+
+		klog.Info("ConfigMap found ", "Name:", configMapRef.Name, " in namespace: ", parentNamespace)
 	} else {
 		klog.V(5).Info("no configMapRef defined ", "parentNamespace", parentNamespace)
 	}
@@ -88,42 +71,29 @@ func GetConfigMap(client client.Client, parentNamespace string, configMapRef *co
 	return configMap, err
 }
 
-// GetSecret returns the secret to access the helm-repo
+// GetSecret returns the secret to access the helm-repo.
+// The secretRef.Namespace field is ignored: the Secret is always read from the
+// parent (HelmRelease) namespace to prevent a tenant from exfiltrating a Secret
+// from another namespace by setting repo.secretRef.namespace on a
+// directly-created HelmRelease (the controller fetches with cluster-admin and
+// would otherwise transmit the Secret as Basic-Auth to a tenant-controlled URL).
 func GetSecret(client client.Client, parentNamespace string, secretRef *corev1.ObjectReference) (secret *corev1.Secret, err error) {
 	if secretRef != nil {
 		klog.V(5).Info("retrieve secret :", parentNamespace, "/", secretRef)
 
-		// The secret is copied into the subscription namespace on managed cluster.
-		// If namespace is not specified, look for the secret in the parent (subscription) namespace.
-		// If namespace is specified, FIRST look for the secret in the specified namespace.
-		//     THEN look for the secret in the parent (subscription) namespace.
-		usingParentNs := false
-
-		ns := secretRef.Namespace
-		if ns == "" {
-			ns = parentNamespace
-			usingParentNs = true
+		if secretRef.Namespace != "" && secretRef.Namespace != parentNamespace {
+			klog.Warningf("ignoring secretRef.namespace %q; reading Secret %q from HelmRelease namespace %q",
+				secretRef.Namespace, secretRef.Name, parentNamespace)
 		}
 
 		secret = &corev1.Secret{}
 
-		err = client.Get(context.TODO(), types.NamespacedName{Namespace: ns, Name: secretRef.Name}, secret)
+		err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: secretRef.Name}, secret)
 		if err != nil {
-			if !usingParentNs && errors.IsNotFound(err) {
-				// Now try to find the secret in subscription namespace
-				err = client.Get(context.TODO(), types.NamespacedName{Namespace: parentNamespace, Name: secretRef.Name}, secret)
-
-				if err != nil {
-					return nil, err
-				}
-
-				klog.Info("Secret found ", "Name: ", secretRef.Name, " in namespace: ", parentNamespace)
-			} else {
-				return nil, err
-			}
-		} else {
-			klog.Info("Secret found ", "Name: ", secretRef.Name, " in namespace: ", ns)
+			return nil, err
 		}
+
+		klog.Info("Secret found ", "Name: ", secretRef.Name, " in namespace: ", parentNamespace)
 	} else {
 		klog.V(5).Info("No secret defined at ", "parentNamespace", parentNamespace)
 	}
