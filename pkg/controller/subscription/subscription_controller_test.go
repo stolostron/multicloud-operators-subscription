@@ -355,6 +355,20 @@ func TestDoReconcileHelmRepoRechecksClusterAdmin(t *testing.T) {
 	}
 	g.Expect(c.Status().Update(context.TODO(), amw)).NotTo(gomega.HaveOccurred())
 
+	// c is a cache-backed client, so wait for the status update to appear in
+	// the informer cache before relying on it in doReconcile below, otherwise
+	// the AppliedManifestWork ownership check can race the cache sync and
+	// see a stale (empty) status.appliedResources.
+	g.Eventually(func() []workv1.AppliedManifestResourceMeta {
+		updated := &workv1.AppliedManifestWork{}
+
+		if err := c.Get(context.TODO(), amwKey, updated); err != nil {
+			return nil
+		}
+
+		return updated.Status.AppliedResources
+	}, timeout).ShouldNot(gomega.BeEmpty())
+
 	annotations := instance.GetAnnotations()
 	annotations[appv1alpha1.AnnotationClusterAdmin] = "true"
 	instance.SetAnnotations(annotations)

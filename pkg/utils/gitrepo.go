@@ -907,7 +907,26 @@ func IsGitChannel(chType string) bool {
 		strings.EqualFold(chType, chnv1.ChannelTypeGit)
 }
 
-func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder *EventRecorder) bool {
+// IsClusterAdmin decides whether sub is entitled to the cluster-admin role
+// elevation (i.e. is allowed to deploy cluster-scoped resources).
+//
+// hubClient is used for hub-side checks: whether the ocm-mutating-webhook
+// exists (which only runs on the hub) and whether the requesting user is
+// bound to the open-cluster-management:subscription-admin cluster role on
+// the hub.
+//
+// localClient is used to verify, on the cluster where sub actually lives,
+// that it was legitimately delivered by the OCM work agent rather than
+// forged by a namespace-scoped tenant: it looks up sub's AppliedManifestWork
+// ownerReference and confirms the subscription is listed in its
+// status.appliedResources. When sub lives on the hub itself (e.g. this is
+// invoked from the hub controller), hubClient and localClient are typically
+// the same client. On a managed cluster, localClient must be a client with
+// local cluster-admin-equivalent permissions (e.g. the operator's own
+// in-cluster client), NOT the restricted hub kubeconfig used for hub-side
+// reads, since AppliedManifestWork lives on the managed cluster and the hub
+// credential is generally not permitted to read it.
+func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClient client.Client, eventRecorder *EventRecorder) bool {
 	isClusterAdmin := false
 	isUserSubAdmin := false
 	isSubPropagatedFromHub := false
@@ -941,17 +960,17 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	doesWebhookExist := false
 	theWebhook := &admissionv1.MutatingWebhookConfiguration{}
 
-	if err := client.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
+	if err := hubClient.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
 		doesWebhookExist = true
 	}
 
 	if userIdentity != "" && doesWebhookExist {
 		// First, check open-cluster-management:subscription-admin cluster role binding
-		isUserSubAdmin = matchUserSubAdmin(client, userIdentity, userGroups)
+		isUserSubAdmin = matchUserSubAdmin(hubClient, userIdentity, userGroups)
 
 		if !isUserSubAdmin {
 			// Check if there is any other cluster role binding with open-cluster-management:subscription-admin cluster role
-			isUserSubAdmin = scanUserSubAdmin(client, userIdentity, userGroups)
+			isUserSubAdmin = scanUserSubAdmin(hubClient, userIdentity, userGroups)
 		}
 	}
 
@@ -962,7 +981,7 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
 
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
-		if (!doesWebhookExist && isSubscriptionFromManifestWork(client, sub)) || // not on the hub cluster, and verified to have been applied by the work agent
+		if (!doesWebhookExist && isSubscriptionFromManifestWork(localClient, sub)) || // not on the hub cluster, and verified to have been applied by the work agent
 			(doesWebhookExist && strings.HasSuffix(sub.GetName(), "-local")) { // on the hub cluster and the subscription has -local suffix
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
