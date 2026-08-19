@@ -125,7 +125,10 @@ func (r *ReconcileSubscription) AddClusterAdminAnnotation(sub *appv1.Subscriptio
 		delete(annotations, appv1.AnnotationClusterAdmin) // make sure cluster-admin annotation is removed to begin with
 	}
 
-	if utils.IsClusterAdmin(r.Client, sub, r.eventRecorder) {
+	// This call always runs on the hub, where the ocm-mutating-webhook exists, so
+	// IsClusterAdmin never takes the AppliedManifestWork verification branch and the
+	// pending return value is always false here.
+	if isAdmin, _ := utils.IsClusterAdmin(r.Client, sub, r.Client, r.eventRecorder); isAdmin {
 		annotations[appv1.AnnotationClusterAdmin] = "true"
 		sub.SetAnnotations(annotations)
 
