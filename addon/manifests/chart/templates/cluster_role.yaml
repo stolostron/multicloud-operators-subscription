@@ -7,13 +7,15 @@ metadata:
   labels:
     component: "application-manager"
 rules:
+# The application-manager applies arbitrary user-supplied manifests on behalf
+# of subscription-admin Subscriptions, so it requires broad resource access.
+# Scope is enforced in code (subscription-admin gating, namespace coercion,
+# cluster-scoped resources rejected for non-admin Subscriptions) rather than
+# via RBAC. nonResourceURLs are not required by any controller code path and
+# have been removed.
 - apiGroups:
   - '*'
   resources:
-  - '*'
-  verbs:
-  - '*'
-- nonResourceURLs:
   - '*'
   verbs:
   - '*'

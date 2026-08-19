@@ -51,6 +51,7 @@ import (
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
+	workv1 "open-cluster-management.io/api/work/v1"
 	chnv1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 	appv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/v1"
 )
@@ -892,8 +893,36 @@ func IsGitChannel(chType string) bool {
 		strings.EqualFold(chType, chnv1.ChannelTypeGit)
 }
 
-func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder *EventRecorder) bool {
-	isClusterAdmin := false
+// IsClusterAdmin decides whether sub is entitled to the cluster-admin role
+// elevation (i.e. is allowed to deploy cluster-scoped resources).
+//
+// hubClient is used for hub-side checks: whether the ocm-mutating-webhook
+// exists (which only runs on the hub) and whether the requesting user is
+// bound to the open-cluster-management:subscription-admin cluster role on
+// the hub.
+//
+// localClient is used to verify, on the cluster where sub actually lives,
+// that it was legitimately delivered by the OCM work agent rather than
+// forged by a namespace-scoped tenant: it looks up sub's AppliedManifestWork
+// ownerReference and confirms the subscription is listed in its
+// status.appliedResources. When sub lives on the hub itself (e.g. this is
+// invoked from the hub controller), hubClient and localClient are typically
+// the same client. On a managed cluster, localClient must be a client with
+// local cluster-admin-equivalent permissions (e.g. the operator's own
+// in-cluster client), NOT the restricted hub kubeconfig used for hub-side
+// reads, since AppliedManifestWork lives on the managed cluster and the hub
+// credential is generally not permitted to read it.
+//
+// The second return value, isPending, is true when the cluster-admin
+// annotation is present and the subscription's AppliedManifestWork owner has
+// been resolved, but the work agent has not yet reported this subscription in
+// status.appliedResources. This is a normal, transient eventual-consistency
+// window right after the subscription is first applied, and is distinct from
+// isClusterAdmin=false: callers should not treat a pending result as "not
+// admin" (which would let a deny list be silently bypassed on the first
+// reconcile); instead they should defer applying any resources until the
+// status resolves one way or the other.
+func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClient client.Client, eventRecorder *EventRecorder) (isClusterAdmin, isPending bool) {
 	isUserSubAdmin := false
 	isSubPropagatedFromHub := false
 	isClusterAdminAnnotationTrue := false
@@ -926,17 +955,17 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	doesWebhookExist := false
 	theWebhook := &admissionv1.MutatingWebhookConfiguration{}
 
-	if err := client.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
+	if err := hubClient.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
 		doesWebhookExist = true
 	}
 
 	if userIdentity != "" && doesWebhookExist {
 		// First, check open-cluster-management:subscription-admin cluster role binding
-		isUserSubAdmin = matchUserSubAdmin(client, userIdentity, userGroups)
+		isUserSubAdmin = matchUserSubAdmin(hubClient, userIdentity, userGroups)
 
 		if !isUserSubAdmin {
 			// Check if there is any other cluster role binding with open-cluster-management:subscription-admin cluster role
-			isUserSubAdmin = scanUserSubAdmin(client, userIdentity, userGroups)
+			isUserSubAdmin = scanUserSubAdmin(hubClient, userIdentity, userGroups)
 		}
 	}
 
@@ -947,15 +976,28 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
 
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
-		if !doesWebhookExist || // not on the hub cluster
-			(doesWebhookExist && strings.HasSuffix(sub.GetName(), "-local")) { // on the hub cluster and the subscription has -local suffix
+		switch {
+		case !doesWebhookExist: // not on the hub cluster; verify it was applied by the work agent
+			verified, pending := isSubscriptionFromManifestWork(localClient, sub)
+
+			if verified {
+				if eventRecorder != nil {
+					eventRecorder.RecordEvent(sub, "RoleElevation",
+						"Role was elevated to cluster admin for subscription "+sub.Name, nil)
+				}
+
+				isClusterAdmin = true
+			} else if pending {
+				isPending = true
+			}
+		case strings.HasSuffix(sub.GetName(), "-local"): // on the hub cluster and the subscription has -local suffix
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
 					"Role was elevated to cluster admin for subscription "+sub.Name, nil)
 			}
 
 			isClusterAdmin = true
-		} else if isHubSubOfHubSub { // hub appsub of a hub appsub
+		case isHubSubOfHubSub: // hub appsub of a hub appsub
 			if eventRecorder != nil {
 				eventRecorder.RecordEvent(sub, "RoleElevation",
 					"Role was elevated to cluster admin for hub subscription of hub subscription "+sub.Name, nil)
@@ -971,9 +1013,71 @@ func IsClusterAdmin(client client.Client, sub *appv1.Subscription, eventRecorder
 		isClusterAdmin = true
 	}
 
-	klog.Infof("isClusterAdmin = %v", isClusterAdmin)
+	klog.Infof("isClusterAdmin = %v, isPending = %v", isClusterAdmin, isPending)
 
-	return isClusterAdmin
+	return isClusterAdmin, isPending
+}
+
+// isSubscriptionFromManifestWork verifies that the Subscription on a managed
+// cluster was actually applied by the OCM work agent and not directly created
+// by a tenant who forged the hosting-subscription and cluster-admin
+// annotations. The work agent sets an ownerReference to a cluster-scoped
+// AppliedManifestWork on every resource it applies; we resolve that owner and
+// confirm it lists this Subscription in its status.appliedResources. A
+// namespace-admin tenant cannot create or update cluster-scoped
+// AppliedManifestWork resources, so this check is not forgeable.
+//
+// verified is true only once the owning AppliedManifestWork's
+// status.appliedResources actually lists this Subscription.
+//
+// pending is true when an AppliedManifestWork owner was resolved (i.e. it
+// exists and is a real, cluster-scoped object that a tenant could not have
+// forged) but it has not yet reported this Subscription in
+// status.appliedResources. That status is populated asynchronously by the
+// work agent shortly after it creates the AppliedManifestWork and the
+// Subscription, so this is expected to be transient. If the owner reference
+// cannot be resolved at all (e.g. a forged name pointing at an
+// AppliedManifestWork that was never created), pending stays false: that is
+// not eventual consistency, it is indistinguishable from a forgery attempt.
+func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) (verified, pending bool) {
+	for _, owner := range sub.GetOwnerReferences() {
+		if owner.Kind != "AppliedManifestWork" ||
+			!strings.HasPrefix(owner.APIVersion, workv1.GroupName+"/") {
+			continue
+		}
+
+		amw := &workv1.AppliedManifestWork{}
+		if err := clt.Get(context.TODO(), types.NamespacedName{Name: owner.Name}, amw); err != nil {
+			klog.Warningf("subscription %s/%s ownerReference AppliedManifestWork %q not resolvable: %v",
+				sub.GetNamespace(), sub.GetName(), owner.Name, err)
+
+			continue
+		}
+
+		found := false
+
+		for _, r := range amw.Status.AppliedResources {
+			if r.Group == appv1.SchemeGroupVersion.Group &&
+				r.Resource == "subscriptions" &&
+				r.Namespace == sub.GetNamespace() &&
+				r.Name == sub.GetName() {
+				found = true
+
+				break
+			}
+		}
+
+		if found {
+			return true, false
+		}
+
+		klog.Warningf("subscription %s/%s not yet listed in AppliedManifestWork %q appliedResources; cluster-admin status is pending",
+			sub.GetNamespace(), sub.GetName(), owner.Name)
+
+		pending = true
+	}
+
+	return false, pending
 }
 
 func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bool {

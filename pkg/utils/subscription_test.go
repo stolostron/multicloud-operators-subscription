@@ -1795,6 +1795,39 @@ func TestFetchChannelReferences(t *testing.T) {
 	cs, cm := FetchChannelReferences(runtimeClient, chn)
 	g.Expect(cs).To(BeNil()) // Fail to get reference secret
 	g.Expect(cm).To(BeNil()) // Fail to get reference configmap
+
+	// Cross-namespace secretRef must be clamped to the Channel namespace.
+	// Create a secret in a victim namespace and another in the channel
+	// namespace; secretRef.namespace points at the victim but
+	// FetchChannelReferences must return the channel-namespace secret.
+	victimNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "victim-ns-f013"}}
+	g.Expect(runtimeClient.Create(context.TODO(), victimNS)).NotTo(HaveOccurred())
+
+	defer runtimeClient.Delete(context.TODO(), victimNS)
+
+	victimSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "creds", Namespace: "victim-ns-f013"},
+		Data:       map[string][]byte{"password": []byte("victim-password")},
+	}
+	g.Expect(runtimeClient.Create(context.TODO(), victimSecret)).NotTo(HaveOccurred())
+
+	defer runtimeClient.Delete(context.TODO(), victimSecret)
+
+	channelSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: "creds", Namespace: "default"},
+		Data:       map[string][]byte{"password": []byte("channel-password")},
+	}
+	g.Expect(runtimeClient.Create(context.TODO(), channelSecret)).NotTo(HaveOccurred())
+
+	defer runtimeClient.Delete(context.TODO(), channelSecret)
+
+	chn.Spec.SecretRef = &corev1.ObjectReference{Name: "creds", Namespace: "victim-ns-f013"}
+	chn.Spec.ConfigMapRef = nil
+
+	cs, _ = FetchChannelReferences(runtimeClient, chn)
+	g.Expect(cs).NotTo(BeNil())
+	g.Expect(cs.Namespace).To(Equal("default"))
+	g.Expect(string(cs.Data["password"])).To(Equal("channel-password"))
 }
 
 func TestGetClientConfigFromKubeConfig(t *testing.T) {

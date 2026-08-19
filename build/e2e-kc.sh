@@ -242,7 +242,23 @@ kubectl get appsub -n default  ansible-hook -o yaml
 kubectl get appsubreport -n default  ansible-hook -o yaml
 kubectl get appsubreport -n cluster1  cluster1 -o yaml
 
-if kubectl get ansiblejobs.tower.ansible.com | grep posthook-test; then
+# The post hook ansible job is only created after the appsub is confirmed to be fully
+# deployed on the managed cluster (IsSubscriptionCompleted). That confirmation can lag
+# behind the subscription's status.ansiblejobs.lastposthookjob field (which is computed
+# earlier), so poll for a bit instead of checking exactly once right after the fixed sleep.
+found=false
+
+for i in $(seq 1 12); do
+    if kubectl get ansiblejobs.tower.ansible.com | grep posthook-test; then
+        found=true
+        break
+    fi
+
+    echo "06-ansiblejob-post: ansiblejobs.tower.ansible.com not found yet, waiting (attempt $i/12)"
+    sleep 10
+done
+
+if [ "$found" = true ]; then
     echo "06-ansiblejob-post: found ansiblejobs.tower.ansible.com"
 else
     echo "06-ansiblejob-post: FAILED: ansiblejobs.tower.ansible.com not found"
