@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	workv1 "open-cluster-management.io/api/work/v1"
 	chnv1alpha1 "open-cluster-management.io/multicloud-operators-channel/pkg/apis/apps/v1"
 
 	plv1 "open-cluster-management.io/multicloud-operators-subscription/pkg/apis/apps/placementrule/v1"
@@ -238,6 +239,16 @@ func TestDoReconcileIncludingErrorPaths(t *testing.T) {
 // a stale "cluster-admin: true" annotation (e.g. left over after the
 // subscription is no longer considered hub-propagated) would never be
 // de-escalated.
+//
+// It also covers the fix that gates the spoke-side annotation-trust branch of
+// utils.IsClusterAdmin on isSubscriptionFromManifestWork: on a managed
+// cluster (no ocm-mutating-webhook), the hosting-subscription and
+// cluster-admin annotations are tenant-writable, so a namespace-admin could
+// forge both on a locally-created Subscription. A Helm-repo subscription must
+// only be trusted with cluster-admin when it is verifiably owned by a
+// cluster-scoped AppliedManifestWork that lists it in
+// status.appliedResources, proving it was actually propagated by the hub via
+// ManifestWork rather than forged locally.
 func TestDoReconcileHelmRepoRechecksClusterAdmin(t *testing.T) {
 	g := gomega.NewGomegaWithT(t)
 
@@ -293,8 +304,83 @@ func TestDoReconcileHelmRepoRechecksClusterAdmin(t *testing.T) {
 	defer c.Delete(context.TODO(), instance)
 
 	// The subscription is (simulated as) propagated from the hub and there is
-	// no ACM mutating webhook in this test environment, so IsClusterAdmin
-	// respects the existing cluster-admin annotation and keeps it set.
+	// no ACM mutating webhook in this test environment, but the
+	// hosting-subscription/cluster-admin annotations are tenant-forgeable on
+	// the spoke and there is no AppliedManifestWork ownerReference proving
+	// this Subscription was actually applied by the work agent. IsClusterAdmin
+	// must not trust the forged annotation, and doReconcile must strip it.
+	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
+	g.Expect(instance.GetAnnotations()[appv1alpha1.AnnotationClusterAdmin]).NotTo(gomega.Equal("true"))
+
+	// Simulate a legitimate hub propagation: the OCM work agent applies the
+	// Subscription with an ownerReference to a cluster-scoped
+	// AppliedManifestWork and records this Subscription in its
+	// status.appliedResources. A namespace-admin tenant cannot create or
+	// update cluster-scoped AppliedManifestWork resources, so this proves the
+	// Subscription was legitimately delivered by the hub.
+	amw := &workv1.AppliedManifestWork{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "fakehubhash-helmrepo-clusteradmin-recheck-work",
+		},
+		Spec: workv1.AppliedManifestWorkSpec{
+			HubHash:          "fakehubhash",
+			ManifestWorkName: "helmrepo-clusteradmin-recheck-work",
+		},
+	}
+	g.Expect(c.Create(context.TODO(), amw)).NotTo(gomega.HaveOccurred())
+
+	defer c.Delete(context.TODO(), amw)
+
+	// c is a cache-backed client (mgr.GetClient()), so wait for the newly
+	// created AppliedManifestWork to appear in the informer cache before
+	// attempting to update its status, otherwise the Get inside
+	// Status().Update() can race the cache sync and return NotFound.
+	amwKey := types.NamespacedName{Name: amw.GetName()}
+	g.Eventually(func() error {
+		return c.Get(context.TODO(), amwKey, &workv1.AppliedManifestWork{})
+	}, timeout).Should(gomega.Succeed())
+
+	amw.Status = workv1.AppliedManifestWorkStatus{
+		AppliedResources: []workv1.AppliedManifestResourceMeta{
+			{
+				ResourceIdentifier: workv1.ResourceIdentifier{
+					Group:     appv1alpha1.SchemeGroupVersion.Group,
+					Resource:  "subscriptions",
+					Namespace: instance.GetNamespace(),
+					Name:      instance.GetName(),
+				},
+				Version: appv1alpha1.SchemeGroupVersion.Version,
+			},
+		},
+	}
+	g.Expect(c.Status().Update(context.TODO(), amw)).NotTo(gomega.HaveOccurred())
+
+	// c is a cache-backed client, so wait for the status update to appear in
+	// the informer cache before relying on it in doReconcile below, otherwise
+	// the AppliedManifestWork ownership check can race the cache sync and
+	// see a stale (empty) status.appliedResources.
+	g.Eventually(func() []workv1.AppliedManifestResourceMeta {
+		updated := &workv1.AppliedManifestWork{}
+
+		if err := c.Get(context.TODO(), amwKey, updated); err != nil {
+			return nil
+		}
+
+		return updated.Status.AppliedResources
+	}, timeout).ShouldNot(gomega.BeEmpty())
+
+	annotations := instance.GetAnnotations()
+	annotations[appv1alpha1.AnnotationClusterAdmin] = "true"
+	instance.SetAnnotations(annotations)
+	instance.SetOwnerReferences([]metav1.OwnerReference{{
+		APIVersion: workv1.GroupVersion.String(),
+		Kind:       "AppliedManifestWork",
+		Name:       amw.GetName(),
+		UID:        amw.GetUID(),
+	}})
+
+	// Now that the AppliedManifestWork ownerReference verifiably lists this
+	// Subscription, the cluster-admin annotation is trusted and kept set.
 	g.Expect(rec.doReconcile(instance)).NotTo(gomega.HaveOccurred())
 	g.Expect(instance.GetAnnotations()[appv1alpha1.AnnotationClusterAdmin]).To(gomega.Equal("true"))
 
@@ -303,7 +389,7 @@ func TestDoReconcileHelmRepoRechecksClusterAdmin(t *testing.T) {
 	// cluster-admin annotation is still stale/true from before. If Helm-repo
 	// subscriptions are correctly rechecked on every reconcile, the stale
 	// annotation must be removed.
-	annotations := instance.GetAnnotations()
+	annotations = instance.GetAnnotations()
 	delete(annotations, appv1alpha1.AnnotationHosting)
 	instance.SetAnnotations(annotations)
 
