@@ -29,7 +29,7 @@ RUN git submodule update --init
 
 RUN ./build/build-binary.sh "/external/policy-generator-plugin" "make build-binary"
 
-FROM registry.access.redhat.com/ubi9/ubi-minimal:latest
+FROM registry.redhat.io/ubi9/ubi-minimal-pqc:latest
 
 RUN  microdnf update -y \
         && microdnf install -y git-core openssh-clients tzdata \
