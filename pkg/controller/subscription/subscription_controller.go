@@ -21,7 +21,9 @@ import (
 	"time"
 
 	gerr "github.com/pkg/errors"
+	admissionv1 "k8s.io/api/admissionregistration/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +76,21 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 		return err
 	}
 
+	// DEBUG: confirm exactly which API server / identity this hub client is configured
+	// to use, and prove at startup whether it can actually reach the cluster-scoped
+	// resources IsClusterAdmin() depends on (MutatingWebhookConfiguration, ClusterRoleBinding).
+	// Remove once root-caused.
+	klog.Infof("DEBUG hubclient config: host=%q hasCertData=%v hasCertFile=%q hasToken=%v hasTokenFile=%q impersonateUser=%q impersonateGroups=%v",
+		hubconfig.Host,
+		len(hubconfig.CertData) > 0,
+		hubconfig.CertFile,
+		hubconfig.BearerToken != "",
+		hubconfig.BearerTokenFile,
+		hubconfig.Impersonate.UserName,
+		hubconfig.Impersonate.Groups)
+
+	go debugProbeHubClient(hubclient)
+
 	subs := make(map[string]appv1.Subscriber)
 
 	subs[chnv1.ChannelTypeHelmRepo] = hrsub.GetDefaultSubscriber()
@@ -82,6 +99,62 @@ func Add(mgr manager.Manager, hubconfig *rest.Config, syncid *types.NamespacedNa
 	subs[chnv1.ChannelTypeObjectBucket] = ossub.GetDefaultSubscriber()
 
 	return add(mgr, newReconciler(mgr, hubclient, subs, standalone), standalone)
+}
+
+// debugProbeHubClient is a temporary diagnostic helper that directly exercises,
+// at startup and then periodically, every cluster-scoped read that
+// utils.IsClusterAdmin() depends on, logging the *actual* error (if any)
+// instead of letting it be silently collapsed into doesWebhookExist=false /
+// isUserSubAdmin=false. Remove once root-caused.
+func debugProbeHubClient(hubclient client.Client) {
+	probe := func() {
+		ctx := context.TODO()
+
+		// 1. MutatingWebhookConfiguration lookup (drives doesWebhookExist)
+		webhook := &admissionv1.MutatingWebhookConfiguration{}
+		err := hubclient.Get(ctx, types.NamespacedName{Name: appv1.AcmWebhook}, webhook)
+
+		if err == nil {
+			klog.Infof("DEBUG probe: GET MutatingWebhookConfiguration/%s OK, resourceVersion=%s, webhooks=%d",
+				appv1.AcmWebhook, webhook.GetResourceVersion(), len(webhook.Webhooks))
+		} else {
+			klog.Errorf("DEBUG probe: GET MutatingWebhookConfiguration/%s FAILED: %v (IsForbidden=%v IsNotFound=%v IsTimeout=%v IsServerTimeout=%v IsUnauthorized=%v)",
+				appv1.AcmWebhook, err,
+				errors.IsForbidden(err), errors.IsNotFound(err), errors.IsTimeout(err),
+				errors.IsServerTimeout(err), errors.IsUnauthorized(err))
+		}
+
+		// 2. Named ClusterRoleBinding lookup (drives matchUserSubAdmin)
+		crb := &rbacv1.ClusterRoleBinding{}
+		err = hubclient.Get(ctx, types.NamespacedName{Name: appv1.SubscriptionAdmin}, crb)
+
+		if err == nil {
+			klog.Infof("DEBUG probe: GET ClusterRoleBinding/%s OK, subjects=%+v, roleRef=%+v",
+				appv1.SubscriptionAdmin, crb.Subjects, crb.RoleRef)
+		} else {
+			klog.Errorf("DEBUG probe: GET ClusterRoleBinding/%s FAILED: %v (IsForbidden=%v IsNotFound=%v)",
+				appv1.SubscriptionAdmin, err, errors.IsForbidden(err), errors.IsNotFound(err))
+		}
+
+		// 3. List ClusterRoleBindings (drives scanUserSubAdmin)
+		crbList := &rbacv1.ClusterRoleBindingList{}
+		err = hubclient.List(ctx, crbList)
+
+		if err == nil {
+			klog.Infof("DEBUG probe: LIST ClusterRoleBindings OK, count=%d", len(crbList.Items))
+		} else {
+			klog.Errorf("DEBUG probe: LIST ClusterRoleBindings FAILED: %v (IsForbidden=%v)", err, errors.IsForbidden(err))
+		}
+	}
+
+	// Run immediately, then every 2 minutes so the result is easy to find in a
+	// short log capture regardless of exactly when you start tailing.
+	probe()
+
+	ticker := time.NewTicker(2 * time.Minute)
+	for range ticker.C {
+		probe()
+	}
 }
 
 type channelMapper struct {
