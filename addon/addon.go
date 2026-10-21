@@ -82,6 +82,14 @@ var agentPermissionFiles = []string{
 	"manifests/permission/role.yaml",
 	// rolebinding to bind the above role to a certain user group
 	"manifests/permission/rolebinding.yaml",
+	// cluster-scoped ClusterRole + ClusterRoleBinding granting read access to
+	// MutatingWebhookConfiguration and ClusterRoleBinding, which utils.IsClusterAdmin()
+	// needs to verify subscription-admin/cluster-admin elevation. These must be separate
+	// from role.yaml/rolebinding.yaml because the latter is bound via a namespaced
+	// RoleBinding, which can never grant access to cluster-scoped resources regardless
+	// of what rules the referenced ClusterRole has.
+	"manifests/permission/clusterrole-security-check.yaml",
+	"manifests/permission/clusterrolebinding-security-check.yaml",
 }
 
 type GlobalValues struct {

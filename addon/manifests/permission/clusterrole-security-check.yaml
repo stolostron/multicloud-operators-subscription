@@ -1,0 +1,32 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  # Static, shared across all managed clusters: this ClusterRole's rules never vary
+  # per cluster, only the ClusterRoleBinding subject does (see
+  # clusterrolebinding-security-check.yaml).
+  name: open-cluster-management:addons:application-manager:cluster-admin-check
+rules:
+# Needed by utils.IsClusterAdmin() to determine whether the ocm-mutating-webhook
+# (which stamps real user-identity/user-group onto Subscriptions at CREATE time)
+# exists and is reachable from this addon's hub-kubeconfig identity. These are
+# cluster-scoped resources, so they can only be granted via a ClusterRoleBinding,
+# never via the namespaced RoleBinding in rolebinding.yaml.
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+# Needed by utils.IsClusterAdmin() (matchUserSubAdmin/scanUserSubAdmin) to check
+# whether the Subscription's user-identity/user-group is bound to the
+# open-cluster-management:subscription-admin ClusterRole.
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  verbs:
+  - get
+  - list
+  - watch
