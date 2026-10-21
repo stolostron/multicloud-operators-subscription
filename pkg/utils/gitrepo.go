@@ -957,6 +957,10 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 
 	if err := hubClient.Get(context.TODO(), types.NamespacedName{Name: appv1.AcmWebhook}, theWebhook); err == nil {
 		doesWebhookExist = true
+	} else {
+		// DEBUG: this error used to be silently swallowed. Remove once root-caused.
+		klog.Warningf("DEBUG IsClusterAdmin(%s/%s): GET MutatingWebhookConfiguration/%s failed: %v",
+			sub.GetNamespace(), sub.GetName(), appv1.AcmWebhook, err)
 	}
 
 	if userIdentity != "" && doesWebhookExist {
@@ -974,6 +978,14 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 	// 2: the appsub is on the hub containing -local name suffix, the appsub is propagated by a hub appsub.
 	// 3: the appsub is on the hub not containing -local name suffix, the appsub is propagated by a hub sub of sub.
 	isHubSubOfHubSub := isSubPropagatedFromHub && doesWebhookExist && !strings.HasSuffix(sub.GetName(), "-local")
+
+	// DEBUG: dump every input to the decision below in one line. Remove once root-caused.
+	klog.Infof("DEBUG IsClusterAdmin(%s/%s): isClusterAdminAnnotationTrue=%v isSubPropagatedFromHub=%v "+
+		"doesWebhookExist=%v hasLocalSuffix=%v isHubSubOfHubSub=%v userIdentity=%q userGroups=%q "+
+		"isUserSubAdmin=%v ownerReferences=%+v",
+		sub.GetNamespace(), sub.GetName(), isClusterAdminAnnotationTrue, isSubPropagatedFromHub,
+		doesWebhookExist, strings.HasSuffix(sub.GetName(), "-local"), isHubSubOfHubSub, userIdentity, userGroups,
+		isUserSubAdmin, sub.GetOwnerReferences())
 
 	if isClusterAdminAnnotationTrue && isSubPropagatedFromHub {
 		switch {
@@ -1040,7 +1052,16 @@ func IsClusterAdmin(hubClient client.Client, sub *appv1.Subscription, localClien
 // AppliedManifestWork that was never created), pending stays false: that is
 // not eventual consistency, it is indistinguishable from a forgery attempt.
 func isSubscriptionFromManifestWork(clt client.Client, sub *appv1.Subscription) (verified, pending bool) {
+	// DEBUG: remove once root-caused.
+	if len(sub.GetOwnerReferences()) == 0 {
+		klog.Warningf("DEBUG isSubscriptionFromManifestWork(%s/%s): subscription has no ownerReferences at all; "+
+			"cannot have been delivered by the OCM work agent", sub.GetNamespace(), sub.GetName())
+	}
+
 	for _, owner := range sub.GetOwnerReferences() {
+		klog.Infof("DEBUG isSubscriptionFromManifestWork(%s/%s): examining ownerReference kind=%q apiVersion=%q name=%q",
+			sub.GetNamespace(), sub.GetName(), owner.Kind, owner.APIVersion, owner.Name)
+
 		if owner.Kind != "AppliedManifestWork" ||
 			!strings.HasPrefix(owner.APIVersion, workv1.GroupName+"/") {
 			continue
@@ -1091,7 +1112,9 @@ func matchUserSubAdmin(client client.Client, userIdentity, userGroups string) bo
 
 		isUserSubAdmin = checkUserSubAdmin(foundClusterRoleBinding.Subjects, userIdentity, userGroups)
 	} else {
-		klog.Error(err)
+		// DEBUG: include the identity being checked and the raw error. Remove once root-caused.
+		klog.Errorf("DEBUG matchUserSubAdmin: GET ClusterRoleBinding/%s failed for userIdentity=%q userGroups=%q: %v",
+			appv1.SubscriptionAdmin, userIdentity, userGroups, err)
 	}
 
 	foundClusterRoleBinding = nil
@@ -1119,7 +1142,9 @@ func scanUserSubAdmin(client client.Client, userIdentity, userGroups string) boo
 			}
 		}
 	} else {
-		klog.Error(err)
+		// DEBUG: include the identity being checked and the raw error. Remove once root-caused.
+		klog.Errorf("DEBUG scanUserSubAdmin: LIST ClusterRoleBindings failed for userIdentity=%q userGroups=%q: %v",
+			userIdentity, userGroups, err)
 	}
 
 	return isUserSubAdmin
