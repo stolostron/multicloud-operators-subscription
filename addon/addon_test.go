@@ -4,7 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/openshift/library-go/pkg/assets"
 	appsv1 "k8s.io/api/apps/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -14,6 +16,7 @@ import (
 	addonapiv1alpha1 "open-cluster-management.io/api/addon/v1alpha1"
 	clusterv1 "open-cluster-management.io/api/cluster/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/yaml"
 )
 
 var (
@@ -216,4 +219,132 @@ func TestAddonInstallNamespaceFunc(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestSecurityCheckPermissionTemplatesRender exercises the same template
+// rendering path as applyManifestFromFile (without needing a real
+// *kubernetes.Clientset) to catch Go-template syntax errors early: a bad
+// {{ .Field }} reference in these manifests would otherwise only surface as a
+// panic inside MustCreateAssetFromTemplate at addon-registration time on a real
+// cluster. It also pins down the two RBAC decisions this fix depends on:
+//   - the ClusterRole name is static (shared across all managed clusters)
+//   - the ClusterRoleBinding name is templated per-cluster (so registering a
+//     second managed cluster can never overwrite the first cluster's subject)
+func TestSecurityCheckPermissionTemplatesRender(t *testing.T) {
+	clusterName := "test-cluster-1"
+	group := agent.DefaultGroups(clusterName, AppMgrAddonName)[0]
+
+	config := struct {
+		ClusterName string
+		Group       string
+	}{
+		ClusterName: clusterName,
+		Group:       group,
+	}
+
+	t.Run("clusterrole-security-check.yaml", func(t *testing.T) {
+		file := "manifests/permission/clusterrole-security-check.yaml"
+
+		template, err := ChartFS.ReadFile(file)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", file, err)
+		}
+
+		rendered := assets.MustCreateAssetFromTemplate(file, template, config)
+
+		cr := &rbacv1.ClusterRole{}
+		if err := yaml.Unmarshal(rendered.Data, cr); err != nil {
+			t.Fatalf("rendered %s did not decode as a ClusterRole: %v\n%s", file, err, rendered.Data)
+		}
+
+		if cr.Name == "" || contains(cr.Name, "{{") {
+			t.Errorf("ClusterRole name looks unrendered/empty: %q", cr.Name)
+		}
+
+		var hasWebhookRule, hasClusterRoleBindingRule bool
+
+		for _, r := range cr.Rules {
+			for _, g := range r.APIGroups {
+				switch g {
+				case "admissionregistration.k8s.io":
+					hasWebhookRule = true
+				case "rbac.authorization.k8s.io":
+					hasClusterRoleBindingRule = true
+				}
+			}
+		}
+
+		if !hasWebhookRule {
+			t.Errorf("expected a rule for admissionregistration.k8s.io, got rules: %+v", cr.Rules)
+		}
+
+		if !hasClusterRoleBindingRule {
+			t.Errorf("expected a rule for rbac.authorization.k8s.io, got rules: %+v", cr.Rules)
+		}
+	})
+
+	t.Run("clusterrolebinding-security-check.yaml", func(t *testing.T) {
+		file := "manifests/permission/clusterrolebinding-security-check.yaml"
+
+		template, err := ChartFS.ReadFile(file)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", file, err)
+		}
+
+		rendered := assets.MustCreateAssetFromTemplate(file, template, config)
+
+		crb := &rbacv1.ClusterRoleBinding{}
+		if err := yaml.Unmarshal(rendered.Data, crb); err != nil {
+			t.Fatalf("rendered %s did not decode as a ClusterRoleBinding: %v\n%s", file, err, rendered.Data)
+		}
+
+		if contains(crb.Name, "{{") {
+			t.Errorf("ClusterRoleBinding name looks unrendered: %q", crb.Name)
+		}
+
+		if want := "open-cluster-management:addons:application-manager:cluster-admin-check:" + clusterName; crb.Name != want {
+			t.Errorf("ClusterRoleBinding name = %q, want %q (must be unique per cluster)", crb.Name, want)
+		}
+
+		if crb.RoleRef.Name != "open-cluster-management:addons:application-manager:cluster-admin-check" {
+			t.Errorf("ClusterRoleBinding roleRef.name = %q, want the static ClusterRole name", crb.RoleRef.Name)
+		}
+
+		if len(crb.Subjects) != 1 || crb.Subjects[0].Name != group {
+			t.Errorf("ClusterRoleBinding subjects = %+v, want a single subject named %q", crb.Subjects, group)
+		}
+
+		// Rendering for a second cluster must produce a different binding name,
+		// proving two managed clusters can never collide/overwrite each other.
+		secondClusterName := "test-cluster-2"
+		secondConfig := struct {
+			ClusterName string
+			Group       string
+		}{
+			ClusterName: secondClusterName,
+			Group:       agent.DefaultGroups(secondClusterName, AppMgrAddonName)[0],
+		}
+
+		rendered2 := assets.MustCreateAssetFromTemplate(file, template, secondConfig)
+		crb2 := &rbacv1.ClusterRoleBinding{}
+
+		if err := yaml.Unmarshal(rendered2.Data, crb2); err != nil {
+			t.Fatalf("rendered %s did not decode as a ClusterRoleBinding: %v\n%s", file, err, rendered2.Data)
+		}
+
+		if crb2.Name == crb.Name {
+			t.Errorf("two different clusters produced the same ClusterRoleBinding name %q; "+
+				"the second cluster's registration would overwrite the first cluster's subject", crb.Name)
+		}
+	})
+}
+
+func contains(s, substr string) bool {
+	for i := 0; i+len(substr) <= len(s); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+
+	return false
 }
