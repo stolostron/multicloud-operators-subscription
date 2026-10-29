@@ -164,8 +164,8 @@ func fetchTLSConfigFromCluster(ctx context.Context, cfg *rest.Config, scheme *ru
 		profileType = p.Type
 	}
 
-	klog.Infof("TLS security profile used: profileType=%s minTLSVersion=%s cipherSuiteCount=%d",
-		profileType, spec.MinTLSVersion, len(spec.Ciphers))
+	klog.Infof("TLS security profile used: profileType=%s minTLSVersion=%s cipherSuiteCount=%d groupCount=%d",
+		profileType, spec.MinTLSVersion, len(spec.Ciphers), len(spec.Groups))
 
 	return profileSpecToTLSConfig(spec)
 }
@@ -188,8 +188,48 @@ func getEffectiveProfileSpec(profile *configv1.TLSSecurityProfile) *configv1.TLS
 	return configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
 }
 
-// profileSpecToTLSConfig converts a TLSProfileSpec (min version + ciphers) into Go's *tls.Config.
-// OpenShift uses OpenSSL-style cipher names; we convert to IANA then to Go constants.
+// curveIDByTLSGroup maps an OpenShift TLSSecurityProfile group (supported group,
+// formerly known as an elliptic curve) to Go's crypto/tls CurveID. It mirrors
+// library-go's crypto.TLSGroupsToCurveIDs mapping, kept local so we do not have to
+// bump library-go (the pinned version predates that helper). Groups absent from this
+// map are ones Go's crypto/tls does not implement and are skipped.
+var curveIDByTLSGroup = map[configv1.TLSGroup]tls.CurveID{
+	configv1.TLSGroupX25519:             tls.X25519,
+	configv1.TLSGroupSecP256r1:          tls.CurveP256,
+	configv1.TLSGroupSecP384r1:          tls.CurveP384,
+	configv1.TLSGroupSecP521r1:          tls.CurveP521,
+	configv1.TLSGroupX25519MLKEM768:     tls.X25519MLKEM768,
+	configv1.TLSGroupSecP256r1MLKEM768:  tls.SecP256r1MLKEM768,
+	configv1.TLSGroupSecP384r1MLKEM1024: tls.SecP384r1MLKEM1024,
+}
+
+// tlsGroupsToCurveIDs converts the profile's groups into Go CurveIDs, returning the
+// recognized curves (in the profile's order) and the group names Go does not support
+// (for logging). Unrecognized groups are skipped rather than failing.
+func tlsGroupsToCurveIDs(groups []configv1.TLSGroup) ([]tls.CurveID, []configv1.TLSGroup) {
+	var (
+		curves       []tls.CurveID
+		unrecognized []configv1.TLSGroup
+	)
+
+	for _, g := range groups {
+		if id, ok := curveIDByTLSGroup[g]; ok {
+			curves = append(curves, id)
+			continue
+		}
+
+		unrecognized = append(unrecognized, g)
+	}
+
+	return curves, unrecognized
+}
+
+// profileSpecToTLSConfig converts a TLSProfileSpec (min version + ciphers + groups) into Go's
+// *tls.Config. OpenShift uses OpenSSL-style cipher names; we convert to IANA then to Go constants.
+// Groups (supported curves) are mapped to CurvePreferences; when the profile lists none, we leave
+// CurvePreferences nil so Go uses its own defaults (backward compatible). FIPS filtering of groups
+// Go cannot use in FIPS mode (e.g. X25519MLKEM768) is handled by crypto/tls at handshake time, so
+// we do not special-case it here.
 func profileSpecToTLSConfig(spec *configv1.TLSProfileSpec) *tls.Config {
 	if spec == nil {
 		spec = configv1.TLSProfiles[configv1.TLSProfileIntermediateType]
@@ -200,6 +240,15 @@ func profileSpecToTLSConfig(spec *configv1.TLSProfileSpec) *tls.Config {
 	config := &tls.Config{
 		MinVersion:   minVersion,
 		CipherSuites: cipherIDs,
+	}
+
+	curves, unrecognized := tlsGroupsToCurveIDs(spec.Groups)
+	if len(unrecognized) > 0 {
+		klog.Warningf("ignoring TLS groups from cluster profile not supported by this build: %v", unrecognized)
+	}
+
+	if len(curves) > 0 {
+		config.CurvePreferences = curves
 	}
 
 	return crypto.SecureTLSConfig(config)

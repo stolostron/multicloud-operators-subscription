@@ -14,7 +14,7 @@ require (
 	github.com/johannesboyne/gofakes3 v0.0.0-20210819161434-5c8dfcfe5310
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
-	github.com/openshift/api v0.0.0-20260326111139-30c2ef7a272e
+	github.com/openshift/api v0.0.0-20260610142756-120a096a2850
 	github.com/openshift/library-go v0.0.0-20260326200317-12d8376369b7
 	github.com/operator-framework/operator-lib v0.17.0
 	github.com/pkg/errors v0.9.1
@@ -41,6 +41,7 @@ require (
 	sigs.k8s.io/controller-runtime v0.20.4
 	sigs.k8s.io/kustomize/api v0.20.1
 	sigs.k8s.io/kustomize/kyaml v0.20.1
+	sigs.k8s.io/yaml v1.6.0
 )
 
 require (
@@ -197,7 +198,6 @@ require (
 	sigs.k8s.io/kube-storage-version-migrator v0.0.6-0.20230721195810-5c8923c5ff96 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
-	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
 replace github.com/moby/spdystream => github.com/moby/spdystream v0.5.1
