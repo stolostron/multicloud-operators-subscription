@@ -92,6 +92,7 @@ func RunManager() {
 		c := tlsconfig.GetClusterTLSConfig()
 		config.MinVersion = c.MinVersion
 		config.CipherSuites = c.CipherSuites
+		config.CurvePreferences = c.CurvePreferences
 	})
 	webhookServer := k8swebhook.NewServer(webhookOption)
 

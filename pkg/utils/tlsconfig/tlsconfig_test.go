@@ -16,10 +16,12 @@ package tlsconfig
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"testing"
 	"time"
 
+	configv1 "github.com/openshift/api/config/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -119,4 +121,96 @@ func TestRetryAPIServerOp_SuccessOnFirstTry(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 1, callCount)
+}
+
+// TestTLSGroupsToCurveIDs covers the group -> curve mapping: recognized groups map in order,
+// unrecognized ones are collected (and skipped), and an empty input yields no curves.
+func TestTLSGroupsToCurveIDs(t *testing.T) {
+	tests := []struct {
+		name             string
+		groups           []configv1.TLSGroup
+		wantCurves       []tls.CurveID
+		wantUnrecognized []configv1.TLSGroup
+	}{
+		{
+			name:       "empty groups yields no curves",
+			groups:     nil,
+			wantCurves: nil,
+		},
+		{
+			name: "all recognized classical and post-quantum groups map in order",
+			groups: []configv1.TLSGroup{
+				configv1.TLSGroupX25519MLKEM768,
+				configv1.TLSGroupX25519,
+				configv1.TLSGroupSecP256r1,
+				configv1.TLSGroupSecP384r1,
+				configv1.TLSGroupSecP521r1,
+				configv1.TLSGroupSecP256r1MLKEM768,
+				configv1.TLSGroupSecP384r1MLKEM1024,
+			},
+			wantCurves: []tls.CurveID{
+				tls.X25519MLKEM768,
+				tls.X25519,
+				tls.CurveP256,
+				tls.CurveP384,
+				tls.CurveP521,
+				tls.SecP256r1MLKEM768,
+				tls.SecP384r1MLKEM1024,
+			},
+		},
+		{
+			name:             "unrecognized groups are skipped while recognized ones keep their order",
+			groups:           []configv1.TLSGroup{configv1.TLSGroupSecP256r1, "BogusGroup", configv1.TLSGroupSecP384r1},
+			wantCurves:       []tls.CurveID{tls.CurveP256, tls.CurveP384},
+			wantUnrecognized: []configv1.TLSGroup{"BogusGroup"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			curves, unrecognized := tlsGroupsToCurveIDs(tc.groups)
+			assert.Equal(t, tc.wantCurves, curves)
+			assert.Equal(t, tc.wantUnrecognized, unrecognized)
+		})
+	}
+}
+
+// TestProfileSpecToTLSConfig_CurvePreferences verifies that the profile's groups flow into
+// tls.Config.CurvePreferences, and that an absent groups list leaves it nil (Go defaults).
+func TestProfileSpecToTLSConfig_CurvePreferences(t *testing.T) {
+	intermediateCiphers := configv1.TLSProfiles[configv1.TLSProfileIntermediateType].Ciphers
+
+	t.Run("predefined Intermediate carries its default groups", func(t *testing.T) {
+		cfg := profileSpecToTLSConfig(configv1.TLSProfiles[configv1.TLSProfileIntermediateType])
+		assert.Equal(t, []tls.CurveID{
+			tls.X25519MLKEM768,
+			tls.X25519,
+			tls.CurveP256,
+			tls.CurveP384,
+		}, cfg.CurvePreferences)
+	})
+
+	t.Run("custom groups are honored", func(t *testing.T) {
+		spec := &configv1.TLSProfileSpec{
+			MinTLSVersion: configv1.VersionTLS12,
+			Ciphers:       intermediateCiphers,
+			Groups:        []configv1.TLSGroup{configv1.TLSGroupSecP256r1, configv1.TLSGroupSecP384r1},
+		}
+		cfg := profileSpecToTLSConfig(spec)
+		assert.Equal(t, []tls.CurveID{tls.CurveP256, tls.CurveP384}, cfg.CurvePreferences)
+	})
+
+	t.Run("no groups leaves CurvePreferences nil for Go defaults", func(t *testing.T) {
+		spec := &configv1.TLSProfileSpec{
+			MinTLSVersion: configv1.VersionTLS12,
+			Ciphers:       intermediateCiphers,
+		}
+		cfg := profileSpecToTLSConfig(spec)
+		assert.Nil(t, cfg.CurvePreferences)
+	})
+
+	t.Run("nil spec falls back to Intermediate which has groups", func(t *testing.T) {
+		cfg := profileSpecToTLSConfig(nil)
+		assert.NotEmpty(t, cfg.CurvePreferences)
+	})
 }
