@@ -14,7 +14,7 @@ packages:
   - openssh-clients
   - openssl-libs
 context:
-  containerfile: Dockerfile.rhtap
+  containerfile: build/Dockerfile.rhtap
 arches:
   - aarch64
   - x86_64
