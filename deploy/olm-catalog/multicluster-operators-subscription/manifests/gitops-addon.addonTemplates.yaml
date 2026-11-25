@@ -30,6 +30,9 @@ spec:
                 resources: ["configmaps"]
                 verbs: ["get", "list", "watch", "create", "update", "delete"]
               - apiGroups: [""]
+                resources: ["secrets"]
+                verbs: ["get", "list", "watch", "delete"]
+              - apiGroups: [""]
                 resources: ["services"]
                 verbs: ["get", "list", "watch", "delete"]
               - apiGroups: [""]
@@ -180,12 +183,20 @@ spec:
                           value: '{{BACKEND_IMAGE}}'
                         - name: GITOPS_CONSOLE_PLUGIN_IMAGE
                           value: '{{GITOPS_CONSOLE_PLUGIN_IMAGE}}'
+                        - name: GITOPS_CONSOLE_PLUGIN_IMAGE_PF5
+                          value: '{{GITOPS_CONSOLE_PLUGIN_IMAGE_PF5}}'
                         - name: ARGOCD_EXTENSION_IMAGE
                           value: '{{ARGOCD_EXTENSION_IMAGE}}'
                         - name: ARGO_ROLLOUTS_IMAGE
                           value: '{{ARGO_ROLLOUTS_IMAGE}}'
                         - name: ARGOCD_IMAGE_UPDATER_IMAGE
                           value: '{{ARGOCD_IMAGE_UPDATER_IMAGE}}'
+                        - name: MUST_GATHER_IMAGE
+                          value: '{{MUST_GATHER_IMAGE}}'
+                        - name: PROMOTER_EXTENSION_IMAGE
+                          value: '{{PROMOTER_EXTENSION_IMAGE}}'
+                        - name: GITOPS_PROMOTER_IMAGE
+                          value: '{{GITOPS_PROMOTER_IMAGE}}'
                         - name: ARGOCD_AGENT_IMAGE
                           value: '{{ARGOCD_AGENT_IMAGE}}'
                         - name: HTTP_PROXY
